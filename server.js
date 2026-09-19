@@ -73,7 +73,7 @@ function lbQuery(map) {
 /* =====================================================================
    Mundos y salas
    ===================================================================== */
-const worlds = [].MAPS.map((_, i) => S.buildWorld(i));
+const worlds = S .MAPS.map((_, i) => S.buildWorld(i));
 const rooms = new Map();
 let roomSeq = 1, playerSeq = 1;
 
