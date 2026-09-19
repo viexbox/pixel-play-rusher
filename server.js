@@ -74,7 +74,7 @@ function lbQuery(map) {
    Mundos y salas
    ===================================================================== */
 const worlds = S.MAPS ? S.MAPS.map((_, i) => S.buildWorld(i)) : [];.
-const rooms = new Map();
+const rooms = new Map(); 
 let roomSeq = 1, playerSeq = 1;
 
 function sanitizeName(s) { return String(s || '').replace(/[^\p{L}\p{N}_ \-]/gu, '').trim().slice(0, 14); }
