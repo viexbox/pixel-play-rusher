@@ -2,6 +2,7 @@
 import { createApp } from './app.js';
 import { defaultStorages } from './api/storage.js';
 import { createAuthScreen } from './ui/screens/AuthScreen.js';
+import { createAdminClient } from './api/adminService.js';
 
 /* Puente con el lobby actual (index.html): nombre de cuenta, fila de sesión y botón «Cerrar sesión». */
 function createLegacyBridge(doc, app) {
@@ -49,7 +50,10 @@ export function bootstrap(opts = {}) {
 
   const legacy = createLegacyBridge(doc, app);
   function enter(session) { app.state.signIn(session); legacy.apply(session); app.ui.show('lobby'); app.bus.emit('auth:login', { session }); }
-  app.ui.register('auth', createAuthScreen({ doc, auth: app.auth, onAuthenticated: enter }));
+  // El acceso del administrador se comprueba en el servidor: misma dirección que el juego, o la de config.js si la web está aparte
+  const base = config.server ? String(config.server).replace(/\/+$/, '') + '/' : (doc.defaultView && doc.defaultView.location ? doc.defaultView.location.pathname.replace(/[^/]*$/, '') : '/');
+  const admin = opts.admin || createAdminClient({ fetchFn: (...a) => globalThis.fetch(...a), base });
+  app.ui.register('auth', createAuthScreen({ doc, auth: app.auth, admin, onAuthenticated: enter }));
   app.ui.register('lobby', { mount() {}, show() {}, hide() {} }); // el lobby ya está en la página; aquí solo se marca como activo
 
   const restored = app.auth.restoreSession();

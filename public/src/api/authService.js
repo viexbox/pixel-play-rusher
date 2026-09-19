@@ -4,6 +4,7 @@
    Todos los métodos son asíncronos o devuelven {ok, ...} para poder cambiarlos por fetch() sin tocar la interfaz. */
 const USERS_KEY = 'ppr.users';
 const SESSION_KEY = 'ppr.session';
+const ADMIN_TOKEN_KEY = 'ppr.admtoken'; // el juego lo lee al entrar online para que el servidor reconozca al administrador
 const DAY = 86400000;
 
 export const RULES = { userMin: 3, userMax: 14, passMin: 8, maxAttempts: 5, lockMs: 30000, sessionDays: 30 };
@@ -11,6 +12,10 @@ const USER_RE = /^[\p{L}\p{N}_-]+$/u;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /* ---- Validaciones (las usa también la pantalla para los mensajes junto a cada campo) ---- */
+/* «Viexbox» (también con variantes como V1exb0x) es el dueño de la web */
+export function isAdminName(v) {
+  return String(v || '').toLowerCase().replace(/0/g, 'o').replace(/[1!|]/g, 'i').replace(/3/g, 'e').replace(/[4@]/g, 'a').replace(/[5$]/g, 's').replace(/[^a-z]/g, '').includes('viexbox');
+}
 export function validateUsername(v) {
   v = String(v || '').trim();
   if (!v) return 'Escribe un nombre de usuario.';
@@ -18,6 +23,8 @@ export function validateUsername(v) {
   if (v.length > RULES.userMax) return 'Máximo ' + RULES.userMax + ' caracteres.';
   if (!USER_RE.test(v)) return 'Solo letras, números, guion y guion bajo.';
   if (/^guest_/i.test(v)) return 'Ese nombre está reservado para invitados.';
+  // «Viexbox» es el dueño de la web: se reserva también con variantes (V1exb0x, viexbox_2…). El rol real solo lo concede el servidor.
+  if (isAdminName(v)) return 'Ese nombre está reservado.';
   return '';
 }
 export function validateEmail(v) {
@@ -118,6 +125,13 @@ export function createAuthService({ local, session, cryptoApi = globalThis.crypt
     return { ok: true, session: storeSession(user, !!input.remember) };
   }
 
+  /* Sesión del administrador: la concede el servidor (token). Dura lo mismo que el token (8 h) y no depende de cuentas locales. */
+  function adminSession(username, adminToken) {
+    const s = { token: newToken(), userId: 'admin-owner', username, guest: false, admin: true, remember: false, createdAt: now(), expiresAt: now() + 8 * 3600 * 1000 };
+    session.removeItem(SESSION_KEY); local.setItem(SESSION_KEY, JSON.stringify(s)); local.setItem(ADMIN_TOKEN_KEY, adminToken);
+    return s;
+  }
+
   function guest() {
     const n = 1000 + (randomBytes(2, cryptoApi).reduce((a, b) => a * 256 + b, 0) % 9000);
     const user = { id: 'guest-' + hexOf(randomBytes(4, cryptoApi)), username: 'Guest_' + n, guest: true };
@@ -134,10 +148,11 @@ export function createAuthService({ local, session, cryptoApi = globalThis.crypt
   function restoreSession() {
     const s = readSession(); if (!s) return null;
     if (s.expiresAt && s.expiresAt < now()) { logout(); return null; }
+    if (s.admin) { if (!local.getItem(ADMIN_TOKEN_KEY)) { logout(); return null; } return s; }
     if (!s.guest) { const u = readUsers()[String(s.username).toLowerCase()]; if (!u || u.id !== s.userId) { logout(); return null; } }
     return s;
   }
-  function logout() { session.removeItem(SESSION_KEY); local.removeItem(SESSION_KEY); }
+  function logout() { session.removeItem(SESSION_KEY); local.removeItem(SESSION_KEY); local.removeItem(ADMIN_TOKEN_KEY); }
 
-  return { register, login, guest, restoreSession, logout };
+  return { register, login, guest, adminSession, restoreSession, logout };
 }

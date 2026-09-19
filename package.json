@@ -4,14 +4,13 @@
   "description": "Pixel Play Rusher: shooter en primera persona por bloques con partidas online, chat y clasificación global",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "test": "node test/server.test.js && node test/client.test.js && node test/offline.test.js && node test/security.test.js && node test/hud.test.js && node test/lobby.test.js && node test/optics.test.js && node test/auth.test.js",
-    "build:single": "node scripts/build-single.js pixel-play-rusher.html"
+    "start": "node server.js"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
+    "nodemailer": "^10.0.10",
     "ws": "^8.18.0"
   },
   "license": "MIT",

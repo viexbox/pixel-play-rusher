@@ -122,6 +122,8 @@ Comprueba `https://midominio.com`: el menú debe mostrar «N jugadores conectado
 
 ## 4. Opción B: plataformas (Render, Railway, Fly.io)
 
+> **Railway:** crea un volumen montado en `/data` y define `RAILWAY_RUN_UID=0` (los volúmenes son de root y el contenedor arranca como usuario normal, si no falla al guardar), `TRUST_PROXY=1`, `ADMIN_PASSWORD` y `PUBLIC_URL`. Genera un dominio en *Settings → Networking*.
+
 1. Sube este proyecto a un repositorio de GitHub.
 2. Crea un «Web Service» desde ese repositorio. Comando de compilación: `npm install --omit=dev`. Comando de arranque: `npm start`.
 3. **Disco persistente:** monta un volumen y pon la variable `DATA_DIR` con su ruta (por ejemplo `/data`). Sin él, la clasificación se borra en cada despliegue.
@@ -150,6 +152,14 @@ También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con co
 | `ALLOWED_ORIGINS` | *(mismo dominio)* | Orígenes admitidos para WebSocket y API si la web está en otro dominio |
 | `TRUST_PROXY` | *(automático)* | `1` confiar siempre en `X-Forwarded-For`, `0` nunca. Sin definir, se confía solo si la conexión llega desde una red privada (proxy) |
 | `MAX_CONN_PER_IP` | `8` | Conexiones simultáneas por IP |
+| `ADMIN_USER` | `Viexbox` | Usuario del administrador (el dueño de la web) |
+| `ADMIN_PASSWORD` | *(aleatoria)* | Contraseña inicial (12+ caracteres, letras y números). **Solo se usa al crear la cuenta**. Si no la defines, se crea con la contraseña inicial `Viexbox-2026` y se te obliga a cambiarla en el primer acceso |
+| `ADMIN_EMAIL` | *(vacío)* | Correo del administrador: sirve para entrar y para «¿Has olvidado la contraseña?» |
+| `ADMIN_ALLOWED_IPS` | *(todas)* | Lista de IP separadas por comas que pueden usar el panel. Muy recomendable en producción |
+| `PUBLIC_URL` | *(vacío)* | Dirección pública de la web (`https://tudominio.com`). Se usa para el enlace del correo de restablecimiento |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_SECURE` | *(vacío)* | Correo saliente para el restablecimiento. Sin `SMTP_HOST`, el enlace sale por la consola del servidor |
+| `ADMIN_RESET_TTL_MS` | `1800000` | Validez del enlace de restablecimiento (30 min) |
+| `HISTORY_MIN_SECS` | `20` | Segundos mínimos en una ronda para que cuente en el historial de comportamiento |
 
 ## 7. Cómo funciona y qué límites tiene (leer antes de abrirlo al público)
 
@@ -177,6 +187,31 @@ También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con co
 - **«Too Many Requests» o no deja entrar a más de 8 personas:** el servidor ve a todos con la IP del proxy. Define `TRUST_PROXY=1`.
 - **Error 403 al conectar el WebSocket:** el dominio desde el que se abre la web no coincide con el de `Host` del proxy, o no está en `ALLOWED_ORIGINS`.
 - **Puerto ocupado:** cambia `PORT` o cierra el proceso que use el 3000.
+
+## 9b. Administración del servidor (Viexbox)
+
+El panel está en `/admin`. Solo entra el dueño: usuario `Viexbox` (o el correo del administrador) y su contraseña.
+
+**Primer acceso.** Al arrancar por primera vez, el servidor crea la cuenta con usuario `Viexbox` y contraseña inicial `Viexbox-2026` (o la de `ADMIN_PASSWORD` si la defines, y entonces no se pide cambio). Al iniciar sesión, **desde la pantalla de acceso del propio juego** (escribe `Viexbox` y esa contraseña) o desde `/admin`, te obliga a elegir una definitiva de 12+ caracteres con letras y números. Hasta que la cambies, esa cuenta no tiene ningún poder de administrador. **Cámbiala antes de abrir el servidor al público**: la inicial es conocida. En disco solo se guarda un hash (`data/admin.json`, permisos 600).
+
+**Contraseña perdida.** Tres formas:
+
+1. **«¿Has olvidado la contraseña?»** en la pantalla de acceso. Pide el correo del administrador y envía un enlace de un solo uso, válido 30 minutos. Necesita `ADMIN_EMAIL` y, para que llegue por correo, SMTP. Sin SMTP el enlace y el código salen en la consola del servidor.
+2. Desde el servidor: `node scripts/admin-password.js` (genera una nueva) o `node scripts/admin-password.js --password "TuClaveLarga123"`. Con `--email tu@correo.com` también fija el correo. En Docker: `docker exec -it <contenedor> node scripts/admin-password.js`.
+3. Dentro del panel, en «Mi cuenta», si aún puedes entrar.
+
+**Configurar el correo con Gmail** (ejemplo): activa la verificación en dos pasos, crea una «contraseña de aplicación» y arranca con
+
+```
+ADMIN_EMAIL=tu@gmail.com PUBLIC_URL=https://tudominio.com \
+SMTP_HOST=smtp.gmail.com SMTP_PORT=465 SMTP_SECURE=1 SMTP_USER=tu@gmail.com SMTP_PASS=la-contraseña-de-aplicación node server.js
+```
+
+Quien controle ese buzón controla el panel: protege el correo con verificación en dos pasos.
+
+**Seguridad.** Usa HTTPS siempre (el acceso al panel viaja con un token). Limita el panel con `ADMIN_ALLOWED_IPS` o déjalo tras una VPN. Tras 5 intentos fallidos, la IP se bloquea 5 minutos. Todo lo que haces queda en la pestaña *Auditoría*.
+
+**Qué incluye:** estadísticas generales, chat en directo con filtro, modo lento y bloqueo, baneos por nombre o IP anonimizada, silencios y avisos, reportes de jugadores, historial de partidas con análisis de comportamiento, influencers con tic azul, anuncios, modo mantenimiento, apagado programado, copia de seguridad y auditoría. El administrador aparece con el nombre en dorado neón y tic azul; los influencers, con tic azul (clave personal en Ajustes → «Código de influencer»); las bajas de ambos llevan un efecto dorado.
 
 ## 10. Pruebas automáticas
 

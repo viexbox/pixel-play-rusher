@@ -9,7 +9,7 @@
 .auth-tabs button{padding:9px 0;font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-size:13px;background:rgba(255,255,255,.08);border-bottom:3px solid transparent}
 .auth-tabs button[aria-selected="true"]{background:rgba(255,220,58,.14);border-bottom-color:var(--volt,#ffdc3a);color:var(--volt,#ffdc3a)}
 .auth-form{display:flex;flex-direction:column;gap:10px}
-.auth-form[hidden]{display:none}
+.auth-form[hidden],.auth-tabs[hidden],.auth-sep[hidden],.auth-guest[hidden]{display:none}
 .af{display:flex;flex-direction:column;gap:4px}
 .af > span:first-child{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.75}
 .auth-form input:not([type=checkbox]){width:100%;padding:10px 12px;font:600 16px var(--hudf,'Exo 2',Arial,sans-serif);color:#fff;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.18);outline:none;user-select:text;-webkit-user-select:text}

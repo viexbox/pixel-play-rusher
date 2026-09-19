@@ -391,6 +391,39 @@ body.playing .chatrow:focus-within{opacity:1}
   #lobbyBC{max-width:calc(100vw - 28px)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* Roles: administrador (dorado neón) e influencers (tic azul) */
+.rl-admin{color:#ffd54a!important;font-weight:900;text-shadow:0 0 3px #ffb400,0 0 8px #ffb400,0 0 16px rgba(255,180,0,.85);animation:goldn 2.4s ease-in-out infinite alternate}
+@keyframes goldn{from{text-shadow:0 0 3px #ffb400,0 0 7px #ffb400,0 0 13px rgba(255,180,0,.7)}to{text-shadow:0 0 4px #ffd54a,0 0 11px #ffb400,0 0 22px rgba(255,180,0,.95)}}
+.vt{width:1.05em;height:1.05em;vertical-align:-.18em;margin-left:.22em;flex:none;display:inline-block}
+#chatLog li.from-admin{border-left-color:#ffd54a;background:rgba(60,42,0,.55)}
+#chatLog li.from-inf{border-left-color:#1d9bf0}
+#chatLog li b .vt{margin-right:0}
+#feed li.gold{border-left-color:#ffd54a;box-shadow:0 0 14px rgba(255,190,0,.6);background:linear-gradient(90deg,rgba(96,66,0,.82),rgba(9,12,26,.3))}
+#killcard.gold .l1 b{color:#ffd54a;text-shadow:0 0 6px #ffb400,0 0 16px #ffb400,0 0 30px rgba(255,180,0,.8)}
+#killcard.gold .pts{color:#ffd54a;text-shadow:0 0 8px #ffb400}
+#goldflash{position:fixed;inset:0;pointer-events:none;z-index:6;opacity:0;background:radial-gradient(ellipse at 50% 50%,rgba(255,213,74,0) 42%,rgba(255,190,0,.55) 100%)}
+#goldflash.on{animation:gflash .5s ease-out}
+@keyframes gflash{0%{opacity:.95}100%{opacity:0}}
+#notice{position:fixed;top:78px;left:50%;transform:translateX(-50%);max-width:min(720px,92vw);padding:10px 22px;z-index:14;font-weight:800;font-size:16px;line-height:1.3;letter-spacing:.04em;text-align:center;background:rgba(8,11,24,.94);border:1px solid var(--volt);border-left:5px solid var(--volt);box-shadow:0 0 18px rgba(255,220,58,.35);opacity:0;pointer-events:none;transition:opacity .25s}
+#notice.on{opacity:1}
+#notice.warn{border-color:var(--red);border-left-color:var(--red);box-shadow:0 0 18px rgba(255,59,86,.45)}
+#notice.maint{border-color:var(--ice);border-left-color:var(--ice);box-shadow:0 0 18px rgba(56,228,255,.35)}
+/* Rangos y recompensas */
+.rankhead{display:flex;align-items:center;gap:14px;padding:10px 12px;background:rgba(8,11,24,.6);border-left:4px solid var(--rk,#fff);margin-bottom:10px}
+.rankhead .rb{width:46px;height:46px;flex:none;display:grid;place-items:center;font-weight:900;font-size:22px;color:#10131f;background:var(--rk,#fff);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.rankhead b{display:block;font-size:20px;font-style:italic;font-weight:900;letter-spacing:.05em;text-transform:uppercase}
+.rankhead small{color:var(--dim,rgba(255,255,255,.65));font-weight:600}
+.rankbar{height:8px;background:rgba(255,255,255,.14);margin-top:6px;overflow:hidden}.rankbar i{display:block;height:100%;background:var(--rk,#ffdc3a)}
+.tier{display:grid;grid-template-columns:38px 1fr auto;gap:10px;align-items:center;padding:7px 10px;background:rgba(8,11,24,.5);border-left:3px solid rgba(255,255,255,.2);margin-bottom:5px;font-weight:700}
+.tier.ok{border-left-color:var(--rk)}.tier.now{background:rgba(255,220,58,.1)}
+.tier .rb{width:30px;height:30px;display:grid;place-items:center;font-weight:900;font-size:14px;color:#10131f;background:var(--rk);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.tier small{display:block;color:rgba(255,255,255,.6);font-weight:600;font-size:12.5px}
+.tier button{font:inherit;font-weight:800;letter-spacing:.05em;padding:5px 12px;border:0;background:var(--volt);color:#141200;cursor:pointer}
+.tier .st{font-size:12.5px;color:rgba(255,255,255,.55)}.tier .st.done{color:#8dffa8}
+#repText,#repTarget,#repCat,#infKey{width:100%;padding:9px 10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);color:#fff;font:inherit}
+#reportForm label{display:block;margin:8px 0 3px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;opacity:.75}
+#repMsg{min-height:20px;margin:8px 0;font-weight:700;color:var(--ice)}
 </style>
 </head>
 <body>
@@ -500,6 +533,7 @@ body.playing .chatrow:focus-within{opacity:1}
         <li><button role="tab" aria-selected="true" data-tab="home">Inicio</button></li>
         <li><button role="tab" aria-selected="false" data-tab="maps">Mapas</button></li>
         <li><button role="tab" aria-selected="false" data-tab="rank">Clasificación</button></li>
+        <li><button role="tab" aria-selected="false" data-tab="ranks">Rangos</button></li>
         <li><button role="tab" aria-selected="false" data-tab="controls">Controles</button></li>
         <li><button role="tab" aria-selected="false" data-tab="settings">Ajustes</button></li>
       </ul>
@@ -524,6 +558,7 @@ body.playing .chatrow:focus-within{opacity:1}
       <button class="smallbtn" id="clearLb">Borrar clasificación</button>
       <p class="note">La clasificación global se guarda en el servidor y muestra tu mejor partida por mapa. «Mis partidas» solo existe en este navegador.</p>
     </div>
+    <div class="tabpane" id="tab-ranks" hidden><div id="ranksBox"></div></div>
     <div class="tabpane" id="tab-controls" hidden>
       <div class="keys">
         <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>Moverte</span>
@@ -547,6 +582,8 @@ body.playing .chatrow:focus-within{opacity:1}
       <div class="set"><label for="fov">Campo de visión</label><input type="range" id="fov" min="70" max="110" step="1"><output id="fovO"></output></div>
       <div class="set"><label for="vol">Volumen</label><input type="range" id="vol" min="0" max="1" step="0.05"><output id="volO"></output></div>
       <div class="set"><label for="shadows">Sombras</label><input type="checkbox" id="shadows"><output id="shadowsO"></output></div>
+      <div class="set infset"><label for="infKey">Código de influencer</label><input id="infKey" maxlength="24" placeholder="INF-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"><output id="infO"></output></div>
+      <p class="hint" style="margin-top:8px;font-size:12.5px;opacity:.65">Si eres influencer, escribe aquí la clave que te dio el dueño de la web: tu nombre saldrá con el tic azul y tus bajas con el efecto dorado.</p>
     </div>
   </section>
 
@@ -599,7 +636,21 @@ body.playing .chatrow:focus-within{opacity:1}
     <h2 id="pauseTitle">Partida en pausa</h2>
     <p class="sub" id="pauseSub">Haz clic en Reanudar para volver a la arena.</p>
     <div class="row"><button class="play" id="resume">Reanudar</button><button class="play alt" id="quit">Abandonar</button></div>
+    <div class="row"><button class="play alt" id="reportBtn" type="button" hidden>Reportar jugador</button></div>
   </div>
+</div>
+
+<!-- Reportar jugador (solo en línea) -->
+<div class="overlay" id="reportModal" hidden style="z-index:9">
+  <form class="panel" id="reportForm" autocomplete="off">
+    <h2>Reportar jugador</h2>
+    <p class="sub">Avisa a la moderación de un comportamiento que rompa las normas. Se guardará el chat reciente y las estadísticas del jugador.</p>
+    <label for="repTarget">Jugador</label><select id="repTarget"></select>
+    <label for="repCat">Motivo</label><select id="repCat"><option value="trampas">Trampas</option><option value="insultos">Insultos o acoso</option><option value="spam">Spam</option><option value="nombre">Nombre ofensivo</option><option value="otro">Otro</option></select>
+    <label for="repText">Detalles (opcional)</label><input id="repText" maxlength="200" placeholder="Cuéntanos qué ha pasado">
+    <p id="repMsg" role="status"></p>
+    <div class="row"><button class="play" id="repSend" type="submit">Enviar reporte</button><button class="play alt" id="repCancel" type="button">Cancelar</button></div>
+  </form>
 </div>
 
 <!-- Resultados -->
@@ -618,5 +669,7 @@ body.playing .chatrow:focus-within{opacity:1}
 <script src="shared.js"></script>
 <script src="client.js"></script>
 <script type="module" src="src/main.js"></script>
+<div id="notice" role="status" aria-live="polite"></div>
+<div id="goldflash"></div>
 </body>
 </html>
