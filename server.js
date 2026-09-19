@@ -22,7 +22,7 @@ const MAX_CONN_PER_IP = +process.env.MAX_CONN_PER_IP || 8;
 const TRUST_PROXY = process.env.TRUST_PROXY; // '1' = confiar siempre, '0' = nunca, sin definir = solo si la conexión llega desde una red privada (proxy)
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const RESPAWN_MS = 5.CONST.RESPAWN * 1000; 
+const RESPAWN_MS = 5 * 1000; 
 const PROTOCOL = 1;
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
