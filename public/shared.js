@@ -236,6 +236,6 @@ function buildWorld(i, onBox) {
 }
 
 const api = { CONST, WEAPONS, OPTICS, MAPS, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, raySphere, rayCyl };
-root.VoltShared = api;
+module.exports = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
