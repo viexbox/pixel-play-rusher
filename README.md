@@ -152,7 +152,7 @@ También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con co
 | `ALLOWED_ORIGINS` | *(mismo dominio)* | Orígenes admitidos para WebSocket y API si la web está en otro dominio |
 | `TRUST_PROXY` | *(automático)* | `1` confiar siempre en `X-Forwarded-For`, `0` nunca. Sin definir, se confía solo si la conexión llega desde una red privada (proxy) |
 | `MAX_CONN_PER_IP` | `8` | Conexiones simultáneas por IP |
-| `ADMIN_USER` | `Viexbox` | Usuario del administrador (el dueño de la web) |
+| `ADMIN_USER` | `Viexbox` | Nombre de la cuenta de administrador (hasta 14 caracteres). Si lo cambias, la cuenta se vuelve a crear con `ADMIN_PASSWORD` y el nombre anterior deja de ser administrador |
 | `ADMIN_PASSWORD` | *(aleatoria)* | Contraseña inicial (12+ caracteres, letras y números). **Solo se usa al crear la cuenta**. Si no la defines, se crea con la contraseña inicial `Viexbox-2026` y se te obliga a cambiarla en el primer acceso |
 | `ADMIN_EMAIL` | *(vacío)* | Correo del administrador: sirve para entrar y para «¿Has olvidado la contraseña?» |
 | `ADMIN_ALLOWED_IPS` | *(todas)* | Lista de IP separadas por comas que pueden usar el panel. Muy recomendable en producción |
@@ -184,6 +184,7 @@ También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con co
 
 - **El menú dice «El modo online no está disponible en esta página»:** el navegador no llega al servidor. Comprueba que `https://tudominio/api/status` responde; si usas la opción C, revisa `config.js` y `ALLOWED_ORIGINS`.
 - **Conecta y se corta enseguida (nginx):** falta la cabecera de actualización de WebSocket; usa `nginx.conf.example`.
+- **`module is not defined in ES module scope` (shared.js):** hay un `package.json` con `"type": "module"` dentro de `public/`. Bórralo: solo debe existir `public/src/package.json`. El servidor ya tolera este caso, pero conviene limpiarlo.
 - **«Too Many Requests» o no deja entrar a más de 8 personas:** el servidor ve a todos con la IP del proxy. Define `TRUST_PROXY=1`.
 - **Error 403 al conectar el WebSocket:** el dominio desde el que se abre la web no coincide con el de `Host` del proxy, o no está en `ALLOWED_ORIGINS`.
 - **Puerto ocupado:** cambia `PORT` o cierra el proceso que use el 3000.

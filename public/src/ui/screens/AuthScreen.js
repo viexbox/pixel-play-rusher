@@ -114,7 +114,7 @@ export function createAuthScreen({ doc, auth, admin, onAuthenticated }) {
     setBusy(true, which === 'login' ? 'Entrando…' : 'Creando cuenta…');
     let r;
     try {
-      if (which === 'login' && admin && isAdminName(v.identifier)) { // el servidor decide si son las credenciales del administrador
+      if (which === 'login' && admin && (isAdminName(v.identifier) || (admin.isAdmin && await admin.isAdmin(v.identifier)))) { // el servidor decide si son las credenciales del administrador
         const a = await admin.login(String(v.identifier).trim(), v.password);
         if (a && a.ok) { setBusy(false, ''); if (a.mustChange) return askNewPassword({ token: a.token, user: a.user, current: v.password }); return finish(auth.adminSession(a.user, a.token)); }
         if (a && a.status === 429) r = { ok: false, error: { message: a.error } };

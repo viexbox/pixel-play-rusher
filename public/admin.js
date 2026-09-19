@@ -350,6 +350,7 @@ checkResetLink();
 $('#logoutBtn').addEventListener('click', () => logout(false));
 $('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) go(b.dataset.tab); });
 $('#playAsAdmin').addEventListener('click', () => { try { localStorage.setItem(GAME_KEY, token); } catch (e) { toast('El navegador no permite guardar el acceso', true); return; } window.open('/', '_blank'); toast('Juego abierto con tu nombre dorado'); });
+try { fetch('/api/status').then(r => r.json()).then(j => { if (j.admin && $('#lUser').value === 'Viexbox') $('#lUser').value = j.admin; }).catch(() => {}); } catch (e) { /* sin red */ }
 try { const t = sessionStorage.getItem(SK); if (t) { token = t; api('GET', '/me').then(m => { me = m.user; showApp(); }).catch(() => logout(true)); } } catch (e) { /* sin sesión previa */ }
 window.__admin = { go, get tab() { return tab; } };
 })();

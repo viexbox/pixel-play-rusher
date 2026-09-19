@@ -9,7 +9,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
-const S = require('./public/shared.js');
+/* Se carga leyendo el archivo (no con require): así funciona aunque algún package.json de public/ lo marque como módulo ES. */
+const S = (() => { const mod = { exports: {} }; new Function('module', 'exports', fs.readFileSync(path.join(__dirname, 'public', 'shared.js'), 'utf8')).call(globalThis, mod, mod.exports); return mod.exports; })();
 const { createAdmin } = require('./server/admin.js');
 
 const PORT = +process.env.PORT || 3000;
@@ -329,7 +330,7 @@ function json(res, obj, code, origin) {
   res.end(JSON.stringify(obj));
 }
 function status() {
-  return { protocol: PROTOCOL, players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
+  return { protocol: PROTOCOL, admin: admin.adminUser, players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
 }
 
 const server = http.createServer((req, res) => {

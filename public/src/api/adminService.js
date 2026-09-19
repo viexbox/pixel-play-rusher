@@ -7,7 +7,13 @@ export function createAdminClient({ fetchFn = globalThis.fetch, base = '' }) {
     let j = {}; try { j = await r.json(); } catch (e) { /* sin cuerpo */ }
     return { status: r.status, ok: r.ok, j };
   }
+  let known = null; // nombre de la cuenta de administrador, según el servidor (puede cambiarse con ADMIN_USER)
   return {
+    /* ¿Es ese el nombre de la cuenta de administrador? Se pregunta al servidor una vez y se recuerda. */
+    async isAdmin(identifier) {
+      if (known === null) { try { const r = await fetchFn(base + 'api/status', { cache: 'no-store' }); const j = await r.json(); known = String(j.admin || '').toLowerCase(); } catch (e) { return false; } }
+      return !!known && String(identifier || '').trim().toLowerCase() === known;
+    },
     /* null si no hay servidor (versión sin servidor); {ok:false,…} si el servidor rechaza las credenciales */
     async login(identifier, password) {
       try {
