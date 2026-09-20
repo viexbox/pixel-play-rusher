@@ -22,7 +22,7 @@
     let r = ''; for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) if (cell[y * 5 + x]) r += '<rect x="' + (x * 4 + 2) + '" y="' + (y * 4 + 2) + '" width="4" height="4"/>';
     return '<svg viewBox="0 0 24 24" width="' + px + '" height="' + px + '" aria-hidden="true"><rect width="24" height="24" fill="#10152b"/><g fill="' + c + '">' + r + '</g></svg>';
   }
-  const avatarHtml = (a, px) => !a ? presetSvg(0, px) : a.kind === 'custom' ? '<img src="' + esc(P.apiUrl(a.url)) + '" width="' + px + '" height="' + px + '" alt="" style="object-fit:cover;display:block">' : presetSvg(a.id, px);
+  const avatarHtml = (a, px) => !a ? presetSvg(0, px) : a.kind === 'custom' ? '<img src="' + esc(a.preview || (/^https?:\/\//.test(a.url) ? a.url : P.apiUrl(a.url))) + '" width="' + px + '" height="' + px + '" alt="" style="object-fit:cover;display:block">' : presetSvg(a.id, px);
   const TICKS = { admin: 'Administrador verificado', inf: 'Influencer verificado', acc: 'Cuenta verificada' };
   const tick = v => v ? '<svg class="vtick" viewBox="0 0 24 24" role="img" aria-label="' + TICKS[v] + '"><title>' + TICKS[v] + '</title><path d="M12 2l2.4 2 3.1-.3 1 3 2.6 1.7-.9 3 .9 3-2.6 1.7-1 3-3.1-.3L12 22l-2.4-2-3.1.3-1-3L2.9 15.6l.9-3-.9-3 2.6-1.7 1-3 3.1.3z" fill="#2aa1ff"/><path d="M8 12.2l2.6 2.6L16 9.4" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '';
   const ONLINE = { game: ['En partida', '#37f29a'], lobby: ['En el menú', '#ffdc3a'], off: ['Desconectado', '#6b7590'] };
@@ -51,11 +51,11 @@
     const acts = own ? '<button class="ps-btn" data-a="editphoto">Cambiar foto</button><button class="ps-btn alt" data-a="editstatus">Cambiar estado</button><button class="ps-btn alt" data-a="rename">Cambiar nombre</button>'
       : !tk() ? '<span class="pf-hint">Inicia sesión para añadir amigos.</span>'
       : { none: '<button class="ps-btn" data-a="request">Añadir amigo</button>', 'pending-out': '<button class="ps-btn alt" data-a="cancel">Cancelar solicitud</button>', 'pending-in': '<button class="ps-btn" data-a="accept">Aceptar solicitud</button><button class="ps-btn alt" data-a="decline">Rechazar</button>',
-          friend: '<button class="ps-btn alt" data-a="remove">Eliminar amigo</button>', blocked: '<button class="ps-btn alt" data-a="unblock">Desbloquear</button>' }[p.relation] + (p.relation !== 'blocked' ? '<button class="ps-btn ghost" data-a="block">Bloquear</button>' : '') + '<button class="ps-btn ghost" data-a="report">Denunciar</button>';
+          friend: '<button class="ps-btn" data-a="trade">Proponer intercambio</button><button class="ps-btn alt" data-a="remove">Eliminar amigo</button>', blocked: '<button class="ps-btn alt" data-a="unblock">Desbloquear</button>' }[p.relation] + (p.relation !== 'blocked' ? '<button class="ps-btn ghost" data-a="block">Bloquear</button>' : '') + '<button class="ps-btn ghost" data-a="report">Denunciar</button>';
     return (b ? '<div class="pf-banner" style="--b1:' + b.c1 + ';--b2:' + b.c2 + '"><b>' + esc(b.tag) + '</b> ' + esc(b.n.toUpperCase()) + '</div>' : '<div class="pf-banner none"></div>') +
       '<div class="pf-head"><div class="pf-av' + (own ? ' own' : '') + '" ' + (own ? 'data-a="editphoto" title="Cambiar foto"' : '') + '>' + avatarHtml(p.avatar, 96) + '</div><div class="pf-id"><h2>' + esc(p.username) + tick(p.verified) + '</h2>' +
-      '<div class="pf-tags"><span class="pf-rank" style="--c:' + p.rank.col + '">' + esc(p.rank.n) + '</span><span>Pase nivel <b>' + p.bpLevel + '</b>' + (p.bpVip ? ' · VIP' : '') + '</span><span>' + fmt(p.points) + ' pts</span><span>' + p.friends + ' amigos</span></div>' +
-      '<p class="pf-status">' + (p.status ? esc(p.status) : '<i>Sin estado</i>') + '</p>' + (on ? '<small class="pf-on" style="--c:' + on[1] + '">● ' + on[0] + '</small>' : '') + '</div></div>' +
+      '<div class="pf-tags"><span class="pf-rank" style="--c:' + p.rank.col + '">' + esc(p.rank.n) + '</span><span>Pase nivel <b>' + p.bpLevel + '</b>' + (p.bpVip ? ' · VIP' : '') + '</span><span>' + fmt(p.points) + ' pts</span><span>' + p.friends + ' amigos</span>' + (p.ranked && p.ranked.league ? '<span class="pf-rank" style="--c:' + p.ranked.col + '" title="Liga del clasificatorio">Liga ' + esc(p.ranked.league) + '</span>' : '') + ((p.ranked && p.ranked.badges) || []).map(b => '<span class="pf-rank" style="--c:' + (b.col || '#9aa4b8') + '" title="Insignia de la temporada ' + b.s + '">T' + b.s + ' · ' + esc(b.l) + '</span>').join('') + '</div>' +
+      '<p class="pf-status">' + (p.status ? esc(p.status) : '<i>Sin estado</i>') + '</p>' + (own && p.avatar.status === 'pending' ? '<small class="pf-hint">📷 Tu foto está en revisión: solo tú la ves hasta que se apruebe.</small>' : '') + (own && p.note ? '<small class="pf-hint" style="color:#ff8b98">' + esc(p.note) + '</small>' : '') + (on ? '<small class="pf-on" style="--c:' + on[1] + '">● ' + on[0] + '</small>' : '') + '</div></div>' +
       '<div class="pf-stats">' + [['Partidas', st.games], ['Bajas', st.kills], ['K/D', st.kd], ['Victorias', st.wins], ['Mejor partida', st.best], ['Mejor racha', st.streak]].map(x => '<div><b>' + fmt(x[1]) + '</b><span>' + x[0] + '</span></div>').join('') + '</div>' +
       '<div class="pf-actions">' + acts + '</div><div class="pf-edit" id="pfEdit" hidden></div>';
   }
@@ -89,7 +89,7 @@
       im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('No se pudo leer esa imagen.')); }; im.src = url;
     });
   }
-  async function setAvatar(body) { try { await api('POST', 'api/social/avatar', body); await show(meName()); P.toast('Foto actualizada'); applyMyAvatar(); } catch (e) { P.toast(e.message); } }
+  async function setAvatar(body) { try { const j = await api('POST', 'api/social/avatar', body); await show(meName()); P.toast(j.status === 'pending' ? 'Foto enviada: se verá para los demás cuando se revise. Mientras, solo la ves tú.' : 'Foto actualizada'); applyMyAvatar(); } catch (e) { P.toast(e.message); } }
   function editPhoto() {
     const box = $('#pfEdit'); box.hidden = !box.hidden; if (box.hidden) return;
     box.innerHTML = '<h4>Elige tu foto</h4><div class="pf-presets">' + PAL.map((_, i) => '<button type="button" data-p="' + i + '" aria-label="Foto ' + (i + 1) + '">' + presetSvg(i, 44) + '</button>').join('') + '</div>' +
@@ -108,6 +108,7 @@
     if (a === 'editphoto') return editPhoto(); if (a === 'editstatus') return editStatus();
     if (a === 'rename') { const rb = $('#renameBtn'); if (rb) { closeProfile(); rb.click(); } return; }
     if (a === 'report') return reportPlayer(name);
+    if (a === 'trade') { closeProfile(); await openMarket(); toggleTrades(true); return proposeTrade(name); }
     if (a === 'block' && !window.confirm('¿Bloquear a ' + name + '? Se romperá la amistad y no podrá enviarte solicitudes.')) return;
     if (a === 'remove' && !window.confirm('¿Eliminar a ' + name + ' de tus amigos?')) return;
     try { await api('POST', 'api/social/' + a, { name }); await refreshSocial(); renderSide(); await show(name); } catch (e) { P.toast(e.message); }
@@ -148,13 +149,15 @@
     try { mk = await api('GET', 'api/market?' + q()); P.setCr(mk.credits); } catch (e) { mk = null; $('#mkGrid').innerHTML = '<p class="pf-hint" style="padding:30px">' + esc(e.message) + '</p>'; return; }
     $('#mkCr').textContent = fmt(mk.credits) + ' CR';
     $('#mkGrid').innerHTML = mk.listings.length ? mk.listings.map(l => {
-      const d = P.describe({ t: l.t, id: l.item }), mine = l.mine;
+      const isC = l.t === 'color', d = isC ? { rar: S.RARITY[l.rarity], svg: '<svg viewBox="0 0 60 40"><circle cx="30" cy="20" r="16" fill="' + esc(l.hex) + '" stroke="#fff" stroke-opacity=".5" stroke-width="2"/></svg>', kind: 'Color de personaje' } : P.describe({ t: l.t, id: l.item }), mine = l.mine;
       return '<div class="mk-card" style="--rc:' + d.rar.c + '"><span class="rar">' + esc(d.rar.n.toUpperCase()) + '</span><div class="prev">' + d.svg + '</div><b class="nm">' + esc(l.name) + '</b><span class="kind">' + esc(d.kind) + '</span>' +
-        '<span class="seller">de ' + esc(l.seller) + '</span><div class="price">' + fmt(l.price) + ' <small>CR</small></div>' + (mine ? '<button class="ps-btn alt sm" data-c="' + l.id + '">Retirar</button>' : '<button class="ps-btn sm" data-b="' + l.id + '"' + (mk.credits < l.price ? ' disabled title="Te faltan ' + fmt(l.price - mk.credits) + ' CR"' : '') + '>Comprar</button>') + '</div>';
+        '<span class="seller">de ' + esc(l.seller) + '</span>' + refTag(l) + '<div class="price">' + fmt(l.price) + ' <small>CR</small></div>' + (mine ? '<button class="ps-btn alt sm" data-c="' + l.id + '">Retirar</button>' : '<button class="ps-btn sm" data-b="' + l.id + '"' + (mk.credits < l.price ? ' disabled title="Te faltan ' + fmt(l.price - mk.credits) + ' CR"' : '') + '>Comprar</button>') + '</div>';
     }).join('') : '<p class="pf-hint" style="padding:30px">No hay anuncios con estos filtros.</p>';
   }
-  async function openMarket() { $('#marketScreen').hidden = false; if (!tk()) { $('#mkGrid').innerHTML = '<p class="pf-hint" style="padding:30px">Inicia sesión con una cuenta online para comprar y vender.</p>'; $('#mkCr').textContent = ''; return; } await P.load(); await loadMarket(); }
-  function closeMarket() { $('#marketScreen').hidden = true; P.showTab('home'); }
+  /* Etiqueta con el precio de referencia (media de las ventas de los últimos 30 días): barato, normal o caro */
+  const refTag = l => !l.ref ? '<span class="ref">sin ventas aún</span>' : '<span class="ref ' + (l.price <= l.ref.avg * 0.75 ? 'lo' : l.price >= l.ref.avg * 1.5 ? 'hi' : '') + '" title="Últimas ' + l.ref.n + ' venta(s): entre ' + fmt(l.ref.min) + ' y ' + fmt(l.ref.max) + ' CR">media ' + fmt(l.ref.avg) + ' CR' + (l.price <= l.ref.avg * 0.75 ? ' · barato' : l.price >= l.ref.avg * 1.5 ? ' · caro' : '') + '</span>';
+  async function openMarket() { $('#marketScreen').hidden = false; if (!tk()) { $('#mkGrid').innerHTML = '<p class="pf-hint" style="padding:30px">Inicia sesión con una cuenta online para comprar y vender.</p>'; $('#mkCr').textContent = ''; return; } await P.load(); await loadMarket(); loadTrades(); }
+  function closeMarket() { $('#marketScreen').hidden = true; toggleTrades(false); P.showTab('home'); }
   async function buy(id) {
     const l = mk && mk.listings.find(x => x.id === id); if (!l) return;
     await modal('<h3>Comprar ' + esc(l.name) + '</h3><p>Se te cobrarán <b>' + fmt(l.price) + ' CR</b> a ' + esc(l.seller) + '. Ahora tienes ' + fmt(mk.credits) + ' CR.</p>', [{ t: 'Cancelar' }, { t: 'Comprar', cls: 'vip', run: async () => { try { const j = await api('POST', 'api/market/buy', { id }); P.apply(j.state); P.setCr(j.credits); P.toast('¡' + j.name + ' es tuyo!'); return ''; } catch (e) { return e.message; } } }]);
@@ -162,32 +165,91 @@
   }
   async function cancelListing(id) { try { const j = await api('POST', 'api/market/cancel', { id }); P.apply(j.state); P.toast('Anuncio retirado'); } catch (e) { P.toast(e.message); } loadMarket(); }
   let sellItems = [];   // lo que se puede vender ahora, en el mismo orden que el desplegable
+  const lockText = ms => { const h = Math.ceil(ms / 3600000); return h >= 1 ? h + ' h' : Math.max(1, Math.ceil(ms / 60000)) + ' min'; };
+  const lockOf = (ts, lockMs) => (lockMs && ts && Date.now() - ts < lockMs ? ts + lockMs - Date.now() : 0);
+  function sellable() {   // objetos del pase + colores de pago, cada uno con lo que le queda de bloqueo
+    const st = P.state, rm = P.remote(), lockMs = mk ? mk.lock : 0, out = [];
+    for (const i of (st ? st.inventory : [])) { const d = P.describe({ t: i.t, id: i.id }); if (d && d.id !== 'k_clasico') out.push({ i, d, lock: lockOf(i.ts, lockMs) }); }
+    for (const c of (rm ? rm.unlocked : [])) if (S.COLOR_COSTS[c] > 0) out.push({ i: { t: 'color', id: String(c), ts: (rm.colorTs || {})[c] || 0 }, d: { name: 'Color ' + S.COLOR_NAMES[c], rar: S.RARITY[S.colorRarity(c)] }, lock: lockOf((rm.colorTs || {})[c], lockMs) });
+    return out.sort((a, b) => !!a.lock - !!b.lock || b.d.rar.ord - a.d.rar.ord || a.d.name.localeCompare(b.d.name));
+  }
   async function sell() {
-    const st = P.state; if (!st) return P.toast('Inicia sesión primero.');
-    const items = sellItems = st.inventory.map(i => ({ i, d: P.describe({ t: i.t, id: i.id }) })).filter(x => x.d && x.d.id !== 'k_clasico').sort((a, b) => b.d.rar.ord - a.d.rar.ord || a.d.name.localeCompare(b.d.name));
-    if (!items.length) return P.toast('No tienes objetos para vender. Consigue skins en el Pase de batalla.');
-    const opts = items.map((x, n) => '<option value="' + n + '">' + esc(x.d.name) + ' · ' + esc(x.d.rar.n) + '</option>').join('');
-    await modal('<h3>Vender un objeto</h3><label>Objeto<select id="soItem">' + opts + '</select></label><label>Precio en Créditos<input type="number" id="soPrice" min="1" step="1"></label><p id="soNet" class="pf-hint"></p>',
+    if (!P.state) return P.toast('Inicia sesión primero.');
+    const items = sellItems = sellable();
+    if (!items.length) return P.toast('No tienes objetos para vender. Consigue skins en el Pase de batalla o compra colores.');
+    const opts = items.map((x, n) => '<option value="' + n + '"' + (x.lock ? ' disabled' : '') + '>' + esc(x.d.name) + ' · ' + esc(x.d.rar.n) + (x.lock ? ' · 🔒 ' + lockText(x.lock) : '') + '</option>').join('');
+    const first = Math.max(0, items.findIndex(x => !x.lock));
+    await modal('<h3>Vender un objeto</h3><label>Objeto<select id="soItem">' + opts + '</select></label><p class="pf-hint">🔒 Los objetos nuevos (del pase, comprados o recibidos) se bloquean unas horas antes de poder venderse.</p><label>Precio en Créditos<input type="number" id="soPrice" min="1" step="1"></label><p id="soHint" class="pf-hint"></p><p id="soNet" class="pf-hint"></p>',
       [{ t: 'Cancelar' }, { t: 'Anunciar', cls: 'vip', run: async box => {
         const x = items[+box.querySelector('#soItem').value], price = Math.trunc(+box.querySelector('#soPrice').value); if (!(price > 0)) return 'Escribe un precio.';
-        try { const j = await api('POST', 'api/market/list', { t: x.i.t, item: x.i.id, price }); P.apply(j.state); P.toast('Anunciado. Cobrarás ' + fmt(j.net) + ' CR si se vende.'); return ''; } catch (e) { return e.message; } } }]);
+        try { const j = await api('POST', 'api/market/list', { t: x.i.t, item: x.i.id, price }); P.apply(j.state); if (x.i.t === 'color' && P.syncRemote) await P.syncRemote(); P.toast('Anunciado. Cobrarás ' + fmt(j.net) + ' CR si se vende.'); return ''; } catch (e) { return e.message; } } }]);
+    const sel = $('#soItem'); if (sel) { sel.selectedIndex = first; sel.dispatchEvent(new Event('input', { bubbles: true })); }
     loadMarket();
   }
-  document.addEventListener('input', e => {
+  let hintTok = 0;
+  document.addEventListener('input', async e => {
     if (!['soPrice', 'soItem'].includes(e.target.id)) return; const box = $('#soBox'), sel = box.querySelector('#soItem'), pr = box.querySelector('#soPrice'); if (!sel || !pr) return;
     const it = sellItems[+sel.value], price = Math.trunc(+pr.value) || 0, fee = Math.floor(price * S.MARKET.FEE);
     const rk = it && Object.keys(S.RARITY).find(k => S.RARITY[k].n === it.d.rar.n);
     $('#soNet').textContent = 'Comisión del ' + Math.round(S.MARKET.FEE * 100) + ' %: cobrarías ' + fmt(Math.max(0, price - fee)) + ' CR' + (rk ? ' · precio mínimo ' + fmt(S.MARKET.MIN_PRICE[rk]) + ' CR' : '');
+    if (e.target.id === 'soItem' && it) {   // precio de referencia de ese objeto
+      const tok = ++hintTok, h = $('#soHint'); h.textContent = 'Mirando las últimas ventas…';
+      try { const j = await api('GET', 'api/market/price?t=' + it.i.t + '&item=' + encodeURIComponent(it.i.id)); if (tok !== hintTok || !$('#soHint')) return; $('#soHint').textContent = j.ref ? 'Últimas ventas (30 días): media ' + fmt(j.ref.avg) + ' CR · entre ' + fmt(j.ref.min) + ' y ' + fmt(j.ref.max) + ' · última ' + fmt(j.ref.last) + ' CR (' + j.ref.n + ' venta' + (j.ref.n > 1 ? 's' : '') + ').' : 'Todavía no se ha vendido ninguno: tú pones el precio.'; }
+      catch (er) { if ($('#soHint')) $('#soHint').textContent = ''; }
+    }
   });
+  /* ---------- Intercambios directos entre amigos ---------- */
+  let trades = null, tradeView = false;
+  const rarC = k => (S.RARITY[k] || S.RARITY.comun).c;
+  const itemChip = it => '<span class="tr-it" style="--rc:' + rarC(it.rarity) + '">' + esc(it.name) + '</span>';
+  async function loadTrades() {
+    try { trades = await api('GET', 'api/trades'); } catch (e) { trades = null; }
+    const n = trades ? trades.incoming.length : 0; $('#mkTradeN').textContent = n ? n : ''; if (tradeView) renderTrades();
+  }
+  function renderTrades() {
+    const el = $('#mkTrades'); if (!trades) { el.innerHTML = '<p class="pf-hint" style="padding:20px">No se pudieron cargar los intercambios.</p>'; return; }
+    const row = (o, btns) => '<div class="tr-row"><span><b>' + esc(o.mine ? 'Tú' : o.from) + '</b> ' + (o.mine ? 'das' : 'da') + ' ' + itemChip(o.give) + ' y ' + (o.mine ? 'pides a <b>' + esc(o.to) + '</b>' : 'pide') + ' ' + itemChip(o.want) + '</span><span class="tr-b">' + btns + '</span></div>';
+    el.innerHTML = '<div class="tr-head"><button type="button" class="ps-btn" data-tr="new">Proponer un intercambio</button><small class="pf-hint">Solo con tus amigos, objeto por objeto (skins, cuchillos y banners). Caduca a las 48 h. Lo que recibes queda bloqueado unas horas.</small></div>' +
+      '<h4>Recibidas</h4>' + (trades.incoming.length ? trades.incoming.map(o => row(o, '<button class="ps-btn sm" data-tr="accept" data-id="' + o.id + '">Aceptar</button><button class="ps-btn sm alt" data-tr="decline" data-id="' + o.id + '">Rechazar</button>')).join('') : '<p class="pf-hint">No tienes propuestas pendientes.</p>') +
+      '<h4>Enviadas</h4>' + (trades.outgoing.length ? trades.outgoing.map(o => row(o, '<button class="ps-btn sm alt" data-tr="cancel" data-id="' + o.id + '">Cancelar</button>')).join('') : '<p class="pf-hint">No has enviado ninguna.</p>') +
+      (trades.recent.length ? '<h4>Recientes</h4>' + trades.recent.map(o => row(o, '<span class="tr-st ' + o.status + '">' + ({ done: 'Hecho', declined: 'Rechazada', cancelled: 'Cancelada', expired: 'Caducada', void: 'Anulada' }[o.status] || o.status) + '</span>')).join('') : '');
+  }
+  function toggleTrades(on) { tradeView = on; $('#mkTrades').hidden = !on; $('#mkGrid').hidden = on; $('.mk-filters').hidden = on; $('#mkTab').textContent = on ? '← Volver al mercado' : 'Intercambios'; if (on) { renderTrades(); loadTrades(); } }
+  async function proposeTrade(friend) {
+    await refreshSocial(); const fr = social ? social.friends : [];
+    if (!fr.length) return P.toast('Necesitas amigos para intercambiar. Añádelos desde su perfil.');
+    let mine = [], theirs = [];
+    const load = async box => {
+      const name = box.querySelector('#trFriend').value, a = await api('GET', 'api/trades/items'); mine = a.items;
+      try { theirs = (await api('GET', 'api/trades/items?name=' + encodeURIComponent(name))).items; } catch (e) { theirs = []; }
+      const opt = (l, lock) => l.map((x, n) => '<option value="' + n + '"' + (lock && x.lock ? ' disabled' : '') + '>' + esc(x.name) + ' · ' + esc(S.RARITY[x.rarity].n) + (lock && x.lock ? ' · 🔒 ' + lockText(x.lock) : '') + '</option>').join('');
+      box.querySelector('#trMine').innerHTML = opt(mine, true) || '<option disabled>No tienes objetos</option>'; box.querySelector('#trTheirs').innerHTML = opt(theirs, false) || '<option disabled>No tiene objetos</option>';
+      const f = mine.findIndex(x => !x.lock); box.querySelector('#trMine').selectedIndex = Math.max(0, f);
+    };
+    const p = modal('<h3>Proponer un intercambio</h3><label>Con<select id="trFriend">' + fr.map(f => '<option' + (friend === f.username ? ' selected' : '') + '>' + esc(f.username) + '</option>').join('') + '</select></label><label>Tú das<select id="trMine"></select></label><label>Tú pides<select id="trTheirs"></select></label><p class="pf-hint">El objeto que recibas quedará bloqueado unas horas antes de poder venderlo o volver a intercambiarlo.</p>',
+      [{ t: 'Cancelar' }, { t: 'Enviar propuesta', cls: 'vip', run: async box => {
+        const g = mine[+box.querySelector('#trMine').value], w = theirs[+box.querySelector('#trTheirs').value]; if (!g || !w) return 'Elige un objeto en cada lado.';
+        try { await api('POST', 'api/trades/offer', { to: box.querySelector('#trFriend').value, giveT: g.t, giveId: g.id, wantT: w.t, wantId: w.id }); P.toast('Propuesta enviada'); return ''; } catch (e) { return e.message; } } }]);
+    const box = $('#soBox'); await load(box); box.querySelector('#trFriend').addEventListener('change', () => load(box)); await p; loadTrades();
+  }
+  async function tradeAct(a, id) {
+    try {
+      const j = await api('POST', 'api/trades/' + a, { id });
+      if (a === 'accept') { P.apply(j.state); P.toast('¡Intercambio hecho! Recibes: ' + j.got); } else P.toast(a === 'decline' ? 'Propuesta rechazada' : 'Propuesta cancelada');
+    } catch (e) { P.toast(e.message); }
+    loadTrades();
+  }
   function initMarket() {
     $('#mkClose').addEventListener('click', closeMarket); $('#mkSell').addEventListener('click', sell);
     ['mkType', 'mkRar', 'mkSort', 'mkMine'].forEach(id => $('#' + id).addEventListener('change', loadMarket)); let t = 0; $('#mkQ').addEventListener('input', () => { clearTimeout(t); t = setTimeout(loadMarket, 250); });
     $('#mkGrid').addEventListener('click', e => { const b = e.target.closest('[data-b]'), c = e.target.closest('[data-c]'); if (b) buy(+b.dataset.b); else if (c) cancelListing(+c.dataset.c); });
     $$('.nav button[data-tab=market]').forEach(b => b.addEventListener('click', openMarket));
+    $('#mkTab').addEventListener('click', () => toggleTrades(!tradeView));
+    $('#mkTrades').addEventListener('click', e => { const b = e.target.closest('[data-tr]'); if (!b) return; if (b.dataset.tr === 'new') proposeTrade(); else tradeAct(b.dataset.tr, +b.dataset.id); });
   }
 
   document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (!$('#soModal').hidden) $('#soModal').hidden = true; else if (!$('#profileScreen').hidden) closeProfile(); else if (!$('#marketScreen').hidden) closeMarket(); });
   window.addEventListener('ppr-session', () => { me = null; cur = null; social = null; applyMyAvatar(); });
   initProfile(); initMarket(); applyMyAvatar();
-  Object.assign(P, { openProfile, openMarket, presetSvg, avatarHtml, tick, refreshSocial });
+  Object.assign(P, { proposeTrade, openProfile, openMarket, presetSvg, avatarHtml, tick, refreshSocial });
 })();

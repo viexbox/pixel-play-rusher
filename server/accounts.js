@@ -68,7 +68,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
 
   /* ---------- Cuentas y sesiones ---------- */
   const fails = new Map(), regHits = new Map();
-  const pub = u => ({ id: u.id, username: u.username, px: u.px, credits: u.credits | 0, stats: u.stats, unlocked: u.unlocked, claimed: u.claimed, createdAt: u.createdAt });
+  const pub = u => ({ id: u.id, username: u.username, px: u.px, credits: u.credits | 0, stats: u.stats, unlocked: u.unlocked, colorTs: u.colorTs || {}, claimed: u.claimed, createdAt: u.createdAt });
   function newSession(u) {
     const token = hex(32), t = now();
     D.sessions[sha(token)] = { uid: u.id, exp: t + SESSION_MS };
@@ -81,8 +81,12 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     if (!token || typeof token !== 'string' || token.length > 100) return null;
     const s = D.sessions[sha(token)]; if (!s) return null;
     if (s.exp < now()) { delete D.sessions[sha(token)]; return null; }
-    return byId.get(s.uid) || null;
+    const u = byId.get(s.uid) || null; if (u) markActive(u); return u;
   }
+  /* [NUEVO] Actividad diaria de cada cuenta (últimos 90 días): base de las métricas de jugadores activos y retención */
+  function markActive(u) { const d = new Date().toISOString().slice(0, 10); if (u.lastAct === d) return; u.lastAct = d; const a = (u.act = u.act || []); if (a[a.length - 1] !== d) a.push(d); if (a.length > 90) a.shift(); db.save(); }
+  /* Movimientos de monedas por día (ganadas jugando), últimos 45 días */
+  function eco(d) { const e = (D.eco = D.eco || {}); const k = d || new Date().toISOString().slice(0, 10); if (!e[k]) { e[k] = { px: 0, cr: 0, matches: 0 }; const ks = Object.keys(e).sort(); while (ks.length > 45) delete e[ks.shift()]; } return e[k]; }
   const nameTaken = name => byKey.has(ukey(name));
   const err = (code, error, extra) => Object.assign({ code, error }, extra || {});
   /* [NUEVO] Alternativas libres cuando el nombre elegido ya está cogido (en vez de un simple «ya en uso») */
@@ -115,7 +119,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     hits.push(t); regHits.set(ip, hits);
     const salt = hex(16), hash = (await scrypt(pw, salt)).toString('hex');
     if (byKey.has(key)) return err(409, 'Ese nombre de usuario ya está en uso. Elige otro.', { suggestions: suggest(username) });   // otra petición pudo ganarle mientras se calculaba el hash
-    const u = { id: crypto.randomUUID(), username, key, email, salt, hash, createdAt: t, lastLogin: t, px: 0, credits: 0, friends: [], reqIn: [], reqOut: [], blocked: [], avatar: null, status: '', verified: false, stats: EMPTY_STATS(), unlocked: [0, 1, 2, 3], claimed: [], day: { d: '', px: 0 } };
+    const u = { id: crypto.randomUUID(), username, key, email, salt, hash, createdAt: t, lastLogin: t, px: 0, credits: 0, act: [new Date().toISOString().slice(0, 10)], friends: [], reqIn: [], reqOut: [], blocked: [], avatar: null, status: '', verified: false, stats: EMPTY_STATS(), unlocked: [0, 1, 2, 3], claimed: [], day: { d: '', px: 0 } };
     D.users[u.id] = u; byId.set(u.id, u); byKey.set(key, u); db.save();   // [NUEVO] la cuenta se guarda por su ID
     log('Cuenta nueva: ' + username + ' (' + u.id + ')');
     return { ok: true, token: newSession(u), profile: pub(u) };
@@ -139,25 +143,26 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
   /* ---------- Progreso y monedero ---------- */
   const today = () => new Date().toISOString().slice(0, 10);
   function awardMatch(u, r) {
-    const st = u.stats, prevBest = st.best; let px = S.pxFor(r.points, r.won, r.cls);
+    const st = u.stats, prevBest = st.best, ev = r.ev || { px: 1, cr: 1, names: [] }; let px = Math.round(S.pxFor(r.points, r.won, r.cls) * ev.px);   // ev: eventos temporales (modo destacado y eventos del administrador)
     st.games++; st.kills += r.kills; st.deaths += r.deaths; st.wins += r.won ? 1 : 0; st.streak = Math.max(st.streak, r.bestStreak || 0); st.points += r.points; st.best = Math.max(st.best, r.points);
     if (u.day.d !== today()) u.day = { d: today(), px: 0 };
     px = Math.max(0, Math.min(px, PX_DAILY_CAP - u.day.px)); u.day.px += px; u.px += px;    // tope diario contra el granjeo entre cuentas
     /* [NUEVO] Créditos: la moneda que se gana jugando (con su propio tope diario) */
     if (!u.dayCr || u.dayCr.d !== today()) u.dayCr = { d: today(), n: 0 };
-    const cr = Math.max(0, Math.min(S.crFor(r.points, r.won), CR_DAILY_CAP - u.dayCr.n)); u.dayCr.n += cr; u.credits += cr;
-    db.save(); return { px, cr, balance: u.px, crBalance: u.credits, prevBest, stats: st, mult: S.eventMult(S.todayEvent(), r.cls) };
+    const cr = Math.max(0, Math.min(Math.round(S.crFor(r.points, r.won) * ev.cr), CR_DAILY_CAP - u.dayCr.n)); u.dayCr.n += cr; u.credits += cr;
+    { const e = eco(); e.px += px; e.cr += cr; e.matches++; }
+    db.save(); return { px, cr, balance: u.px, crBalance: u.credits, prevBest, stats: st, mult: S.eventMult(S.todayEvent(), r.cls), ev: ev.names };
   }
   function unlockColor(u, i) {
     i = i | 0; const cost = S.COLOR_COSTS[i];
     if (cost == null) return err(400, 'Color no válido.'); if (u.unlocked.includes(i)) return err(400, 'Ya lo tienes.');
     if (u.px < cost) return err(402, 'Te faltan ' + (cost - u.px) + ' PX.');
-    u.px -= cost; u.unlocked.push(i); db.save(); return { ok: true, profile: pub(u) };
+    u.px -= cost; u.unlocked.push(i); (u.colorTs = u.colorTs || {})[i] = now(); db.save(); return { ok: true, profile: pub(u) };   // colorTs: cuándo se consiguió (bloqueo de 24 h del mercado)
   }
   function claimRank(u, i) {
     i = i | 0; const r = S.RANKS[i];
     if (!r) return err(400, 'Rango no válido.'); if (u.stats.points < r.pts) return err(400, 'Aún no has alcanzado ese rango.'); if (u.claimed.includes(i)) return err(400, 'Ya reclamaste esa recompensa.');
-    u.claimed.push(i); u.px += r.kr; if (r.color != null && !u.unlocked.includes(r.color)) u.unlocked.push(r.color);
+    u.claimed.push(i); u.px += r.kr; if (r.color != null && !u.unlocked.includes(r.color)) { u.unlocked.push(r.color); (u.colorTs = u.colorTs || {})[r.color] = now(); }
     db.save(); return { ok: true, profile: pub(u), gained: r.kr };
   }
   function adjust(username, delta, reason, by) {
@@ -311,8 +316,11 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
   const legacyPending = () => Object.values(D.users).filter(u => u.legacyId && !u.bpMoved).map(u => ({ old: u.legacyId, id: u.id }));
   const legacyDone = ids => { for (const id of ids) { const u = byId.get(id); if (u) u.bpMoved = true; } db.save(); };
   log(storeOn() ? 'Tienda: ACTIVADA (métodos: ' + (PAY_METHODS.join(', ') || 'los del panel de Stripe') + ')' : (STRIPE_KEY || PUBLIC_URL || STRIPE_WH ? 'Tienda: DESACTIVADA. Faltan las variables: ' + storeMissing().join(', ') : 'Tienda: desactivada (sin configurar Stripe)'));   // [NUEVO] para comprobarlo en el registro del servidor
+  /* [NUEVO] Colores comerciables: quitar un color de la cuenta (al anunciarlo) o darlo (al comprarlo o al retirar el anuncio) */
+  function takeColor(u, i) { const k = u.unlocked.indexOf(i); if (k < 0) return false; u.unlocked.splice(k, 1); if (u.colorTs) delete u.colorTs[i]; db.save(); return true; }
+  function giveColor(u, i, ts) { if (u.unlocked.includes(i)) return false; u.unlocked.push(i); (u.colorTs = u.colorTs || {})[i] = ts || now(); db.save(); return true; }
   const touch = () => db.save(), allUsers = () => Object.values(D.users);   // [NUEVO] para el módulo social
-  return { touch, allUsers, handleHttp, handles, fromToken, nameTaken, awardMatch, profile: pub, flush: () => db.flush(), adjust, register, storeInfo, spend, grant, spendCr, grantCr, find, findById, rename, suggest, hooks, legacyPending, legacyDone, http: { send, readJson } };
+  return { eco: () => Object.assign({}, D.eco || {}), markActive, takeColor, giveColor, touch, allUsers, handleHttp, handles, fromToken, nameTaken, awardMatch, profile: pub, flush: () => db.flush(), adjust, register, storeInfo, spend, grant, spendCr, grantCr, find, findById, rename, suggest, hooks, legacyPending, legacyDone, http: { send, readJson } };
 }
 
 module.exports = { createAccounts, ukey };

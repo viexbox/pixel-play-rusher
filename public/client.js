@@ -27,7 +27,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } }
 };
 
-const cfg = Object.assign({ name: '', cls: 0, map: 0, diff: 1, sens: 1, fov: 90, vol: 0.6, shadows: true, wheelSwap: true, shake: 100, hudScale: 100, hudCompact: false, look: { col: 0, skin: 0 }, infKey: '', rankClaimed: [] }, store.get(K.cfg, {}));
+const cfg = Object.assign({ name: '', cls: 0, map: 0, diff: 1, sens: 1, fov: 90, vol: 0.6, shadows: true, wheelSwap: true, shake: 100, hudScale: 100, hudCompact: false, mode: 'duelo', ranked: false, look: { col: 0, skin: 0 }, infKey: '', rankClaimed: [] }, store.get(K.cfg, {}));
 cfg.look = { col: clamp((cfg.look && cfg.look.col) | 0, 0, 9), skin: clamp((cfg.look && cfg.look.skin) | 0, 0, 4) };
 cfg.cls = clamp(cfg.cls | 0, 0, window.VoltShared.WEAPONS.length - 1); if (!cfg.optics || typeof cfg.optics !== 'object') cfg.optics = {}; if (!Array.isArray(cfg.rankClaimed)) cfg.rankClaimed = []; cfg.infKey = String(cfg.infKey || '').slice(0, 40); cfg.map = clamp(cfg.map | 0, 0, 3); cfg.diff = clamp(cfg.diff | 0, 0, 2);
 if (!cfg.name) cfg.name = 'Jugador' + irand(100, 999);
@@ -741,10 +741,11 @@ let slot = 0, slotK = 0, slashT = 0;            // slotK: 0..1 = cuánto está s
 let wheelAcc = 0, wheelT = 0, wheelLock = 0;    // acumulador y enfriamiento de la rueda
 const SLOT_TIME = 0.11, WHEEL_STEP = 30, WHEEL_LOCK_MS = 140;
 function setSlot(s) {
+  if (!gunsOK()) s = 1;   // [NUEVO] en «Solo cuchillos» y en el último nivel de la Carrera solo hay cuchillo
   const p = player; if (!p || !p.alive || state !== 'playing' || s === slot) return;
   slot = s; p.reload = 0; pendingMelee = 0; sfx.draw(); updateSlotHud();
 }
-function resetSlot() { slot = 0; slotK = 0; slashT = 0; if (typeof updateSlotHud === 'function' && el.slots) updateSlotHud(); }
+function resetSlot() { slot = gunsOK() ? 0 : 1; slotK = 0; slashT = 0; if (typeof updateSlotHud === 'function' && el.slots) updateSlotHud(); }
 /* Rueda: normaliza el tamaño del giro (ratón clásico, ratón libre o trackpad), cambia en cuanto se supera un pequeño umbral y
    deja un enfriamiento corto para que un giro rápido o la inercia del trackpad no hagan rebotar el cambio.
    Durante el enfriamiento los giros se descartan (no se acumulan), así un giro «de más» nunca anula el siguiente gesto. */
@@ -932,7 +933,7 @@ function updateHudSlow() {
   { const tk = tkNow(), tx = 'AZUL ' + tk[0] + ' – ' + tk[1] + ' ROJO'; if (hudCache.tk !== tx) { hudCache.tk = tx; el.leadName.innerHTML = '<span class="tsb t0">' + tk[0] + '</span><span class="tsep">–</span><span class="tsb t1">' + tk[1] + '</span>'; } setTxt(el.leadPts, 'lp', 'Tu equipo: ' + TEAMS[me.team].n + ' · meta ' + teamLimit); }
   el.goal.style.width = clamp(Math.max(...tkNow()) / teamLimit * 100, 0, 100) + '%';
   { const tp = $('#hsTeam'); if (tp) { tp.textContent = 'EQUIPO ' + TEAMS[me.team].n; tp.className = 'teampill t' + me.team; } }
-  setTxt(el.mode, 'mode', MAPS[curMap].name + ' · ' + (online ? 'online' : 'entrenamiento'));
+  setTxt(el.mode, 'mode', MAPS[curMap].name + ' · ' + (online ? S.MODES[net.mode || 'duelo'].short + (net.ranked ? ' CLASIF.' : '') : 'entrenamiento'));
   const st = statsNow(), L = levelOf(st.points || 0);
   { const rl = online && player && player.rl ? player.rl : 0, hk = rl ? player.name + '|' + rl : cfg.name; if (hudCache.hsn !== hk) { hudCache.hsn = hk; hs.name.innerHTML = nameHtml(rl ? player.name : cfg.name, rl); } } // el administrador ve su nombre dorado también en su tarjeta
   setTxt(hs.lvl, 'hsl', 'NV ' + L.lvl);
@@ -1112,7 +1113,7 @@ function updatePlayer(dt) {
   const crouching = !!keys.KeyC;
   let speed = crouching ? CROUCH : sprint ? SPRINT : WALK;
   if (p.aim > 0.3) speed *= 0.85;   // [AJUSTE] apuntar frena menos (antes 0,72)
-  speed *= w.speed * (crouching ? 1 : p.hop || 1);   // [NUEVO] p.hop = impulso acumulado del bunny hop (1 a 1,25)
+  speed *= w.speed * (crouching ? 1 : p.hop || 1) * (online && net.mode === 'cuchillos' ? 1.12 : 1);   // [NUEVO] a cuchillo, un poco más rápido;    // [NUEVO] p.hop = impulso acumulado del bunny hop (1 a 1,25)
   p.slideCd = Math.max(0, (p.slideCd || 0) - dt);
   if (p.slide > 0) { // deslizamiento: la velocidad se conserva y se va perdiendo poco a poco; se puede saltar para salir con impulso
     const k = Math.max(0, 1 - 1.1 * dt); p.vel.x *= k; p.vel.z *= k; p.slide -= dt;
@@ -1324,6 +1325,7 @@ function checkServer() {
 
 function startOnline() {
   if (!renderer || !serverOK || net.ws) return;
+  if (cfg.ranked && cfg.mode === 'duelo' && !acctToken()) { setNetMsg('El clasificatorio necesita una cuenta online. Inicia sesión o desactívalo en «Modo».'); return; }
   initAudio();
   cfg.name = sanitizeName($('#name').value) || cfg.name; saveCfg();
   setNetMsg(''); lobbyClose();
@@ -1335,11 +1337,32 @@ function startOnline() {
   try { ws = new WebSocket(wsUrl()); }
   catch (e) { return netFail('No se pudo abrir la conexión.'); }
   net.ws = ws; net.joined = false;
-  ws.onopen = () => netSend({ t: 'hello', v: 1, n: cfg.name, map: cfg.map, c: cfg.cls, lk: [cfg.look.col, cfg.look.skin], adm: admToken(), inf: cfg.infKey || '', acct: acctToken() });
+  ws.onopen = () => netSend({ t: 'hello', v: 1, n: cfg.name, map: cfg.map, c: cfg.cls, lk: [cfg.look.col, cfg.look.skin], adm: admToken(), inf: cfg.infKey || '', acct: acctToken(), mode: S.MODES[cfg.mode] ? cfg.mode : 'duelo', rk: cfg.ranked && cfg.mode === 'duelo' ? 1 : 0 });
   ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } try { netHandle(m); } catch (e) { console.error(e); } };
   ws.onclose = () => { if (net.ws === ws) netClosed(); };
   ws.onerror = () => {};
   net.timer = setTimeout(() => { if (!net.joined) netFail('El servidor no responde. Inténtalo de nuevo.'); }, 6000);
+}
+/* [NUEVO] Espectador (solo administrador): entra en una sala en directo sin jugar. Uso: /?spec=<sala> con la sesión de administrador abierta en este navegador. */
+function startSpectate(roomId) {
+  if (!renderer || net.ws) return;
+  initAudio(); clearFighters(); online = true; net.spec = true; state = 'connecting'; net.sstats = null; net.specTarget = 0; net.specView = 'follow';
+  let ws; try { ws = new WebSocket(wsUrl()); } catch (e) { return netFail('No se pudo abrir la conexión.'); }
+  net.ws = ws; net.joined = false;
+  ws.onopen = () => netSend({ t: 'hello', v: 1, spec: 1, room: +roomId, adm: admToken() });
+  ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } try { netHandle(m); } catch (e) { console.error(e); } };
+  ws.onclose = () => { if (net.ws === ws) netClosed(); };
+  net.timer = setTimeout(() => { if (!net.joined) netFail('No se pudo entrar como espectador.'); }, 6000);
+}
+function stopSpectate() { net.spec = false; leaveToMenu(); }
+function specTargets() { return [...net.remotes.values()].filter(f => f.alive); }
+function specCycle(d) { const l = specTargets(); if (!l.length) return; const i = Math.max(0, l.findIndex(f => f.id === net.specTarget)); net.specTarget = l[(i + d + l.length) % l.length].id; }
+function specCam(dt) {
+  const l = specTargets(); let t = net.remotes.get(net.specTarget); if (!t || !t.alive) { t = l[0]; net.specTarget = t ? t.id : 0; }
+  if (!t) { orbitA += dt * 0.09; camera.position.set(Math.cos(orbitA) * mapHalf, 17, Math.sin(orbitA) * mapHalf); camera.lookAt(0, 2.5, 0); return; }
+  if (net.specView === 'fpv') { camera.position.set(t.pos.x, t.pos.y + 1.6 * (t.h / 1.8), t.pos.z); camera.rotation.set(t.pitch || 0, t.yaw, 0); t.mesh.visible = false; t.label.visible = false; }
+  else { camera.position.lerp(new THREE.Vector3(t.pos.x + Math.sin(t.yaw) * 3.4, t.pos.y + 2.2, t.pos.z + Math.cos(t.yaw) * 3.4), Math.min(1, dt * 6)); camera.lookAt(t.pos.x, t.pos.y + 1.3, t.pos.z); }
+  for (const f of l) if (f !== t || net.specView !== 'fpv') { f.mesh.visible = true; f.label.visible = true; }
 }
 function netDisconnect() {
   clearTimeout(net.timer);
@@ -1392,6 +1415,10 @@ function netHandle(m) {
     case 'chatdel': return chatDel(m.i);
     case 'notice': return showNotice(m);
     case 'reportok': return reportResult(m);
+    case 'zone': net.zone = m.z; if (window.PPR_BP.onZone) window.PPR_BP.onZone(m.z); return;
+    case 'gg': return onNetLadder(m);
+    case 'rank': net.rank = m; return onNetRank(m);
+    case 'sstats': net.sstats = m.p; if (window.PPR_BP.onSpecStats) window.PPR_BP.onSpecStats(m.p); return;
     case 'award': return onNetAward(m);
     case 'bpxp': return window.PPR_BP.onXp && window.PPR_BP.onXp(m);
     case 'votes': endVote.counts = m.v; return renderEndMaps();
@@ -1401,8 +1428,15 @@ function netHandle(m) {
 }
 function onWelcome(m) {
   clearTimeout(net.timer); net.joined = true; net.id = m.id;
+  { const ec = $('#endCr'), er = $('#endRank'); if (ec) ec.hidden = true; if (er) er.hidden = true; }
+  net.mode = S.MODES[m.mode] ? m.mode : 'duelo'; net.ranked = !!m.rk; net.zone = m.zone || null; net.gl = 0; net.rank = null; net.spec = !!m.spec;   // [NUEVO] modo de la sala
   if (curMap !== m.map) buildMap(m.map);
   clearFighters();
+  if (m.spec) {   // espectador: sin jugador propio; la cámara sigue a los demás
+    player = newFighter('Espectador', true, '#ffffff'); player.alive = false; player.id = 0; fighters = [player]; bots = []; net.tk = m.tk || [0, 0]; teamLimit = m.lim || 40; m.players.forEach(addRemote);
+    simTime = 0; timeLeft = m.tl; $('#menu').hidden = true; $('#end').hidden = true; $('#pause').hidden = true; hud.hidden = true; el.board.hidden = true; el.death.hidden = true; gun.visible = false; document.body.classList.remove('playing'); document.body.classList.add('spectating');
+    state = 'spectate'; if (window.PPR_BP.onSpectate) window.PPR_BP.onSpectate(true); return;
+  }
   player = newFighter(m.n || cfg.name, true, '#ffc857'); player.rl = m.rl || 0; player.team = m.tm === 1 ? 1 : 0; net.tk = m.tk || [0, 0]; teamLimit = m.lim || 40;
   player.id = m.id; player.wi = cfg.cls; player.alive = false; player.ammo = 0; player.reload = 0; player.fireCd = 0; player.slide = 0; player.aim = 0; player.eye = 1.6; player.meleeCd = 0;
   fighters = [player]; bots = [];
@@ -1415,7 +1449,8 @@ function onWelcome(m) {
   state = 'playing'; updateChatCh();
   const b = $('#playOnline'); b.textContent = 'Jugar online';
   updateHudSlow(); updateHudFast();
-  toast('Sala ' + m.room + ' · ' + MAPS[m.map].name + ' · Equipo ' + TEAMS[player.team].n); teamBanner(player.team, MAPS[m.map].name + ' · sin fuego amigo');
+  toast('Sala ' + m.room + ' · ' + MAPS[m.map].name + ' · ' + S.MODES[net.mode].name + (net.ranked ? ' (clasificatorio)' : '') + ' · Equipo ' + TEAMS[player.team].n); teamBanner(player.team, S.MODES[net.mode].short + ' · sin fuego amigo');
+  if (window.PPR_BP.onMode) window.PPR_BP.onMode(net);
 }
 function addRemote(p) {
   if (!player || p.id === net.id || net.remotes.has(p.id)) return;
@@ -1500,10 +1535,23 @@ function onNetKill(m) {
   if (v === player) {
     player.streak = 0; player.hp = 0;
     el.death.hidden = false;
-    el.deathBy.textContent = k && k !== v ? 'Te eliminó ' + k.name + ' con ' + m.w : 'Has caído';
+    el.deathBy.textContent = k && k !== v ? 'Te eliminó ' + k.name + ' con ' + m.w + (m.h ? ' (cabeza)' : '') + (m.ds != null ? ' · a ' + m.ds + ' m' : '') + (m.ah != null ? ' · le quedan ' + m.ah + ' de vida' : '') : 'Has caído';
     deathLook = k && k !== v ? k : null; net.respawnAt = performance.now() + (m.rs || 3) * 1000;
     renderDeathPick(); mouseL = mouseR = false; el.scope.hidden = true; el.optic.hidden = true; gun.visible = false; el.cross.style.opacity = 0;
   }
+}
+/* [NUEVO] Carrera de armas: el servidor te da el arma de tu nivel */
+const gunsOK = () => !(online && !net.spec && (net.mode === 'cuchillos' || (net.mode === 'carrera' && net.gl >= teamLimit - 1)));
+function onNetLadder(m) {
+  if (!player || !WEAPONS[m.c]) return; const nivel = m.lv, last = teamLimit - 1;
+  net.gl = m.lv; player.wi = m.c; const w = WEAPONS[m.c]; player.ammo = w.mag; player.reload = 0;
+  if (player.alive) { buildGun(w); if (!gunsOK()) { slot = 1; updateSlotHud(); } }
+  toast(m.down ? 'Te mataron a cuchillo: bajas al nivel ' + (nivel + 1) : nivel >= last ? '¡Nivel final! Solo cuchillo: una baja más y ganas' : 'Nivel ' + (nivel + 1) + '/' + (last + 1) + ': ' + w.name);
+  if (window.PPR_BP.onMode) window.PPR_BP.onMode(net);
+}
+function onNetRank(m) {   // puntuación clasificatoria tras la ronda (se enseña en la pantalla final)
+  const e = $('#endRank'); if (!e) return; e.hidden = false; e.style.setProperty('--c', m.col);
+  e.innerHTML = 'CLASIFICATORIO · <b>' + (m.delta >= 0 ? '+' : '') + m.delta + '</b> → ' + m.mmr + ' pts · <b>' + esc(m.league) + '</b>' + (m.up ? ' · ¡SUBES DE LIGA!' : m.down ? ' · bajas de liga' : '') + (m.games <= 10 ? ' <small>(colocación ' + m.games + '/10)</small>' : '');
 }
 function onNetTeam(m) { // el servidor equilibra los equipos entre rondas
   if (m.id === net.id) { player.team = m.tm; buildGun(WEAPONS[player.wi]); toast('Cambias al equipo ' + TEAMS[m.tm].n + ' para equilibrar'); teamBanner(m.tm, 'Equipos equilibrados'); updateHudSlow(); return; }
@@ -1522,7 +1570,7 @@ function onNetBoard(m) {
 }
 function onNetAward(m) { // el servidor ha repartido PX y progreso a esta cuenta
   if (!remote) return;
-  remote.px = m.balance; remote.stats = m.stats; net.prevBest = m.prevBest; lastReward = { kr: m.px, mult: m.mult, notes: [] };
+  remote.px = m.balance; remote.stats = m.stats; net.prevBest = m.prevBest; lastReward = { kr: m.px, mult: m.mult, notes: [] }; if (m.ev && m.ev.length) lastReward.notes.push('Evento: ' + m.ev.join(' · '));
   if (m.crBalance != null) { remote.credits = m.crBalance; renderCr(); const ec = $('#endCr'); if (ec) { ec.hidden = !(m.cr > 0); ec.textContent = '+' + fmtKr(m.cr | 0) + ' Créditos'; } }   // [NUEVO]
 }
 const endVote = { sel: -1, counts: [0, 0, 0, 0] };
@@ -1539,7 +1587,8 @@ function initEnd() {
   });
 }
 function onNetEnd(m) {
-  { const ex = $('#endXp'); if (ex) ex.hidden = true; const ec = $('#endCr'); if (ec) ec.hidden = true; }   // la XP del pase llega poco después (mensaje bpxp)
+  if (net.spec) { net.endAt = performance.now() + m.next * 1000; if (window.PPR_BP.onSpecEnd) window.PPR_BP.onSpecEnd(m); return; }
+  { const ex = $('#endXp'); if (ex) ex.hidden = true; }   // (la línea de Créditos y la de clasificatorio llegan ANTES del fin de ronda: se ocultan al empezar la siguiente)   // la XP del pase llega poco después (mensaje bpxp)
   if (!player) return;
   state = 'ended'; document.body.classList.remove('playing');
   if (document.exitPointerLock) document.exitPointerLock();
@@ -1562,7 +1611,9 @@ function onNetEnd(m) {
   $('#end').hidden = false;
 }
 function onNetRound(m) {
+  if (net.spec) { net.remotes.forEach(f => { f.alive = false; resetPose(f); f.mesh.visible = false; f.label.visible = false; }); timeLeft = m.tl; teamLimit = m.lim || teamLimit; net.zone = m.zone || null; return; }
   if (!player) return;
+  net.gl = 0; teamLimit = m.lim || teamLimit; net.zone = m.zone || null; { const ec = $('#endCr'), er = $('#endRank'); if (ec) ec.hidden = true; if (er) er.hidden = true; } if (window.PPR_BP.onMode) window.PPR_BP.onMode(net);
   teamBanner(player.team, 'Nueva ronda · sin fuego amigo');
   $('#end').hidden = true; hud.hidden = false; el.feed.innerHTML = '';
   fighters.forEach(f => { f.kills = f.deaths = f.points = f.hs = f.streak = 0; });
@@ -1662,7 +1713,7 @@ function resumeGame() {
 }
 function leaveToMenu() {
   if (online) netDisconnect();
-  online = false; state = 'menu'; clearFighters(); $('#again').hidden = false; $('#endNext').hidden = true; hud.hidden = true; $('#pause').hidden = true; $('#end').hidden = true; $('#menu').hidden = false;
+  online = false; net.spec = false; document.body.classList.remove('spectating'); if (window.PPR_BP.onSpectate) window.PPR_BP.onSpectate(false); state = 'menu'; clearFighters(); $('#again').hidden = false; $('#endNext').hidden = true; hud.hidden = true; $('#pause').hidden = true; $('#end').hidden = true; $('#menu').hidden = false;
   document.body.classList.remove('playing'); gun.visible = false; el.scope.hidden = true; el.optic.hidden = true;
   camera.fov = 60; camera.updateProjectionMatrix();
   if (document.exitPointerLock) document.exitPointerLock();
@@ -1781,6 +1832,19 @@ function rewardHtml() {
 function renderEvent() {
   const ev = todayEvent(), on = eventMult(ev) > 1;
   $('#eventBox').innerHTML = '<div class="ev"><span class="mult">×' + ev.mult + ' PX</span><b>' + esc(ev.name) + '</b>' + esc(ev.desc) + (ev.cls ? '<br><small>' + (on ? 'Activo con tu clase actual.' : 'Cambia de clase para aprovecharlo.') + '</small>' : '') + '</div>';
+  loadEvents();
+}
+/* [NUEVO] Eventos temporales del servidor (modo destacado de la semana y eventos del administrador), con el tiempo que les queda */
+let evTimer = 0;
+async function loadEvents() {
+  if (!serverOK) return;
+  try {
+    const j = await (await fetch(apiUrl('api/events'), { cache: 'no-store' })).json(), box = $('#eventBox'); if (!box || !j.events) return;
+    const left = ms => { const h = Math.floor(ms / 3600000), d = Math.floor(h / 24); return d >= 1 ? d + ' d ' + (h % 24) + ' h' : h >= 1 ? h + ' h ' + Math.floor(ms % 3600000 / 60000) + ' min' : Math.max(1, Math.ceil(ms / 60000)) + ' min'; };
+    box.querySelectorAll('.ev.srv').forEach(x => x.remove());
+    j.events.forEach(e => { const d = document.createElement('div'); d.className = 'ev srv'; d.innerHTML = '<span class="mult">×' + e.px + ' PX · ×' + e.cr + ' CR</span><b>' + esc(e.name) + '</b>' + esc(e.desc) + '<br><small>Termina en ' + left(e.endsAt - j.now) + (e.mode ? ' · solo en ' + esc((S.MODES[e.mode] || {}).name || e.mode) : '') + '</small>'; box.append(d); });
+    clearTimeout(evTimer); evTimer = setTimeout(loadEvents, 60000);
+  } catch (e) { /* sin servidor: solo el evento diario */ }
 }
 function renderDaily() {
   if (remote) { $('#daily').innerHTML = '<li><em></em>Los desafíos diarios solo cuentan en cuentas locales.</li>'; return; }
@@ -2096,7 +2160,7 @@ function initMenu() {
   $('#toMenu').addEventListener('click', leaveToMenu);
   $('#name').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') (serverOK ? startOnline : startMatch)(); });
   $('#name').addEventListener('change', () => { cfg.name = sanitizeName($('#name').value) || cfg.name; $('#name').value = cfg.name; saveCfg(); updateLobby(); lobbyClose(); lobbyConnect(); });
-  if (!window.matchMedia('(any-pointer: fine)').matches) { $('#touchWarn').hidden = false; $('#play').disabled = true; noPointer = true; }
+  if (!window.matchMedia('(any-pointer: fine)').matches) { $('#touchWarn').hidden = false; $('#play').disabled = true; noPointer = true; }   // sin ratón (móviles) no se puede jugar: los controles táctiles son para pantallas táctiles CON ratón conectado
   if (!renderer) noPointer = true;
   $('#playOnline').disabled = true;
   renderMenuStats(); renderEvent(); renderDaily(); renderLeaderboard(); initPreview(); initChat(); checkServer();
@@ -2257,11 +2321,15 @@ function frame(now) {
     if (state === 'playing') {
       hudAcc += dt; updateHudFast();
       if (hudAcc > 0.4) { hudAcc = 0; updateHudSlow(); }
-      if (player && !player.alive && deathLook) {
-        camera.position.set(player.pos.x, player.pos.y + 0.5, player.pos.z);
-        camera.lookAt(deathLook.pos.x, deathLook.pos.y + 1.2, deathLook.pos.z);
-      }
+      if (player && !player.alive && deathLook) {   // [NUEVO] cámara de muerte: se ve a quien te eliminó desde detrás, con suavidad, hasta reaparecer
+        const k = deathLook, tp = new THREE.Vector3(k.pos.x + Math.sin(k.yaw || 0) * 3.4, k.pos.y + 2.2, k.pos.z + Math.cos(k.yaw || 0) * 3.4);
+        if (!net.kc) { net.kc = true; camera.position.set(player.pos.x, player.pos.y + 1.6, player.pos.z); }
+        camera.position.lerp(tp, Math.min(1, dt * 4)); camera.lookAt(k.pos.x, k.pos.y + 1.3, k.pos.z);
+      } else net.kc = false;
     }
+  } else if (state === 'spectate') {   // [NUEVO] espectador
+    simTime += dt; updateRemotes(dt); updateFx(dt); specCam(dt);
+    net.pingAcc += dt; if (net.pingAcc > 2) { net.pingAcc = 0; netSend({ t: 'ping', ts: performance.now(), rtt: net.ping }); }
   } else if (state === 'menu' || state === 'ended') {
     orbitA += dt * (reduce ? 0.02 : 0.09);
     camera.position.set(Math.cos(orbitA) * mapHalf, 17, Math.sin(orbitA) * mapHalf);
@@ -2277,7 +2345,7 @@ function frame(now) {
 if (!cfg.shadowsSet && renderer && isSoftwareGL()) cfg.shadows = false;
 buildMap(cfg.map); applyShadows(); initMenu(); resize(); setInterval(() => { if (state === 'menu') checkServer(); }, 15000); buildGun(WEAPONS[cfg.cls]); gun.visible = false;
 /* Puente para la pantalla del pase de batalla (bp.js) */
-Object.assign(window.PPR_BP, { setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
+Object.assign(window.PPR_BP, { limit: () => teamLimit, cfg, saveCfg, net: () => net, player: () => player, camera: () => camera, scene: () => scene, THREE, startSpectate, stopSpectate, specCycle, setSpecView: v => { net.specView = v; }, gunsOK, setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
   rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
 requestAnimationFrame(frame);
 })();

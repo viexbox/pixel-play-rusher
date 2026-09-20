@@ -9,6 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { Store } = require('./admin.js');
 
 const MAX_BYTES = 60000, MAX_DIM = 512, PRESETS = 16, MAX_FRIENDS = 100, MAX_PENDING = 50;
@@ -46,7 +47,26 @@ function avatarStore(pool, dataDir) {
   };
 }
 
-function createSocial({ S, accounts, admin, bp, db, dataDir, log, presence }) {
+function createSocial({ S, accounts, admin, bp, db, dataDir, log, presence, rankedOf, env }) {
+  env = env || process.env;
+  /* [NUEVO] Moderación de fotos ANTES de mostrarlas. AVATAR_MODERATION = off (por defecto: se muestra al momento) · hold (la foto queda «en revisión», solo la ve su dueño, hasta que un administrador la apruebe),
+     auto (la revisa un servicio externo en AVATAR_MODERATION_URL y solo si no responde queda en revisión).
+     Contrato del servicio: POST JSON { image: <base64>, mime } → { ok: true | false, reason? }. No hay un clasificador de imágenes propio: eso lo pone quien lo contrate. */
+  const MOD = ['off', 'hold', 'auto'].includes(env.AVATAR_MODERATION) ? env.AVATAR_MODERATION : 'off', MOD_URL = env.AVATAR_MODERATION_URL || '', MOD_KEY = env.AVATAR_MODERATION_KEY || '', MOD_MS = +env.AVATAR_MODERATION_TIMEOUT_MS || 5000;
+  const CDN = String(env.AVATAR_CDN_URL || '').replace(/\/+$/, '');   // si hay un CDN delante, las fotos se piden allí (él pide al servidor y las guarda)
+  async function screen(buf, mime) {
+    if (MOD === 'off') return { status: 'ok' };
+    if (MOD === 'auto' && MOD_URL) {
+      const ac = new AbortController(), tm = setTimeout(() => ac.abort(), MOD_MS);
+      try {
+        const r = await fetch(MOD_URL, { method: 'POST', signal: ac.signal, headers: Object.assign({ 'Content-Type': 'application/json' }, MOD_KEY ? { Authorization: 'Bearer ' + MOD_KEY } : {}), body: JSON.stringify({ image: buf.toString('base64'), mime }) });
+        const j = await r.json(); clearTimeout(tm);
+        if (r.ok && typeof j.ok === 'boolean') return j.ok ? { status: 'ok' } : { status: 'rejected', reason: String(j.reason || 'Contenido no permitido').replace(/[\u0000-\u001f<>]/g, '').slice(0, 80) };
+        log('Moderación de fotos: respuesta no válida del servicio; la foto queda en revisión');
+      } catch (e) { clearTimeout(tm); log('Moderación de fotos: el servicio no responde (' + e.message + '); la foto queda en revisión'); }
+    }
+    return { status: 'pending' };
+  }
   const err = (code, error) => ({ code, error });
   const avatars = avatarStore(db ? db.pool : null, dataDir);
   const doc = new Store(path.join(dataDir, 'social.json'), { seq: 0, reports: [] }, log);   // denuncias de perfil (las ve el panel)
@@ -54,7 +74,11 @@ function createSocial({ S, accounts, admin, bp, db, dataDir, log, presence }) {
   const rankOf = pts => { let i = 0; S.RANKS.forEach((r, k) => { if (pts >= r.pts) i = k; }); return { i, n: S.RANKS[i].n, col: S.RANKS[i].col }; };
   const verifiedOf = u => { const r = admin.roleOf(u.username); return r || (u.verified ? 'acc' : 0); };   // 'admin' | 'inf' | 'acc' | 0
 
-  const avatarView = u => (!u.avatar ? { kind: 'preset', id: Math.abs(hash(u.id)) % PRESETS } : u.avatar.kind === 'preset' ? { kind: 'preset', id: u.avatar.id } : { kind: 'custom', url: 'api/avatar?u=' + encodeURIComponent(u.username) + '&v=' + u.avatar.v });
+  const modOf = u => (u.avatar && u.avatar.kind === 'custom' ? u.avatar.mod || 'ok' : 'ok');   // las fotos anteriores a la moderación cuentan como aprobadas
+  const fallback = u => ({ kind: 'preset', id: Math.abs(hash(u.id)) % PRESETS });
+  const avatarView = u => (!u.avatar ? fallback(u) : u.avatar.kind === 'preset' ? { kind: 'preset', id: u.avatar.id } : modOf(u) !== 'ok' ? fallback(u) : { kind: 'custom', url: (CDN ? CDN + '/' : '') + 'api/avatar?u=' + encodeURIComponent(u.username) + '&v=' + u.avatar.v });
+  /* Lo que ve el propio dueño: su foto aunque esté en revisión (como imagen incrustada), con su estado */
+  async function ownAvatarView(u) { const v = avatarView(u), m = modOf(u); if (u.avatar && u.avatar.kind === 'custom' && m !== 'ok') { const a = await avatars.get(u.id); if (a) return Object.assign(v, { status: m, preview: 'data:' + a.mime + ';base64,' + a.buf.toString('base64') }); } return m === 'ok' ? v : Object.assign(v, { status: m }); }
   function hash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h; }
 
   const relation = (me, u) => !me ? 'none' : me.id === u.id ? 'self' : me.blocked.includes(u.id) ? 'blocked' : me.friends.includes(u.id) ? 'friend' : me.reqOut.includes(u.id) ? 'pending-out' : me.reqIn.includes(u.id) ? 'pending-in' : 'none';
@@ -63,9 +87,9 @@ function createSocial({ S, accounts, admin, bp, db, dataDir, log, presence }) {
   async function profileOf(u, me) {
     const st = u.stats, rel = relation(me, u), seeOnline = rel === 'self' || rel === 'friend';
     const bps = await bp.view(u), banner = bps.equipped.banner || null;
-    return { username: u.username, verified: verifiedOf(u), avatar: avatarView(u), status: u.status || '', rank: rankOf(st.points), points: st.points, bpLevel: bps.level, bpVip: bps.vip, banner,
+    return { username: u.username, verified: verifiedOf(u), avatar: rel === 'self' ? await ownAvatarView(u) : avatarView(u), status: u.status || '', rank: rankOf(st.points), points: st.points, bpLevel: bps.level, bpVip: bps.vip, banner,
       stats: { games: st.games, kills: st.kills, deaths: st.deaths, wins: st.wins, best: st.best, streak: st.streak, kd: st.deaths ? +(st.kills / st.deaths).toFixed(2) : st.kills }, since: u.createdAt,
-      friends: u.friends.length, online: seeOnline ? presence(u.id) : null, relation: rel };
+      friends: u.friends.length, online: seeOnline ? presence(u.id) : null, relation: rel, ranked: rankedOf ? rankedOf(u) : null, note: rel === 'self' ? u.avatarNote || '' : '' };
   }
   const brief = u => ({ username: u.username, verified: verifiedOf(u), avatar: avatarView(u), rank: rankOf(u.stats.points), status: u.status || '' });
 
@@ -105,9 +129,11 @@ function createSocial({ S, accounts, admin, bp, db, dataDir, log, presence }) {
         const buf = Buffer.from(m[1], 'base64'); if (buf.length > MAX_BYTES) return err(413, 'La imagen pesa demasiado (máximo 60 KB). Prueba con otra o más pequeña.');
         const im = sniffImage(buf); if (!im) return err(400, 'El archivo no es una imagen JPEG o PNG válida.');
         if (!(im.w > 0 && im.h > 0) || im.w > MAX_DIM || im.h > MAX_DIM) return err(400, 'La imagen es demasiado grande (máximo ' + MAX_DIM + '×' + MAX_DIM + ' píxeles).');
-        await avatars.put(u.id, im.mime, buf); u.avatar = { kind: 'custom', v: ((u.avatar && u.avatar.v) || 0) + 1 };
+        const sc = await screen(buf, im.mime);
+        if (sc.status === 'rejected') { u.avatarAt = Date.now(); return err(400, 'Foto rechazada: ' + sc.reason + '. Elige otra imagen.'); }
+        await avatars.put(u.id, im.mime, buf); u.avatar = { kind: 'custom', v: ((u.avatar && u.avatar.v) || 0) + 1, mod: sc.status, at: Date.now() }; u.avatarNote = '';
       } else return err(400, 'Indica una foto.');
-      u.avatarAt = Date.now(); accounts.touch(); return { ok: true, avatar: avatarView(u) };
+      u.avatarAt = Date.now(); accounts.touch(); return { ok: true, status: modOf(u), avatar: await ownAvatarView(u) };
     },
     async report(u, b) {
       const t = other(b.name); if (!t) return err(404, 'No existe ningún jugador con ese nombre.'); if (t.id === u.id) return err(400, 'No puedes denunciarte a ti mismo.');
@@ -129,9 +155,11 @@ function createSocial({ S, accounts, admin, bp, db, dataDir, log, presence }) {
     try {
       const h = String(req.headers.authorization || ''), me = accounts.fromToken(h.startsWith('Bearer ') ? h.slice(7) : '');
       if (req.method === 'GET' && url.pathname === '/api/avatar') {   // foto personalizada (pública): se sirve con el tipo que se comprobó al subirla
-        const u = other(url.searchParams.get('u')), a = u && u.avatar && u.avatar.kind === 'custom' ? await avatars.get(u.id) : null;
+        const u = other(url.searchParams.get('u')), a = u && u.avatar && u.avatar.kind === 'custom' && modOf(u) === 'ok' ? await avatars.get(u.id) : null;   // solo se sirven las aprobadas
         if (!a) { res.writeHead(404, { 'Cache-Control': 'no-store' }); res.end(); return true; }
-        res.writeHead(200, { 'Content-Type': a.mime, 'Content-Length': a.buf.length, 'Cache-Control': 'public, max-age=300', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox", 'Cross-Origin-Resource-Policy': 'cross-origin' }); res.end(a.buf); return true;
+        const etag = '"' + crypto.createHash('sha1').update(a.buf).digest('hex').slice(0, 16) + '"', cc = url.searchParams.get('v') ? 'public, max-age=86400' : 'public, max-age=300';   // con versión (?v=) se puede guardar un día: al cambiar la foto cambia la dirección
+        if (req.headers['if-none-match'] === etag) { res.writeHead(304, { ETag: etag, 'Cache-Control': cc }); res.end(); return true; }
+        res.writeHead(200, { 'Content-Type': a.mime, 'Content-Length': a.buf.length, ETag: etag, 'Cache-Control': cc, 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox", 'Cross-Origin-Resource-Policy': 'cross-origin' }); res.end(a.buf); return true;
       }
       if (req.method === 'GET' && url.pathname === '/api/profile') {
         const u = other(url.searchParams.get('name')); if (!u) { send(req, res, 404, { error: 'No existe ningún jugador con ese nombre.' }); return true; }
@@ -158,6 +186,12 @@ function createSocial({ S, accounts, admin, bp, db, dataDir, log, presence }) {
     'GET /social/reports': () => ({ reports: doc.data.reports.slice().reverse().slice(0, 200) }),
     'POST /social/reports/close': ({ b, s }) => { const r = doc.data.reports.find(x => x.id === Math.trunc(+b.id)); if (!r) return err(404, 'No existe.'); r.status = 'closed'; doc.save(); admin.audit(s.user, 'denuncia-perfil-cerrar', '#' + r.id); return { ok: true }; },
     'POST /social/avatar-remove': async ({ b, s }) => { const u = accounts.find(String(b.username || '')); if (!u) return err(404, 'No existe esa cuenta.'); await avatars.del(u.id); u.avatar = null; if (b.status !== false) u.status = ''; accounts.touch(); admin.audit(s.user, 'foto-retirar', u.username); return { ok: true }; },
+    'GET /social/avatars/pending': async () => ({ mode: MOD, pending: await Promise.all(accounts.allUsers().filter(u => u.avatar && u.avatar.kind === 'custom' && modOf(u) === 'pending').sort((a, b) => (a.avatar.at || 0) - (b.avatar.at || 0)).slice(0, 50).map(async u => { const a = await avatars.get(u.id); return { username: u.username, since: u.avatar.at || 0, preview: a ? 'data:' + a.mime + ';base64,' + a.buf.toString('base64') : '' }; })) }),
+    'POST /social/avatars/review': async ({ b, s }) => {
+      const u = accounts.find(String(b.username || '')); if (!u || !u.avatar || u.avatar.kind !== 'custom' || modOf(u) !== 'pending') return err(404, 'Esa foto ya no está pendiente.');
+      if (b.approve === true) { u.avatar.mod = 'ok'; accounts.touch(); admin.audit(s.user, 'foto-aprobar', u.username); return { ok: true }; }
+      await avatars.del(u.id); u.avatar = null; u.avatarNote = 'Tu foto fue rechazada' + (b.reason ? ': ' + clean(b.reason, 80) : '') + '.'; accounts.touch(); admin.audit(s.user, 'foto-rechazar', u.username + (b.reason ? ' · ' + clean(b.reason, 80) : '')); return { ok: true };
+    },
     'POST /verify': ({ b, s }) => { const u = accounts.find(String(b.username || '')); if (!u) return err(404, 'No existe esa cuenta.'); u.verified = b.verified !== false; accounts.touch(); admin.audit(s.user, u.verified ? 'verificar' : 'quitar-verificado', u.username); return { ok: true, username: u.username, verified: u.verified }; }
   });
   return { handles, handleHttp, profileOf };

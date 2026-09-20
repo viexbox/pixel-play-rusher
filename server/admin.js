@@ -28,7 +28,7 @@ function nameKey(s) {
 
 class Store {
   constructor(file, defaults, log) {
-    this.file = file; this.log = log; this.timer = null; this.name = path.basename(file);
+    this.file = file; this.log = log; this.timer = null; this.name = path.basename(file); Store.all.add(this);   // registro global: así también se vacían los almacenes de otros módulos (temporadas, ofertas, denuncias)
     let data = Store.db ? Store.db.get(this.name) : null;                       // con PostgreSQL, el documento viene de la base de datos
     if (!data) try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { /* primera ejecución (o primer arranque con PostgreSQL: se importa el archivo) */ }
     this.data = data && typeof data === 'object' ? Object.assign(JSON.parse(JSON.stringify(defaults)), data) : JSON.parse(JSON.stringify(defaults));
@@ -44,6 +44,8 @@ class Store {
 }
 
 Store.db = null;   // lo asigna server.js cuando hay PostgreSQL
+Store.all = new Set();
+Store.flushAll = () => { for (const s of Store.all) s.flush(); };
 
 function createAdmin(opts) {
   const { dataDir, log, S, rt, env = process.env } = opts;
@@ -268,7 +270,7 @@ function createAdmin(opts) {
   }
   const sampler = setInterval(sample, 30000); if (sampler.unref) sampler.unref(); sample();
   const cutSeen = () => { const t = now(); let n = 0; for (const k of Object.keys(ST.seen)) { if (t - ST.seen[k] > 30 * 86400000) delete ST.seen[k]; else n++; } if (n > 5000) { const ks = Object.keys(ST.seen).sort((a, b) => ST.seen[a] - ST.seen[b]); for (const k of ks.slice(0, n - 5000)) delete ST.seen[k]; } };
-  function count(kind, key) { if (kind === 'join') { ST.joins++; } else if (kind === 'class') ST.perClass[key] = (ST.perClass[key] || 0) + 1; else if (kind === 'map') ST.perMap[key] = (ST.perMap[key] || 0) + 1; else if (kind === 'msg') ST.messages++; statsS.save(); }
+  function count(kind, key) { if (kind === 'join') { ST.joins++; } else if (kind === 'class') ST.perClass[key] = (ST.perClass[key] || 0) + 1; else if (kind === 'map') ST.perMap[key] = (ST.perMap[key] || 0) + 1; else if (kind === 'mode') ST.perMode = Object.assign(ST.perMode || {}, { [key]: ((ST.perMode || {})[key] || 0) + 1 }); else if (kind === 'msg') ST.messages++; statsS.save(); }
 
   /* ---------- Historial y análisis de comportamiento ---------- */
   function recordMatch(row) {
@@ -374,7 +376,7 @@ function createAdmin(opts) {
     const mem = process.memoryUsage(), t = now(), day = h => Object.values(ST.seen).filter(x => t - x < h * 3600000).length;
     const lbAll = rt.lbAll(), top = [...lbAll].sort((a, b) => b.p - a.p).slice(0, 5);
     return {
-      now: t, uptime: Math.round(process.uptime()), online: rt.playerCount(), lobby: rt.lobbyCount(), rooms: rt.rooms().map(r => ({ id: r.id, map: r.map, players: r.players.size, phase: r.phase, tl: Math.round(r.tl) })),
+      now: t, uptime: Math.round(process.uptime()), online: rt.playerCount(), lobby: rt.lobbyCount(), rooms: rt.rooms().map(r => ({ id: r.id, map: r.map, mode: r.mode || 'duelo', ranked: !!r.ranked, specs: r.specs ? r.specs.size : 0, players: r.players.size, phase: r.phase, tl: Math.round(r.tl) })),
       peak: ST.peak, totals: { matches: ST.matches, kills: ST.kills, shots: ST.shots, hits: ST.hits, joins: ST.joins, messages: ST.messages, blocked: ST.blocked, reports: ST.reports, bans: ST.bans, kicks: ST.kicks, since: ST.since },
       accuracy: ST.shots ? +(ST.hits / ST.shots).toFixed(3) : 0, uniques24h: day(24), uniques7d: day(168), perMap: ST.perMap, perClass: ST.perClass, maps: S.MAPS.map(m => m.name), classes: S.WEAPONS.map(w => w.name),
       openReports: reportsS.data.list.filter(r => r.status === 'open').length, activeBans: bansS.data.list.filter(b => b.active && (!b.until || b.until > t)).length,
@@ -508,6 +510,7 @@ function createAdmin(opts) {
       const fn = routes[key]; if (!fn) { send(res, 404, { error: 'No encontrado.' }); return true; }
       const b = req.method === 'POST' ? await readBody(req) : {};
       const out = await fn({ b, s: { user: s.user, exp: s.exp, token, setup: !!s.setup }, q: url.searchParams });
+      if (out && out.__file) { res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': out.__file.buf.length, 'Content-Disposition': 'attachment; filename="' + out.__file.name + '"', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }); res.end(out.__file.buf); return true; }   // descarga binaria (copias de seguridad)
       if (out && out.__download) { send(res, 200, out.data, { 'Content-Disposition': 'attachment; filename="' + out.__download + '"' }); return true; }
       if (out && out.error) { send(res, out.code || 400, { error: out.error }); return true; }
       send(res, 200, out || { ok: true });
@@ -515,7 +518,7 @@ function createAdmin(opts) {
     return true;
   }
 
-  function flushAll() { for (const s of stores) s.flush(); }
+  function flushAll() { for (const s of stores) s.flush(); Store.flushAll(); }
   return {
     ready, get credentialsNotice() { return credentialsNotice; }, adminUser: ADMIN_USER, nameKey, ipKey,
     /* extensiones para otros módulos (cuentas, tienda): rutas del panel, auditoría y comprobaciones de nombre/baneo */
@@ -523,7 +526,7 @@ function createAdmin(opts) {
     roleOf(name) { const nk = nameKey(name); if (!nk) return 0; if (nk === ADMIN_KEY) return 'admin'; return infS.data.list.some(i => i.active && i.nameKey === nk) ? 'inf' : 0; },
     isReserved(name) { const nk = nameKey(name); return !!nk && (nk.includes(ADMIN_KEY) || infS.data.list.some(i => i.active && i.nameKey === nk)); },
     banFor(name, ip) { return bans.check({ nameKey: nameKey(name), ipKey: ipKey(ip) }); }, banMessage: b => bans.message(b),
-    resolveIdentity, checkChat, onChat, onLog, recordMatch, makeReport, count, handleHttp, handleUpgrade, flushAll,
+    stats: () => ST, resolveIdentity, checkChat, onChat, onLog, recordMatch, makeReport, count, handleHttp, handleUpgrade, flushAll,
     settings: S_, maxPerRoom: () => S_.maintenance.on ? 0 : S_.maxPerRoom, roleOfToken: t => (fullToken(t) ? 'admin' : 0)
   };
 }

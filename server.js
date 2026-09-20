@@ -26,6 +26,8 @@ const { createAccounts } = require('./server/accounts.js');
 const { createBattlePass } = require('./server/battlepass.js');
 const { createMarket } = require('./server/market.js');
 const { createSocial } = require('./server/social.js');
+const { createRanked } = require('./server/ranked.js');
+const { createEvents } = require('./server/events.js');
 
 const PORT = +process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -36,6 +38,10 @@ const MAX_PER_ROOM = +process.env.MAX_PLAYERS_PER_ROOM || 10;
 const BREAK_SECS = +process.env.BREAK_SECS || 12;
 /* Equipos: azul (0) y rojo (1). La ronda acaba cuando un equipo suma estas bajas (o al acabar el tiempo: gana quien tenga más). */
 const TEAM_LIMIT = +process.env.TEAM_KILL_LIMIT || (process.env.KILL_LIMIT ? KILL_LIMIT : 40);
+const KNIFE_LIMIT = +process.env.KNIFE_KILL_LIMIT || 25;   // [NUEVO] bajas para ganar en «Solo cuchillos»
+const ZONE_LIMIT = +process.env.ZONE_LIMIT || S.ZONE.LIMIT, ZONE_MOVE = +process.env.ZONE_MOVE_SECS || S.ZONE.MOVE_SECS;   // puntos para ganar en «Capturar zona» y cada cuánto cambia de sitio
+const LADDER = S.GUN_LADDER.slice(0, +process.env.LADDER_LEVELS || S.GUN_LADDER.length);   // niveles de armas de la Carrera (acortable solo para pruebas)
+const LEAVE_MIN_MS = +process.env.RANKED_LEAVE_MS || 60000;   // tiempo mínimo jugado para que abandonar un clasificatorio penalice
 const MAX_CONN_PER_IP = +process.env.MAX_CONN_PER_IP || 8;
 const TRUST_PROXY = process.env.TRUST_PROXY; // '1' = confiar siempre, '0' = nunca, sin definir = solo si la conexión llega desde una red privada (proxy)
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -46,7 +52,7 @@ const HIST_MIN = +process.env.HISTORY_MIN_SECS || 20; // segundos mínimos en un
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const r3 = v => Math.round(v * 1000) / 1000;
-let admin = null, accounts = null, bp = null, market = null, social = null;
+let admin = null, accounts = null, bp = null, market = null, social = null, ranked = null, events = null;
 const log = (...a) => { const line = new Date().toISOString() + ' ' + a.join(' '); console.log(line); if (admin) admin.onLog(line); };
 
 /* =====================================================================
@@ -110,7 +116,7 @@ class Player {
     this.kills = 0; this.deaths = 0; this.points = 0; this.hs = 0; this.streak = 0; this.bestStreak = 0; this.acctUser = null; this.team = 0;
     this.protectUntil = 0; this.respawnAt = 0; this.lastHit = 0; this.lastSt = 0;
     this.ammo = 0; this.reloadUntil = 0; this.nextFire = 0; this.nextMelee = 0;
-    this.hist = []; this.ping = 60; this.joinedAt = Date.now(); this.room = null;
+    this.hist = []; this.ping = 60; this.joinedAt = Date.now(); this.room = null; this.gl = 0; this.mmr = 0;   // gl: nivel en la Carrera de armas · mmr: puntuación clasificatoria
   }
   send(str) {
     const ws = this.ws;
@@ -139,14 +145,57 @@ function posAt(p, T) {
 }
 
 class Room {
-  constructor(map) {
+  constructor(map, mode, isRanked) {
+    this.mode = mode || 'duelo'; this.ranked = !!isRanked; this.specs = new Set(); this.zone = null; this.zs = [0, 0]; this.zoneT = 0; this.zoneMoveAt = 0;   // [NUEVO] modo de juego y clasificatorio
     this.id = roomSeq++; this.map = map; this.world = worlds[map];
     this.tk = [0, 0]; this.chatLog = []; this.players = new Map(); this.tl = MATCH_TIME; this.phase = 'play'; this.breakLeft = 0; this.boardT = 0; this.wait = true;
-    rooms.set(this.id, this);
+    rooms.set(this.id, this); this.newZone(Date.now(), true);
   }
   broadcast(obj, except) {
     const s = typeof obj === 'string' ? obj : JSON.stringify(obj);
     for (const p of this.players.values()) if (p !== except) p.send(s);
+    for (const sp of this.specs) sp.send(s);   // los espectadores reciben todo
+  }
+  /* ---- [NUEVO] Modos de juego ---- */
+  limit() { return this.mode === 'zona' ? ZONE_LIMIT : this.mode === 'cuchillos' ? KNIFE_LIMIT : this.mode === 'carrera' ? LADDER.length + 1 : TEAM_LIMIT; }
+  classFor(p) { return this.mode === 'carrera' ? LADDER[Math.min(p.gl, LADDER.length - 1)] : p.nextCls; }
+  gunsAllowed(p) { return this.mode === 'cuchillos' ? false : this.mode === 'carrera' ? p.gl < LADDER.length : true; }
+  tierAvg() { let n = 0, s = 0; for (const p of this.players.values()) { n++; s += S.leagueIdx(p.mmr); } return n ? s / n : 0; }
+  gunLevel(p) { p.cls = p.nextCls = this.classFor(p); p.ammo = S.WEAPONS[p.cls].mag; p.reloadUntil = 0; p.send(JSON.stringify({ t: 'gg', lv: p.gl, c: p.cls })); }
+  ladderScore() { this.tk = [0, 1].map(t => { let m = 0; for (const p of this.players.values()) if (p.team === t) m = Math.max(m, p.gl); return m; }); }
+  newZone(now, first) {
+    if (this.mode !== 'zona') { this.zone = null; return; }
+    const wps = this.world.waypoints, half = this.world.half; let pick;
+    if (first || !this.zone) pick = wps.reduce((b, w) => (Math.hypot(w[0], w[1]) < Math.hypot(b[0], b[1]) ? w : b), wps[0]);   // la primera, lo más cerca posible del centro
+    else { const far = wps.filter(w => Math.hypot(w[0] - this.zone.x, w[1] - this.zone.z) >= 20 && Math.abs(w[0]) < half - 8 && Math.abs(w[1]) < half - 8); const pool = far.length ? far : wps; pick = pool[Math.floor(Math.random() * pool.length)]; }
+    this.zone = { x: pick[0], z: pick[1], r: S.ZONE.R, o: -1 }; this.zoneMoveAt = now + ZONE_MOVE * 1000; this.zoneT = 0;
+    if (!first) this.broadcast({ t: 'zone', z: this.zoneMsg() });
+  }
+  zoneMsg() { return this.zone ? { x: r3(this.zone.x), z: r3(this.zone.z), r: this.zone.r, o: this.zone.o, zs: [Math.floor(this.zs[0]), Math.floor(this.zs[1])], mv: Math.max(0, Math.round((this.zoneMoveAt - Date.now()) / 1000)) } : null; }
+  zoneTick(now, dt) {
+    const z = this.zone; if (!z) return;
+    const n = [0, 0]; for (const p of this.players.values()) if (p.alive && Math.hypot(p.x - z.x, p.z - z.z) <= z.r) n[p.team]++;
+    const o = n[0] && !n[1] ? 0 : n[1] && !n[0] ? 1 : n[0] && n[1] ? 2 : -1;   // 0/1 = la controla ese equipo · 2 = disputada · -1 = vacía
+    if (o === 0 || o === 1) {
+      this.zs[o] += dt; this.tk[o] = Math.floor(this.zs[o]);
+      for (const p of this.players.values()) if (p.alive && p.team === o && Math.hypot(p.x - z.x, p.z - z.z) <= z.r) { p.zt = (p.zt || 0) + dt; if (p.zt >= 1) { p.zt -= 1; p.points += 10; } }   // 10 puntos por segundo dentro
+      if (this.tk[o] >= ZONE_LIMIT) { this.endRound(now); return; }
+    }
+    if (o !== z.o) { z.o = o; this.zoneT = 0; }
+    this.zoneT -= dt; if (this.zoneT <= 0) { this.zoneT = 0.5; this.broadcast({ t: 'zone', z: this.zoneMsg() }); }
+    if (now >= this.zoneMoveAt) this.newZone(now);
+  }
+  onKill(a, v, wname, now) {
+    if (this.mode === 'zona') return;                                    // en la zona mandan los puntos de zona, no las bajas
+    if (this.mode === 'carrera') {
+      const last = LADDER.length, knife = wname === 'Cuchillo';
+      if (a.gl >= last && knife) { this.tk[a.team] = last + 1; this.endRound(now); return; }   // baja con el cuchillo en el último nivel: gana su equipo
+      if (a.gl < last) { a.gl++; this.gunLevel(a); }
+      if (knife && v.gl > 0) { v.gl--; v.send(JSON.stringify({ t: 'gg', lv: v.gl, c: this.classFor(v), down: 1 })); }   // te matan a cuchillo: bajas de nivel
+      this.ladderScore(); return;
+    }
+    this.tk[a.team]++;
+    if (this.tk[a.team] >= this.limit()) this.endRound(now);
   }
   assignTeam(p) {
     let c0 = 0, c1 = 0; for (const o of this.players.values()) { if (o === p) continue; if (o.team === 0) c0++; else c1++; }
@@ -162,7 +211,7 @@ class Room {
   }
   add(p) {
     p.room = this; this.assignTeam(p); this.players.set(p.id, p);
-    p.send(JSON.stringify({ t: 'welcome', v: PROTOCOL, id: p.id, n: p.name, rl: p.role || 0, tm: p.team, lim: TEAM_LIMIT, tk: this.tk, room: this.id, map: this.map, tl: r3(this.tl), phase: this.phase, players: [...this.players.values()].filter(o => o !== p).map(o => o.pub()) }));
+    p.send(JSON.stringify({ t: 'welcome', v: PROTOCOL, id: p.id, n: p.name, rl: p.role || 0, tm: p.team, lim: this.limit(), mode: this.mode, rk: this.ranked ? 1 : 0, zone: this.zoneMsg(), tk: this.tk, room: this.id, map: this.map, tl: r3(this.tl), phase: this.phase, players: [...this.players.values()].filter(o => o !== p).map(o => o.pub()) }));
     this.broadcast({ t: 'join', p: p.pub() }, p);
     this.spawn(p, Date.now(), 1500);
     this.sendBoard();
@@ -172,7 +221,8 @@ class Room {
     if (this.votes) this.votes.delete(p.id);
     if (this.phase === 'play') { if (p.kills + p.deaths > 0 && Date.now() - p.joinedAt > 60000) this.record(p, Date.now()); this.history(p, Date.now()); }
     this.broadcast({ t: 'leave', id: p.id });
-    if (this.players.size === 0) rooms.delete(this.id);
+    if (this.ranked && this.phase === 'play' && this.players.size >= 2 && p.acctUser && Date.now() - p.roundStart > LEAVE_MIN_MS && this.tl > 20) { const m = ranked.onLeave(p); log('Clasificatorio: ' + p.name + ' abandona y pierde ' + S.RANKED.LEAVE_PENALTY + ' puntos (' + m + ')'); }
+    if (this.players.size === 0 && this.specs.size === 0) rooms.delete(this.id);
     else this.sendBoard();
   }
   record(p, now) {
@@ -199,7 +249,7 @@ class Room {
       if (score > bs) { bs = score; best = s; }
     }
     p.x = best[0]; p.y = 0; p.z = best[1]; p.yaw = Math.atan2(best[0], best[1]); p.pitch = 0; p.h = 1.8;
-    p.hp = 100; p.alive = true; p.ep++; p.cls = p.nextCls;
+    p.hp = 100; p.alive = true; p.ep++; p.cls = this.classFor(p);
     const w = S.WEAPONS[p.cls];
     p.ammo = w.mag; p.reloadUntil = 0; p.nextFire = now + 300; p.protectUntil = now + (protectMs || 1500); p.lastHit = now; p.lastSt = now;
     p.hist = [{ t: now, x: p.x, y: p.y, z: p.z, h: p.h }];
@@ -208,7 +258,7 @@ class Room {
   tick(now, dt) {
     if (this.phase === 'play') {
       this.wait = this.players.size < 2;
-      if (!this.wait) this.tl -= dt;
+      if (!this.wait) { this.tl -= dt; this.zoneTick(now, dt); }
       for (const p of this.players.values()) {
         if (!p.alive) { if (now >= p.respawnAt) this.spawn(p, now, 1500); }
         else if (now - p.lastHit > 4000 && p.hp < 100) p.hp = Math.min(100, p.hp + 18 * dt);
@@ -223,6 +273,11 @@ class Room {
     for (const p of this.players.values()) if (p.alive) arr.push([p.id, r3(p.x), r3(p.y), r3(p.z), r3(p.yaw), r3(p.pitch), r3(p.h)]);
     const sStr = JSON.stringify(arr), tl = Math.max(0, Math.round(this.tl * 10) / 10), w = this.wait ? 1 : 0;
     for (const p of this.players.values()) p.send('{"t":"snap","tl":' + tl + ',"w":' + w + ',"hp":' + Math.round(p.hp) + ',"s":' + sStr + '}');
+    for (const sp of this.specs) sp.send('{"t":"snap","tl":' + tl + ',"w":' + w + ',"hp":0,"s":' + sStr + '}');
+    if (this.specs.size && (this.specT = (this.specT || 0) + dt) >= 1) {   // cada segundo, estadísticas de cada jugador para el espectador: [id, disparos, aciertos, cabezas, correcciones, cadencia sospechosa, ping]
+      this.specT = 0; const st = JSON.stringify({ t: 'sstats', p: [...this.players.values()].map(p => [p.id, p.shots, p.hits, p.hs, p.fixes, p.rlv, Math.round(p.ping), p.hp > 0 ? Math.round(p.hp) : 0, p.gl]) });
+      for (const sp of this.specs) sp.send(st);
+    }
     this.boardT += dt; if (this.boardT >= 1) { this.boardT = 0; this.sendBoard(); }
   }
   endRound(now) {
@@ -231,10 +286,11 @@ class Room {
     const tk = this.tk.slice(), winner = tk[0] === tk[1] ? -1 : (tk[0] > tk[1] ? 0 : 1);
     const rows = [...this.players.values()].sort((a, b) => b.points - a.points || b.kills - a.kills || a.deaths - b.deaths);
     for (const p of rows) { if (p.kills + p.deaths > 0) this.record(p, now); this.history(p, now); }
+    if (this.ranked) for (const [p, r] of ranked.onRoundEnd(rows, winner)) p.send(JSON.stringify(Object.assign({ t: 'rank' }, r)));   // [NUEVO] puntuación clasificatoria
     rows.forEach((p, i) => { // progreso y PX de las cuentas online (mínimo 2 jugadores y algo de actividad)
       if (!p.acctUser || rows.length < 2 || p.kills + p.deaths + p.points === 0) return;
-      const r = accounts.awardMatch(p.acctUser, { points: p.points, kills: p.kills, deaths: p.deaths, won: winner >= 0 && p.team === winner, cls: p.cls, bestStreak: p.bestStreak });
-      p.send(JSON.stringify({ t: 'award', px: r.px, balance: r.balance, prevBest: r.prevBest, stats: r.stats, mult: r.mult, cr: r.cr, crBalance: r.crBalance }));
+      const r = accounts.awardMatch(p.acctUser, { points: p.points, kills: p.kills, deaths: p.deaths, won: winner >= 0 && p.team === winner, cls: p.cls, bestStreak: p.bestStreak, ev: events.multFor({ mode: this.mode, cls: p.cls }) });
+      p.send(JSON.stringify({ t: 'award', px: r.px, balance: r.balance, prevBest: r.prevBest, stats: r.stats, mult: r.mult, cr: r.cr, crBalance: r.crBalance, ev: r.ev }));
       bp.awardMatch(p.acctUser, { points: p.points, won: winner >= 0 && p.team === winner }).then(x => { if (x) p.send(JSON.stringify({ t: 'bpxp', xp: x.added, total: x.xp, level: x.level, up: x.leveledUp })); }).catch(e => log('XP del pase: ' + e.message));
     });
     this.votes = new Map();
@@ -244,9 +300,9 @@ class Room {
   startRound(now) {
     const votes = this.tally(), top = Math.max(...votes);          // el mapa más votado gana; en empate, al azar entre los empatados
     if (top > 0) { const win = votes.map((n, i) => (n === top ? i : -1)).filter(i => i >= 0), pick = win[Math.floor(Math.random() * win.length)]; if (pick !== this.map) { this.map = pick; this.world = worlds[pick]; this.broadcast({ t: 'map', map: pick }); } }
-    this.phase = 'play'; this.tl = MATCH_TIME; this.tk = [0, 0]; this.rebalance();
-    for (const p of this.players.values()) { p.kills = p.deaths = p.points = p.hs = p.streak = p.bestStreak = 0; p.alive = false; p.roundStart = now; }
-    this.broadcast({ t: 'round', tl: MATCH_TIME });
+    this.phase = 'play'; this.tl = MATCH_TIME; this.tk = [0, 0]; this.zs = [0, 0]; this.newZone(now, true); this.rebalance();
+    for (const p of this.players.values()) { p.kills = p.deaths = p.points = p.hs = p.streak = p.bestStreak = 0; p.gl = 0; p.zt = 0; p.alive = false; p.roundStart = now; }
+    this.broadcast({ t: 'round', tl: MATCH_TIME, lim: this.limit(), zone: this.zoneMsg() });
     for (const p of this.players.values()) this.spawn(p, now, 4000);
     this.sendBoard();
   }
@@ -274,13 +330,12 @@ class Room {
     v.alive = false; v.hp = 0; v.deaths++; v.streak = 0; v.respawnAt = now + RESPAWN_MS;
     a.kills++; a.streak++; if (a.streak > a.bestStreak) a.bestStreak = a.streak;
     const pts = 100 + (head ? 50 : 0); a.points += pts; if (head) { a.hs++; }
-    this.tk[a.team]++;
-    this.broadcast({ t: 'kill', kr: a.role || 0, k: a.id, v: v.id, w: wname, h: head ? 1 : 0, pts, streak: a.streak, rs: S.CONST.RESPAWN });
+    this.broadcast({ t: 'kill', kr: a.role || 0, k: a.id, v: v.id, w: wname, h: head ? 1 : 0, pts, streak: a.streak, rs: S.CONST.RESPAWN, ds: Math.round(Math.hypot(a.x - v.x, a.z - v.z)), ah: Math.round(a.hp) });   // ds = distancia (m) y ah = vida del autor, para la cámara de muerte
+    this.onKill(a, v, wname, now);
     this.sendBoard();
-    if (this.tk[a.team] >= TEAM_LIMIT) this.endRound(now);
   }
   onShoot(p, m, now) {
-    if (!p.alive || this.phase !== 'play') return;
+    if (!p.alive || this.phase !== 'play' || !this.gunsAllowed(p)) return;   // [NUEVO] sin armas de fuego en «Solo cuchillos» ni en el último nivel de la Carrera
     const w = S.WEAPONS[p.cls];
     if (now < p.reloadUntil || p.ammo <= 0) return;
     if (now + 40 < p.nextFire) { p.rlv++; return; }
@@ -336,10 +391,11 @@ class Room {
     while (p.hist.length && now - p.hist[0].t > 1500) p.hist.shift();
   }
 }
-function findRoom(map) {
-  let best = null;
-  for (const r of rooms.values()) if (r.map === map && r.players.size < (admin.settings.maxPerRoom || MAX_PER_ROOM) && (!best || r.players.size > best.players.size)) best = r;
-  return best || new Room(map);
+function findRoom(map, mode, isRanked, tier) {
+  let best = null; mode = mode || 'duelo'; isRanked = !!isRanked;
+  /* [NUEVO] Emparejamiento: mismo modo y, en clasificatorio, una liga media parecida (diferencia máxima de 1) */
+  for (const r of rooms.values()) if (r.map === map && r.mode === mode && r.ranked === isRanked && (!isRanked || r.players.size === 0 || Math.abs(r.tierAvg() - tier) <= 1) && r.players.size < (admin.settings.maxPerRoom || MAX_PER_ROOM) && (!best || r.players.size > best.players.size)) best = r;
+  return best || new Room(map, mode, isRanked);
 }
 
 let last = Date.now();
@@ -351,8 +407,9 @@ setInterval(() => {
 /* =====================================================================
    Servidor HTTP
    ===================================================================== */
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8' };
-const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws: wss:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+const MIME = { '.webmanifest': 'application/manifest+json; charset=utf-8', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8' };
+let CDN_ORIGIN = ''; try { if (process.env.AVATAR_CDN_URL) CDN_ORIGIN = ' ' + new URL(process.env.AVATAR_CDN_URL).origin; } catch (e) { /* dirección no válida: se ignora */ }   // [NUEVO] el CDN de las fotos de perfil también puede servir imágenes
+const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:" + CDN_ORIGIN + "; connect-src 'self' ws: wss:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 
 function isPrivateAddr(a) {
   a = String(a || '').replace(/^::ffff:/, '');
@@ -384,6 +441,8 @@ const server = http.createServer((req, res) => {
   if (accounts.handles(url.pathname)) { accounts.handleHttp(req, res, url, clientIp(req)); return; }       // cuentas, PX y tienda
   if (bp.handles(url.pathname)) { bp.handleHttp(req, res, url, clientIp(req)); return; }                   // pase de batalla
   if (market.handles(url.pathname)) { market.handleHttp(req, res, url, clientIp(req)); return; }           // [NUEVO] mercado
+  if (events.handles(url.pathname)) { events.handleHttp(req, res, url, clientIp(req)); return; }           // [NUEVO] eventos activos
+  if (ranked.handles(url.pathname)) { ranked.handleHttp(req, res, url, clientIp(req)); return; }           // [NUEVO] clasificatorio
   if (social.handles(url.pathname)) { social.handleHttp(req, res, url, clientIp(req)); return; }           // [NUEVO] perfiles y amigos
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
   const p = url.pathname;
@@ -463,10 +522,12 @@ admin = createAdmin({
 });
 accounts = createAccounts({ dataDir: DATA_DIR, log, S, admin });
 bp = createBattlePass({ S, accounts, admin, db: PGDB, dataDir: DATA_DIR, log });
-market = createMarket({ S, accounts, bp, admin, log });   // [NUEVO] mercado de cosméticos (Créditos)
+market = createMarket({ S, accounts, bp, admin, dataDir: DATA_DIR, log });   // [NUEVO] mercado de cosméticos (Créditos)
 /* [NUEVO] Presencia de una cuenta: 'game' si está en una partida, 'lobby' si está en el menú, 'off' si no está conectada */
 function presence(uid) { let best = 'off'; for (const w of connections) if (w.acctId === uid && w.readyState === 1) { if (w.player) return 'game'; best = 'lobby'; } return best; }
-social = createSocial({ S, accounts, admin, bp, db: PGDB, dataDir: DATA_DIR, log, presence });   // [NUEVO] perfiles, foto, amigos y denuncias
+social = createSocial({ S, accounts, admin, bp, db: PGDB, dataDir: DATA_DIR, log, presence, rankedOf: u => (ranked ? ranked.publicOf(u) : null) });
+ranked = createRanked({ S, accounts, admin, dataDir: DATA_DIR, log });   // [NUEVO] clasificatorio y temporadas
+events = createEvents({ S, accounts, admin, dataDir: DATA_DIR, log });   // [NUEVO] eventos temporales
 /* [NUEVO] Si una cuenta cambia de nombre, sus entradas de la clasificación cambian con ella (siguen a su ID; las antiguas, sin ID, se reconocen por el nombre viejo) */
 accounts.hooks.onRename = (u, old) => { const ok = old.toLowerCase(); let n = 0; for (const e of lb.entries) if (e.a === u.id || (!e.a && e.n.toLowerCase() === ok)) { e.a = u.id; e.n = u.username; n++; } if (n) lbSaveSoon(); };
 if (PGDB) { admin.flushAll(); accounts.flush(); lbSave(); }   // primer arranque con PostgreSQL: lo importado de archivos pasa ya a la base de datos
@@ -506,6 +567,7 @@ wss.on('connection', ws => {
     clearTimeout(helloTimer); connections.delete(ws); lobby.delete(ws);
     const n = (perIp.get(ip) || 1) - 1; if (n <= 0) perIp.delete(ip); else perIp.set(ip, n);
     if (ws.player && ws.player.room) ws.player.room.remove(ws.player);
+    if (ws.spec) { const r = ws.spec.room; r.specs.delete(ws.spec); if (!r.players.size && !r.specs.size) rooms.delete(r.id); }
   });
   ws.on('error', () => {});
 });
@@ -515,8 +577,16 @@ setInterval(() => {
 
 function onMessage(ws, m, now) {
   if (m.t === 'hello') {
-    if (ws.player) return;
+    if (ws.player || ws.spec) return;
     if (m.v !== PROTOCOL) { ws.send(JSON.stringify({ t: 'err', m: 'Versión antigua del juego. Recarga la página.' })); return ws.close(); }
+    if (m.spec === 1) {   // [NUEVO] Espectador (solo administrador): ve una sala en directo sin jugar, con estadísticas para detectar trampas
+      if (admin.roleOfToken(typeof m.adm === 'string' ? m.adm.slice(0, 80) : '') !== 'admin') { ws.send(JSON.stringify({ t: 'err', m: 'Solo un administrador puede espectar.' })); return ws.close(); }
+      const room = rooms.get(+m.room); if (!room) { ws.send(JSON.stringify({ t: 'err', m: 'Esa sala ya no existe.' })); return ws.close(); }
+      const sp = { spec: true, ws, name: 'Espectador', room, send: s => { if (ws.readyState === 1 && ws.bufferedAmount < 1e6) ws.send(s); } };
+      ws.spec = sp; room.specs.add(sp); admin.count('spec');
+      sp.send(JSON.stringify({ t: 'welcome', v: PROTOCOL, spec: 1, id: 0, n: 'Espectador', rl: 'admin', tm: 0, lim: room.limit(), mode: room.mode, rk: room.ranked ? 1 : 0, zone: room.zoneMsg(), tk: room.tk, room: room.id, map: room.map, tl: r3(room.tl), phase: room.phase, players: [...room.players.values()].map(o => o.pub()) }));
+      return;
+    }
     const acct = accounts.fromToken(typeof m.acct === 'string' ? m.acct : '');   // con cuenta online el nombre mostrado es el actual de la cuenta; la identidad real es su ID
     const wanted = acct ? acct.username : (sanitizeName(m.n) || 'Jugador' + (100 + Math.floor(Math.random() * 900)));
     const who = { adm: typeof m.adm === 'string' ? m.adm.slice(0, 80) : '', inf: typeof m.inf === 'string' ? m.inf.slice(0, 40) : '', ip: ws.ip };
@@ -534,8 +604,12 @@ function onMessage(ws, m, now) {
     const p = new Player(ws, idt.name, map, cls, ws.ip, lk, idt);
     p.acctUser = acct || null;   // [CORREGIDO] antes era `acct && !idt.role`: un influencer o administrador con cuenta jugaba desvinculado y no recibía PX, estadísticas, XP del pase ni clasificación por ID
     admin.count('join'); admin.count('class', cls); admin.count('map', map);
+    const mode = S.MODES[m.mode] ? m.mode : 'duelo', wantRanked = m.rk === 1 && mode === 'duelo'; admin.count('mode', wantRanked ? 'clasificatorio' : mode);
+    if (m.rk === 1 && !wantRanked) { ws.send(JSON.stringify({ t: 'err', m: 'El clasificatorio solo se juega en Duelo por equipos.' })); return ws.close(); }
+    if (wantRanked && !acct) { ws.send(JSON.stringify({ t: 'err', m: 'Para jugar el clasificatorio necesitas una cuenta online.' })); return ws.close(); }
+    p.mmr = acct ? ranked.mmrOf(acct) : 0;
     ws.player = p; lobby.delete(ws);
-    findRoom(map).add(p);
+    findRoom(map, mode, wantRanked, S.leagueIdx(p.mmr)).add(p);
     if (renamedNote) ws.send(JSON.stringify({ t: 'notice', kind: 'sys', m: renamedNote }));
     return;
   }

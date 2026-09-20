@@ -177,7 +177,21 @@ function chart(series) {
   return svg;
 }
 
+/* [NUEVO] Eventos temporales: modo destacado de la semana (automático) y eventos con multiplicadores de PX y Créditos lanzados a mano */
+async function eventsView() {
+  const d = await api('GET', '/events'), MODES_ = { '': 'Todos los modos', duelo: 'Duelo por equipos', zona: 'Capturar zona', cuchillos: 'Solo cuchillos', carrera: 'Carrera de armas' };
+  const left = ms => { const h = Math.floor(ms / 3600000); return h >= 24 ? Math.floor(h / 24) + ' d ' + (h % 24) + ' h' : h >= 1 ? h + ' h' : Math.max(1, Math.ceil(ms / 60000)) + ' min'; };
+  const inp = (id, ph, val, w) => h('input', { id, placeholder: ph, value: val, style: 'width:' + w + 'px' });
+  const sel = h('select', { id: 'evMode' }, Object.keys(MODES_).map(k => h('option', { value: k, text: MODES_[k] })));
+  const send = () => act(async () => { await api('POST', '/events/start', { name: $('#evName').value, mode: $('#evMode').value, px: +$('#evPx').value, cr: +$('#evCr').value, hours: +$('#evH').value }); render(); }, 'Evento lanzado');
+  return h('div', null, h('h2', { text: 'Eventos temporales' }),
+    h('h3', { text: 'Activos ahora' }), d.active.length ? table(['Evento', 'Bonificación', 'Modo', 'Termina en', ''], d.active.map(e => h('tr', null, h('td', { text: e.name }), h('td', { text: '×' + e.px + ' PX · ×' + e.cr + ' CR' }), h('td', { text: MODES_[e.mode] || e.mode }), h('td', { text: left(e.endsAt - d.now) }), h('td', null, e.auto ? h('span', { class: 'muted', text: 'automático' }) : h('button', { class: 'btn sm red', text: 'Terminar', onclick: () => act(async () => { await api('POST', '/events/stop', { id: e.id }); render(); }, 'Evento terminado') }))))) : h('p', { text: 'No hay eventos activos.' }),
+    h('h3', { text: 'Lanzar un evento' }), h('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;align-items:center' }, inp('evName', 'Nombre (p. ej. Finde de cuchillos)', '', 240), sel, h('label', { text: '×PX ' }, inp('evPx', '1', '1', 60)), h('label', { text: '×CR ' }, inp('evCr', '1', '2', 60)), h('label', { text: 'Horas ' }, inp('evH', '24', '24', 70)), h('button', { class: 'btn', text: 'Lanzar', onclick: send })),
+    h('p', { class: 'muted', text: 'Multiplicadores de 1 a 3 (varios eventos a la vez se multiplican con un tope de ×3). Duración de 1 h hasta ' + Math.round(d.maxHours / 24) + ' días. Los topes diarios de PX y Créditos siguen valiendo.' }),
+    h('h3', { text: 'Modo destacado de la semana (automático, ×' + d.featuredMult + ')' }), table(['Empieza', 'Modo'], d.next.map(n => h('tr', null, h('td', { text: new Date(n.startsAt).toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: '2-digit' }) }), h('td', { text: n.name })))));
+}
 const views = {
+  events: eventsView,
   async overview() {
     const o = await api('GET', '/overview'), T = o.totals;
     const cards = h('div', { class: 'cards' },
@@ -191,8 +205,8 @@ const views = {
       h('div', { class: 'box' }, h('h3', { text: 'Mapas más jugados' }), bars(o.perMap, o.maps)),
       h('div', { class: 'box' }, h('h3', { text: 'Clases más usadas' }), bars(o.perClass, o.classes)),
       h('div', { class: 'box' }, h('h3', { text: 'Mejores puntuaciones' }), topRows.length ? h('table', null, h('tbody', null, topRows)) : h('p', { class: 'muted', text: 'Aún no hay puntuaciones. Aparecerán al terminar las primeras partidas.' })));
-    const roomRows = o.rooms.map(r => h('tr', null, h('td', { text: '#' + r.id }), h('td', { text: MAPS[r.map] }), h('td', { text: r.players }), h('td', { text: r.phase === 'play' ? 'jugando' : 'descanso' }), h('td', { text: r.tl + ' s' }),
-      h('td', null, h('button', { class: 'btn sm', text: 'Terminar ronda', onclick: () => act(() => api('POST', '/rooms/action', { id: r.id, action: 'end' }), 'Ronda terminada') }), ' ',
+    const roomRows = o.rooms.map(r => h('tr', null, h('td', { text: '#' + r.id }), h('td', { text: MAPS[r.map] + ' · ' + ({ duelo: 'Duelo', zona: 'Zona', cuchillos: 'Cuchillos', carrera: 'Carrera' }[r.mode] || r.mode) + (r.ranked ? ' (clasif.)' : '') }), h('td', { text: r.players + (r.specs ? ' (+' + r.specs + ' espectando)' : '') }), h('td', { text: r.phase === 'play' ? 'jugando' : 'descanso' }), h('td', { text: r.tl + ' s' }),
+      h('td', null, h('button', { class: 'btn sm', text: 'Ver en vivo', title: 'Abre la partida como espectador, con estadísticas para detectar trampas', onclick: () => { try { localStorage.setItem(GAME_KEY, token); } catch (e) { /* nada */ } window.open('/?spec=' + r.id, '_blank'); } }), ' ', h('button', { class: 'btn sm', text: 'Terminar ronda', onclick: () => act(() => api('POST', '/rooms/action', { id: r.id, action: 'end' }), 'Ronda terminada') }), ' ',
         h('button', { class: 'btn sm red', text: 'Cerrar sala', onclick: () => act(() => api('POST', '/rooms/action', { id: r.id, action: 'close' }), 'Sala cerrada') }))));
     return h('div', null, h('h2', { text: 'Resumen del servidor' }), cards, grid, h('h3', { text: 'Salas' }), table(['Sala', 'Mapa', 'Jugadores', 'Fase', 'Tiempo', ''], roomRows));
   },

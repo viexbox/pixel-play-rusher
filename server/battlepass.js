@@ -20,11 +20,11 @@ function pgStore(pool, S) {
       const [p, c, i, e] = await Promise.all([
         pool.query('SELECT xp, level, vip, vip_since, gifted_by FROM bp_progress WHERE user_id = $1 AND season = $2', [uid, SEASON]),
         pool.query('SELECT level, track, item_type, item_id FROM bp_claims WHERE user_id = $1 AND season = $2 ORDER BY level', [uid, SEASON]),
-        pool.query('SELECT item_type, item_id FROM bp_inventory WHERE user_id = $1', [uid]),
+        pool.query('SELECT item_type, item_id, obtained_at FROM bp_inventory WHERE user_id = $1', [uid]),
         pool.query('SELECT slot, item_id FROM bp_equipped WHERE user_id = $1', [uid])]);
       const r = p.rows[0] || { xp: 0, level: 1, vip: false, vip_since: null, gifted_by: null };
       return { xp: r.xp, level: r.level, vip: r.vip, vipSince: r.vip_since ? +new Date(r.vip_since) : 0, giftedBy: r.gifted_by || '', claims: c.rows.map(x => ({ level: x.level, track: x.track, t: x.item_type, id: x.item_id })),
-        inventory: i.rows.map(x => ({ t: x.item_type, id: x.item_id })), equipped: Object.fromEntries(e.rows.map(x => [x.slot, x.item_id])) };
+        inventory: i.rows.map(x => ({ t: x.item_type, id: x.item_id, ts: +new Date(x.obtained_at) })), equipped: Object.fromEntries(e.rows.map(x => [x.slot, x.item_id])) };
     },
     /* Suma XP (con tope diario opcional). Devuelve la XP realmente sumada, la total y el nivel. */
     addXp(uid, amount, { cap = 0, day = '' } = {}) {
@@ -60,35 +60,52 @@ function pgStore(pool, S) {
       return tx(async c => { for (const [t, col] of [['bp_progress', 'user_id'], ['bp_claims', 'user_id'], ['bp_inventory', 'user_id'], ['bp_equipped', 'user_id'], ['bp_gifts', 'from_user'], ['bp_gifts', 'to_user']])
         await c.query('UPDATE ' + t + ' SET ' + col + ' = m.n FROM (SELECT unnest($1::text[]) AS o, unnest($2::text[]) AS n) m WHERE ' + t + '.' + col + ' = m.o', [olds, news]); });
     },
-    /* ---- [NUEVO] Mercado ---- */
-    marketListings: async () => (await pool.query('SELECT id::int AS id, seller, item_type AS t, item_id AS item, price, created_at FROM market_listings ORDER BY created_at DESC LIMIT 2000')).rows.map(r => ({ id: r.id, seller: r.seller, t: r.t, item: r.item, price: r.price, ts: +new Date(r.created_at) })),
-    marketList(uid, t, id, price, max) {   // el objeto sale del inventario (y de lo equipado) y queda en depósito en el anuncio
+    /* ---- [NUEVO] Mercado, historial de precios e intercambios ---- */
+    marketListings: async () => (await pool.query('SELECT id::int AS id, seller, item_type AS t, item_id AS item, price, created_at, obtained_at FROM market_listings ORDER BY created_at DESC LIMIT 2000')).rows.map(r => ({ id: r.id, seller: r.seller, t: r.t, item: r.item, price: r.price, ts: +new Date(r.created_at), obtained: +new Date(r.obtained_at) })),
+    marketList(uid, t, id, price, max, o = {}) {   // el objeto sale del inventario (y de lo equipado) y queda en depósito en el anuncio. Un objeto recién conseguido (< lockMs) no se puede anunciar.
       return tx(async c => {
         if ((await c.query('SELECT count(*)::int AS n FROM market_listings WHERE seller = $1', [uid])).rows[0].n >= max) return { error: 'limit' };
-        if (!(await c.query('DELETE FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3', [uid, t, id])).rowCount) return { error: 'no-item' };
-        await c.query('DELETE FROM bp_equipped WHERE user_id = $1 AND item_id = $2', [uid, id]);
-        return { id: (await c.query('INSERT INTO market_listings (seller, item_type, item_id, price) VALUES ($1, $2, $3, $4) RETURNING id::int AS id', [uid, t, id, price])).rows[0].id };
+        let obtained = o.obtained || Date.now();
+        if (!o.noInv) {
+          const r = (await c.query('SELECT obtained_at FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3 FOR UPDATE', [uid, t, id])).rows[0]; if (!r) return { error: 'no-item' };
+          obtained = +new Date(r.obtained_at); if (o.lockMs && Date.now() - obtained < o.lockMs) return { error: 'locked', until: obtained + o.lockMs };
+          await c.query('DELETE FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3', [uid, t, id]); await c.query('DELETE FROM bp_equipped WHERE user_id = $1 AND item_id = $2', [uid, id]);
+        }
+        return { id: (await c.query('INSERT INTO market_listings (seller, item_type, item_id, price, obtained_at) VALUES ($1, $2, $3, $4, $5) RETURNING id::int AS id', [uid, t, id, price, new Date(obtained)])).rows[0].id };
       });
     },
-    marketCancel(uid, listingId) {          // el objeto vuelve al inventario de su dueño
+    marketCancel(uid, listingId) {          // el objeto vuelve al inventario de su dueño, conservando la fecha en que lo consiguió
       return tx(async c => {
-        const l = (await c.query('DELETE FROM market_listings WHERE id = $1 AND seller = $2 RETURNING item_type AS t, item_id AS item', [listingId, uid])).rows[0]; if (!l) return { error: 'gone' };
-        await c.query("INSERT INTO bp_inventory (user_id, item_type, item_id, source) VALUES ($1, $2, $3, 'mercado-devuelto') ON CONFLICT DO NOTHING", [uid, l.t, l.item]); return { t: l.t, item: l.item };
+        const l = (await c.query('DELETE FROM market_listings WHERE id = $1 AND seller = $2 RETURNING item_type AS t, item_id AS item, obtained_at', [listingId, uid])).rows[0]; if (!l) return { error: 'gone' };
+        if (l.t !== 'color') await c.query("INSERT INTO bp_inventory (user_id, item_type, item_id, source, obtained_at) VALUES ($1, $2, $3, 'mercado-devuelto', $4) ON CONFLICT DO NOTHING", [uid, l.t, l.item, l.obtained_at]);
+        return { t: l.t, item: l.item, obtained: +new Date(l.obtained_at) };
       });
     },
-    marketBuy(buyer, listingId, feeRate) {  // el anuncio desaparece, el objeto pasa al comprador y la venta queda registrada; todo o nada
+    marketBuy(buyer, listingId, feeRate) {  // el anuncio desaparece, el objeto pasa al comprador (con la fecha de hoy: queda bloqueado) y la venta queda registrada; todo o nada
       return tx(async c => {
         const l = (await c.query('SELECT id::int AS id, seller, item_type AS t, item_id AS item, price FROM market_listings WHERE id = $1 FOR UPDATE', [listingId])).rows[0]; if (!l) return { error: 'gone' };
         if (l.seller === buyer) return { error: 'self' };
-        if ((await c.query('SELECT 1 FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3', [buyer, l.t, l.item])).rowCount) return { error: 'owned' };
+        if (l.t !== 'color' && (await c.query('SELECT 1 FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3', [buyer, l.t, l.item])).rowCount) return { error: 'owned' };
         const fee = Math.floor(l.price * feeRate);
         await c.query('DELETE FROM market_listings WHERE id = $1', [listingId]);
-        await c.query("INSERT INTO bp_inventory (user_id, item_type, item_id, source) VALUES ($1, $2, $3, 'mercado')", [buyer, l.t, l.item]);
+        if (l.t !== 'color') await c.query("INSERT INTO bp_inventory (user_id, item_type, item_id, source) VALUES ($1, $2, $3, 'mercado')", [buyer, l.t, l.item]);
         await c.query('INSERT INTO market_sales (listing_id, seller, buyer, item_type, item_id, price, fee) VALUES ($1, $2, $3, $4, $5, $6, $7)', [l.id, l.seller, buyer, l.t, l.item, l.price, fee]);
         return { listing: l, fee };
       });
     },
+    marketRecent: async n => (await pool.query('SELECT item_type AS t, item_id AS item, price, fee, created_at FROM market_sales ORDER BY created_at DESC LIMIT $1', [n])).rows.map(r => ({ t: r.t, item: r.item, price: r.price, fee: r.fee, ts: +new Date(r.created_at) })),
     async marketSalesCount() { return (await pool.query('SELECT count(*)::int AS n FROM market_sales')).rows[0].n; },
+    tradeSwap(a, t1, i1, b, t2, i2, lockMs) {   // intercambio directo: cada uno entrega su objeto y recibe el del otro, o no pasa nada
+      return tx(async c => {
+        const q = (u, t, i) => c.query('SELECT obtained_at FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3 FOR UPDATE', [u, t, i]);
+        const ra = (await q(a, t1, i1)).rows[0], rb = (await q(b, t2, i2)).rows[0]; if (!ra) return { error: 'gone-a' }; if (!rb) return { error: 'gone-b' };
+        for (const [r, k] of [[ra, 'a'], [rb, 'b']]) if (lockMs && Date.now() - +new Date(r.obtained_at) < lockMs) return { error: 'locked-' + k, until: +new Date(r.obtained_at) + lockMs };
+        if ((await q(a, t2, i2)).rowCount) return { error: 'owned-a' }; if ((await q(b, t1, i1)).rowCount) return { error: 'owned-b' };
+        for (const [u, t, i] of [[a, t1, i1], [b, t2, i2]]) { await c.query('DELETE FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3', [u, t, i]); await c.query('DELETE FROM bp_equipped WHERE user_id = $1 AND item_id = $2', [u, i]); }
+        for (const [u, t, i] of [[a, t2, i2], [b, t1, i1]]) await c.query("INSERT INTO bp_inventory (user_id, item_type, item_id, source) VALUES ($1, $2, $3, 'intercambio')", [u, t, i]);
+        return { ok: true };
+      });
+    },
     async equip(uid, slot, itemId, itemType) {
       if (!itemId) { await pool.query('DELETE FROM bp_equipped WHERE user_id = $1 AND slot = $2', [uid, slot]); return true; }
       const has = await pool.query('SELECT 1 FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3', [uid, itemType, itemId]);
@@ -109,7 +126,7 @@ function fileStore(dataDir, log, S) {
     async state(uid) {
       const u = D.users[uid] || U(uid);
       return { xp: u.xp, level: u.level, vip: u.vip, vipSince: u.vipSince, giftedBy: u.giftedBy, claims: Object.entries(u.claims).map(([k, v]) => ({ level: +k.split(':')[0], track: k.split(':')[1], t: v.t, id: v.id })).sort((a, b) => a.level - b.level),
-        inventory: Object.values(u.inventory).map(v => ({ t: v.t, id: v.id })), equipped: Object.assign({}, u.equipped) };
+        inventory: Object.values(u.inventory).map(v => ({ t: v.t, id: v.id, ts: v.ts || 0 })), equipped: Object.assign({}, u.equipped) };
     },
     async addXp(uid, amount, { cap = 0, day = '' } = {}) {
       const u = U(uid), maxXp = S.bpTotalXp(S.BP_LEVELS), today = cap && u.xpDay === day ? u.xpToday : 0;
@@ -131,25 +148,39 @@ function fileStore(dataDir, log, S) {
       st.save();
     },
     async logGift(from, to) { D.gifts.push({ from, to, season: SEASON, ts: Date.now() }); if (D.gifts.length > 5000) D.gifts.shift(); st.save(); },
-    /* ---- [NUEVO] Mercado (mismo comportamiento que en PostgreSQL) ---- */
+    /* ---- [NUEVO] Mercado, historial e intercambios (mismo comportamiento que en PostgreSQL) ---- */
     marketListings: async () => { const M = mk(); return M.listings.slice().reverse().slice(0, 2000).map(x => Object.assign({}, x)); },
-    async marketList(uid, t, id, price, max) {
+    async marketList(uid, t, id, price, max, o = {}) {
       const M = mk(), u = U(uid); if (M.listings.filter(x => x.seller === uid).length >= max) return { error: 'limit' };
-      if (!u.inventory[t + ':' + id]) return { error: 'no-item' };
-      delete u.inventory[t + ':' + id]; for (const [k, v] of Object.entries(u.equipped)) if (v === id) delete u.equipped[k];
-      const l = { id: ++M.seq, seller: uid, t, item: id, price, ts: Date.now() }; M.listings.push(l); st.save(); return { id: l.id };
+      let obtained = o.obtained || Date.now();
+      if (!o.noInv) {
+        const it = u.inventory[t + ':' + id]; if (!it) return { error: 'no-item' };
+        obtained = it.ts || 0; if (o.lockMs && obtained && Date.now() - obtained < o.lockMs) return { error: 'locked', until: obtained + o.lockMs };
+        delete u.inventory[t + ':' + id]; for (const [k, v] of Object.entries(u.equipped)) if (v === id) delete u.equipped[k];
+      }
+      const l = { id: ++M.seq, seller: uid, t, item: id, price, ts: Date.now(), obtained }; M.listings.push(l); st.save(); return { id: l.id };
     },
     async marketCancel(uid, listingId) {
       const M = mk(), i = M.listings.findIndex(x => x.id === listingId && x.seller === uid); if (i < 0) return { error: 'gone' };
-      const l = M.listings.splice(i, 1)[0], u = U(uid); u.inventory[l.t + ':' + l.item] = u.inventory[l.t + ':' + l.item] || { t: l.t, id: l.item, source: 'mercado-devuelto', ts: Date.now() }; st.save(); return { t: l.t, item: l.item };
+      const l = M.listings.splice(i, 1)[0], u = U(uid);
+      if (l.t !== 'color') u.inventory[l.t + ':' + l.item] = u.inventory[l.t + ':' + l.item] || { t: l.t, id: l.item, source: 'mercado-devuelto', ts: l.obtained || Date.now() };
+      st.save(); return { t: l.t, item: l.item, obtained: l.obtained };
     },
     async marketBuy(buyer, listingId, feeRate) {
       const M = mk(), i = M.listings.findIndex(x => x.id === listingId); if (i < 0) return { error: 'gone' }; const l = M.listings[i];
-      if (l.seller === buyer) return { error: 'self' }; const b = U(buyer); if (b.inventory[l.t + ':' + l.item]) return { error: 'owned' };
-      const fee = Math.floor(l.price * feeRate); M.listings.splice(i, 1); b.inventory[l.t + ':' + l.item] = { t: l.t, id: l.item, source: 'mercado', ts: Date.now() };
+      if (l.seller === buyer) return { error: 'self' }; const b = U(buyer); if (l.t !== 'color' && b.inventory[l.t + ':' + l.item]) return { error: 'owned' };
+      const fee = Math.floor(l.price * feeRate); M.listings.splice(i, 1); if (l.t !== 'color') b.inventory[l.t + ':' + l.item] = { t: l.t, id: l.item, source: 'mercado', ts: Date.now() };
       M.sales.push({ listing: l.id, seller: l.seller, buyer, t: l.t, item: l.item, price: l.price, fee, ts: Date.now() }); if (M.sales.length > 5000) M.sales.shift(); st.save(); return { listing: l, fee };
     },
+    marketRecent: async n => mk().sales.slice(-n).reverse().map(x => ({ t: x.t, item: x.item, price: x.price, fee: x.fee, ts: x.ts })),
     async marketSalesCount() { return mk().sales.length; },
+    async tradeSwap(a, t1, i1, b, t2, i2, lockMs) {
+      const A = U(a), B = U(b), ia = A.inventory[t1 + ':' + i1], ib = B.inventory[t2 + ':' + i2]; if (!ia) return { error: 'gone-a' }; if (!ib) return { error: 'gone-b' };
+      if (lockMs && ia.ts && Date.now() - ia.ts < lockMs) return { error: 'locked-a', until: ia.ts + lockMs }; if (lockMs && ib.ts && Date.now() - ib.ts < lockMs) return { error: 'locked-b', until: ib.ts + lockMs };
+      if (A.inventory[t2 + ':' + i2]) return { error: 'owned-a' }; if (B.inventory[t1 + ':' + i1]) return { error: 'owned-b' };
+      for (const [X, t, i] of [[A, t1, i1], [B, t2, i2]]) { delete X.inventory[t + ':' + i]; for (const [k, v] of Object.entries(X.equipped)) if (v === i) delete X.equipped[k]; }
+      A.inventory[t2 + ':' + i2] = { t: t2, id: i2, source: 'intercambio', ts: Date.now() }; B.inventory[t1 + ':' + i1] = { t: t1, id: i1, source: 'intercambio', ts: Date.now() }; st.save(); return { ok: true };
+    },
     async equip(uid, slot, itemId, itemType) {
       const u = U(uid); if (!itemId) { delete u.equipped[slot]; st.save(); return true; }
       if (!u.inventory[itemType + ':' + itemId]) return false; u.equipped[slot] = itemId; st.save(); return true;

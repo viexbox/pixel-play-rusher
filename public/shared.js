@@ -15,7 +15,10 @@ const WEAPONS = [
   { id: 'sheriff', name: 'Sheriff', type: 'Revólver', desc: 'Dos disparos al cuerpo bastan.', dmg: 55, head: 110, interval: 0.5, mag: 6, reload: 2, spread: 0.005, pellets: 1, range: 110, kick: 0.028, fall: null, aimFov: 0.8, speed: 1.02, stats: [4, 2, 4], col: '#d9a441', size: [0.055, 0.09, 0.22], look: { drum: true, barrel: 0.6 }, optics: ['punto', 'hierro'] },
   { id: 'precision', name: 'Precisión', type: 'Semiautomático', desc: 'Disparos rápidos y certeros con mira óptica.', dmg: 36, head: 72, interval: 0.24, mag: 10, reload: 1.9, spread: 0.004, pellets: 1, range: 200, kick: 0.014, fall: null, aimFov: 0.5, speed: 1, stats: [4, 3, 5], col: '#a58bd6', size: [0.06, 0.09, 0.6], look: { scope: 0.16, barrel: 0.35 } },
   { id: 'duo', name: 'Dúo', type: 'Pistolas dobles', desc: 'Una en cada mano: cadencia alta, poco alcance.', dmg: 11, interval: 0.075, mag: 30, reload: 1.6, spread: 0.022, pellets: 1, range: 55, kick: 0.004, fall: [15, 40, 0.5], aimFov: 0.9, speed: 1.06, dual: true, stats: [2, 5, 2], col: '#5fd0e6', size: [0.05, 0.08, 0.2], look: { barrel: 0.3 } },
-  { id: 'ak', name: 'AK', type: 'Fusil AK', desc: 'Daño alto y retroceso marcado. Elige tu mira: hierro, punto rojo, holográfica o ACOG.', dmg: 27, interval: 0.115, mag: 30, reload: 2.0, spread: 0.014, pellets: 1, range: 140, kick: 0.011, fall: [60, 140, 0.7], aimFov: 0.82, speed: 0.98, stats: [4, 3, 3], col: '#ffb020', size: [0.07, 0.1, 0.56], look: { mag: [0.05, 0.2, 0.08, -0.3], barrel: 0.5 }, optics: ['hierro', 'punto', 'holo', 'acog'] }
+  { id: 'ak', name: 'AK', type: 'Fusil AK', desc: 'Daño alto y retroceso marcado. Elige tu mira: hierro, punto rojo, holográfica o ACOG.', dmg: 27, interval: 0.115, mag: 30, reload: 2.0, spread: 0.014, pellets: 1, range: 140, kick: 0.011, fall: [60, 140, 0.7], aimFov: 0.82, speed: 0.98, stats: [4, 3, 3], col: '#ffb020', size: [0.07, 0.1, 0.56], look: { mag: [0.05, 0.2, 0.08, -0.3], barrel: 0.5 }, optics: ['hierro', 'punto', 'holo', 'acog'] },
+  /* [NUEVO] Armas añadidas al final para no cambiar los números de clase existentes */
+  { id: 'vortice', name: 'Vórtice', type: 'Subfusil táctico', desc: 'Cadencia y control: a media distancia supera a los subfusiles clásicos.', dmg: 15, interval: 0.07, mag: 32, reload: 1.6, spread: 0.017, pellets: 1, range: 90, kick: 0.005, fall: [25, 60, 0.6], aimFov: 0.84, speed: 1.04, stats: [3, 5, 3], col: '#c77dff', size: [0.07, 0.1, 0.4], look: { mag: [0.04, 0.18, 0.07, -0.25], barrel: 0.4 }, optics: ['punto', 'hierro'] },
+  { id: 'centinela', name: 'Centinela', type: 'Fusil de batalla', desc: 'Tres disparos al cuerpo o dos a la cabeza. Preciso y contundente.', dmg: 48, head: 96, interval: 0.36, mag: 12, reload: 2.2, spread: 0.006, pellets: 1, range: 220, kick: 0.02, fall: null, aimFov: 0.55, speed: 0.96, stats: [5, 2, 5], col: '#2dd4bf', size: [0.07, 0.1, 0.62], look: { scope: 0.18, barrel: 0.4 } }
 ];
 /* Miras: `fov` es el factor de campo de visión al apuntar (menor = más zoom); `h` la altura de la línea de mira sobre el arma. */
 /* [AJUSTE estilo Krunker] Recargas un 20 % más cortas: menos tiempo indefenso, más ritmo de combate. El servidor usa los mismos valores. */
@@ -151,6 +154,43 @@ const MAPS = [
       b.mirror4((sx, sz) => b.addBox(sx * 14, 0, sz * 20, 3, 1.6, 3, ST));
       b.horizon(26, 80, 125, 22, 46, 8, 14, ['#3fbf5a', '#2a9d4b']);
     }
+  },
+  {
+    name: 'Fábrica', half: 40, desc: 'Nave industrial al atardecer: plataforma central, columnas altas y muros con huecos para flanquear.',
+    sky: ['#2c3566', '#ffb37a'], fog: '#e9b08a', floor: ['#6f7891', '#616a84'], out: '#59627c', pal: ['#ffb37a', '#7b869f', '#e5533d', '#ffb020', '#39445e'],
+    look: { floor: 'concfloor', wall: 'concrete', block: 'concrete', metal: 'metal', crate: 'crate', plat: 'concrete', sun: '#ffd9a8', decor: 'port', wallH: 9 },
+    build(b) {
+      const M = '#7b869f', Y = '#ffb020', R = '#e5533d', D = '#39445e', G = '#9aa6be';
+      b.perimeter(40, 9, '#6b7590');
+      // Plataforma central con escaleras a los lados y una cobertura arriba
+      b.addBox(0, 0, 0, 12, 3.2, 12, G); b.stairs(-12, 0, 1, 0, 6, 3.2, 4, M); b.stairs(12, 0, -1, 0, 6, 3.2, 4, M); b.addBox(0, 3.2, 0, 3, 1.4, 3, Y);
+      b.mirror4((sx, sz) => {
+        b.addBox(sx * 15, 0, sz * 15, 3.5, 6, 3.5, D);            // columnas altas
+        b.addBox(sx * 26, 0, sz * 8, 2, 1.6, 14, M);              // muros bajos laterales
+        b.addBox(sx * 8, 0, sz * 27, 14, 3, 2, R);                // muros altos con huecos en el centro
+        b.addBox(sx * 30, 0, sz * 26, 6, 2.6, 6, Y);              // contenedores de esquina
+        b.addBox(sx * 20, 0, sz * 22, 2.4, 1.3, 2.4, G);          // cajas sueltas
+      });
+      b.horizon(24, 70, 120, 16, 44, 8, 14, ['#6c7bb3', '#5d6ba3']);
+    }
+  },
+  {
+    name: 'Cañón', half: 40, desc: 'Dos mesetas rocosas unidas por un cauce seco: combate a distancia arriba y cuerpo a cuerpo abajo.',
+    sky: ['#1a78ff', '#ffd9a0'], fog: '#f6cf9c', floor: ['#e7b170', '#d99f5c'], out: '#d99f5c', pal: ['#ffd9a0', '#e3a666', '#b8683a', '#c98a52', '#7a3f22'],
+    look: { floor: 'sandfloor', wall: 'sand', block: 'sand', hill: 'sandfloor', awning: 'awning', sun: '#ffe9b0', decor: 'desert', wallH: 10 },
+    build(b) {
+      const RK = '#c98a52', RD = '#a86a38', LT = '#dfa872', DK = '#7a3f22';
+      b.perimeter(40, 10, '#b8683a');
+      [-1, 1].forEach(s => {
+        b.addBox(s * 27, 0, 0, 16, 4.4, 24, RK); b.addBox(s * 27, 4.4, 0, 8, 1.2, 10, LT);           // mesetas con cima escalonada
+        b.stairs(s * 9, -7, s, 0, 10, 4.4, 5, RD); b.stairs(s * 9, 7, s, 0, 10, 4.4, 5, RD);          // dos rampas por meseta hacia el cauce
+        b.addBox(s * 34, 0, 16, 4, 2, 4, DK); b.addBox(s * 34, 0, -16, 4, 2, 4, DK);
+      });
+      // Cauce seco central: columnas de roca y muretes para cubrirse
+      b.mirror4((sx, sz) => { b.addBox(sx * 5, 0, sz * 13, 3, 3.6, 3, RD); b.addBox(sx * 3, 0, sz * 27, 8, 1.6, 2, LT); });
+      b.addBox(0, 0, 0, 5, 1.4, 5, RK); b.addBox(0, 0, 30, 6, 2.4, 3, RD); b.addBox(0, 0, -30, 6, 2.4, 3, RD);
+      b.horizon(20, 70, 115, 14, 40, 8, 16, ['#e3a666', '#d18d4d']);
+    }
   }
 ];
 /* Colisiones */
@@ -241,6 +281,10 @@ function buildWorld(i, onBox) {
 
 /* Economía (PX) y progreso: se comparten con el servidor, que es quien reparte y cobra en las cuentas online. */
 const COLOR_COSTS = [0, 0, 0, 0, 150, 150, 300, 300, 500, 500];
+/* [NUEVO] Los colores de pago (coste > 0) se pueden comerciar en el mercado; su rareza depende del coste. */
+const COLOR_NAMES = ['Naranja', 'Coral', 'Azul', 'Turquesa', 'Amarillo', 'Violeta', 'Cian', 'Lima', 'Carbón', 'Blanco'];
+const COLOR_HEX = ['#ff7b00', '#ff4d6d', '#3a86ff', '#2ec4b6', '#ffbe0b', '#b388ff', '#00c2ff', '#8ae234', '#3b4058', '#f2f5ff'];
+const colorRarity = i => (COLOR_COSTS[i] >= 500 ? 'epico' : COLOR_COSTS[i] >= 300 ? 'raro' : 'poco');
 const RANKS = [
   { n: 'Bronce', pts: 0, col: '#cd7f32', kr: 50 },
   { n: 'Plata', pts: 1500, col: '#c9d1e4', kr: 150 },
@@ -325,7 +369,29 @@ const bpInfo = r => {
 const crFor = (points, won) => Math.min(400, Math.round(Math.max(0, points) / 8) + (won ? 40 : 0));   // CR por partida online
 const MARKET = { FEE: 0.10, MAX_LISTINGS: 8, MAX_PRICE: 1000000, MIN_PRICE: { comun: 20, poco: 60, raro: 150, epico: 400, leyenda: 1000 } };   // comisión del 10 %, precio mínimo por rareza
 
-const api = { CONST, WEAPONS, crFor, MARKET, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, raySphere, rayCyl };
+/* ---------- [NUEVO] Modos de juego, clasificatorio y ligas ----------
+   Todos los modos son por equipos (azul / rojo, sin fuego amigo). «duelo» es el modo de siempre. */
+const MODES = {
+  duelo:     { id: 'duelo',     name: 'Duelo por equipos', short: 'DUELO',    desc: 'El clásico: gana el equipo que llegue antes al límite de bajas.', guns: true },
+  zona:      { id: 'zona',      name: 'Capturar zona',     short: 'ZONA',     desc: 'Una zona cambia de sitio cada 50 s. Suma puntos el equipo que la controla en solitario.', guns: true },
+  cuchillos: { id: 'cuchillos', name: 'Solo cuchillos',    short: 'CUCHILLOS', desc: 'Sin armas de fuego: cuchillo en mano y a moverse rápido.', guns: false },
+  carrera:   { id: 'carrera',   name: 'Carrera de armas',  short: 'CARRERA',  desc: 'Cada baja te da un arma nueva. Al llegar al cuchillo, una baja más y tu equipo gana. Si te matan a cuchillo, bajas de nivel.', guns: true }
+};
+const GUN_LADDER = [8, 0, 9, 1, 7, 2, 10, 4, 6, 5, 3];   // armas por nivel (AK → … → Lince); tras la última viene el cuchillo (nivel 12)
+const ZONE = { R: 5.5, MOVE_SECS: 50, LIMIT: 100 };  // radio de la zona, cada cuánto cambia de sitio y puntos para ganar
+const LEAGUES = [
+  { n: 'Hierro',   min: 0,    col: '#8a8f9e', cr: 0,    px: 0 },
+  { n: 'Bronce',   min: 900,  col: '#cd7f32', cr: 150,  px: 0 },
+  { n: 'Plata',    min: 1100, col: '#c9d1e4', cr: 300,  px: 50 },
+  { n: 'Oro',      min: 1300, col: '#ffd54a', cr: 600,  px: 100 },
+  { n: 'Platino',  min: 1500, col: '#63e6ff', cr: 1000, px: 200 },
+  { n: 'Diamante', min: 1700, col: '#7aa2ff', cr: 1600, px: 350 },
+  { n: 'Élite',    min: 1900, col: '#ff4dd8', cr: 2500, px: 600 }
+];
+const leagueIdx = mmr => { let i = 0; LEAGUES.forEach((l, k) => { if (mmr >= l.min) i = k; }); return i; };
+const RANKED = { START: 1000, MIN_GAMES: 5, K: 24, K_PLACE: 32, PLACEMENT: 10, LEAVE_PENALTY: 15, MIN_TEAM: 1 };   // partidas mínimas para premio, K de Elo, penalización por abandonar
+
+const api = { COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

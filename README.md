@@ -129,6 +129,34 @@ Cada cuenta se guarda con un **UUID permanente**; el nombre de usuario es solo u
 
 **Límites conocidos.** Solo son comerciables los objetos del pase (no los colores comprados con PX); no hay bloqueo de intercambio para objetos recién conseguidos; las fotos se moderan a posteriori (denuncia + retirada desde el panel); las fotos se sirven desde el propio servidor, sin CDN.
 
+## Novedades de esta actualización
+
+**Modos de juego** (botón «Modo» del menú; todos por equipos y sin fuego amigo): *Duelo por equipos* (el de siempre), *Capturar zona* (una zona cambia de sitio cada 50 s; suma un punto por segundo el equipo que la controla en solitario), *Solo cuchillos* y *Carrera de armas* (cada baja te da el arma siguiente; en el nivel del cuchillo una baja más gana; si te matan a cuchillo bajas de nivel). La carrera es por equipos, no todos contra todos.
+
+**Clasificatorio y temporadas** (`server/ranked.js`). Solo con cuenta y en Duelo por equipos. Puntuación tipo Elo (colocación en las 10 primeras partidas), 7 ligas (Hierro → Élite), emparejamiento por liga (la diferencia con la liga media de la sala no puede pasar de 1) y −15 puntos por abandonar una partida en marcha. Temporadas de `SEASON_DAYS` (30): al cerrar (sola o desde el panel, `POST /api/admin/ranked/close {confirm:true}`) se pagan Créditos/PX según la mejor liga (mínimo `RANKED_MIN_GAMES` = 5 partidas), se guarda una insignia en el perfil y la puntuación de todos se acerca a 1000.
+
+**Más armas y mapas.** Dos armas nuevas: *Vórtice* (subfusil táctico) y *Centinela* (fusil de batalla: 3 disparos al cuerpo o 2 a la cabeza); entran en la Carrera de armas. Dos mapas nuevos: *Fábrica* y *Cañón*, simétricos, con todos los puntos de aparición alcanzables (comprobado en `test/content.test.js`). Las armas y mapas de siempre conservan su número.
+
+**Eventos temporales** (`server/events.js`). Además del evento diario de PX por arma: un **modo destacado** que rota cada lunes (00:00 UTC) — zona → cuchillos → carrera → duelo — con +50 % de PX y Créditos (`EVENT_FEATURED_MULT`, 1 lo desactiva), y **eventos del administrador** (panel → *Eventos*): nombre, modo y/o arma opcionales, ×1 a ×3 de PX y de Créditos y duración limitada. Varios a la vez se multiplican con un tope de ×3; los topes diarios de PX y Créditos siguen valiendo. El menú enseña los activos con el tiempo que les queda y el resumen de la partida dice cuáles se aplicaron. Ruta pública: `GET /api/events`.
+
+**Cámara de muerte y espectador.** Tras morir se ve a quien te eliminó desde detrás, con su arma, la distancia y la vida que le quedaba. En el panel, «Ver en vivo» en una sala abre `/?spec=<sala>` como espectador (solo administradores) con estadísticas por jugador (precisión, cabezas, correcciones de movimiento, cadencia anómala, ping) y avisos de posibles trampas.
+
+**Mercado y economía** (`server/market.js`, migración `005_market_v2.sql`). Intercambio directo objeto por objeto entre **amigos** (caduca a las 48 h; en una sola transacción). **Historial de precios**: precio de referencia (media, mínimo, máximo y último de los últimos 30 días) al vender y en cada anuncio. **Bloqueo** de `TRADE_LOCK_HOURS` (24) para objetos recién conseguidos (pase, compra o intercambio); retirar un anuncio no reinicia el bloqueo. **Colores de PX** comerciables (los 4 gratuitos no). Los colores viven en la cuenta y no en la tabla de objetos: con PostgreSQL su transferencia no es una única transacción (una caída del servidor justo entre dos pasos podría duplicar o perder un color).
+
+**Robustez.** Al apagar el servidor ahora se vacían también los almacenes de temporadas, eventos, ofertas de intercambio y denuncias de perfil (antes podían perder hasta 1,5 s de cambios).
+
+**Incluido pero desactivado por defecto:** moderación de fotos de perfil (`AVATAR_MODERATION=hold|auto`, con `AVATAR_MODERATION_URL`) y dirección de CDN para las fotos (`AVATAR_CDN_URL`). Sin configurar, las fotos se ven al momento como siempre.
+
+| Variable | Por defecto | Para qué sirve |
+|---|---|---|
+| `KNIFE_KILL_LIMIT` | `25` | Bajas para ganar en «Solo cuchillos» |
+| `ZONE_LIMIT` / `ZONE_MOVE_SECS` | `100` / `50` | Puntos para ganar en «Capturar zona» y cada cuánto cambia de sitio |
+| `SEASON_DAYS` | `30` | Duración de una temporada clasificatoria |
+| `RANKED_MIN_GAMES` | `5` | Partidas clasificatorias para cobrar el premio de temporada |
+| `TRADE_LOCK_HOURS` | `24` | Bloqueo de objetos recién conseguidos antes de venderlos o intercambiarlos |
+| `EVENT_FEATURED_MULT` | `1.5` | Bonificación del modo destacado de la semana (1 = desactivado) |
+| `EVENT_MAX_HOURS` | `168` | Duración máxima de un evento lanzado desde el panel |
+
 ## 1. Probarlo en tu ordenador (2 minutos)
 
 Necesitas [Node.js 18 o superior](https://nodejs.org).
