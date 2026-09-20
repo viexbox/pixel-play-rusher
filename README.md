@@ -77,6 +77,24 @@ Con `DATABASE_URL` también se guardan en la base las **cuentas, la contraseña 
 
 **Limitaciones conocidas.** Las skins se ven en tu arma en primera persona y en tu cuchillo, pero **los demás jugadores no las ven** (no se envían por red todavía). Los PX viven en el documento de cuentas y el pase en sus tablas: la compra se hace en dos pasos con devolución automática si falla, pero si el servidor se cae justo entre ambos pasos podría perderse esa operación.
 
+## Cuentas por ID único (UUID)
+
+Cada cuenta se guarda con un **UUID permanente**; el nombre de usuario es solo una etiqueta. Los PX, las estadísticas, los colores, los rangos, las sesiones, los pedidos de la tienda y el progreso del pase de batalla cuelgan del ID, así que cambiar de nombre (o que dos jugadores quieran el mismo) no toca nada de eso.
+
+- **Migración automática.** Las cuentas de versiones anteriores (clave = nombre, id numérico) pasan a UUID en el primer arranque conservando sesiones, PX, pase y pedidos; el id antiguo queda en `legacyId`. En PostgreSQL, además, la migración `002_uuid_users.sql` cambia `user_id` a texto y el servidor reasigna las filas del pase al UUID. **Haz una copia de tus datos (`accounts.json` o la base) antes de la primera vez que arranques esta versión.**
+- **Nombres.** Siguen siendo únicos entre cuentas registradas (sin distinguir mayúsculas ni acentos): evita suplantar a otro jugador, sobre todo a administradores e influencers. Si eliges uno ocupado, el registro responde con un error claro y **3 alternativas libres**.
+- **Cambiar de nombre.** Botón **Cambiar nombre** junto a «Cerrar sesión» (`POST /api/me/rename`). El primer cambio es libre y los siguientes cada `NAME_CHANGE_DAYS` días. La clasificación sigue a la cuenta por su ID. Un nombre baneado o reservado no se puede usar ni abandonar.
+- **Entrar a jugar.** Un invitado (o alguien con la sesión caducada) que pide el nombre de una cuenta **ya no se rechaza**: juega con un nombre libre parecido (`Nombre_482`) y se le avisa. Una cuenta = una sesión de juego: si se abre en otra pestaña, la nueva sustituye a la anterior.
+- **Limitación conocida.** Los baneos, el tic de influencer y el rango de administrador del panel siguen siendo por **nombre** (así se gestionan desde el panel); los baneos por IP no cambian.
+
+## Controles, HUD y sensaciones de combate
+
+- **Rueda del ratón / `1` / `2` / `Q`:** cambian entre el arma y el cuchillo en unos 0,11 s. Con el cuchillo en mano el clic golpea (0,55 s entre golpes; el servidor exige 0,48 s), no se dispara, recarga ni apunta, y al reaparecer se vuelve al arma. `V` sigue siendo el golpe rápido desde el arma. Los giros de rueda durante el enfriamiento se descartan para que la inercia de un trackpad no haga rebotar el cambio. Se desactiva en *Ajustes → Cambiar arma con la rueda*.
+- **HUD rediseñado:** vida con número grande, barra continua y un **rastro** blanco que enseña el daño recién recibido, alerta roja con vida baja; abajo a la derecha, ranuras de arma (la activa se ensancha y se ilumina), munición grande y barra de recarga.
+- **Impacto y daño:** el marcador de impacto se anima (blanco = impacto, dorado = cabeza, rojo con aro = baja); la viñeta roja y la **sacudida de pantalla** son proporcionales al daño recibido, y hay un toque de sacudida al disparar y al golpear con el cuchillo. *Ajustes → Sacudida de pantalla* (0 % la desactiva; también se respeta la preferencia «reducir movimiento» del sistema).
+- **Calidad adaptativa:** si el FPS medio queda por debajo de 40 en dos mediciones seguidas (2 s), baja la resolución interna (×2 → ×1,5 → ×1 → ×0,75) y, al final, apaga las sombras. Solo baja, no cambia los ajustes guardados y no actúa en pausa ni con la pestaña oculta.
+- **Limitación conocida.** Los demás jugadores ven tu golpe de cuchillo, pero no el cuchillo en tu mano mientras no golpeas.
+
 ## AK, miras y chat
 
 - **AK** (clase 9): mucho daño y retroceso marcado. Miras: hierro, punto rojo, holográfica y ACOG (zoom creciente, retícula propia y el arma sube para alinear la línea de mira). Se eligen en el lobby (panel «Mira») o en partida con **B**.
@@ -198,6 +216,7 @@ También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con co
 | `DATABASE_URL` | *(vacío)* | Conexión a **PostgreSQL** (`postgres://usuario:clave@host:5432/base`). Con ella, el pase de batalla usa sus tablas y las cuentas, el panel y la clasificación se guardan en la base de datos (sobreviven a reinicios). Sin ella, todo va a archivos en `DATA_DIR` |
 | `DATABASE_SSL` | `auto` | `auto`: TLS salvo en `localhost`; `on` fuerza TLS; `off` lo desactiva (por si tu proveedor no lo admite en la red interna) |
 | `DATABASE_POOL` | `8` | Conexiones máximas a PostgreSQL |
+| `NAME_CHANGE_DAYS` | `7` | Días de espera entre cambios de nombre de una cuenta (el primer cambio es libre; `0` = sin espera) |
 | `BP_VIP_PX` | `1500` | Precio del Pase VIP (y de regalarlo), en PX |
 | `BP_SKIP_PX` | `120` | Precio por nivel al «Saltar niveles», en PX |
 | `BP_XP_DAILY_CAP` | `8000` | XP máxima que una cuenta puede ganar jugando cada día |

@@ -24,7 +24,26 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
   const now = () => Date.now();
   const db = new Store(path.join(dataDir, 'accounts.json'), { seq: 0, users: {}, sessions: {}, orders: [], pxlog: [] }, log);
   const D = db.data;
-  const byId = new Map(Object.values(D.users).map(u => [u.id, u]));
+  /* ===== [NUEVO] Identidad por ID =====
+     Cada cuenta se guarda con un UUID permanente (D.users[uuid]). El nombre de usuario es solo una etiqueta que se puede cambiar: el progreso, los PX, el pase
+     de batalla y las sesiones cuelgan del ID. `byKey` es un índice (nombre normalizado → cuenta) que se reconstruye al arrancar y sirve para que dos cuentas no
+     compartan nombre. Las cuentas antiguas (clave = nombre, id numérico) se migran solas en el primer arranque conservando su antiguo id en `legacyId`. */
+  const isUuid = s => typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
+  const byId = new Map(), byKey = new Map();
+  let migrated = 0;
+  (function loadUsers() {
+    const remap = new Map(), users = {};
+    for (const u of Object.values(D.users)) {
+      if (!isUuid(u.id)) { const old = String(u.id); u.legacyId = u.legacyId || old; u.id = crypto.randomUUID(); remap.set(old, u.id); migrated++; }
+      u.key = ukey(u.username); users[u.id] = u; byId.set(u.id, u); byKey.set(u.key, u);
+    }
+    D.users = users;
+    for (const [h, s] of Object.entries(D.sessions || {})) if (!isUuid(s.uid)) { const n = remap.get(String(s.uid)); if (n) s.uid = n; else delete D.sessions[h]; }
+    for (const o of D.orders || []) if (!isUuid(o.uid) && remap.has(String(o.uid))) o.uid = remap.get(String(o.uid));
+    if (migrated) { log('Cuentas migradas a identificador único (UUID): ' + migrated); db.flush(); }
+  })();
+  const hooks = { onRename: null };   // server.js lo usa para mantener la clasificación al día cuando alguien cambia de nombre
+  const NAME_CHANGE_MS = (+env.NAME_CHANGE_DAYS >= 0 ? +env.NAME_CHANGE_DAYS : 7) * 86400000;   // espera entre cambios de nombre (el primero es libre)
   const REG_MAX = +env.ACCOUNTS_REG_MAX || 5;                 // registros por IP y hora
   const PX_DAILY_CAP = +env.PX_DAILY_CAP || 5000;             // PX máximos por cuenta y día que se pueden ganar jugando
   const ALLOWED_ORIGINS = String(env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -56,8 +75,14 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     if (s.exp < now()) { delete D.sessions[sha(token)]; return null; }
     return byId.get(s.uid) || null;
   }
-  const nameTaken = name => !!D.users[ukey(name)];
-  const err = (code, error) => ({ code, error });
+  const nameTaken = name => byKey.has(ukey(name));
+  const err = (code, error, extra) => Object.assign({ code, error }, extra || {});
+  /* [NUEVO] Alternativas libres cuando el nombre elegido ya está cogido (en vez de un simple «ya en uso») */
+  function suggest(base) {
+    base = String(base || 'Jugador').replace(/[^\p{L}\p{N}_-]/gu, '').slice(0, 10) || 'Jugador'; const out = [];
+    for (let i = 0; i < 40 && out.length < 3; i++) { const n = base + (i % 2 ? '_' : '') + (10 + Math.floor(Math.random() * 990)); if (!byKey.has(ukey(n)) && !out.includes(n) && !admin.isReserved(n)) out.push(n); }
+    return out;
+  }
 
   function checkUsername(name) {
     name = String(name || '').trim();
@@ -77,21 +102,21 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     const ban = admin.banFor(username, ip); if (ban) return err(403, admin.banMessage(ban));
     if (admin.isReserved(username)) return err(400, 'Ese nombre está reservado.');
     const key = ukey(username);
-    if (D.users[key]) return err(409, 'Ese nombre de usuario ya está en uso. Elige otro.');
+    if (byKey.has(key)) return err(409, 'Ese nombre de usuario ya está en uso. Elige otro.', { suggestions: suggest(username) });
     if (Object.values(D.users).some(u => u.email === email)) return err(409, 'Ese correo ya tiene una cuenta.');
     hits.push(t); regHits.set(ip, hits);
     const salt = hex(16), hash = (await scrypt(pw, salt)).toString('hex');
-    if (D.users[key]) return err(409, 'Ese nombre de usuario ya está en uso. Elige otro.');   // otra petición pudo ganarle mientras se calculaba el hash
-    const u = { id: ++D.seq, username, key, email, salt, hash, createdAt: t, lastLogin: t, px: 0, stats: EMPTY_STATS(), unlocked: [0, 1, 2, 3], claimed: [], day: { d: '', px: 0 } };
-    D.users[key] = u; byId.set(u.id, u); db.save();
-    log('Cuenta nueva: ' + username);
+    if (byKey.has(key)) return err(409, 'Ese nombre de usuario ya está en uso. Elige otro.', { suggestions: suggest(username) });   // otra petición pudo ganarle mientras se calculaba el hash
+    const u = { id: crypto.randomUUID(), username, key, email, salt, hash, createdAt: t, lastLogin: t, px: 0, stats: EMPTY_STATS(), unlocked: [0, 1, 2, 3], claimed: [], day: { d: '', px: 0 } };
+    D.users[u.id] = u; byId.set(u.id, u); byKey.set(key, u); db.save();   // [NUEVO] la cuenta se guarda por su ID
+    log('Cuenta nueva: ' + username + ' (' + u.id + ')');
     return { ok: true, token: newSession(u), profile: pub(u) };
   }
   async function login(b, ip) {
     const idf = String(b.identifier || '').trim(), pw = String(b.password || '');
     const kIp = 'ip:' + ip, kId = 'id:' + (ukey(idf) || normEmail(idf));
     const t = now(); for (const k of [kIp, kId]) { const f = fails.get(k); if (f && f.until > t) return err(429, 'Demasiados intentos. Espera ' + Math.ceil((f.until - t) / 1000) + ' s.'); }
-    const u = D.users[ukey(idf)] || Object.values(D.users).find(x => idf.includes('@') && x.email === normEmail(idf)) || null;
+    const u = byKey.get(ukey(idf)) || Object.values(D.users).find(x => idf.includes('@') && x.email === normEmail(idf)) || null;   // por nombre o por correo; la sesión que se crea va ligada al ID
     let good = false;
     try { const h = await scrypt(pw, u ? u.salt : 'a'.repeat(32)), st = Buffer.from(u ? u.hash : 'b'.repeat(128), 'hex'); good = !!u && h.length === st.length && crypto.timingSafeEqual(h, st); } catch (e) { good = false; }
     if (!good) {
@@ -125,10 +150,10 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     db.save(); return { ok: true, profile: pub(u), gained: r.kr };
   }
   function adjust(username, delta, reason, by) {
-    const u = D.users[ukey(username)]; if (!u) return err(404, 'No existe ninguna cuenta con ese nombre.');
+    const u = byKey.get(ukey(username)); if (!u) return err(404, 'No existe ninguna cuenta con ese nombre.');
     delta = Math.trunc(+delta); if (!Number.isFinite(delta) || delta === 0 || Math.abs(delta) > 1000000) return err(400, 'La cantidad debe ser un número entero distinto de 0 (máximo 1.000.000).');
     const applied = delta < 0 ? -Math.min(u.px, -delta) : delta; u.px += applied;
-    D.pxlog.unshift({ ts: now(), user: u.username, delta, applied, balance: u.px, reason: clean(reason, 120), by });
+    D.pxlog.unshift({ ts: now(), uid: u.id, user: u.username, delta, applied, balance: u.px, reason: clean(reason, 120), by });
     if (D.pxlog.length > 2000) D.pxlog.length = 2000; db.save();
     return { ok: true, username: u.username, applied, balance: u.px };
   }
@@ -136,13 +161,29 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
   /* Cobro y abono de PX para otros módulos (pase de batalla). spend() no deja saldos negativos: devuelve false si no alcanza. */
   function spend(u, n, reason) {
     n = Math.trunc(n); if (!(n > 0) || u.px < n) return false;
-    u.px -= n; D.pxlog.unshift({ ts: now(), user: u.username, delta: -n, applied: -n, balance: u.px, reason: clean(reason, 120), by: 'juego' }); if (D.pxlog.length > 2000) D.pxlog.length = 2000; db.save(); return true;
+    u.px -= n; D.pxlog.unshift({ ts: now(), uid: u.id, user: u.username, delta: -n, applied: -n, balance: u.px, reason: clean(reason, 120), by: 'juego' }); if (D.pxlog.length > 2000) D.pxlog.length = 2000; db.save(); return true;
   }
   function grant(u, n, reason) {
     n = Math.trunc(n); if (!(n > 0)) return; u.px += n;
-    D.pxlog.unshift({ ts: now(), user: u.username, delta: n, applied: n, balance: u.px, reason: clean(reason, 120), by: 'juego' }); if (D.pxlog.length > 2000) D.pxlog.length = 2000; db.save();
+    D.pxlog.unshift({ ts: now(), uid: u.id, user: u.username, delta: n, applied: n, balance: u.px, reason: clean(reason, 120), by: 'juego' }); if (D.pxlog.length > 2000) D.pxlog.length = 2000; db.save();
   }
-  const find = name => D.users[ukey(name)] || null;
+  const find = name => byKey.get(ukey(name)) || null;
+  const findById = id => byId.get(String(id)) || null;
+
+  /* [NUEVO] Cambiar de nombre sin perder nada: todo cuelga del ID, no del nombre. El primer cambio es libre; los siguientes, cada NAME_CHANGE_DAYS días. */
+  function rename(u, name, ip) {
+    name = String(name || '').trim(); const e = checkUsername(name); if (e) return err(400, e);
+    if (name === u.username) return err(400, 'Ese ya es tu nombre.');
+    if (u.renamedAt && now() - u.renamedAt < NAME_CHANGE_MS) return err(429, 'Podrás cambiar el nombre otra vez en ' + Math.ceil((NAME_CHANGE_MS - (now() - u.renamedAt)) / 86400000) + ' día(s).');
+    if (admin.banFor(u.username, ip) || admin.banFor(name, ip)) return err(403, 'No puedes cambiar de nombre ahora mismo.');
+    if (admin.isReserved(u.username) || admin.isReserved(name)) return err(400, 'Ese nombre está reservado.');
+    const key = ukey(name), other = byKey.get(key);
+    if (other && other !== u) return err(409, 'Ese nombre de usuario ya está en uso. Elige otro.', { suggestions: suggest(name) });
+    const old = u.username; byKey.delete(u.key); u.username = name; u.key = key; byKey.set(key, u);
+    u.renamedAt = now(); u.prevNames = (u.prevNames || []).concat(old).slice(-5); db.save();
+    log('Cambio de nombre: ' + old + ' → ' + name + ' (' + u.id + ')'); if (hooks.onRename) hooks.onRename(u, old);
+    return { ok: true, profile: pub(u) };
+  }
 
   /* ---------- Compras (Stripe Checkout) ---------- */
   async function checkout(u, packId) {
@@ -212,10 +253,11 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
         else if (key === 'POST /api/auth/logout') { delete D.sessions[sha(token)]; db.save(); out = { ok: true }; }
         else if (key === 'POST /api/me/unlock') out = unlockColor(u, b.i);
         else if (key === 'POST /api/me/claim') out = claimRank(u, b.i);
+        else if (key === 'POST /api/me/rename') out = rename(u, b.username, ip);   // [NUEVO]
         else if (key === 'POST /api/store/checkout') out = await checkout(u, String(b.pack || ''));
         else { send(req, res, 404, { error: 'No encontrado.' }); return true; }
       }
-      send(req, res, out.code || 200, out.error ? { error: out.error } : out);
+      send(req, res, out.code || 200, out.error ? { error: out.error, suggestions: out.suggestions } : out);
     } catch (e) { send(req, res, 400, { error: e.message === 'cuerpo demasiado grande' ? e.message : 'Petición no válida.' }); }
     return true;
   }
@@ -224,14 +266,17 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
   admin.addRoutes({
     'GET /accounts': ({ q }) => {
       const s = ukey(q.get('q')), list = Object.values(D.users).filter(u => !s || u.key.includes(s) || u.email.includes(String(q.get('q')).toLowerCase())).sort((a, b) => b.createdAt - a.createdAt);
-      return { total: Object.keys(D.users).length, accounts: list.slice(0, 100).map(u => ({ username: u.username, email: maskEmail(u.email), px: u.px, points: u.stats.points, games: u.stats.games, createdAt: u.createdAt, lastLogin: u.lastLogin })) };
+      return { total: Object.keys(D.users).length, accounts: list.slice(0, 100).map(u => ({ id: u.id, username: u.username, email: maskEmail(u.email), px: u.px, points: u.stats.points, games: u.stats.games, createdAt: u.createdAt, lastLogin: u.lastLogin })) };
     },
     'POST /px': ({ b, s }) => { const r = adjust(b.username, b.delta, b.reason, s.user); if (!r.error) admin.audit(s.user, 'px-' + (r.applied >= 0 ? 'sumar' : 'restar'), r.username + ' ' + (r.applied >= 0 ? '+' : '') + r.applied + ' PX' + (b.reason ? ' · ' + clean(b.reason, 80) : '')); return r; },
     'GET /orders': () => ({ enabled: storeOn(), orders: D.orders.slice(0, 200), pxlog: D.pxlog.slice(0, 100) })
   });
 
   const readJson = req => readRaw(req, 4000).then(t => (t ? JSON.parse(t) : {}));
-  return { handleHttp, handles, fromToken, nameTaken, awardMatch, profile: pub, flush: () => db.flush(), adjust, register, storeInfo, spend, grant, find, http: { send, readJson } };
+  /* Ids antiguos (numéricos) cuyas filas del pase aún hay que pasar al UUID nuevo (lo hace battlepass.js al arrancar) */
+  const legacyPending = () => Object.values(D.users).filter(u => u.legacyId && !u.bpMoved).map(u => ({ old: u.legacyId, id: u.id }));
+  const legacyDone = ids => { for (const id of ids) { const u = byId.get(id); if (u) u.bpMoved = true; } db.save(); };
+  return { handleHttp, handles, fromToken, nameTaken, awardMatch, profile: pub, flush: () => db.flush(), adjust, register, storeInfo, spend, grant, find, findById, rename, suggest, hooks, legacyPending, legacyDone, http: { send, readJson } };
 }
 
 module.exports = { createAccounts, ukey };

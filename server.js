@@ -70,7 +70,8 @@ function lbSave() {
 function lbRecord(e) {
   if (!(e.p > 0)) return;
   const key = e.n.toLowerCase();
-  const i = lb.entries.findIndex(x => x.m === e.m && x.n.toLowerCase() === key);
+  /* [NUEVO] con cuenta (e.a = UUID) la entrada se busca por ID; el nombre solo sirve para jugadores sin cuenta */
+  const i = lb.entries.findIndex(x => x.m === e.m && (e.a ? x.a === e.a || (!x.a && x.n.toLowerCase() === key) : !x.a && x.n.toLowerCase() === key));
   if (i >= 0) { if (lb.entries[i].p >= e.p) return; lb.entries[i] = e; } else lb.entries.push(e);
   // conservar como máximo 300 entradas por mapa
   const perMap = {};
@@ -86,7 +87,7 @@ function lbQuery(map) {
     for (const e of lb.entries) { const k = e.n.toLowerCase(); if (!best.has(k) || best.get(k).p < e.p) best.set(k, e); }
     list = [...best.values()];
   }
-  return list.sort((a, b) => b.p - a.p || b.k - a.k).slice(0, 50);
+  return list.sort((a, b) => b.p - a.p || b.k - a.k).slice(0, 50).map(({ a, ...pub }) => pub);   // [NUEVO] el ID de la cuenta no sale en la clasificación pública
 }
 
 /* =====================================================================
@@ -173,7 +174,7 @@ class Room {
     else this.sendBoard();
   }
   record(p, now) {
-    lbRecord({ n: p.name, p: p.points, k: p.kills, d: p.deaths, h: p.hs, c: S.WEAPONS[p.cls].name, m: this.map, t: now, r: p.role || 0 });
+    lbRecord({ n: p.name, p: p.points, k: p.kills, d: p.deaths, h: p.hs, c: S.WEAPONS[p.cls].name, m: this.map, t: now, r: p.role || 0, a: p.acctUser ? p.acctUser.id : undefined });
   }
   /* Historial de partidas para analizar el comportamiento (un registro por jugador y ronda) */
   history(p, now) {
@@ -266,7 +267,7 @@ class Room {
     v.hp -= amount; v.lastHit = now;
     const killed = v.hp <= 0;
     a.send(JSON.stringify({ t: 'hit', v: v.id, h: head ? 1 : 0, d: amount, k: killed ? 1 : 0 }));
-    v.send(JSON.stringify({ t: 'hurt', hp: Math.max(0, Math.round(v.hp)), ax: r3(a.x), az: r3(a.z) }));
+    v.send(JSON.stringify({ t: 'hurt', hp: Math.max(0, Math.round(v.hp)), d: Math.round(amount), ax: r3(a.x), az: r3(a.z) }));   // [NUEVO] d = daño recibido (para la viñeta y la sacudida)
     if (!killed) return;
     v.alive = false; v.hp = 0; v.deaths++; v.streak = 0; v.respawnAt = now + RESPAWN_MS;
     a.kills++; a.streak++; if (a.streak > a.bestStreak) a.bestStreak = a.streak;
@@ -417,6 +418,16 @@ const server = http.createServer((req, res) => {
    ===================================================================== */
 const wss = new WebSocketServer({ noServer: true, maxPayload: 4096, perMessageDeflate: false });
 const connections = new Set();
+
+/* [NUEVO] Identidad de los jugadores sin cuenta: nombre libre para invitados y sesión única por cuenta */
+function freeGuestName(base) {
+  base = String(base || 'Jugador').slice(0, 10);
+  for (let i = 0; i < 40; i++) { const n = base + '_' + (100 + Math.floor(Math.random() * 900)); if (!accounts.nameTaken(n) && !admin.isReserved(n)) return n; }
+  return 'Jugador' + (Date.now() % 100000);
+}
+function kickOtherSessions(acctId, except) {
+  for (const w of connections) if (w !== except && w.acctId === acctId && w.readyState === 1) { try { w.send(JSON.stringify({ t: 'err', m: 'Tu cuenta se ha abierto en otra pestaña o dispositivo.' })); w.close(); } catch (e) { /* ya cerrado */ } }
+}
 const lobby = new Set();
 const perIp = new Map();
 const cleanChat = s => String(s || '').replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120);
@@ -448,6 +459,8 @@ admin = createAdmin({
 });
 accounts = createAccounts({ dataDir: DATA_DIR, log, S, admin });
 bp = createBattlePass({ S, accounts, admin, db: PGDB, dataDir: DATA_DIR, log });
+/* [NUEVO] Si una cuenta cambia de nombre, sus entradas de la clasificación cambian con ella (siguen a su ID; las antiguas, sin ID, se reconocen por el nombre viejo) */
+accounts.hooks.onRename = (u, old) => { const ok = old.toLowerCase(); let n = 0; for (const e of lb.entries) if (e.a === u.id || (!e.a && e.n.toLowerCase() === ok)) { e.a = u.id; e.n = u.username; n++; } if (n) lbSaveSoon(); };
 if (PGDB) { admin.flushAll(); accounts.flush(); lbSave(); }   // primer arranque con PostgreSQL: lo importado de archivos pasa ya a la base de datos
 
 server.on('upgrade', (req, socket, head) => {
@@ -496,11 +509,17 @@ function onMessage(ws, m, now) {
   if (m.t === 'hello') {
     if (ws.player) return;
     if (m.v !== PROTOCOL) { ws.send(JSON.stringify({ t: 'err', m: 'Versión antigua del juego. Recarga la página.' })); return ws.close(); }
-    const acct = accounts.fromToken(typeof m.acct === 'string' ? m.acct : '');   // con cuenta online el nombre es el de la cuenta (único)
+    const acct = accounts.fromToken(typeof m.acct === 'string' ? m.acct : '');   // con cuenta online el nombre mostrado es el actual de la cuenta; la identidad real es su ID
     const wanted = acct ? acct.username : (sanitizeName(m.n) || 'Jugador' + (100 + Math.floor(Math.random() * 900)));
-    const idt = admin.resolveIdentity({ name: wanted, adm: typeof m.adm === 'string' ? m.adm.slice(0, 80) : '', inf: typeof m.inf === 'string' ? m.inf.slice(0, 40) : '', ip: ws.ip });
+    const who = { adm: typeof m.adm === 'string' ? m.adm.slice(0, 80) : '', inf: typeof m.inf === 'string' ? m.inf.slice(0, 40) : '', ip: ws.ip };
+    let idt = admin.resolveIdentity(Object.assign({ name: wanted }, who));
     if (!idt.ok) { ws.send(JSON.stringify({ t: 'err', m: idt.error })); return ws.close(); }
-    if (!acct && !idt.role && accounts.nameTaken(idt.name)) { ws.send(JSON.stringify({ t: 'err', m: 'Ese nombre pertenece a un jugador registrado. Inicia sesión para usarlo o elige otro.' })); return ws.close(); }
+    /* [MEJORA] Un invitado (o alguien con la sesión caducada) que pide el nombre de una cuenta registrada YA NO se rechaza ni se le cierra la conexión:
+       juega con un nombre libre parecido y se le avisa. Así el nombre registrado sigue siendo de su dueño y nadie se queda sin poder entrar. */
+    let renamedNote = '';
+    if (!acct && !idt.role && accounts.nameTaken(idt.name)) { const g = freeGuestName(idt.name); idt = admin.resolveIdentity(Object.assign({ name: g }, who)); if (!idt.ok) { ws.send(JSON.stringify({ t: 'err', m: idt.error })); return ws.close(); } renamedNote = '«' + wanted + '» es el nombre de una cuenta registrada. Juegas como «' + idt.name + '». Inicia sesión para usar el tuyo.'; }
+    if (acct) kickOtherSessions(acct.id, ws);   // [NUEVO] una cuenta = una sesión de juego: la más reciente sustituye a la anterior
+    ws.acctId = acct ? acct.id : null;
     const map = Number.isInteger(m.map) && m.map >= 0 && m.map < S.MAPS.length ? m.map : 0;
     const cls = Number.isInteger(m.c) && m.c >= 0 && m.c < S.WEAPONS.length ? m.c : 0;
     const lk = Array.isArray(m.lk) && m.lk.length === 2 && m.lk.every(Number.isInteger) ? [clamp(m.lk[0], 0, 15), clamp(m.lk[1], 0, 4)] : null;
@@ -509,14 +528,16 @@ function onMessage(ws, m, now) {
     admin.count('join'); admin.count('class', cls); admin.count('map', map);
     ws.player = p; lobby.delete(ws);
     findRoom(map).add(p);
+    if (renamedNote) ws.send(JSON.stringify({ t: 'notice', kind: 'sys', m: renamedNote }));
     return;
   }
   if (m.t === 'lobby') { // canal de chat de la pantalla de inicio (sin partida)
     if (ws.player || ws.lobbyName || lobby.size >= 400) return;
     const acct = accounts.fromToken(typeof m.acct === 'string' ? m.acct : '');
-    const idt = admin.resolveIdentity({ name: acct ? acct.username : (sanitizeName(m.n) || 'Anónimo'), adm: typeof m.adm === 'string' ? m.adm.slice(0, 80) : '', inf: typeof m.inf === 'string' ? m.inf.slice(0, 40) : '', ip: ws.ip });
+    const who = { adm: typeof m.adm === 'string' ? m.adm.slice(0, 80) : '', inf: typeof m.inf === 'string' ? m.inf.slice(0, 40) : '', ip: ws.ip };
+    let idt = admin.resolveIdentity(Object.assign({ name: acct ? acct.username : (sanitizeName(m.n) || 'Anónimo') }, who));
     if (!idt.ok) { ws.send(JSON.stringify({ t: 'err', m: idt.error })); return ws.close(); }
-    if (!acct && !idt.role && accounts.nameTaken(idt.name)) { ws.send(JSON.stringify({ t: 'err', m: 'Ese nombre pertenece a un jugador registrado. Inicia sesión para usarlo o elige otro.' })); return ws.close(); }
+    if (!acct && !idt.role && accounts.nameTaken(idt.name)) { idt = admin.resolveIdentity(Object.assign({ name: freeGuestName(idt.name) }, who)); if (!idt.ok) return ws.close(); }   // [MEJORA] nombre libre en vez de expulsar
     ws.lobbyName = idt.name; ws.role = idt.role; ws.nameKey = idt.nameKey; ws.ipKey = idt.ipKey; lobby.add(ws);
     return ws.send(JSON.stringify({ t: 'lobbyok', n: lobby.size, rl: idt.role || 0 }));
   }

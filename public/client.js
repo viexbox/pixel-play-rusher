@@ -27,7 +27,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } }
 };
 
-const cfg = Object.assign({ name: '', cls: 0, map: 0, diff: 1, sens: 1, fov: 90, vol: 0.6, shadows: true, look: { col: 0, skin: 0 }, infKey: '', rankClaimed: [] }, store.get(K.cfg, {}));
+const cfg = Object.assign({ name: '', cls: 0, map: 0, diff: 1, sens: 1, fov: 90, vol: 0.6, shadows: true, wheelSwap: true, shake: 100, look: { col: 0, skin: 0 }, infKey: '', rankClaimed: [] }, store.get(K.cfg, {}));
 cfg.look = { col: clamp((cfg.look && cfg.look.col) | 0, 0, 9), skin: clamp((cfg.look && cfg.look.skin) | 0, 0, 4) };
 cfg.cls = clamp(cfg.cls | 0, 0, window.VoltShared.WEAPONS.length - 1); if (!cfg.optics || typeof cfg.optics !== 'object') cfg.optics = {}; if (!Array.isArray(cfg.rankClaimed)) cfg.rankClaimed = []; cfg.infKey = String(cfg.infKey || '').slice(0, 40); cfg.map = clamp(cfg.map | 0, 0, 3); cfg.diff = clamp(cfg.diff | 0, 0, 2);
 if (!cfg.name) cfg.name = 'Jugador' + irand(100, 999);
@@ -133,7 +133,7 @@ function isSoftwareGL() {
   try { const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); return /swiftshader|llvmpipe|software|softpipe/i.test(ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : ''); } catch (e) { return false; }
 }
 function applyShadows() {
-  const on = !!(renderer && renderer.shadowMap && cfg.shadows);
+  const on = !!(renderer && renderer.shadowMap && cfg.shadows && !qShadowsOff);   // [NUEVO] qShadowsOff = apagadas automáticamente por rendimiento (no se guarda en los ajustes)
   if (renderer && renderer.shadowMap) { renderer.shadowMap.enabled = on; renderer.shadowMap.type = THREE.PCFSoftShadowMap; }
   sunLight.castShadow = on;
   scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.needsUpdate = true; }); });
@@ -705,6 +705,61 @@ function buildKnifeModel() {   // hoja, guarda y mango según la skin de cuchill
 buildKnifeModel();
 knifeG.scale.setScalar(1.5);
 let knifeT = 0, pendingMelee = 0, slideK = 0;   // slideK: 0..1 suaviza la cámara y el arma durante el deslizamiento
+
+/* =====================================================================
+   [NUEVO] Ranuras de arma: 0 = arma principal, 1 = cuchillo en mano
+   Se cambia con la rueda del ratón (arriba o abajo), con 1 / 2 o con Q. La transición dura ~0.11 s y se puede cancelar a mitad.
+   Con el cuchillo en mano el botón izquierdo golpea (sin sacar el cuchillo) y no se puede disparar, recargar ni apuntar.
+   La tecla V sigue siendo el golpe rápido desde el arma.
+   ===================================================================== */
+/* =====================================================================
+   [NUEVO] Sacudida de pantalla y reacción al daño
+   «trauma» (0..1) sube con golpes recibidos, disparos y golpes de cuchillo, y se apaga solo. La sacudida crece con su cuadrado: fuerte al principio, suave al final.
+   Se puede reducir o desactivar en Ajustes (cfg.shake, 0–100 %).
+   ===================================================================== */
+let trauma = 0;
+function addShake(a) { if (cfg.shake > 0 && !reduce) trauma = Math.min(1, trauma + a * cfg.shake / 100); }
+function applyShake(dt) {
+  if (trauma <= 0.002) { trauma = 0; return; }
+  const k = trauma * trauma * 0.045, t = simTime;
+  camera.rotation.x += Math.sin(t * 61) * k; camera.rotation.y += Math.sin(t * 53 + 1.7) * k; camera.rotation.z += Math.sin(t * 47 + 3.1) * k * 0.7;
+  trauma = Math.max(0, trauma - dt * 1.7);
+}
+/* Daño recibido (lo comparten el modo offline y el online): viñeta roja proporcional al golpe, aro de dirección del atacante y sacudida */
+function playerHurtFx(amount, ax, az) {
+  sfx.hurt();
+  el.vig.style.setProperty('--k', clamp(0.4 + amount / 70, 0.4, 1)); el.vig.classList.add('on'); clearTimeout(vigT); vigT = setTimeout(() => el.vig.classList.remove('on'), 110);
+  if (ax != null) {
+    const rel = Math.atan2(-(ax - player.pos.x), -(az - player.pos.z)) - player.yaw;
+    el.dir.style.transform = 'rotate(' + (-rel * 180 / Math.PI) + 'deg)';
+    el.dir.classList.add('on'); clearTimeout(dirT); dirT = setTimeout(() => el.dir.classList.remove('on'), 160);
+  }
+  addShake(0.2 + clamp(amount / 100, 0, 1) * 0.55);
+}
+
+let slot = 0, slotK = 0, slashT = 0;            // slotK: 0..1 = cuánto está sacado el cuchillo (animación); slashT: golpe con el cuchillo en mano
+let wheelAcc = 0, wheelT = 0, wheelLock = 0;    // acumulador y enfriamiento de la rueda
+const SLOT_TIME = 0.11, WHEEL_STEP = 30, WHEEL_LOCK_MS = 140;
+function setSlot(s) {
+  const p = player; if (!p || !p.alive || state !== 'playing' || s === slot) return;
+  slot = s; p.reload = 0; pendingMelee = 0; sfx.draw(); updateSlotHud();
+}
+function resetSlot() { slot = 0; slotK = 0; slashT = 0; if (typeof updateSlotHud === 'function' && el.slots) updateSlotHud(); }
+/* Rueda: normaliza el tamaño del giro (ratón clásico, ratón libre o trackpad), cambia en cuanto se supera un pequeño umbral y
+   deja un enfriamiento corto para que un giro rápido o la inercia del trackpad no hagan rebotar el cambio.
+   Durante el enfriamiento los giros se descartan (no se acumulan), así un giro «de más» nunca anula el siguiente gesto. */
+function onWheel(e) {
+  if (state !== 'playing') return;
+  e.preventDefault();
+  if (!cfg.wheelSwap || !(locked || fallback) || !player.alive) return;   // igual que el ratón: también vale en el modo sin bloqueo de puntero
+  const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+  const t = performance.now();
+  if (t < wheelLock) { wheelLock = Math.max(wheelLock, t + 90); return; }   // enfriamiento: los giros no cuentan; si siguen llegando (inercia del trackpad) se espera a que haya una pausa
+  if (t - wheelT > 250) wheelAcc = 0;                                        // una pausa larga = gesto nuevo
+  wheelT = t; wheelAcc += dy;
+  if (Math.abs(wheelAcc) < WHEEL_STEP) return;
+  wheelAcc = 0; wheelLock = t + WHEEL_LOCK_MS; setSlot(1 - slot);
+}
 const ease01 = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
 let flashes = [], gunKick = 0, reloadAnim = 0, altHand = 0;
 const tracerPool = [];
@@ -786,6 +841,7 @@ const hud = $('#hud'), el = {
   myPts: $('#myPts'), myKD: $('#myKD'), leadName: $('#leadName'), leadPts: $('#leadPts'), banner: $('#banner'),
   live: $('#liveRows'), lbPlace: $('#lbPlace'), feed: $('#feed'), cross: $('#crosshair'), hitmark: $('#hitmark'), dmgnums: $('#dmgnums'), killcard: $('#killcard'),
   scope: $('#scope'), optic: $('#optic'), scZoom: $('#scZoom'), scRange: $('#scRange'), vig: $('#dmgvig'), dir: $('#dmgdir'), lowhp: $('#lowhp'), toast: $('#toast'),
+  hpbox: $('#hpbox'), hpghost: $('#hpghost'), slots: $('#slots'), slot0: $('#slot0'), slot1: $('#slot1'),   // [REDISEÑO] rastro de daño y ranuras de arma
   hpbar: $('#hpbar'), hpnum: $('#hpnum'), hpProt: $('#hpProt'), streakPips: [...document.querySelectorAll('#hpStreak i')],
   ammobox: $('#ammobox'), wname: $('#wname'), wtype: $('#wtype'), wicon: $('#wicon'), mag: $('#mag'), magmax: $('#magmax'), pips: $('#pips'),
   reload: $('#amReload'), reloadBar: $('#amReloadBar'), reloadmsg: $('#reloadmsg'),
@@ -826,9 +882,11 @@ function teamBanner(team, note) {
   b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); clearTimeout(teamBannerT); teamBannerT = setTimeout(() => b.classList.remove('on'), 3200);
 }
 function toast(text) { el.toast.textContent = text; el.toast.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.toast.classList.remove('on'), 1600); }
+/* [MEJORA] Marcador de impacto: cada impacto reinicia la animación «pop» (blanco = impacto, dorado = cabeza, rojo con aro = baja) */
 function hitmark(kind) {
-  el.hitmark.className = 'on' + (kind === 'head' ? ' head' : '') + (kind === 'kill' ? ' kill' : '');
-  clearTimeout(hitT); hitT = setTimeout(() => { el.hitmark.className = ''; }, kind === 'kill' ? 160 : 100);
+  const cls = 'on' + (kind === 'head' ? ' head' : '') + (kind === 'kill' ? ' kill' : '');
+  el.hitmark.className = ''; void el.hitmark.offsetWidth; el.hitmark.className = cls;
+  clearTimeout(hitT); hitT = setTimeout(() => { el.hitmark.className = ''; }, kind === 'kill' ? 300 : 130);
 }
 /* Números de daño flotantes (se agrupan los perdigones de una misma ráfaga) */
 let dnAcc = null;
@@ -887,11 +945,18 @@ function buildAmmoUi(w) {
   el.magmax.textContent = '/ ' + w.mag; el.pips.innerHTML = '<i></i>'.repeat(w.mag); el.ammobox.style.setProperty('--wc', w.col);
   hudCache.pips = -1;
 }
+/* [NUEVO] Resalta en el HUD la ranura activa (arma o cuchillo) y atenúa la munición cuando se lleva el cuchillo */
+function updateSlotHud() {
+  el.slot0.classList.toggle('on', slot === 0); el.slot1.classList.toggle('on', slot === 1);
+  el.ammobox.classList.toggle('knife', slot === 1);
+}
 function updateHudFast() {
   const p = player, w = WEAPONS[p.wi];
   setTxt(el.timer, 'tm', fmtTime(timeLeft)); el.timer.classList.toggle('low', timeLeft <= 10 && !(online && net.wait));
   const hp = Math.max(0, Math.ceil(p.hp));
   setTxt(el.hpnum, 'hp', hp); el.hpbar.style.width = clamp(p.hp, 0, 100) + '%';
+  if (hudCache.hpw !== hp) { hudCache.hpw = hp; el.hpghost.style.width = clamp(p.hp, 0, 100) + '%'; }   // [NUEVO] el rastro (barra blanca) se vacía después de la barra: se ve el daño recién recibido
+  el.hpbox.classList.toggle('low', p.alive && p.hp < 30);
   const hc = p.hp < 30 ? 'low' : p.hp < 60 ? 'mid' : ''; if (hudCache.hpc !== hc) { hudCache.hpc = hc; el.hpbar.className = hc; }
   el.lowhp.classList.toggle('on', p.alive && p.hp < 30);
   el.hpProt.hidden = !(p.alive && p.protect > 0);
@@ -914,11 +979,9 @@ function damage(victim, amount, attacker, head, weaponName) {
   victim.hp -= amount; victim.lastHit = simTime; victim.lastAttacker = attacker;
   if (attacker === player && victim !== player) { hitmark(victim.hp <= 0 ? 'kill' : head ? 'head' : 'hit'); hitNumber(amount, head, victim.hp <= 0); if (victim.hp > 0) (head ? sfx.head : sfx.hit)(); }
   if (victim === player) {
-    sfx.hurt(); el.vig.classList.add('on'); clearTimeout(vigT); vigT = setTimeout(() => el.vig.classList.remove('on'), 80);
+    playerHurtFx(amount, attacker ? attacker.pos.x : null, attacker ? attacker.pos.z : null);   // [MEJORA] un solo sitio para los efectos de daño
     if (attacker) {
-      const rel = Math.atan2(-(attacker.pos.x - victim.pos.x), -(attacker.pos.z - victim.pos.z)) - victim.yaw;
-      el.dir.style.transform = 'rotate(' + (-rel * 180 / Math.PI) + 'deg)';
-      el.dir.classList.add('on'); clearTimeout(dirT); dirT = setTimeout(() => el.dir.classList.remove('on'), 120);
+      /* (el aro de dirección ya lo pinta playerHurtFx) */
     }
   }
   if (victim.hp <= 0) kill(victim, attacker, head, weaponName);
@@ -965,7 +1028,7 @@ function respawn(f) {
   if (f.mesh) { resetPose(f); f.mesh.visible = true; f.label.visible = true; }
   if (f.isPlayer) {
     f.wi = cfg.cls; const w = WEAPONS[f.wi]; f.ammo = w.mag; f.reload = 0; f.fireCd = 0.3; f.slide = 0; f.aim = 0; f.eye = 1.6;
-    buildGun(w); el.death.hidden = true; deathLook = null; sfx.spawn();
+    buildGun(w); resetSlot(); el.death.hidden = true; deathLook = null; sfx.spawn();   // [NUEVO] se reaparece con el arma principal en mano
   } else {
     f.wi = BOT_WEAPONS[irand(0, BOT_WEAPONS.length - 1)]; setOutfit(f, f.wi);
     f.ai = { wp: null, repath: 0, stuck: 0, last: new THREE.Vector3(s[0], 0, s[1]), stuckT: 0, strafe: 1, strafeT: 0, scan: rand(0, 0.3), target: null, seen: false, react: 0, burst: 0, pause: rand(0.2, 0.6), cd: 0, walk: 0 };
@@ -1003,20 +1066,21 @@ function playerShoot() {
   sfx.shot(w, 1);
   if (scoped) { el.scope.classList.add('kick'); setTimeout(() => el.scope.classList.remove('kick'), 120); }
   if (w.scope && w.interval > 0.5) setTimeout(() => { if (state === 'playing' || state === 'paused') sfx.bolt(); }, 380);
-  gunKick = 1; const fl = flashes[w.dual ? (hand > 0 ? 1 : 0) : 0]; if (fl) { fl.visible = true; setTimeout(() => { fl.visible = false; }, 45); }
+  gunKick = 1; addShake(w.kick * 10); const fl = flashes[w.dual ? (hand > 0 ? 1 : 0) : 0]; if (fl) { fl.visible = true; setTimeout(() => { fl.visible = false; }, 45); }
   p.pitch += w.kick * (0.6 + Math.random() * 0.8); p.yaw += rand(-0.5, 0.5) * w.kick;
   if (p.ammo <= 0) startReload();
 }
 function playerMelee() {
   const p = player;
   if (!p.alive || p.meleeCd > 0) return;
+  if (slot === 1) { p.meleeCd = 0.55; slashT = 0.0001; pendingMelee = 0.1; sfx.draw(); return; }   // [NUEVO] cuchillo en mano: el golpe empieza ya (0.55 s entre golpes: el servidor pide 0.48 s)
   p.meleeCd = 0.62; knifeT = 0.0001; pendingMelee = 0.22; p.reload = 0; sfx.draw();   // el golpe llega cuando el cuchillo ya está en mano
 }
 function meleeHit() {
   const p = player; sfx.melee();
   const d = new THREE.Vector3(); camera.getWorldDirection(d);
   const r = hitscan(camera.position, d, p, 2.8);
-  if (r.f) { burst(r.point, '#ff5a5f', 4, 3); if (!online) damage(r.f, 60, p, false, 'Cuchillo'); }
+  if (r.f) { burst(r.point, '#ff5a5f', 4, 3); addShake(0.18); if (!online) damage(r.f, 60, p, false, 'Cuchillo'); }
   if (online) netSend({ t: 'melee', d: [r3(d.x), r3(d.y), r3(d.z)] });
 }
 function startReload() {
@@ -1029,7 +1093,7 @@ function updatePlayer(dt) {
   const p = player, w = WEAPONS[p.wi];
   p.protect = Math.max(0, p.protect - dt); p.fireCd = Math.max(0, p.fireCd - dt); p.meleeCd = Math.max(0, (p.meleeCd || 0) - dt);
   if (!p.alive) {
-    knifeT = 0; pendingMelee = 0; knifeG.visible = false;
+    knifeT = 0; pendingMelee = 0; knifeG.visible = false; slot = 0; slotK = 0; slashT = 0;   // [NUEVO] al morir se suelta el cuchillo
     if (online) el.deathCount.textContent = 'Reapareces en ' + Math.max(1, Math.ceil((net.respawnAt - performance.now()) / 1000)) + ' s. Pulsa 1–9 para cambiar de clase.';
     else if (simTime >= p.respawnAt) respawn(p);
     else el.deathCount.textContent = 'Reapareces en ' + Math.ceil(p.respawnAt - simTime) + ' s. Pulsa 1–9 para cambiar de clase.';
@@ -1041,7 +1105,7 @@ function updatePlayer(dt) {
   const sinY = Math.sin(p.yaw), cosY = Math.cos(p.yaw);
   let wx = -sinY * fwd + cosY * str, wz = -cosY * fwd - sinY * str;
   const wl = Math.hypot(wx, wz); if (wl > 0) { wx /= wl; wz /= wl; }
-  p.aim = clamp(p.aim + ((mouseR ? 1 : 0) - p.aim) * Math.min(1, dt * 14), 0, 1);
+  p.aim = clamp(p.aim + ((mouseR && slot === 0 ? 1 : 0) - p.aim) * Math.min(1, dt * 14), 0, 1);   // [NUEVO] sin apuntar con el cuchillo
   const sprint = (keys.ShiftLeft || keys.ShiftRight) && fwd > 0 && !mouseR;
   const crouching = !!keys.KeyC;
   let speed = crouching ? CROUCH : sprint ? SPRINT : WALK;
@@ -1068,11 +1132,12 @@ function updatePlayer(dt) {
   const eyeT = p.h - 0.2 - (p.slide > 0 ? 0.26 : 0); p.eye += (eyeT - p.eye) * Math.min(1, dt * 14);   // la cámara baja más al deslizarse
   // disparo y recarga
   if (p.reload > 0) { p.reload -= dt; if (p.reload <= 0) { p.reload = 0; p.ammo = w.mag; } }
-  if (mouseL) playerShoot();
+  if (mouseL) { if (slot === 1) playerMelee(); else playerShoot(); }   // [NUEVO] con el cuchillo en mano, el clic golpea
   // cámara
   p.pitch = clamp(p.pitch, -1.5, 1.5);
   camera.position.set(p.pos.x, p.pos.y + p.eye, p.pos.z);
   camera.rotation.set(p.pitch, p.yaw, 0);
+  applyShake(dt);   // [NUEVO]
   const fovTarget = cfg.fov * (1 + (aimFovOf(w) - 1) * p.aim) + slideK * 6 * (1 - p.aim);   // el deslizamiento abre un poco el campo de visión
   if (Math.abs(camera.fov - fovTarget) > 0.02) { camera.fov = fovTarget; camera.updateProjectionMatrix(); }
   // arma en primera persona
@@ -1084,12 +1149,16 @@ function updatePlayer(dt) {
   if ((el.optic.dataset.k || '') !== ok) { el.optic.dataset.k = ok; el.optic.hidden = !ok; }
   if (knifeT > 0) { knifeT += dt / 0.62; if (knifeT >= 1) knifeT = 0; }
   if (pendingMelee > 0) { pendingMelee -= dt; if (pendingMelee <= 0) { pendingMelee = 0; meleeHit(); } }
-  const sw = knifeT > 0 ? (knifeT < 0.3 ? ease01(knifeT / 0.3) : knifeT < 0.72 ? 1 : 1 - ease01((knifeT - 0.72) / 0.28)) : 0;   // 0 = arma arriba, 1 = arma abajo
+  const swV = knifeT > 0 ? (knifeT < 0.3 ? ease01(knifeT / 0.3) : knifeT < 0.72 ? 1 : 1 - ease01((knifeT - 0.72) / 0.28)) : 0;   // golpe rápido con V: 0 = arma arriba, 1 = arma abajo
+  slotK = clamp(slotK + (slot === 1 ? 1 : -1) * dt / SLOT_TIME, 0, 1);                                                          // [NUEVO] cambio de ranura (~0.11 s)
+  const held = ease01(slotK), sw = Math.max(swV, held);                                                                          // sw: cuánto está el arma bajada y el cuchillo subido
+  if (slashT > 0) { slashT += dt / 0.32; if (slashT >= 1) slashT = 0; }                                                          // [NUEVO] golpe con el cuchillo en mano (0.32 s)
   slideK += ((p.slide > 0 ? 1 : 0) - slideK) * Math.min(1, dt * 9);
   if (sw > 0.01) {
-    const sl = ease01((knifeT - 0.26) / 0.36), arc = Math.sin(sl * Math.PI);
+    const sl = slashT > 0 ? (slashT < 0.5 ? ease01(slashT / 0.5) : 1 - ease01((slashT - 0.5) / 0.5)) : ease01((knifeT - 0.26) / 0.36), arc = Math.sin(sl * Math.PI);
+    const idle = held > 0.5 && slashT === 0 && knifeT === 0 ? Math.sin(simTime * 9) * 0.004 * Math.min(1, Math.hypot(p.vel.x, p.vel.z) / 5) : 0;   // el cuchillo en mano se balancea al andar
     knifeG.visible = true;
-    knifeG.position.set(0.26 - sl * 0.5, -0.66 + sw * 0.4 + arc * 0.05, -0.4 - arc * 0.1);
+    knifeG.position.set(0.26 - sl * 0.5, -0.66 + sw * 0.4 + arc * 0.05 + idle, -0.4 - arc * 0.1);
     knifeG.rotation.set(0.3 - sl * 0.85 + arc * 0.2, 0.2 + sl * 0.45, 0.9 - sl * 1.8);
   } else knifeG.visible = false;
   gun.visible = gun.visible && sw < 0.98;
@@ -1366,7 +1435,7 @@ function applySpawnLocal(m) {
   p.pos.set(m.x, m.y, m.z); p.vel.set(0, 0, 0); p.hp = 100; p.alive = true; p.protect = 1.5; p.h = 1.8; p.yaw = m.yaw; p.pitch = 0; net.ep = m.ep;
   p.wi = m.c; const w = WEAPONS[p.wi];
   p.ammo = w.mag; p.reload = 0; p.fireCd = 0.3; p.slide = 0; p.aim = 0; p.eye = 1.6; p.meleeCd = 0;
-  buildGun(w); gun.visible = true; el.death.hidden = true; deathLook = null; sfx.spawn();
+  buildGun(w); resetSlot(); gun.visible = true; el.death.hidden = true; deathLook = null; sfx.spawn();
 }
 function onNetSpawn(m) {
   if (!player) return;
@@ -1402,10 +1471,7 @@ function onNetHit(m) {
 }
 function onNetHurt(m) {
   if (!player) return;
-  sfx.hurt(); el.vig.classList.add('on'); clearTimeout(vigT); vigT = setTimeout(() => el.vig.classList.remove('on'), 80);
-  const rel = Math.atan2(-(m.ax - player.pos.x), -(m.az - player.pos.z)) - player.yaw;
-  el.dir.style.transform = 'rotate(' + (-rel * 180 / Math.PI) + 'deg)';
-  el.dir.classList.add('on'); clearTimeout(dirT); dirT = setTimeout(() => el.dir.classList.remove('on'), 120);
+  playerHurtFx(+m.d || 20, m.ax, m.az);   // [MEJORA] antes duplicaba el código del modo offline
 }
 function onNetKill(m) {
   if (!player) return;
@@ -1642,7 +1708,13 @@ const statsNow = () => (remote ? remote.stats : store.get(K.stats, { games: 0, k
 const claimedNow = () => (remote ? remote.claimed : cfg.rankClaimed);
 async function acctPost(path, body) {
   const r = await fetch(apiUrl(path), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + acctToken() }, body: JSON.stringify(body || {}) });
-  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Error ' + r.status); return j;
+  const j = await r.json().catch(() => ({})); if (!r.ok) { const e = new Error(j.error || 'Error ' + r.status); e.suggestions = j.suggestions; throw e; } return j;   // [MEJORA] conserva las sugerencias de nombre libres
+}
+/* [NUEVO] El nombre de la cuenta manda el servidor (puede haber cambiado desde otro dispositivo): se refleja en el lobby y se muestra el botón de renombrar */
+function applyAccountName() {
+  const rb = $('#renameBtn'); if (rb) rb.hidden = !remote;
+  if (!remote || !remote.username) return;
+  const ni = $('#name'); if (ni && ni.readOnly && ni.value !== remote.username) { ni.value = remote.username; ni.dispatchEvent(new Event('change', { bubbles: true })); const sn = $('#sessName'); if (sn) sn.textContent = 'Cuenta online · ' + remote.username; }
 }
 async function syncRemote() {
   const tk = acctToken();
@@ -1650,7 +1722,7 @@ async function syncRemote() {
   else {
     try {
       const r = await fetch(apiUrl('api/me'), { headers: { Authorization: 'Bearer ' + tk }, cache: 'no-store' });
-      if (r.status === 401) { try { localStorage.removeItem('ppr.acct'); } catch (e) { /* nada */ } remote = null; } else if (r.ok) remote = (await r.json()).profile;
+      if (r.status === 401) { try { localStorage.removeItem('ppr.acct'); } catch (e) { /* nada */ } remote = null; } else if (r.ok) { remote = (await r.json()).profile; applyAccountName(); }
     } catch (e) { /* sin conexión: se conserva el último perfil */ }
   }
   lobbyRefresh(); if (!$('#tab-store').hidden) renderStore(); if (!$('#tab-ranks').hidden) renderRanks();
@@ -1974,6 +2046,20 @@ function initMenu() {
   bind('sens', 'sens', v => v.toFixed(2)); bind('fov', 'fov', v => v + '°'); bind('vol', 'vol', v => Math.round(v * 100) + '%');
   const sh = $('#shadows'); sh.checked = !!cfg.shadows; $('#shadowsO').textContent = cfg.shadows ? 'Sí' : 'No';
   sh.addEventListener('change', () => { cfg.shadows = sh.checked; cfg.shadowsSet = true; $('#shadowsO').textContent = cfg.shadows ? 'Sí' : 'No'; saveCfg(); applyShadows(); });
+  /* [NUEVO] Ajustes de la rueda del ratón y de la sacudida de pantalla */
+  const ws = $('#wheelSwap'); ws.checked = !!cfg.wheelSwap; $('#wheelSwapO').textContent = cfg.wheelSwap ? 'Sí' : 'No';
+  ws.addEventListener('change', () => { cfg.wheelSwap = ws.checked; $('#wheelSwapO').textContent = cfg.wheelSwap ? 'Sí' : 'No'; saveCfg(); });
+  bind('shake', 'shake', v => (v ? v + '%' : 'Desactivada'));
+  /* [NUEVO] Cambiar el nombre de la cuenta: solo cambia la etiqueta; PX, estadísticas y pase siguen ligados al ID */
+  $('#renameBtn').addEventListener('click', () => { const r = $('#renameRow'); r.hidden = !r.hidden; if (!r.hidden && remote) { $('#renameIn').value = remote.username; $('#renameMsg').textContent = ''; $('#renameIn').focus(); } });
+  $('#renameOk').addEventListener('click', async () => {
+    const msg = $('#renameMsg'), b = $('#renameOk'); b.disabled = true; msg.textContent = '';
+    try {
+      const j = await acctPost('api/me/rename', { username: $('#renameIn').value.trim() }); remote = j.profile; applyAccountName();
+      $('#renameRow').hidden = true; toast('Ahora te llamas ' + remote.username);
+    } catch (e) { msg.textContent = e.message + (e.suggestions && e.suggestions.length ? ' Prueba: ' + e.suggestions.join(', ') : ''); }
+    b.disabled = false;
+  });
   let clearT = 0;
   $('#clearLb').addEventListener('click', e => {
     const b = e.currentTarget;
@@ -2040,7 +2126,7 @@ document.addEventListener('mousedown', e => {
 });
 document.addEventListener('mouseup', e => { if (e.button === 0) mouseL = false; if (e.button === 2) mouseR = false; });
 document.addEventListener('contextmenu', e => { if (state === 'playing' || state === 'paused') e.preventDefault(); });
-document.addEventListener('wheel', e => { if (state === 'playing') e.preventDefault(); }, { passive: false });
+document.addEventListener('wheel', onWheel, { passive: false });   // [MEJORA] antes solo bloqueaba el scroll; ahora cambia de arma
 document.addEventListener('keydown', e => {
   if (state !== 'playing') return;
   if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); openChat(); return; }
@@ -2049,7 +2135,8 @@ document.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'Tab') { el.board.hidden = false; updateHudSlow(); }
   if (e.code === 'Escape' && !locked) pauseGame();
-  if (e.code === 'KeyR' && player.alive) startReload();
+  if (e.code === 'KeyR' && player.alive && slot === 0) startReload();   // con el cuchillo en mano no se recarga
+  if (e.code === 'Digit1') setSlot(0); else if (e.code === 'Digit2' || e.code === 'Digit3') setSlot(1); else if (e.code === 'KeyQ') setSlot(1 - slot);   // [NUEVO] 1 = arma, 2 = cuchillo, Q = alternar
   if (e.code === 'KeyC' && player.alive && player.onGround && (player.slideCd || 0) <= 0 && Math.hypot(player.vel.x, player.vel.z) > 5.5) { // agacharse en marcha = deslizarse
     const s = Math.hypot(player.vel.x, player.vel.z), v = Math.min(12, Math.max(s * 1.3, 10.5)); player.vel.x = player.vel.x / s * v; player.vel.z = player.vel.z / s * v;
     player.slide = 0.95; player.slideCd = 1.2; sfx.slide();
@@ -2121,11 +2208,28 @@ function step(dt) {
   for (const b of bots) if (b.alive && b.label) { b.label.position.set(b.pos.x, b.pos.y + 2.3, b.pos.z); }
   if (timeLeft <= 0) { timeLeft = 0; endMatch(); }
 }
+/* =====================================================================
+   [NUEVO] Calidad adaptativa
+   Si durante la partida el FPS medio queda por debajo de 40 en dos mediciones seguidas (2 s cada una), baja un escalón: resolución interna
+   ×2 → ×1,5 → ×1 → ×0,75 y, agotados esos, apaga las sombras (que dibujan dos veces los objetos que las proyectan). Solo baja, nunca sube sola
+   (así no hay parpadeos de calidad) y no toca los ajustes guardados: al recargar la página se vuelve a empezar. Desactivable con cfg.autoQuality = false.
+   ===================================================================== */
+const QUALITY_RATIOS = [2, 1.5, 1, 0.75];
+let curRatio = Math.min(window.devicePixelRatio || 1, 2), qShadowsOff = false, qAcc = 0, qN = 0, qLow = 0;
+function adaptQuality(rawDt) {
+  if (!renderer || cfg.autoQuality === false || state !== 'playing' || document.hidden || rawDt > 0.5) { qAcc = qN = 0; return; }   // pausas y pestañas ocultas no cuentan
+  qAcc += rawDt; qN++; if (qAcc < 2) return;
+  const fps = qN / qAcc; qAcc = qN = 0; qLow = fps < 40 ? qLow + 1 : 0; if (qLow < 2) return; qLow = 0;
+  const next = QUALITY_RATIOS.find(r => r < curRatio - 0.01);
+  if (next) { curRatio = next; renderer.setPixelRatio(next); resize(); toast('Calidad ajustada para ir más fluido'); }
+  else if (cfg.shadows && !qShadowsOff) { qShadowsOff = true; applyShadows(); toast('Sombras desactivadas para ir más fluido'); }
+}
 let orbitA = 0, last = performance.now();
 const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 function frame(now) {
   requestAnimationFrame(frame);
   const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
+  adaptQuality(raw);
   fpsAcc += raw; fpsN++; if (fpsAcc >= 0.5) { el.fps.textContent = Math.round(fpsN / fpsAcc) + ' FPS'; fpsAcc = 0; fpsN = 0; }
   if (online && state === 'paused') stepOnline(dt);
   if (state === 'playing') {

@@ -124,7 +124,7 @@ export function createAuthScreen({ doc, auth, admin, accounts, onAuthenticated }
         if (which === 'register') {
           const a = await accounts.register(String(v.username).trim(), String(v.email).trim(), v.password);
           if (a && a.ok) { setBusy(false, ''); return finish(auth.remoteSession(a.profile.username, a.token)); }
-          if (a) { setBusy(false, ''); const f = form('register'); if (/nombre|usuario/i.test(a.error)) setErr(f, 'username', a.error); else if (/correo/i.test(a.error)) setErr(f, 'email', a.error); else setMsg(f, a.error); return; }
+          if (a) { setBusy(false, ''); const f = form('register'); if (/nombre|usuario/i.test(a.error)) setErr(f, 'username', a.error + (a.suggestions && a.suggestions.length ? ' Prueba con: ' + a.suggestions.join(', ') + '.' : '')); else if (/correo/i.test(a.error)) setErr(f, 'email', a.error); else setMsg(f, a.error); return; }
         } else {
           const a = await accounts.login(String(v.identifier).trim(), v.password);
           if (a && a.ok) { setBusy(false, ''); return finish(auth.remoteSession(a.profile.username, a.token)); }

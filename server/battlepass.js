@@ -54,6 +54,12 @@ function pgStore(pool, S) {
       return r.rowCount > 0;
     },
     async logGift(from, to) { await pool.query('INSERT INTO bp_gifts (from_user, to_user, season) VALUES ($1, $2, $3)', [from, to, SEASON]); },
+    /* [NUEVO] Reasigna las filas de cuentas antiguas (id numérico) a su UUID. Idempotente: si ya no hay filas con el id antiguo no hace nada. */
+    remapUsers(pairs) {
+      const olds = pairs.map(p => String(p.old)), news = pairs.map(p => p.id);
+      return tx(async c => { for (const [t, col] of [['bp_progress', 'user_id'], ['bp_claims', 'user_id'], ['bp_inventory', 'user_id'], ['bp_equipped', 'user_id'], ['bp_gifts', 'from_user'], ['bp_gifts', 'to_user']])
+        await c.query('UPDATE ' + t + ' SET ' + col + ' = m.n FROM (SELECT unnest($1::text[]) AS o, unnest($2::text[]) AS n) m WHERE ' + t + '.' + col + ' = m.o', [olds, news]); });
+    },
     async equip(uid, slot, itemId, itemType) {
       if (!itemId) { await pool.query('DELETE FROM bp_equipped WHERE user_id = $1 AND slot = $2', [uid, slot]); return true; }
       const has = await pool.query('SELECT 1 FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3', [uid, itemType, itemId]);
@@ -88,6 +94,12 @@ function fileStore(dataDir, log, S) {
       st.save(); return true;
     },
     async grantVip(uid, giftedBy) { const u = U(uid); if (u.vip) return false; u.vip = true; u.vipSince = Date.now(); u.giftedBy = giftedBy || ''; st.save(); return true; },
+    async remapUsers(pairs) {   // [NUEVO] igual que en PostgreSQL: pasa el progreso de ids antiguos a UUID
+      const m = new Map(pairs.map(p => [String(p.old), p.id]));
+      for (const [o, n] of m) if (D.users[o] && !D.users[n]) { D.users[n] = D.users[o]; delete D.users[o]; }
+      for (const g of D.gifts) { if (m.has(String(g.from))) g.from = m.get(String(g.from)); if (m.has(String(g.to))) g.to = m.get(String(g.to)); }
+      st.save();
+    },
     async logGift(from, to) { D.gifts.push({ from, to, season: SEASON, ts: Date.now() }); if (D.gifts.length > 5000) D.gifts.shift(); st.save(); },
     async equip(uid, slot, itemId, itemType) {
       const u = U(uid); if (!itemId) { delete u.equipped[slot]; st.save(); return true; }
@@ -102,9 +114,14 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
   const MAXL = S.BP_LEVELS, err = (code, error) => ({ code, error });
   const today = () => new Date().toISOString().slice(0, 10);
 
+  /* [NUEVO] Al arrancar, el progreso de cuentas antiguas (id numérico) se pasa a su UUID. Ninguna operación empieza hasta que termine. */
+  let ready = Promise.resolve();
+  const pend = accounts.legacyPending();
+  if (pend.length) ready = store.remapUsers(pend).then(() => { accounts.legacyDone(pend.map(p => p.id)); log('Pase de batalla: progreso de ' + pend.length + ' cuenta(s) antigua(s) reasignado a UUID'); }).catch(e => log('No se pudo reasignar el pase a los UUID: ' + e.message));
+
   /* Una operación a la vez por usuario: evita dobles cobros y dobles reclamos con clics rápidos */
   const chains = new Map();
-  const lock = (uid, fn) => { const prev = chains.get(uid) || Promise.resolve(); const run = prev.then(fn, fn); const tail = run.catch(() => {}); chains.set(uid, tail); tail.then(() => { if (chains.get(uid) === tail) chains.delete(uid); }); return run; };
+  const lock = (uid, fn) => { const prev = chains.get(uid) || ready; const run = prev.then(fn, fn); const tail = run.catch(() => {}); chains.set(uid, tail); tail.then(() => { if (chains.get(uid) === tail) chains.delete(uid); }); return run; };
 
   const owned = (st, t, id) => st.inventory.some(x => x.t === t && x.id === id);
   const view = async u => {
@@ -115,7 +132,7 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
 
   /* XP tras una partida online (la llama el servidor de juego). Devuelve null si no suma nada. */
   async function awardMatch(u, { points, won }) {
-    const xp = S.bpXpFor(points, won); if (xp <= 0) return null;
+    const xp = S.bpXpFor(points, won); if (xp <= 0) return null; await ready;
     const before = S.bpLevelOf((await store.state(u.id)).xp).level;
     const r = await lock(u.id, () => store.addXp(u.id, xp, { cap: XP_CAP, day: today() }));
     return { added: r.added, xp: r.xp, level: r.level, leveledUp: r.level > before };
@@ -184,6 +201,7 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
     try {
       const h = String(req.headers.authorization || ''), u = accounts.fromToken(h.startsWith('Bearer ') ? h.slice(7) : '');
       if (!u) { send(req, res, 401, { error: 'Inicia sesión con una cuenta online.' }); return true; }
+      await ready;
       const key = req.method + ' ' + url.pathname, b = req.method === 'POST' ? await readJson(req) : {};
       let out;
       if (key === 'GET /api/bp') out = { ok: true, state: await view(u) };
