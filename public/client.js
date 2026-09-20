@@ -27,7 +27,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } }
 };
 
-const cfg = Object.assign({ name: '', cls: 0, map: 0, diff: 1, sens: 1, fov: 90, vol: 0.6, shadows: true, wheelSwap: true, shake: 100, look: { col: 0, skin: 0 }, infKey: '', rankClaimed: [] }, store.get(K.cfg, {}));
+const cfg = Object.assign({ name: '', cls: 0, map: 0, diff: 1, sens: 1, fov: 90, vol: 0.6, shadows: true, wheelSwap: true, shake: 100, hudScale: 100, hudCompact: false, look: { col: 0, skin: 0 }, infKey: '', rankClaimed: [] }, store.get(K.cfg, {}));
 cfg.look = { col: clamp((cfg.look && cfg.look.col) | 0, 0, 9), skin: clamp((cfg.look && cfg.look.skin) | 0, 0, 4) };
 cfg.cls = clamp(cfg.cls | 0, 0, window.VoltShared.WEAPONS.length - 1); if (!cfg.optics || typeof cfg.optics !== 'object') cfg.optics = {}; if (!Array.isArray(cfg.rankClaimed)) cfg.rankClaimed = []; cfg.infKey = String(cfg.infKey || '').slice(0, 40); cfg.map = clamp(cfg.map | 0, 0, 3); cfg.diff = clamp(cfg.diff | 0, 0, 2);
 if (!cfg.name) cfg.name = 'Jugador' + irand(100, 999);
@@ -946,6 +946,8 @@ function buildAmmoUi(w) {
   hudCache.pips = -1;
 }
 /* [NUEVO] Resalta en el HUD la ranura activa (arma o cuchillo) y atenúa la munición cuando se lleva el cuchillo */
+/* [NUEVO] Preferencias del HUD: tamaño de las tarjetas (variable CSS --hs) y modo compacto */
+function applyHudPrefs() { document.documentElement.style.setProperty('--hs', String(clamp(+cfg.hudScale || 100, 80, 120) / 100)); document.body.classList.toggle('hud-compact', !!cfg.hudCompact); }
 function updateSlotHud() {
   el.slot0.classList.toggle('on', slot === 0); el.slot1.classList.toggle('on', slot === 1);
   el.ammobox.classList.toggle('knife', slot === 1);
@@ -1105,25 +1107,32 @@ function updatePlayer(dt) {
   const sinY = Math.sin(p.yaw), cosY = Math.cos(p.yaw);
   let wx = -sinY * fwd + cosY * str, wz = -cosY * fwd - sinY * str;
   const wl = Math.hypot(wx, wz); if (wl > 0) { wx /= wl; wz /= wl; }
-  p.aim = clamp(p.aim + ((mouseR && slot === 0 ? 1 : 0) - p.aim) * Math.min(1, dt * 14), 0, 1);   // [NUEVO] sin apuntar con el cuchillo
+  p.aim = clamp(p.aim + ((mouseR && slot === 0 ? 1 : 0) - p.aim) * Math.min(1, dt * 22), 0, 1);   // [AJUSTE] apuntado más rápido (antes 14)   // [NUEVO] sin apuntar con el cuchillo
   const sprint = (keys.ShiftLeft || keys.ShiftRight) && fwd > 0 && !mouseR;
   const crouching = !!keys.KeyC;
   let speed = crouching ? CROUCH : sprint ? SPRINT : WALK;
-  if (p.aim > 0.3) speed *= 0.72;
-  speed *= w.speed;
+  if (p.aim > 0.3) speed *= 0.85;   // [AJUSTE] apuntar frena menos (antes 0,72)
+  speed *= w.speed * (crouching ? 1 : p.hop || 1);   // [NUEVO] p.hop = impulso acumulado del bunny hop (1 a 1,25)
   p.slideCd = Math.max(0, (p.slideCd || 0) - dt);
   if (p.slide > 0) { // deslizamiento: la velocidad se conserva y se va perdiendo poco a poco; se puede saltar para salir con impulso
     const k = Math.max(0, 1 - 1.1 * dt); p.vel.x *= k; p.vel.z *= k; p.slide -= dt;
     if (Math.hypot(p.vel.x, p.vel.z) < 3.2 || !p.onGround) p.slide = Math.min(p.slide, 0);
   } else {
-    const acc = p.onGround ? 60 : 14;
+    const acc = p.onGround ? 95 : 24;   // [AJUSTE] aceleración casi instantánea en suelo y más control en el aire (antes 60 / 14)
     p.vel.x += clamp(wx * speed - p.vel.x, -acc * dt, acc * dt);
     p.vel.z += clamp(wz * speed - p.vel.z, -acc * dt, acc * dt);
   }
-  if (keys.Space && p.onGround) {
+  /* [NUEVO] Salto estilo Krunker: buffer de 0,12 s (si pulsas un poco antes de aterrizar, saltas al tocar el suelo), «coyote» de 0,08 s (puedes saltar justo
+     al salir de un borde) y bunny hop: mantener Espacio encadena saltos y cada salto en cuanto aterrizas suma impulso (hasta ×1,25 la velocidad; se pierde al pisar suelo). */
+  p.jumpBuf = keys.Space ? 0.12 : Math.max(0, (p.jumpBuf || 0) - dt);
+  if (p.onGround) { p.coyote = 0.08; p.groundT = (p.groundT || 0) + dt; } else { p.coyote = Math.max(0, (p.coyote || 0) - dt); p.groundT = 0; }
+  if (p.onGround && p.groundT > 0.3) p.hop = Math.max(1, (p.hop || 1) - dt * 0.8);
+  if (p.jumpBuf > 0 && (p.onGround || p.coyote > 0) && p.vel.y <= 0.5 && !p.jumping) {
     if (p.slide > 0) { const sp = Math.hypot(p.vel.x, p.vel.z), k = Math.min(12.5, sp * 1.08) / Math.max(sp, 0.01); p.vel.x *= k; p.vel.z *= k; } // salto desde el deslizamiento: pequeño impulso
-    p.vel.y = JUMP; p.onGround = false; p.slide = 0;
+    else if (p.onGround && p.groundT < 0.2 && (fwd !== 0 || str !== 0)) p.hop = Math.min(1.25, (p.hop || 1) + 0.05);   // saltar casi al aterrizar y avanzando = bunny hop
+    p.vel.y = JUMP; p.onGround = false; p.slide = 0; p.jumpBuf = 0; p.coyote = 0; p.jumping = true;
   }
+  if (p.onGround && p.vel.y <= 0) p.jumping = false;
   // altura (agachado / deslizamiento)
   const wantH = (crouching || p.slide > 0) ? 1.2 : 1.8;
   if (wantH > p.h) { if (!overlapAt(p.pos.x, p.pos.y, p.pos.z, p.hw, wantH)) p.h = wantH; }
@@ -1514,6 +1523,7 @@ function onNetBoard(m) {
 function onNetAward(m) { // el servidor ha repartido PX y progreso a esta cuenta
   if (!remote) return;
   remote.px = m.balance; remote.stats = m.stats; net.prevBest = m.prevBest; lastReward = { kr: m.px, mult: m.mult, notes: [] };
+  if (m.crBalance != null) { remote.credits = m.crBalance; renderCr(); const ec = $('#endCr'); if (ec) { ec.hidden = !(m.cr > 0); ec.textContent = '+' + fmtKr(m.cr | 0) + ' Créditos'; } }   // [NUEVO]
 }
 const endVote = { sel: -1, counts: [0, 0, 0, 0] };
 function renderEndMaps() {
@@ -1529,7 +1539,7 @@ function initEnd() {
   });
 }
 function onNetEnd(m) {
-  { const ex = $('#endXp'); if (ex) ex.hidden = true; }   // la XP del pase llega poco después (mensaje bpxp)
+  { const ex = $('#endXp'); if (ex) ex.hidden = true; const ec = $('#endCr'); if (ec) ec.hidden = true; }   // la XP del pase llega poco después (mensaje bpxp)
   if (!player) return;
   state = 'ended'; document.body.classList.remove('playing');
   if (document.exitPointerLock) document.exitPointerLock();
@@ -1729,7 +1739,9 @@ async function syncRemote() {
 }
 const krTotal = () => (remote ? Math.max(0, remote.px | 0) : Math.max(0, store.get(K.kr, 0) | 0));
 const fmtKr = n => Number(n).toLocaleString('es-ES');
-function renderKr() { $('#krTotal').textContent = fmtKr(krTotal()); }
+function renderKr() { $('#krTotal').textContent = fmtKr(krTotal()); renderCr(); }
+/* [NUEVO] Segunda moneda: Créditos (se ganan jugando y vendiendo en el mercado) */
+function renderCr() { const c = $('#crTotal'); if (c) c.textContent = fmtKr(remote ? remote.credits | 0 : 0); }
 function krAdd(n) { store.set(K.kr, Math.max(0, krTotal() + Math.round(n))); renderKr(); }
 const EVENTS = S.EVENTS;
 const todayEvent = () => S.todayEvent();
@@ -1868,7 +1880,7 @@ async function renderStore() {
   const can = info.enabled && !!remote, why = !remote ? 'Inicia sesión con una cuenta online (Registro) para comprar PX.' : (!info.enabled ? info.reason : '');
   box.innerHTML = '<div class="storehead"><b>Tienda de PX</b><span>Saldo: <em>' + fmtKr(krTotal()) + ' PX</em></span></div>' + (why ? '<p class="note warn">' + esc(why) + '</p>' : '') +
     '<div class="packs">' + info.packs.map(p => '<div class="pack"><div class="pxn">' + fmtKr(p.px) + '<small>PX</small></div>' + (p.tag ? '<span class="ptag">' + esc(p.tag) + '</span>' : '') + '<button type="button" data-pack="' + esc(p.id) + '"' + (can ? '' : ' disabled') + '>' + fmt.format(p.price / 100) + '</button></div>').join('') + '</div>' +
-    '<p class="note small">El pago se hace en la página segura de Stripe; nunca guardamos tu tarjeta. Los PX solo sirven dentro del juego (colores y recompensas).</p><p id="storeMsg" class="note" role="status"></p>';
+    '<p class="note small">El pago se hace en la página segura de Stripe (tarjeta o PayPal); nunca guardamos tus datos de pago. Los PX solo sirven dentro del juego (colores y recompensas).</p><p id="storeMsg" class="note" role="status"></p>';
   for (const b of box.querySelectorAll('[data-pack]')) b.addEventListener('click', async () => {
     b.disabled = true; $('#storeMsg').textContent = 'Abriendo el pago seguro…';
     try { const j = await acctPost('api/store/checkout', { pack: b.dataset.pack }); (window.__pprNav || (u => { location.href = u; }))(j.url); } catch (e) { $('#storeMsg').textContent = e.message; b.disabled = false; }
@@ -1942,10 +1954,13 @@ function applyChatHidden() {
   if (!cfg.chatHidden) { chatUnread = 0; chatEl.tab.classList.remove('new'); }
 }
 let lobbyWs = null;
+let chatIdleT = 0;
 function chatAdd(kind, name, text, rl, mid) {
   const li = document.createElement('li'); li.className = kind + (rl ? ' from-' + rl : ''); if (mid) li.dataset.mid = mid;
   li.innerHTML = (name ? '<b>' + nameHtml(name, rl) + '</b>' : '') + esc(text);
   chatEl.log.appendChild(li);
+  /* [NUEVO] durante la partida el chat se atenúa solo a los 7 s sin mensajes nuevos (deja ver el juego) y vuelve a verse al llegar uno */
+  chatEl.box.classList.remove('idle'); clearTimeout(chatIdleT); chatIdleT = setTimeout(() => chatEl.box.classList.add('idle'), 7000);
   if (cfg.chatHidden && kind !== 'me' && !document.body.classList.contains('chat-peek')) { chatUnread++; chatEl.badge.textContent = chatUnread > 9 ? '9+' : chatUnread; chatEl.tab.classList.add('new'); }
   while (chatEl.log.children.length > 8) chatEl.log.firstChild.remove();
   if (state === 'playing' || state === 'paused') { setTimeout(() => li.classList.add('old'), 9000); setTimeout(() => li.remove(), 9600); }
@@ -2003,7 +2018,7 @@ function initReport() {
   $('#reportBtn').addEventListener('click', openReport); $('#repCancel').addEventListener('click', closeReport);
   $('#reportForm').addEventListener('submit', e => { e.preventDefault(); netSend({ t: 'report', id: +$('#repTarget').value, cat: $('#repCat').value, text: $('#repText').value }); });
 }
-function openChat() { Object.keys(keys).forEach(k => { keys[k] = false; }); mouseL = mouseR = false; if (cfg.chatHidden) document.body.classList.add('chat-peek'); chatEl.input.focus(); }
+function openChat() { chatEl.box.classList.remove('idle'); Object.keys(keys).forEach(k => { keys[k] = false; }); mouseL = mouseR = false; if (cfg.chatHidden) document.body.classList.add('chat-peek'); chatEl.input.focus(); }
 function initChat() {
   initReport(); initEnd();
   applyChatHidden();
@@ -2050,6 +2065,11 @@ function initMenu() {
   const ws = $('#wheelSwap'); ws.checked = !!cfg.wheelSwap; $('#wheelSwapO').textContent = cfg.wheelSwap ? 'Sí' : 'No';
   ws.addEventListener('change', () => { cfg.wheelSwap = ws.checked; $('#wheelSwapO').textContent = cfg.wheelSwap ? 'Sí' : 'No'; saveCfg(); });
   bind('shake', 'shake', v => (v ? v + '%' : 'Desactivada'));
+  /* [NUEVO] HUD: tamaño (80–120 %) y modo compacto */
+  bind('hudScale', 'hudScale', v => v + '%'); $('#hudScale').addEventListener('input', applyHudPrefs);
+  const hc = $('#hudCompact'); hc.checked = !!cfg.hudCompact; $('#hudCompactO').textContent = cfg.hudCompact ? 'Sí' : 'No';
+  hc.addEventListener('change', () => { cfg.hudCompact = hc.checked; $('#hudCompactO').textContent = cfg.hudCompact ? 'Sí' : 'No'; saveCfg(); applyHudPrefs(); });
+  applyHudPrefs();
   /* [NUEVO] Cambiar el nombre de la cuenta: solo cambia la etiqueta; PX, estadísticas y pase siguen ligados al ID */
   $('#renameBtn').addEventListener('click', () => { const r = $('#renameRow'); r.hidden = !r.hidden; if (!r.hidden && remote) { $('#renameIn').value = remote.username; $('#renameMsg').textContent = ''; $('#renameIn').focus(); } });
   $('#renameOk').addEventListener('click', async () => {
@@ -2103,7 +2123,7 @@ async function renderLeaderboard() {
   const dn = ['Fácil', 'Normal', 'Difícil'];
   if (!list.length) { $('#lbBox').innerHTML = '<p class="empty">Aún no hay partidas guardadas' + (f >= 0 ? ' en este mapa' : '') + '. Juega una y aparecerás aquí.</p>'; return; }
   $('#lbBox').innerHTML = '<table class="tbl"><thead><tr><th>#</th><th>Jugador</th><th>Clase</th><th>Mapa</th><th class="r">Bajas</th><th class="r">K/D</th><th class="r">Puntos</th></tr></thead><tbody>' +
-    list.slice(0, 15).map((e, i) => '<tr class="' + (e.n === cfg.name ? 'me ' : '') + (i === 0 ? 'first' : '') + '"' + (dn[e.df] ? ' title="Dificultad: ' + dn[e.df] + '"' : '') + '><td class="pos">' + (i + 1) + '</td><td>' + nameHtml(e.n, e.r || 0) + '</td><td>' + esc(e.c) + '</td><td>' + esc(MAPS[e.m] ? MAPS[e.m].name : '-') + '</td><td class="r">' + e.k + '</td><td class="r">' + (e.d ? (e.k / e.d).toFixed(1) : e.k.toFixed(1)) + '</td><td class="r">' + e.p + '</td></tr>').join('') + '</tbody></table>';
+    list.slice(0, 15).map((e, i) => '<tr class="' + (e.n === cfg.name ? 'me ' : '') + (i === 0 ? 'first' : '') + '"' + (dn[e.df] ? ' title="Dificultad: ' + dn[e.df] + '"' : '') + '><td class="pos">' + (i + 1) + '</td><td><a class="plink" href="#" data-profile="' + esc(e.n) + '">' + nameHtml(e.n, e.r || 0) + '</a></td><td>' + esc(e.c) + '</td><td>' + esc(MAPS[e.m] ? MAPS[e.m].name : '-') + '</td><td class="r">' + e.k + '</td><td class="r">' + (e.d ? (e.k / e.d).toFixed(1) : e.k.toFixed(1)) + '</td><td class="r">' + e.p + '</td></tr>').join('') + '</tbody></table>';
 }
 /* =====================================================================
    Entrada
@@ -2137,9 +2157,9 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Escape' && !locked) pauseGame();
   if (e.code === 'KeyR' && player.alive && slot === 0) startReload();   // con el cuchillo en mano no se recarga
   if (e.code === 'Digit1') setSlot(0); else if (e.code === 'Digit2' || e.code === 'Digit3') setSlot(1); else if (e.code === 'KeyQ') setSlot(1 - slot);   // [NUEVO] 1 = arma, 2 = cuchillo, Q = alternar
-  if (e.code === 'KeyC' && player.alive && player.onGround && (player.slideCd || 0) <= 0 && Math.hypot(player.vel.x, player.vel.z) > 5.5) { // agacharse en marcha = deslizarse
-    const s = Math.hypot(player.vel.x, player.vel.z), v = Math.min(12, Math.max(s * 1.3, 10.5)); player.vel.x = player.vel.x / s * v; player.vel.z = player.vel.z / s * v;
-    player.slide = 0.95; player.slideCd = 1.2; sfx.slide();
+  if (e.code === 'KeyC' && player.alive && player.onGround && (player.slideCd || 0) <= 0 && Math.hypot(player.vel.x, player.vel.z) > 5) { // agacharse en marcha = deslizarse
+    const s = Math.hypot(player.vel.x, player.vel.z), v = Math.min(12.4, Math.max(s * 1.35, 11)); player.vel.x = player.vel.x / s * v; player.vel.z = player.vel.z / s * v;   // [AJUSTE] deslizamiento más rápido y con menos espera (antes 12 / 10,5 / 1,2 s)
+    player.slide = 0.95; player.slideCd = 0.9; sfx.slide();
   }
   if (e.code === 'KeyB' && player.alive) cycleOptic();
   const m = /^Digit([1-9])$/.exec(e.code);
@@ -2257,7 +2277,7 @@ function frame(now) {
 if (!cfg.shadowsSet && renderer && isSoftwareGL()) cfg.shadows = false;
 buildMap(cfg.map); applyShadows(); initMenu(); resize(); setInterval(() => { if (state === 'menu') checkServer(); }, 15000); buildGun(WEAPONS[cfg.cls]); gun.visible = false;
 /* Puente para la pantalla del pase de batalla (bp.js) */
-Object.assign(window.PPR_BP, { S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
+Object.assign(window.PPR_BP, { setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
   rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
 requestAnimationFrame(frame);
 })();

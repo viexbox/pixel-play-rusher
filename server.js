@@ -24,6 +24,8 @@ const PGDB = global.__PPR_DB || null;   // PostgreSQL (opcional)
 if (PGDB) Store.db = PGDB;
 const { createAccounts } = require('./server/accounts.js');
 const { createBattlePass } = require('./server/battlepass.js');
+const { createMarket } = require('./server/market.js');
+const { createSocial } = require('./server/social.js');
 
 const PORT = +process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -44,7 +46,7 @@ const HIST_MIN = +process.env.HISTORY_MIN_SECS || 20; // segundos mínimos en un
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const r3 = v => Math.round(v * 1000) / 1000;
-let admin = null, accounts = null, bp = null;
+let admin = null, accounts = null, bp = null, market = null, social = null;
 const log = (...a) => { const line = new Date().toISOString() + ' ' + a.join(' '); console.log(line); if (admin) admin.onLog(line); };
 
 /* =====================================================================
@@ -232,7 +234,7 @@ class Room {
     rows.forEach((p, i) => { // progreso y PX de las cuentas online (mínimo 2 jugadores y algo de actividad)
       if (!p.acctUser || rows.length < 2 || p.kills + p.deaths + p.points === 0) return;
       const r = accounts.awardMatch(p.acctUser, { points: p.points, kills: p.kills, deaths: p.deaths, won: winner >= 0 && p.team === winner, cls: p.cls, bestStreak: p.bestStreak });
-      p.send(JSON.stringify({ t: 'award', px: r.px, balance: r.balance, prevBest: r.prevBest, stats: r.stats, mult: r.mult }));
+      p.send(JSON.stringify({ t: 'award', px: r.px, balance: r.balance, prevBest: r.prevBest, stats: r.stats, mult: r.mult, cr: r.cr, crBalance: r.crBalance }));
       bp.awardMatch(p.acctUser, { points: p.points, won: winner >= 0 && p.team === winner }).then(x => { if (x) p.send(JSON.stringify({ t: 'bpxp', xp: x.added, total: x.xp, level: x.level, up: x.leveledUp })); }).catch(e => log('XP del pase: ' + e.message));
     });
     this.votes = new Map();
@@ -372,7 +374,7 @@ function json(res, obj, code, origin) {
   res.end(JSON.stringify(obj));
 }
 function status() {
-  return { protocol: PROTOCOL, admin: admin.adminUser, accounts: true, bp: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
+  return { protocol: PROTOCOL, admin: admin.adminUser, accounts: true, store: accounts.storeInfo().enabled, bp: true, market: true, social: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
 }
 
 const server = http.createServer((req, res) => {
@@ -381,6 +383,8 @@ const server = http.createServer((req, res) => {
   if (url.pathname.startsWith('/api/admin/')) { admin.handleHttp(req, res, url, clientIp(req)); return; } // API de administración (GET y POST)
   if (accounts.handles(url.pathname)) { accounts.handleHttp(req, res, url, clientIp(req)); return; }       // cuentas, PX y tienda
   if (bp.handles(url.pathname)) { bp.handleHttp(req, res, url, clientIp(req)); return; }                   // pase de batalla
+  if (market.handles(url.pathname)) { market.handleHttp(req, res, url, clientIp(req)); return; }           // [NUEVO] mercado
+  if (social.handles(url.pathname)) { social.handleHttp(req, res, url, clientIp(req)); return; }           // [NUEVO] perfiles y amigos
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
   const p = url.pathname;
   if (p.startsWith('/api/')) {
@@ -459,6 +463,10 @@ admin = createAdmin({
 });
 accounts = createAccounts({ dataDir: DATA_DIR, log, S, admin });
 bp = createBattlePass({ S, accounts, admin, db: PGDB, dataDir: DATA_DIR, log });
+market = createMarket({ S, accounts, bp, admin, log });   // [NUEVO] mercado de cosméticos (Créditos)
+/* [NUEVO] Presencia de una cuenta: 'game' si está en una partida, 'lobby' si está en el menú, 'off' si no está conectada */
+function presence(uid) { let best = 'off'; for (const w of connections) if (w.acctId === uid && w.readyState === 1) { if (w.player) return 'game'; best = 'lobby'; } return best; }
+social = createSocial({ S, accounts, admin, bp, db: PGDB, dataDir: DATA_DIR, log, presence });   // [NUEVO] perfiles, foto, amigos y denuncias
 /* [NUEVO] Si una cuenta cambia de nombre, sus entradas de la clasificación cambian con ella (siguen a su ID; las antiguas, sin ID, se reconocen por el nombre viejo) */
 accounts.hooks.onRename = (u, old) => { const ok = old.toLowerCase(); let n = 0; for (const e of lb.entries) if (e.a === u.id || (!e.a && e.n.toLowerCase() === ok)) { e.a = u.id; e.n = u.username; n++; } if (n) lbSaveSoon(); };
 if (PGDB) { admin.flushAll(); accounts.flush(); lbSave(); }   // primer arranque con PostgreSQL: lo importado de archivos pasa ya a la base de datos
@@ -524,7 +532,7 @@ function onMessage(ws, m, now) {
     const cls = Number.isInteger(m.c) && m.c >= 0 && m.c < S.WEAPONS.length ? m.c : 0;
     const lk = Array.isArray(m.lk) && m.lk.length === 2 && m.lk.every(Number.isInteger) ? [clamp(m.lk[0], 0, 15), clamp(m.lk[1], 0, 4)] : null;
     const p = new Player(ws, idt.name, map, cls, ws.ip, lk, idt);
-    p.acctUser = acct && !idt.role ? acct : null;
+    p.acctUser = acct || null;   // [CORREGIDO] antes era `acct && !idt.role`: un influencer o administrador con cuenta jugaba desvinculado y no recibía PX, estadísticas, XP del pase ni clasificación por ID
     admin.count('join'); admin.count('class', cls); admin.count('map', map);
     ws.player = p; lobby.delete(ws);
     findRoom(map).add(p);
@@ -538,6 +546,7 @@ function onMessage(ws, m, now) {
     let idt = admin.resolveIdentity(Object.assign({ name: acct ? acct.username : (sanitizeName(m.n) || 'Anónimo') }, who));
     if (!idt.ok) { ws.send(JSON.stringify({ t: 'err', m: idt.error })); return ws.close(); }
     if (!acct && !idt.role && accounts.nameTaken(idt.name)) { idt = admin.resolveIdentity(Object.assign({ name: freeGuestName(idt.name) }, who)); if (!idt.ok) return ws.close(); }   // [MEJORA] nombre libre en vez de expulsar
+    ws.acctId = acct ? acct.id : null;   // [NUEVO] para saber quién está en línea
     ws.lobbyName = idt.name; ws.role = idt.role; ws.nameKey = idt.nameKey; ws.ipKey = idt.ipKey; lobby.add(ws);
     return ws.send(JSON.stringify({ t: 'lobbyok', n: lobby.size, rl: idt.role || 0 }));
   }

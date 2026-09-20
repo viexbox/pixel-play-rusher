@@ -184,5 +184,5 @@
     const e = $('#endXp'); if (e) { e.hidden = false; e.textContent = '+' + m.xp + ' XP del Pase de batalla' + (m.up ? ' · ¡Subes al nivel ' + m.level + '!' : ' · nivel ' + m.level); }
     if (!$('#passScreen').hidden) render();
   };
-  P.open = openPass; P.close = closePass; P.reload = load; P.render = render;
+  P.open = openPass; P.close = closePass; P.reload = load; P.load = load; P.render = render; P.apply = apply; P.describe = describe;   // (el perfil y el mercado usan estas piezas)
 })();

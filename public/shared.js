@@ -3,7 +3,8 @@
 (function (root) {
 'use strict';
 const TAU = Math.PI * 2;
-const CONST = { WALK: 6, SPRINT: 8.2, CROUCH: 3, JUMP: 8.2, GRAV: 24, STEP: 0.55, MATCH_TIME: 180, KILL_LIMIT: 25, RESPAWN: 3 };
+/* [AJUSTE estilo Krunker] Más velocidad, salto más seco y gravedad mayor (menos tiempo en el aire). El servidor tolera hasta 13 m/s en horizontal: con el bunny hop máximo se llega a ~11 m/s y el deslizamiento a ~12,4. */
+const CONST = { WALK: 7.4, SPRINT: 8.8, CROUCH: 4.2, JUMP: 8.6, GRAV: 27, STEP: 0.55, MATCH_TIME: 180, KILL_LIMIT: 25, RESPAWN: 3 };
 
 const WEAPONS = [
   { id: 'asalto', name: 'Asalto', type: 'Fusil de asalto', desc: 'Equilibrado y fiable a cualquier distancia.', dmg: 20, interval: 0.1, mag: 30, reload: 1.7, spread: 0.011, pellets: 1, range: 130, kick: 0.006, fall: null, aimFov: 0.78, speed: 1, stats: [3, 4, 4], col: '#ff5a5f', size: [0.07, 0.1, 0.5], look: { mag: [0.05, 0.16, 0.08, -0.3], barrel: 0.5 }, optics: ['punto', 'hierro'] },
@@ -17,6 +18,9 @@ const WEAPONS = [
   { id: 'ak', name: 'AK', type: 'Fusil AK', desc: 'Daño alto y retroceso marcado. Elige tu mira: hierro, punto rojo, holográfica o ACOG.', dmg: 27, interval: 0.115, mag: 30, reload: 2.0, spread: 0.014, pellets: 1, range: 140, kick: 0.011, fall: [60, 140, 0.7], aimFov: 0.82, speed: 0.98, stats: [4, 3, 3], col: '#ffb020', size: [0.07, 0.1, 0.56], look: { mag: [0.05, 0.2, 0.08, -0.3], barrel: 0.5 }, optics: ['hierro', 'punto', 'holo', 'acog'] }
 ];
 /* Miras: `fov` es el factor de campo de visión al apuntar (menor = más zoom); `h` la altura de la línea de mira sobre el arma. */
+/* [AJUSTE estilo Krunker] Recargas un 20 % más cortas: menos tiempo indefenso, más ritmo de combate. El servidor usa los mismos valores. */
+WEAPONS.forEach(w => { w.reload = +(w.reload * 0.8).toFixed(2); });
+
 const OPTICS = {
   hierro: { name: 'Mira de hierro', kind: 'iron', fov: 0.86, h: 0.093 },
   punto: { name: 'Punto rojo', kind: 'dot', fov: 0.78, h: 0.095 },
@@ -315,7 +319,13 @@ const bpInfo = r => {
   const it = bpFind(r); return it ? { n: it.n, r: it.r } : { n: '?', r: 'comun' };
 };
 
-const api = { CONST, WEAPONS, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, raySphere, rayCyl };
+/* ---------- [NUEVO] Segunda moneda y mercado ----------
+   PX = moneda premium (se compra con dinero real en la tienda; sirve para el pase, colores y rangos).
+   Créditos (CR) = moneda que solo se gana jugando y vendiendo en el mercado; es la ÚNICA moneda del mercado, así no se compra ni se vende nada por dinero real entre jugadores. */
+const crFor = (points, won) => Math.min(400, Math.round(Math.max(0, points) / 8) + (won ? 40 : 0));   // CR por partida online
+const MARKET = { FEE: 0.10, MAX_LISTINGS: 8, MAX_PRICE: 1000000, MIN_PRICE: { comun: 20, poco: 60, raro: 150, epico: 400, leyenda: 1000 } };   // comisión del 10 %, precio mínimo por rareza
+
+const api = { CONST, WEAPONS, crFor, MARKET, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

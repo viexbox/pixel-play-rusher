@@ -60,6 +60,35 @@ function pgStore(pool, S) {
       return tx(async c => { for (const [t, col] of [['bp_progress', 'user_id'], ['bp_claims', 'user_id'], ['bp_inventory', 'user_id'], ['bp_equipped', 'user_id'], ['bp_gifts', 'from_user'], ['bp_gifts', 'to_user']])
         await c.query('UPDATE ' + t + ' SET ' + col + ' = m.n FROM (SELECT unnest($1::text[]) AS o, unnest($2::text[]) AS n) m WHERE ' + t + '.' + col + ' = m.o', [olds, news]); });
     },
+    /* ---- [NUEVO] Mercado ---- */
+    marketListings: async () => (await pool.query('SELECT id::int AS id, seller, item_type AS t, item_id AS item, price, created_at FROM market_listings ORDER BY created_at DESC LIMIT 2000')).rows.map(r => ({ id: r.id, seller: r.seller, t: r.t, item: r.item, price: r.price, ts: +new Date(r.created_at) })),
+    marketList(uid, t, id, price, max) {   // el objeto sale del inventario (y de lo equipado) y queda en depósito en el anuncio
+      return tx(async c => {
+        if ((await c.query('SELECT count(*)::int AS n FROM market_listings WHERE seller = $1', [uid])).rows[0].n >= max) return { error: 'limit' };
+        if (!(await c.query('DELETE FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3', [uid, t, id])).rowCount) return { error: 'no-item' };
+        await c.query('DELETE FROM bp_equipped WHERE user_id = $1 AND item_id = $2', [uid, id]);
+        return { id: (await c.query('INSERT INTO market_listings (seller, item_type, item_id, price) VALUES ($1, $2, $3, $4) RETURNING id::int AS id', [uid, t, id, price])).rows[0].id };
+      });
+    },
+    marketCancel(uid, listingId) {          // el objeto vuelve al inventario de su dueño
+      return tx(async c => {
+        const l = (await c.query('DELETE FROM market_listings WHERE id = $1 AND seller = $2 RETURNING item_type AS t, item_id AS item', [listingId, uid])).rows[0]; if (!l) return { error: 'gone' };
+        await c.query("INSERT INTO bp_inventory (user_id, item_type, item_id, source) VALUES ($1, $2, $3, 'mercado-devuelto') ON CONFLICT DO NOTHING", [uid, l.t, l.item]); return { t: l.t, item: l.item };
+      });
+    },
+    marketBuy(buyer, listingId, feeRate) {  // el anuncio desaparece, el objeto pasa al comprador y la venta queda registrada; todo o nada
+      return tx(async c => {
+        const l = (await c.query('SELECT id::int AS id, seller, item_type AS t, item_id AS item, price FROM market_listings WHERE id = $1 FOR UPDATE', [listingId])).rows[0]; if (!l) return { error: 'gone' };
+        if (l.seller === buyer) return { error: 'self' };
+        if ((await c.query('SELECT 1 FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3', [buyer, l.t, l.item])).rowCount) return { error: 'owned' };
+        const fee = Math.floor(l.price * feeRate);
+        await c.query('DELETE FROM market_listings WHERE id = $1', [listingId]);
+        await c.query("INSERT INTO bp_inventory (user_id, item_type, item_id, source) VALUES ($1, $2, $3, 'mercado')", [buyer, l.t, l.item]);
+        await c.query('INSERT INTO market_sales (listing_id, seller, buyer, item_type, item_id, price, fee) VALUES ($1, $2, $3, $4, $5, $6, $7)', [l.id, l.seller, buyer, l.t, l.item, l.price, fee]);
+        return { listing: l, fee };
+      });
+    },
+    async marketSalesCount() { return (await pool.query('SELECT count(*)::int AS n FROM market_sales')).rows[0].n; },
     async equip(uid, slot, itemId, itemType) {
       if (!itemId) { await pool.query('DELETE FROM bp_equipped WHERE user_id = $1 AND slot = $2', [uid, slot]); return true; }
       const has = await pool.query('SELECT 1 FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3', [uid, itemType, itemId]);
@@ -73,6 +102,7 @@ function pgStore(pool, S) {
 function fileStore(dataDir, log, S) {
   const st = new Store(path.join(dataDir, 'battlepass.json'), { users: {}, gifts: [] }, log);
   const D = st.data;
+  const mk = () => (D.market = D.market || { seq: 0, listings: [], sales: [] });   // [NUEVO] anuncios y ventas del mercado
   const U = uid => (D.users[uid] || (D.users[uid] = { xp: 0, level: 1, vip: false, vipSince: 0, giftedBy: '', xpDay: '', xpToday: 0, claims: {}, inventory: {}, equipped: {} }));
   return {
     kind: 'file', flush: () => st.flush(),
@@ -101,6 +131,25 @@ function fileStore(dataDir, log, S) {
       st.save();
     },
     async logGift(from, to) { D.gifts.push({ from, to, season: SEASON, ts: Date.now() }); if (D.gifts.length > 5000) D.gifts.shift(); st.save(); },
+    /* ---- [NUEVO] Mercado (mismo comportamiento que en PostgreSQL) ---- */
+    marketListings: async () => { const M = mk(); return M.listings.slice().reverse().slice(0, 2000).map(x => Object.assign({}, x)); },
+    async marketList(uid, t, id, price, max) {
+      const M = mk(), u = U(uid); if (M.listings.filter(x => x.seller === uid).length >= max) return { error: 'limit' };
+      if (!u.inventory[t + ':' + id]) return { error: 'no-item' };
+      delete u.inventory[t + ':' + id]; for (const [k, v] of Object.entries(u.equipped)) if (v === id) delete u.equipped[k];
+      const l = { id: ++M.seq, seller: uid, t, item: id, price, ts: Date.now() }; M.listings.push(l); st.save(); return { id: l.id };
+    },
+    async marketCancel(uid, listingId) {
+      const M = mk(), i = M.listings.findIndex(x => x.id === listingId && x.seller === uid); if (i < 0) return { error: 'gone' };
+      const l = M.listings.splice(i, 1)[0], u = U(uid); u.inventory[l.t + ':' + l.item] = u.inventory[l.t + ':' + l.item] || { t: l.t, id: l.item, source: 'mercado-devuelto', ts: Date.now() }; st.save(); return { t: l.t, item: l.item };
+    },
+    async marketBuy(buyer, listingId, feeRate) {
+      const M = mk(), i = M.listings.findIndex(x => x.id === listingId); if (i < 0) return { error: 'gone' }; const l = M.listings[i];
+      if (l.seller === buyer) return { error: 'self' }; const b = U(buyer); if (b.inventory[l.t + ':' + l.item]) return { error: 'owned' };
+      const fee = Math.floor(l.price * feeRate); M.listings.splice(i, 1); b.inventory[l.t + ':' + l.item] = { t: l.t, id: l.item, source: 'mercado', ts: Date.now() };
+      M.sales.push({ listing: l.id, seller: l.seller, buyer, t: l.t, item: l.item, price: l.price, fee, ts: Date.now() }); if (M.sales.length > 5000) M.sales.shift(); st.save(); return { listing: l, fee };
+    },
+    async marketSalesCount() { return mk().sales.length; },
     async equip(uid, slot, itemId, itemType) {
       const u = U(uid); if (!itemId) { delete u.equipped[slot]; st.save(); return true; }
       if (!u.inventory[itemType + ':' + itemId]) return false; u.equipped[slot] = itemId; st.save(); return true;
@@ -226,7 +275,7 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
     }
   });
 
-  return { handles, handleHttp, awardMatch, view, store, prices: { vip: VIP_PX, skip: SKIP_PX }, flush: () => (store.flush ? store.flush() : undefined) };
+  return { handles, handleHttp, awardMatch, view, store, lock, S, prices: { vip: VIP_PX, skip: SKIP_PX }, flush: () => (store.flush ? store.flush() : undefined) };
 }
 
 module.exports = { createBattlePass };

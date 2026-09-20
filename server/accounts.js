@@ -35,7 +35,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     const remap = new Map(), users = {};
     for (const u of Object.values(D.users)) {
       if (!isUuid(u.id)) { const old = String(u.id); u.legacyId = u.legacyId || old; u.id = crypto.randomUUID(); remap.set(old, u.id); migrated++; }
-      u.key = ukey(u.username); users[u.id] = u; byId.set(u.id, u); byKey.set(u.key, u);
+      u.key = ukey(u.username); u.credits = u.credits | 0; for (const k of ['friends', 'reqIn', 'reqOut', 'blocked']) if (!Array.isArray(u[k])) u[k] = []; users[u.id] = u; byId.set(u.id, u); byKey.set(u.key, u);   // [NUEVO] u.credits: segunda moneda
     }
     D.users = users;
     for (const [h, s] of Object.entries(D.sessions || {})) if (!isUuid(s.uid)) { const n = remap.get(String(s.uid)); if (n) s.uid = n; else delete D.sessions[h]; }
@@ -45,7 +45,8 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
   const hooks = { onRename: null };   // server.js lo usa para mantener la clasificación al día cuando alguien cambia de nombre
   const NAME_CHANGE_MS = (+env.NAME_CHANGE_DAYS >= 0 ? +env.NAME_CHANGE_DAYS : 7) * 86400000;   // espera entre cambios de nombre (el primero es libre)
   const REG_MAX = +env.ACCOUNTS_REG_MAX || 5;                 // registros por IP y hora
-  const PX_DAILY_CAP = +env.PX_DAILY_CAP || 5000;             // PX máximos por cuenta y día que se pueden ganar jugando
+  const PX_DAILY_CAP = +env.PX_DAILY_CAP || 5000;
+  const CR_DAILY_CAP = +env.CR_DAILY_CAP || 4000;             // [NUEVO] Créditos máximos por cuenta y día que se pueden ganar jugando             // PX máximos por cuenta y día que se pueden ganar jugando
   const ALLOWED_ORIGINS = String(env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 
   /* ---------- Tienda (Stripe Checkout) ---------- */
@@ -55,12 +56,19 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
   const CURRENCY = String(env.STORE_CURRENCY || 'eur').toLowerCase().slice(0, 3);
   let PACKS = [{ id: 'px500', px: 500, price: 99 }, { id: 'px1300', px: 1300, price: 199, tag: '+30 %' }, { id: 'px3500', px: 3500, price: 499, tag: '+40 %' }, { id: 'px8000', px: 8000, price: 999, tag: '+60 %' }];
   try { if (env.STORE_PACKS) { const p = JSON.parse(env.STORE_PACKS); if (Array.isArray(p) && p.length) PACKS = p.filter(x => x && /^[a-z0-9_-]{2,20}$/.test(x.id) && x.px > 0 && x.price >= 50).slice(0, 8); } } catch (e) { log('STORE_PACKS no es un JSON válido: se usan los paquetes por defecto.'); }
-  const storeOn = () => !!(STRIPE_KEY && PUBLIC_URL);
-  const storeInfo = () => ({ enabled: storeOn(), currency: CURRENCY, packs: PACKS.map(p => ({ id: p.id, px: p.px, price: p.price, tag: p.tag || '' })), reason: storeOn() ? '' : 'El dueño de la web aún no ha activado los pagos.' });
+  /* [MEJORA] La tienda solo se abre con las TRES cosas: clave, dirección pública y secreto del webhook. Sin el secreto el jugador podría pagar y no recibir sus PX. */
+  const storeOn = () => !!(STRIPE_KEY && PUBLIC_URL && STRIPE_WH);
+  const storeMissing = () => [!STRIPE_KEY && 'STRIPE_SECRET_KEY', !PUBLIC_URL && 'PUBLIC_URL', !STRIPE_WH && 'STRIPE_WEBHOOK_SECRET'].filter(Boolean);
+  /* [NUEVO] Métodos de pago de la tienda: por defecto SOLO tarjeta (incluye Apple Pay y Google Pay) y PayPal, sean cuales sean los que tengas activados en el panel de Stripe.
+     STRIPE_PAYMENT_METHODS="card,paypal" (lista separada por comas) o "auto" para dejar que decida el panel de Stripe. */
+  const rawMethods = String(env.STRIPE_PAYMENT_METHODS || 'card,paypal').trim().toLowerCase();
+  const PAY_METHODS = rawMethods === 'auto' ? [] : [...new Set(rawMethods.split(',').map(s => s.trim()).filter(s => /^[a-z0-9_]{2,30}$/.test(s)))].slice(0, 6);
+  let payFallback = false;   // true si Stripe rechazó algún método (p. ej. PayPal sin activar en tu cuenta): se cobra solo con tarjeta hasta reiniciar
+  const storeInfo = () => ({ enabled: storeOn(), currency: CURRENCY, packs: PACKS.map(p => ({ id: p.id, px: p.px, price: p.price, tag: p.tag || '' })), methods: payFallback ? ['card'] : PAY_METHODS, reason: storeOn() ? '' : 'El dueño de la web aún no ha activado los pagos.' });
 
   /* ---------- Cuentas y sesiones ---------- */
   const fails = new Map(), regHits = new Map();
-  const pub = u => ({ id: u.id, username: u.username, px: u.px, stats: u.stats, unlocked: u.unlocked, claimed: u.claimed, createdAt: u.createdAt });
+  const pub = u => ({ id: u.id, username: u.username, px: u.px, credits: u.credits | 0, stats: u.stats, unlocked: u.unlocked, claimed: u.claimed, createdAt: u.createdAt });
   function newSession(u) {
     const token = hex(32), t = now();
     D.sessions[sha(token)] = { uid: u.id, exp: t + SESSION_MS };
@@ -107,7 +115,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     hits.push(t); regHits.set(ip, hits);
     const salt = hex(16), hash = (await scrypt(pw, salt)).toString('hex');
     if (byKey.has(key)) return err(409, 'Ese nombre de usuario ya está en uso. Elige otro.', { suggestions: suggest(username) });   // otra petición pudo ganarle mientras se calculaba el hash
-    const u = { id: crypto.randomUUID(), username, key, email, salt, hash, createdAt: t, lastLogin: t, px: 0, stats: EMPTY_STATS(), unlocked: [0, 1, 2, 3], claimed: [], day: { d: '', px: 0 } };
+    const u = { id: crypto.randomUUID(), username, key, email, salt, hash, createdAt: t, lastLogin: t, px: 0, credits: 0, friends: [], reqIn: [], reqOut: [], blocked: [], avatar: null, status: '', verified: false, stats: EMPTY_STATS(), unlocked: [0, 1, 2, 3], claimed: [], day: { d: '', px: 0 } };
     D.users[u.id] = u; byId.set(u.id, u); byKey.set(key, u); db.save();   // [NUEVO] la cuenta se guarda por su ID
     log('Cuenta nueva: ' + username + ' (' + u.id + ')');
     return { ok: true, token: newSession(u), profile: pub(u) };
@@ -135,7 +143,10 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     st.games++; st.kills += r.kills; st.deaths += r.deaths; st.wins += r.won ? 1 : 0; st.streak = Math.max(st.streak, r.bestStreak || 0); st.points += r.points; st.best = Math.max(st.best, r.points);
     if (u.day.d !== today()) u.day = { d: today(), px: 0 };
     px = Math.max(0, Math.min(px, PX_DAILY_CAP - u.day.px)); u.day.px += px; u.px += px;    // tope diario contra el granjeo entre cuentas
-    db.save(); return { px, balance: u.px, prevBest, stats: st, mult: S.eventMult(S.todayEvent(), r.cls) };
+    /* [NUEVO] Créditos: la moneda que se gana jugando (con su propio tope diario) */
+    if (!u.dayCr || u.dayCr.d !== today()) u.dayCr = { d: today(), n: 0 };
+    const cr = Math.max(0, Math.min(S.crFor(r.points, r.won), CR_DAILY_CAP - u.dayCr.n)); u.dayCr.n += cr; u.credits += cr;
+    db.save(); return { px, cr, balance: u.px, crBalance: u.credits, prevBest, stats: st, mult: S.eventMult(S.todayEvent(), r.cls) };
   }
   function unlockColor(u, i) {
     i = i | 0; const cost = S.COLOR_COSTS[i];
@@ -167,6 +178,10 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     n = Math.trunc(n); if (!(n > 0)) return; u.px += n;
     D.pxlog.unshift({ ts: now(), uid: u.id, user: u.username, delta: n, applied: n, balance: u.px, reason: clean(reason, 120), by: 'juego' }); if (D.pxlog.length > 2000) D.pxlog.length = 2000; db.save();
   }
+  /* [NUEVO] Créditos: cobrar / abonar (los usa el mercado). spendCr no deja saldos negativos. */
+  function spendCr(u, n, reason) { n = Math.trunc(n); if (!(n > 0) || u.credits < n) return false; u.credits -= n; logCr(u, -n, reason); return true; }
+  function grantCr(u, n, reason) { n = Math.trunc(n); if (!(n > 0)) return; u.credits += n; logCr(u, n, reason); }
+  function logCr(u, delta, reason) { (D.crlog = D.crlog || []).unshift({ ts: now(), uid: u.id, user: u.username, delta, balance: u.credits, reason: clean(reason, 120) }); if (D.crlog.length > 2000) D.crlog.length = 2000; db.save(); }
   const find = name => byKey.get(ukey(name)) || null;
   const findById = id => byId.get(String(id)) || null;
 
@@ -189,14 +204,26 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
   async function checkout(u, packId) {
     if (!storeOn()) return err(503, storeInfo().reason);
     const pack = PACKS.find(p => p.id === packId); if (!pack) return err(400, 'Paquete no válido.');
-    const f = new URLSearchParams();
-    f.set('mode', 'payment'); f.set('success_url', PUBLIC_URL + '/?px=ok'); f.set('cancel_url', PUBLIC_URL + '/?px=cancel');
-    f.set('client_reference_id', String(u.id)); f.set('metadata[pack]', pack.id); f.set('metadata[uid]', String(u.id));
-    f.set('line_items[0][quantity]', '1'); f.set('line_items[0][price_data][currency]', CURRENCY); f.set('line_items[0][price_data][unit_amount]', String(pack.price));
-    f.set('line_items[0][price_data][product_data][name]', pack.px + ' PX · Pixel Play Rusher');
-    let j; try {
+    /* Crea la sesión de pago con los métodos indicados. Devuelve { j } si va bien o { bad, msg } si Stripe la rechaza. */
+    const createSession = async methods => {
+      const f = new URLSearchParams();
+      f.set('mode', 'payment'); f.set('success_url', PUBLIC_URL + '/?px=ok'); f.set('cancel_url', PUBLIC_URL + '/?px=cancel');
+      f.set('client_reference_id', String(u.id)); f.set('metadata[pack]', pack.id); f.set('metadata[uid]', String(u.id));
+      f.set('line_items[0][quantity]', '1'); f.set('line_items[0][price_data][currency]', CURRENCY); f.set('line_items[0][price_data][unit_amount]', String(pack.price));
+      f.set('line_items[0][price_data][product_data][name]', pack.px + ' PX · Pixel Play Rusher');
+      methods.forEach((m, i) => f.set('payment_method_types[' + i + ']', m));   // [NUEVO] solo estos métodos (vacío = los del panel de Stripe)
       const r = await fetch(STRIPE_BASE + '/v1/checkout/sessions', { method: 'POST', headers: { Authorization: 'Bearer ' + STRIPE_KEY, 'Content-Type': 'application/x-www-form-urlencoded' }, body: f, signal: AbortSignal.timeout(15000) });
-      j = await r.json(); if (!r.ok || !j.url || !j.id) { log('Stripe rechazó la sesión de pago: ' + clean(j && j.error && j.error.message, 120)); return err(502, 'No se pudo iniciar el pago. Inténtalo más tarde.'); }
+      const j = await r.json(); if (r.ok && j.url && j.id) return { j };
+      const e = (j && j.error) || {}; return { bad: true, msg: clean(e.message, 160), method: /payment_method/i.test(e.param || '') || /payment method/i.test(e.message || '') };
+    };
+    let j; try {
+      let res = await createSession(payFallback ? ['card'] : PAY_METHODS);
+      if (res.bad && res.method && !payFallback && PAY_METHODS.some(m => m !== 'card')) {   // [NUEVO] p. ej. PayPal aún sin activar en tu cuenta de Stripe: no se cae la tienda, se cobra con tarjeta y se avisa en el registro
+        payFallback = true; log('Stripe rechazó un método de pago (' + res.msg + '). Se cobrará solo con tarjeta. Activa PayPal en Stripe → Ajustes → Métodos de pago o revisa STRIPE_PAYMENT_METHODS.');
+        res = await createSession(['card']);
+      }
+      if (res.bad) { log('Stripe rechazó la sesión de pago: ' + res.msg); return err(502, 'No se pudo iniciar el pago. Inténtalo más tarde.'); }
+      j = res.j;
     } catch (e) { log('No se pudo contactar con Stripe: ' + e.message); return err(502, 'No se pudo iniciar el pago. Inténtalo más tarde.'); }
     D.orders.unshift({ id: j.id, uid: u.id, user: u.username, pack: pack.id, px: pack.px, amount: pack.price, currency: CURRENCY, status: 'pending', ts: now() });
     if (D.orders.length > 2000) D.orders.length = 2000; db.save();
@@ -268,15 +295,24 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
       const s = ukey(q.get('q')), list = Object.values(D.users).filter(u => !s || u.key.includes(s) || u.email.includes(String(q.get('q')).toLowerCase())).sort((a, b) => b.createdAt - a.createdAt);
       return { total: Object.keys(D.users).length, accounts: list.slice(0, 100).map(u => ({ id: u.id, username: u.username, email: maskEmail(u.email), px: u.px, points: u.stats.points, games: u.stats.games, createdAt: u.createdAt, lastLogin: u.lastLogin })) };
     },
+    /* [NUEVO] Ajuste manual de Créditos (soporte): suma o resta, sin dejar saldos negativos */
+    'POST /credits': ({ b, s }) => {
+      const u = find(b.username); if (!u) return err(404, 'No existe ninguna cuenta con ese nombre.');
+      const d = Math.trunc(+b.delta); if (!Number.isFinite(d) || d === 0 || Math.abs(d) > 1000000) return err(400, 'La cantidad debe ser un entero distinto de 0 (máximo 1.000.000).');
+      const applied = d > 0 ? d : -Math.min(u.credits, -d); if (applied > 0) grantCr(u, applied, 'ajuste admin: ' + clean(b.reason, 80)); else if (applied < 0) spendCr(u, -applied, 'ajuste admin: ' + clean(b.reason, 80));
+      admin.audit(s.user, 'creditos-' + (applied >= 0 ? 'sumar' : 'restar'), u.username + ' ' + (applied >= 0 ? '+' : '') + applied + ' CR'); return { ok: true, username: u.username, applied, credits: u.credits };
+    },
     'POST /px': ({ b, s }) => { const r = adjust(b.username, b.delta, b.reason, s.user); if (!r.error) admin.audit(s.user, 'px-' + (r.applied >= 0 ? 'sumar' : 'restar'), r.username + ' ' + (r.applied >= 0 ? '+' : '') + r.applied + ' PX' + (b.reason ? ' · ' + clean(b.reason, 80) : '')); return r; },
     'GET /orders': () => ({ enabled: storeOn(), orders: D.orders.slice(0, 200), pxlog: D.pxlog.slice(0, 100) })
   });
 
-  const readJson = req => readRaw(req, 4000).then(t => (t ? JSON.parse(t) : {}));
+  const readJson = (req, max) => readRaw(req, max || 4000).then(t => (t ? JSON.parse(t) : {}));   // max: las fotos de perfil necesitan más de 4 KB
   /* Ids antiguos (numéricos) cuyas filas del pase aún hay que pasar al UUID nuevo (lo hace battlepass.js al arrancar) */
   const legacyPending = () => Object.values(D.users).filter(u => u.legacyId && !u.bpMoved).map(u => ({ old: u.legacyId, id: u.id }));
   const legacyDone = ids => { for (const id of ids) { const u = byId.get(id); if (u) u.bpMoved = true; } db.save(); };
-  return { handleHttp, handles, fromToken, nameTaken, awardMatch, profile: pub, flush: () => db.flush(), adjust, register, storeInfo, spend, grant, find, findById, rename, suggest, hooks, legacyPending, legacyDone, http: { send, readJson } };
+  log(storeOn() ? 'Tienda: ACTIVADA (métodos: ' + (PAY_METHODS.join(', ') || 'los del panel de Stripe') + ')' : (STRIPE_KEY || PUBLIC_URL || STRIPE_WH ? 'Tienda: DESACTIVADA. Faltan las variables: ' + storeMissing().join(', ') : 'Tienda: desactivada (sin configurar Stripe)'));   // [NUEVO] para comprobarlo en el registro del servidor
+  const touch = () => db.save(), allUsers = () => Object.values(D.users);   // [NUEVO] para el módulo social
+  return { touch, allUsers, handleHttp, handles, fromToken, nameTaken, awardMatch, profile: pub, flush: () => db.flush(), adjust, register, storeInfo, spend, grant, spendCr, grantCr, find, findById, rename, suggest, hooks, legacyPending, legacyDone, http: { send, readJson } };
 }
 
 module.exports = { createAccounts, ukey };
