@@ -4,6 +4,7 @@
    Todos los métodos son asíncronos o devuelven {ok, ...} para poder cambiarlos por fetch() sin tocar la interfaz. */
 const USERS_KEY = 'ppr.users';
 const SESSION_KEY = 'ppr.session';
+const ACCT_TOKEN_KEY = 'ppr.acct'; // sesión de una cuenta online: la lee el juego para entrar con el nombre único de la cuenta
 const ADMIN_TOKEN_KEY = 'ppr.admtoken'; // el juego lo lee al entrar online para que el servidor reconozca al administrador
 const DAY = 86400000;
 
@@ -132,6 +133,13 @@ export function createAuthService({ local, session, cryptoApi = globalThis.crypt
     return s;
   }
 
+  /* Sesión de una cuenta online (registrada en el servidor): dura 30 días como el token del servidor. */
+  function remoteSession(username, acctToken) {
+    const s = { token: newToken(), userId: 'srv-' + String(username).toLowerCase(), username, guest: false, remote: true, remember: true, createdAt: now(), expiresAt: now() + 30 * 86400000 };
+    session.removeItem(SESSION_KEY); local.setItem(SESSION_KEY, JSON.stringify(s)); local.setItem(ACCT_TOKEN_KEY, acctToken);
+    return s;
+  }
+
   function guest() {
     const n = 1000 + (randomBytes(2, cryptoApi).reduce((a, b) => a * 256 + b, 0) % 9000);
     const user = { id: 'guest-' + hexOf(randomBytes(4, cryptoApi)), username: 'Guest_' + n, guest: true };
@@ -149,10 +157,11 @@ export function createAuthService({ local, session, cryptoApi = globalThis.crypt
     const s = readSession(); if (!s) return null;
     if (s.expiresAt && s.expiresAt < now()) { logout(); return null; }
     if (s.admin) { if (!local.getItem(ADMIN_TOKEN_KEY)) { logout(); return null; } return s; }
+    if (s.remote) { if (!local.getItem(ACCT_TOKEN_KEY)) { logout(); return null; } return s; }
     if (!s.guest) { const u = readUsers()[String(s.username).toLowerCase()]; if (!u || u.id !== s.userId) { logout(); return null; } }
     return s;
   }
-  function logout() { session.removeItem(SESSION_KEY); local.removeItem(SESSION_KEY); local.removeItem(ADMIN_TOKEN_KEY); }
+  function logout() { session.removeItem(SESSION_KEY); local.removeItem(SESSION_KEY); local.removeItem(ADMIN_TOKEN_KEY); local.removeItem(ACCT_TOKEN_KEY); }
 
-  return { register, login, guest, adminSession, restoreSession, logout };
+  return { register, login, guest, adminSession, remoteSession, restoreSession, logout };
 }

@@ -272,6 +272,26 @@ const views = {
         h('button', { class: 'btn gold', text: 'Crear influencer', onclick: async () => { const r = await act(() => api('POST', '/influencers/add', { name: $('#infName').value, note: $('#infNote').value }), 'Influencer creado'); if (r) showKey(r.influencer.name, r.key); } })),
       h('div', { id: 'keyArea' }), table(['Nombre', 'Nota', 'Estado', 'Alta', ''], rows), d.influencers.length ? null : h('p', { class: 'muted', text: 'Aún no hay influencers.' }));
   },
+  async economy() {
+    const q = $('#accQ') ? $('#accQ').value : '';
+    const [ac, od] = await Promise.all([api('GET', '/accounts?q=' + encodeURIComponent(q)), api('GET', '/orders')]);
+    const money = o => (o.amount / 100).toFixed(2) + ' ' + String(o.currency).toUpperCase();
+    const adjust = async (name, sign) => {
+      const v = await ask((sign > 0 ? 'Sumar PX a ' : 'Restar PX a ') + name, [{ name: 'amount', label: 'Cantidad de PX', type: 'number', required: true, value: '100' }, { name: 'reason', label: 'Motivo (queda en la auditoría)', max: 120 }], sign > 0 ? 'Sumar' : 'Restar'); if (!v) return;
+      const n = Math.abs(Math.trunc(+v.amount)); if (!n) { toast('Escribe una cantidad mayor que 0', true); return; }
+      const r = await act(() => api('POST', '/px', { username: name, delta: sign * n, reason: v.reason }), 'Hecho'); if (r) { toast(r.applied === 0 ? 'Sin cambios: ' + name + ' ya tenía 0 PX' : (r.applied >= 0 ? '+' : '') + r.applied + ' PX · saldo ' + r.balance); render(); }
+    };
+    const rows = ac.accounts.map(a => h('tr', null, h('td', { text: a.username }), h('td', { class: 'muted', text: a.email }), h('td', { text: a.px }), h('td', { text: a.points }), h('td', { text: a.games }), h('td', { text: fmtD(a.lastLogin) }),
+      h('td', null, h('button', { class: 'btn sm', text: '+ PX', onclick: () => adjust(a.username, 1) }), ' ', h('button', { class: 'btn sm red', text: '− PX', onclick: () => adjust(a.username, -1) }))));
+    const orders = od.orders.map(o => h('tr', null, h('td', { text: fmtD(o.ts) }), h('td', { text: o.user }), h('td', { text: o.px + ' PX' }), h('td', { text: money(o) }), h('td', null, h('span', { class: 'tag ' + (o.status === 'paid' ? 'ok' : o.status === 'pending' ? '' : 'red'), text: o.status === 'paid' ? 'PAGADO' : o.status === 'pending' ? 'PENDIENTE' : o.status.toUpperCase() }))));
+    const logs = od.pxlog.map(l => h('tr', null, h('td', { text: fmtD(l.ts) }), h('td', { text: l.user }), h('td', { text: (l.applied >= 0 ? '+' : '') + l.applied }), h('td', { text: l.balance }), h('td', { text: l.reason || '' }), h('td', { text: l.by })));
+    return h('div', null, h('h2', { text: 'Economía: cuentas y PX' }),
+      h('p', { class: 'muted', text: 'Aquí puedes sumar o restar PX a mano a cualquier cuenta online. Cada ajuste queda en la auditoría. ' + (od.enabled ? 'La tienda de pago está activada.' : 'La tienda de pago NO está activada (faltan STRIPE_SECRET_KEY y PUBLIC_URL).') }),
+      h('div', { class: 'tools', style: 'margin:14px 0;display:flex;gap:10px;align-items:center' }, h('input', { id: 'accQ', placeholder: 'Buscar por usuario o correo', value: q }), h('button', { class: 'btn', text: 'Buscar', onclick: () => render() }), h('span', { class: 'muted', text: ac.total + ' cuentas registradas' })),
+      table(['Usuario', 'Correo', 'PX', 'Puntos', 'Partidas', 'Último acceso', ''], rows), ac.accounts.length ? null : h('p', { class: 'muted', text: 'No hay cuentas que coincidan.' }),
+      h('h3', { text: 'Pedidos de la tienda' }), od.orders.length ? table(['Fecha', 'Cuenta', 'Paquete', 'Importe', 'Estado'], orders) : h('p', { class: 'muted', text: 'Todavía no hay compras.' }),
+      h('h3', { text: 'Ajustes manuales de PX' }), od.pxlog.length ? table(['Fecha', 'Cuenta', 'Cambio', 'Saldo', 'Motivo', 'Por'], logs) : h('p', { class: 'muted', text: 'Todavía no hay ajustes.' }));
+  },
   async maint() {
     const [sv, ov, lg] = await Promise.all([api('GET', '/server'), api('GET', '/overview'), api('GET', '/logs')]);
     const m = sv.settings.maintenance;

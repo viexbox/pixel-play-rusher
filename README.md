@@ -37,9 +37,45 @@ pixel-play-rusher/
 
 Al abrir el juego aparece una pantalla con **Entrar | Registro | Entrar como invitado**. Se puede desactivar con `auth: false` en `public/config.js`.
 
-- Los datos (cuentas, sesión y perfil) se guardan **en el navegador** con contraseñas protegidas con PBKDF2. Es una simulación para probar el flujo: no es segura ni se comparte entre dispositivos. Antes de abrir el juego al público hay que sustituir `public/src/api/authService.js` por una API real en el servidor.
+- Sin servidor (archivo único) o si el servidor no tiene cuentas, los datos (cuentas, sesión y perfil) se guardan **en el navegador** con contraseñas protegidas con PBKDF2. Es una simulación para probar el flujo: no es segura ni se comparte entre dispositivos. Antes de abrir el juego al público hay que sustituir `public/src/api/authService.js` por una API real en el servidor.
 - «Recordarme» guarda la sesión 30 días (localStorage); sin marcarlo solo dura la pestaña (sessionStorage). El invitado (`Guest_XXXX`) se conserva al recargar y se borra al cerrar sesión (pide confirmar).
 - Estructura del código: `public/src/{api,state,ui,game}`; más detalles en `public/src/README.md`.
+
+## Cuentas online, PX y tienda
+
+Con el servidor Node desplegado, **Registro** crea una cuenta online (`server/accounts.js`, datos en `DATA_DIR/accounts.json`: **usa un volumen persistente** en Render/Railway o se perderán al reiniciar).
+
+- **Nombres únicos:** no se distingue entre mayúsculas, tildes ni guiones (`Pepe_1`, `pepe-1` y `Pépé_1` son el mismo). Un invitado no puede usar un nombre registrado y la cuenta entra siempre con el suyo. Los nombres reservados (administrador, influencers, baneados, `Guest…`) no se pueden registrar.
+- **PX (moneda del juego):** el servidor reparte los PX al terminar cada ronda online (mínimo 2 jugadores) con la misma fórmula y eventos diarios que ya veías, y cobra los colores y las recompensas de rango. Tope diario: `PX_DAILY_CAP`. Las cuentas online no ganan PX en el entrenamiento contra bots ni con los desafíos diarios; los invitados y las cuentas locales antiguas siguen con PX en su navegador.
+- **Niveles y rangos:** se calculan con los puntos que la cuenta acumula en el servidor.
+- **Panel → Economía (PX):** busca cuentas y suma o resta PX a mano (cantidad + motivo). Nunca deja el saldo por debajo de 0 y cada ajuste queda en la auditoría y en «Ajustes manuales de PX». También lista los pedidos de la tienda.
+- **Tienda (pestaña «Tienda» del lobby):** usa **Stripe Checkout**; nunca se guarda ninguna tarjeta. Para activarla: crea tu cuenta de Stripe, define `STRIPE_SECRET_KEY` y `PUBLIC_URL`, añade en Stripe → Desarrolladores → Webhooks el destino `https://tudominio.com/api/store/webhook` con el evento `checkout.session.completed` (y `checkout.session.async_payment_succeeded` si aceptas métodos diferidos) y copia su secreto en `STRIPE_WEBHOOK_SECRET`. El importe lo fija el servidor y los PX solo se acreditan con un aviso de pago firmado, con el importe correcto y una sola vez. **Los reembolsos no descuentan PX automáticamente**: hazlo a mano desde el panel. Vender moneda virtual tiene implicaciones fiscales y de consumo según tu país: revísalas antes de cobrar. Si algún día usas Stripe en modo prueba, recuerda que la tarjeta de prueba es `4242 4242 4242 4242`.
+- **Voto de mapa:** al acabar una ronda online todos votan el siguiente mapa; gana el más votado (empate al azar). En el entrenamiento se elige el mapa en la pantalla final.
+
+## Pase de batalla (Temporada 1) y PostgreSQL
+
+**Qué es.** Botón **Pase** del lobby: pantalla completa con 50 niveles y dos filas de recompensas (**Gratis** y **VIP**, bloqueada con candado hasta comprar el pase). Cada tarjeta enseña una vista previa del objeto, su nombre, su rareza con color (Común, Poco común, Raro, Épico, Legendario) y el botón **Reclamar**; las skins reclamadas se **equipan** desde la misma tarjeta. Hay 15 skins de armas, 7 de cuchillos, el banner exclusivo **S1** y PX. Botones: **Comprar Pase VIP**, **Regalar Pase**, **Saltar Niveles** y **Reclamar todo**.
+
+**Cómo se progresa.** Al acabar cada partida online el servidor da XP (`40 + 25 % de tus puntos + 60 si ganas`, máximo 600 por partida y `BP_XP_DAILY_CAP` al día). Del nivel 1 al 50 hacen falta 35.770 XP. El pase, los niveles saltados y el regalo se pagan con **PX**, la moneda que ya se compra con dinero real en la Tienda, así que no hay una segunda pasarela de pago. Los precios están en `BP_VIP_PX` y `BP_SKIP_PX`. El VIP devuelve unos 875 PX repartidos por el camino (un 58 % de su precio) para que comprarlo nunca salga rentable.
+
+**Dónde se guarda (PostgreSQL).** Define `DATABASE_URL` y al arrancar se crean las tablas solas (`server/migrations/001_init.sql`, con registro en `schema_migrations`):
+
+| Tabla | Qué guarda |
+|---|---|
+| `bp_progress` | por usuario y temporada: XP, nivel, si tiene VIP, desde cuándo, quién se lo regaló y la XP ganada hoy |
+| `bp_claims` | recompensas reclamadas (clave única por nivel y fila: es imposible reclamar dos veces) |
+| `bp_inventory` | skins y banners que posee |
+| `bp_equipped` | qué lleva puesto (por arma, cuchillo y banner) |
+| `bp_gifts` | registro de regalos de pase |
+| `app_docs` | cuentas, panel de administración y clasificación (documentos JSONB) |
+
+Con `DATABASE_URL` también se guardan en la base las **cuentas, la contraseña del administrador y la clasificación**: por eso en **Render** basta con crear una base *PostgreSQL* (Dashboard → New → PostgreSQL), copiar su *Internal Database URL* en la variable `DATABASE_URL` del servicio web y redesplegar; ya no hace falta un disco de pago. Si tu proveedor rechaza la conexión por TLS, prueba `DATABASE_SSL=off`. Sin `DATABASE_URL` el pase funciona igual guardando en `DATA_DIR/battlepass.json`. Los datos de un despliegue sin PostgreSQL no se migran solos a PostgreSQL, salvo los archivos JSON que existan en `DATA_DIR` en el primer arranque, que se importan. `node scripts/admin-password.js` también funciona con PostgreSQL.
+
+**Reglas que hace cumplir el servidor** (`server/battlepass.js`): no se reclama un nivel no alcanzado ni la fila VIP sin pase; nada se reclama ni se cobra dos veces (una operación a la vez por usuario y claves únicas en la base); si falla el guardado tras cobrar, se devuelven los PX; no se puede regalar a uno mismo ni a quien ya tiene el pase; una skin solo se equipa en su arma y si se posee. El panel puede conceder XP o VIP a mano: `POST /api/admin/bp/grant {username, xp, vip}` y consultar `GET /api/admin/bp/user?username=` (queda en la auditoría).
+
+**Cambiar recompensas o crear otra temporada.** El catálogo (skins, niveles, rarezas, precios y XP) está en `public/shared.js` (bloque *Pase de batalla*), compartido por servidor y cliente. Para una temporada nueva, cambia `SEASON` en `server/battlepass.js` y el catálogo: el progreso se guarda por temporada.
+
+**Limitaciones conocidas.** Las skins se ven en tu arma en primera persona y en tu cuchillo, pero **los demás jugadores no las ven** (no se envían por red todavía). Los PX viven en el documento de cuentas y el pase en sus tablas: la compra se hace en dos pasos con devolución automática si falla, pero si el servidor se cae justo entre ambos pasos podría perderse esa operación.
 
 ## AK, miras y chat
 
@@ -159,6 +195,19 @@ También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con co
 | `PUBLIC_URL` | *(vacío)* | Dirección pública de la web (`https://tudominio.com`). Se usa para el enlace del correo de restablecimiento |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_SECURE` | *(vacío)* | Correo saliente para el restablecimiento. Sin `SMTP_HOST`, el enlace sale por la consola del servidor |
 | `ADMIN_RESET_TTL_MS` | `1800000` | Validez del enlace de restablecimiento (30 min) |
+| `DATABASE_URL` | *(vacío)* | Conexión a **PostgreSQL** (`postgres://usuario:clave@host:5432/base`). Con ella, el pase de batalla usa sus tablas y las cuentas, el panel y la clasificación se guardan en la base de datos (sobreviven a reinicios). Sin ella, todo va a archivos en `DATA_DIR` |
+| `DATABASE_SSL` | `auto` | `auto`: TLS salvo en `localhost`; `on` fuerza TLS; `off` lo desactiva (por si tu proveedor no lo admite en la red interna) |
+| `DATABASE_POOL` | `8` | Conexiones máximas a PostgreSQL |
+| `BP_VIP_PX` | `1500` | Precio del Pase VIP (y de regalarlo), en PX |
+| `BP_SKIP_PX` | `120` | Precio por nivel al «Saltar niveles», en PX |
+| `BP_XP_DAILY_CAP` | `8000` | XP máxima que una cuenta puede ganar jugando cada día |
+| `ACCOUNTS_REG_MAX` | `5` | Cuentas nuevas por IP y hora |
+| `PX_DAILY_CAP` | `5000` | PX máximos que una cuenta puede ganar jugando cada día (freno al granjeo entre cuentas) |
+| `STRIPE_SECRET_KEY` | *(vacío)* | Clave secreta de Stripe (`sk_live_…`). Sin ella la tienda muestra los paquetes pero no se puede comprar |
+| `STRIPE_WEBHOOK_SECRET` | *(vacío)* | Secreto de firma del webhook (`whsec_…`). Sin él se rechaza todo aviso de pago |
+| `STORE_CURRENCY` | `eur` | Moneda de la tienda (código de 3 letras) |
+| `STORE_PACKS` | *(4 paquetes)* | JSON opcional con tus paquetes: `[{"id":"px500","px":500,"price":99,"tag":""}]` (`price` en céntimos, mínimo 50) |
+| `STRIPE_API_BASE` | `https://api.stripe.com` | Solo para pruebas con un Stripe simulado |
 | `HISTORY_MIN_SECS` | `20` | Segundos mínimos en una ronda para que cuente en el historial de comportamiento |
 
 ## 7. Cómo funciona y qué límites tiene (leer antes de abrirlo al público)
@@ -174,6 +223,9 @@ También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con co
 - **Marca y contenido:** Pixel Play Rusher es un juego original: el código, los mapas y las armas están escritos desde cero y usan tipos de arma genéricos. No incluye recursos de Krunker.io ni de nadie más.
 
 ## 8. Personalizar
+
+- **Vistas previas de los mapas:** son capturas reales del juego en `public/maps/map0.jpg` … `map3.jpg` (512×288). Para cambiarlas, sustituye esos archivos manteniendo el nombre (el archivo único las lleva incrustadas al generarlo con `node scripts/build-single.js`).
+- **Equipos y nombres:** al entrar te toca al azar el equipo azul o rojo (equilibrado: si un equipo tiene más gente entras en el otro) y sale un cartel grande con tu equipo; no hay fuego amigo. Los verificados (administrador e influencers) llevan el nombre dorado con brillo y el tic azul, visibles para todos; el resto, nombre azul sin brillo.
 
 - **Colores y estilo:** variables CSS al inicio de `public/index.html`.
 - **Armas:** lista `WEAPONS` en `public/shared.js` (daño, cadencia, cargador, dispersión, alcance…). Como el servidor usa el mismo archivo, los cambios valen para todos a la vez.

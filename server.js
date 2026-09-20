@@ -1,4 +1,12 @@
 'use strict';
+/* Con DATABASE_URL (PostgreSQL) hay que conectar y cargar los datos ANTES de crear el resto (que es síncrono): se inicializa la base y se vuelve a ejecutar este archivo. */
+if (process.env.DATABASE_URL && !global.__PPR_DB) {
+  const dir = process.env.DATA_DIR || require('path').join(__dirname, 'data');
+  require('./server/db.js').initDb({ url: process.env.DATABASE_URL, dataDir: dir, log: m => console.log(new Date().toISOString(), m) })
+    .then(db => { global.__PPR_DB = db; delete require.cache[__filename]; require(__filename); })
+    .catch(e => { console.error('No se pudo iniciar PostgreSQL:', e.message); process.exit(1); });
+  return;
+}
 /* Pixel Play Rusher · servidor online
    - Sirve la carpeta /public
    - WebSocket en /ws (salas por mapa, combate validado por el servidor)
@@ -11,7 +19,11 @@ const path = require('path');
 const { WebSocketServer } = require('ws');
 /* Se carga leyendo el archivo (no con require): así funciona aunque algún package.json de public/ lo marque como módulo ES. */
 const S = (() => { const mod = { exports: {} }; new Function('module', 'exports', fs.readFileSync(path.join(__dirname, 'public', 'shared.js'), 'utf8')).call(globalThis, mod, mod.exports); return mod.exports; })();
-const { createAdmin } = require('./server/admin.js');
+const { createAdmin, Store } = require('./server/admin.js');
+const PGDB = global.__PPR_DB || null;   // PostgreSQL (opcional)
+if (PGDB) Store.db = PGDB;
+const { createAccounts } = require('./server/accounts.js');
+const { createBattlePass } = require('./server/battlepass.js');
 
 const PORT = +process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -20,6 +32,8 @@ const MATCH_TIME = +process.env.MATCH_TIME || S.CONST.MATCH_TIME;
 const KILL_LIMIT = +process.env.KILL_LIMIT || S.CONST.KILL_LIMIT;
 const MAX_PER_ROOM = +process.env.MAX_PLAYERS_PER_ROOM || 10;
 const BREAK_SECS = +process.env.BREAK_SECS || 12;
+/* Equipos: azul (0) y rojo (1). La ronda acaba cuando un equipo suma estas bajas (o al acabar el tiempo: gana quien tenga más). */
+const TEAM_LIMIT = +process.env.TEAM_KILL_LIMIT || (process.env.KILL_LIMIT ? KILL_LIMIT : 40);
 const MAX_CONN_PER_IP = +process.env.MAX_CONN_PER_IP || 8;
 const TRUST_PROXY = process.env.TRUST_PROXY; // '1' = confiar siempre, '0' = nunca, sin definir = solo si la conexión llega desde una red privada (proxy)
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -30,7 +44,7 @@ const HIST_MIN = +process.env.HISTORY_MIN_SECS || 20; // segundos mínimos en un
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const r3 = v => Math.round(v * 1000) / 1000;
-let admin = null;
+let admin = null, accounts = null, bp = null;
 const log = (...a) => { const line = new Date().toISOString() + ' ' + a.join(' '); console.log(line); if (admin) admin.onLog(line); };
 
 /* =====================================================================
@@ -38,13 +52,14 @@ const log = (...a) => { const line = new Date().toISOString() + ' ' + a.join(' '
    ===================================================================== */
 const LB_FILE = path.join(DATA_DIR, 'leaderboard.json');
 let lb = { entries: [] };
-try { const d = JSON.parse(fs.readFileSync(LB_FILE, 'utf8')); if (d && Array.isArray(d.entries)) lb = d; } catch (e) { /* primera ejecución */ }
+try { const d = (PGDB && PGDB.get('leaderboard.json')) || JSON.parse(fs.readFileSync(LB_FILE, 'utf8')); if (d && Array.isArray(d.entries)) lb = d; } catch (e) { /* primera ejecución */ }
 let lbTimer = null;
 function lbSaveSoon() {
   if (lbTimer) return;
   lbTimer = setTimeout(() => { lbTimer = null; lbSave(); }, 2000);
 }
 function lbSave() {
+  if (PGDB) { PGDB.put('leaderboard.json', lb); return; }
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
     const tmp = LB_FILE + '.tmp';
@@ -89,7 +104,7 @@ class Player {
     this.lk = lk; this.ws = ws; this.ip = ip; this.id = playerSeq++; this.name = name; this.cls = cls; this.nextCls = cls; this.map = map;
     this.x = 0; this.y = 0; this.z = 0; this.yaw = 0; this.pitch = 0; this.h = 1.8;
     this.hp = 100; this.alive = false; this.ep = 0;
-    this.kills = 0; this.deaths = 0; this.points = 0; this.hs = 0; this.streak = 0;
+    this.kills = 0; this.deaths = 0; this.points = 0; this.hs = 0; this.streak = 0; this.bestStreak = 0; this.acctUser = null; this.team = 0;
     this.protectUntil = 0; this.respawnAt = 0; this.lastHit = 0; this.lastSt = 0;
     this.ammo = 0; this.reloadUntil = 0; this.nextFire = 0; this.nextMelee = 0;
     this.hist = []; this.ping = 60; this.joinedAt = Date.now(); this.room = null;
@@ -101,7 +116,7 @@ class Player {
     ws.send(str);
   }
   pub() {
-    return { id: this.id, n: this.name, c: this.cls, lk: this.lk, k: this.kills, d: this.deaths, p: this.points, alive: this.alive, rl: this.role || 0, x: r3(this.x), y: r3(this.y), z: r3(this.z), yaw: r3(this.yaw), pitch: r3(this.pitch), h: this.h };
+    return { id: this.id, n: this.name, c: this.cls, lk: this.lk, k: this.kills, d: this.deaths, p: this.points, alive: this.alive, rl: this.role || 0, tm: this.team, x: r3(this.x), y: r3(this.y), z: r3(this.z), yaw: r3(this.yaw), pitch: r3(this.pitch), h: this.h };
   }
 }
 
@@ -123,22 +138,35 @@ function posAt(p, T) {
 class Room {
   constructor(map) {
     this.id = roomSeq++; this.map = map; this.world = worlds[map];
-    this.chatLog = []; this.players = new Map(); this.tl = MATCH_TIME; this.phase = 'play'; this.breakLeft = 0; this.boardT = 0; this.wait = true;
+    this.tk = [0, 0]; this.chatLog = []; this.players = new Map(); this.tl = MATCH_TIME; this.phase = 'play'; this.breakLeft = 0; this.boardT = 0; this.wait = true;
     rooms.set(this.id, this);
   }
   broadcast(obj, except) {
     const s = typeof obj === 'string' ? obj : JSON.stringify(obj);
     for (const p of this.players.values()) if (p !== except) p.send(s);
   }
+  assignTeam(p) {
+    let c0 = 0, c1 = 0; for (const o of this.players.values()) { if (o === p) continue; if (o.team === 0) c0++; else c1++; }
+    p.team = c0 < c1 ? 0 : c1 < c0 ? 1 : (Math.random() < 0.5 ? 0 : 1);
+  }
+  /* Entre rondas se compensan los equipos si alguien se ha marchado (diferencia máxima de 1 jugador) */
+  rebalance() {
+    const t = [[], []]; for (const p of this.players.values()) t[p.team].push(p);
+    while (Math.abs(t[0].length - t[1].length) >= 2) {
+      const from = t[0].length > t[1].length ? 0 : 1, i = Math.floor(Math.random() * t[from].length), p = t[from].splice(i, 1)[0];
+      p.team = 1 - from; t[1 - from].push(p); this.broadcast({ t: 'team', id: p.id, tm: p.team });
+    }
+  }
   add(p) {
-    p.room = this; this.players.set(p.id, p);
-    p.send(JSON.stringify({ t: 'welcome', v: PROTOCOL, id: p.id, n: p.name, rl: p.role || 0, room: this.id, map: this.map, tl: r3(this.tl), phase: this.phase, players: [...this.players.values()].filter(o => o !== p).map(o => o.pub()) }));
+    p.room = this; this.assignTeam(p); this.players.set(p.id, p);
+    p.send(JSON.stringify({ t: 'welcome', v: PROTOCOL, id: p.id, n: p.name, rl: p.role || 0, tm: p.team, lim: TEAM_LIMIT, tk: this.tk, room: this.id, map: this.map, tl: r3(this.tl), phase: this.phase, players: [...this.players.values()].filter(o => o !== p).map(o => o.pub()) }));
     this.broadcast({ t: 'join', p: p.pub() }, p);
     this.spawn(p, Date.now(), 1500);
     this.sendBoard();
   }
   remove(p) {
     if (!this.players.delete(p.id)) return;
+    if (this.votes) this.votes.delete(p.id);
     if (this.phase === 'play') { if (p.kills + p.deaths > 0 && Date.now() - p.joinedAt > 60000) this.record(p, Date.now()); this.history(p, Date.now()); }
     this.broadcast({ t: 'leave', id: p.id });
     if (this.players.size === 0) rooms.delete(this.id);
@@ -155,7 +183,7 @@ class Room {
     p.shots = p.hits = p.fixes = p.rlv = 0; p.roundStart = now;
   }
   sendBoard() {
-    this.broadcast({ t: 'board', b: [...this.players.values()].map(p => [p.id, p.kills, p.deaths, p.points]) });
+    this.broadcast({ t: 'board', tk: this.tk, b: [...this.players.values()].map(p => [p.id, p.kills, p.deaths, p.points]) });
   }
   spawn(p, now, protectMs) {
     const wps = this.world.waypoints;
@@ -197,13 +225,24 @@ class Room {
   endRound(now) {
     if (this.phase !== 'play') return;
     this.phase = 'break'; this.breakLeft = BREAK_SECS;
+    const tk = this.tk.slice(), winner = tk[0] === tk[1] ? -1 : (tk[0] > tk[1] ? 0 : 1);
     const rows = [...this.players.values()].sort((a, b) => b.points - a.points || b.kills - a.kills || a.deaths - b.deaths);
     for (const p of rows) { if (p.kills + p.deaths > 0) this.record(p, now); this.history(p, now); }
-    this.broadcast({ t: 'end', next: BREAK_SECS, res: rows.map(p => [p.id, p.name, p.kills, p.deaths, p.points, p.hs, p.cls, p.role || 0]) });
+    rows.forEach((p, i) => { // progreso y PX de las cuentas online (mínimo 2 jugadores y algo de actividad)
+      if (!p.acctUser || rows.length < 2 || p.kills + p.deaths + p.points === 0) return;
+      const r = accounts.awardMatch(p.acctUser, { points: p.points, kills: p.kills, deaths: p.deaths, won: winner >= 0 && p.team === winner, cls: p.cls, bestStreak: p.bestStreak });
+      p.send(JSON.stringify({ t: 'award', px: r.px, balance: r.balance, prevBest: r.prevBest, stats: r.stats, mult: r.mult }));
+      bp.awardMatch(p.acctUser, { points: p.points, won: winner >= 0 && p.team === winner }).then(x => { if (x) p.send(JSON.stringify({ t: 'bpxp', xp: x.added, total: x.xp, level: x.level, up: x.leveledUp })); }).catch(e => log('XP del pase: ' + e.message));
+    });
+    this.votes = new Map();
+    this.broadcast({ t: 'end', maps: S.MAPS.map(m => m.name), cur: this.map, next: BREAK_SECS, tw: winner, tk, res: rows.map(p => [p.id, p.name, p.kills, p.deaths, p.points, p.hs, p.cls, p.role || 0, p.team]) });
   }
+  tally() { const v = S.MAPS.map(() => 0); for (const x of (this.votes || new Map()).values()) v[x]++; return v; }
   startRound(now) {
-    this.phase = 'play'; this.tl = MATCH_TIME;
-    for (const p of this.players.values()) { p.kills = p.deaths = p.points = p.hs = p.streak = 0; p.alive = false; p.roundStart = now; }
+    const votes = this.tally(), top = Math.max(...votes);          // el mapa más votado gana; en empate, al azar entre los empatados
+    if (top > 0) { const win = votes.map((n, i) => (n === top ? i : -1)).filter(i => i >= 0), pick = win[Math.floor(Math.random() * win.length)]; if (pick !== this.map) { this.map = pick; this.world = worlds[pick]; this.broadcast({ t: 'map', map: pick }); } }
+    this.phase = 'play'; this.tl = MATCH_TIME; this.tk = [0, 0]; this.rebalance();
+    for (const p of this.players.values()) { p.kills = p.deaths = p.points = p.hs = p.streak = p.bestStreak = 0; p.alive = false; p.roundStart = now; }
     this.broadcast({ t: 'round', tl: MATCH_TIME });
     for (const p of this.players.values()) this.spawn(p, now, 4000);
     this.sendBoard();
@@ -213,7 +252,7 @@ class Room {
   hitscan(shooter, o, d, maxT, T, now) {
     let bestT = S.rayWorld(this.world.colliders, o, d, maxT), who = null, head = false;
     for (const v of this.players.values()) {
-      if (v === shooter || !v.alive || v.protectUntil > now) continue;
+      if (v === shooter || v.team === shooter.team || !v.alive || v.protectUntil > now) continue;   // sin fuego amigo: los disparos atraviesan a los compañeros
       const pp = posAt(v, T);
       const th = S.raySphere(o, d, { x: pp.x, y: pp.y + pp.h - 0.22, z: pp.z }, 0.27);
       const tb = S.rayCyl(o, d, pp.x, pp.z, 0.38, pp.y, pp.y + pp.h - 0.4);
@@ -223,18 +262,19 @@ class Room {
     return { t: bestT, who, head };
   }
   damage(v, a, amount, head, wname, now) {
-    if (!v.alive || this.phase !== 'play') return;
+    if (!v.alive || this.phase !== 'play' || v.team === a.team) return;
     v.hp -= amount; v.lastHit = now;
     const killed = v.hp <= 0;
     a.send(JSON.stringify({ t: 'hit', v: v.id, h: head ? 1 : 0, d: amount, k: killed ? 1 : 0 }));
     v.send(JSON.stringify({ t: 'hurt', hp: Math.max(0, Math.round(v.hp)), ax: r3(a.x), az: r3(a.z) }));
     if (!killed) return;
     v.alive = false; v.hp = 0; v.deaths++; v.streak = 0; v.respawnAt = now + RESPAWN_MS;
-    a.kills++; a.streak++;
+    a.kills++; a.streak++; if (a.streak > a.bestStreak) a.bestStreak = a.streak;
     const pts = 100 + (head ? 50 : 0); a.points += pts; if (head) { a.hs++; }
+    this.tk[a.team]++;
     this.broadcast({ t: 'kill', kr: a.role || 0, k: a.id, v: v.id, w: wname, h: head ? 1 : 0, pts, streak: a.streak, rs: S.CONST.RESPAWN });
     this.sendBoard();
-    if (a.kills >= KILL_LIMIT) this.endRound(now);
+    if (this.tk[a.team] >= TEAM_LIMIT) this.endRound(now);
   }
   onShoot(p, m, now) {
     if (!p.alive || this.phase !== 'play') return;
@@ -269,6 +309,7 @@ class Room {
   onMelee(p, m, now) {
     if (!p.alive || this.phase !== 'play' || now < p.nextMelee) return;
     p.nextMelee = now + 480;
+    this.broadcast({ t: 'melee', id: p.id }, p);   // los demás ven el cuchillo
     if (!Array.isArray(m.d) || m.d.length !== 3 || !m.d.every(Number.isFinite)) return;
     const len = Math.hypot(m.d[0], m.d[1], m.d[2]); if (len < 1e-6) return;
     const o = { x: p.x, y: p.y + p.h - 0.2, z: p.z }, d = { x: m.d[0] / len, y: m.d[1] / len, z: m.d[2] / len };
@@ -307,7 +348,7 @@ setInterval(() => {
 /* =====================================================================
    Servidor HTTP
    ===================================================================== */
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8' };
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws: wss:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 
 function isPrivateAddr(a) {
@@ -330,13 +371,15 @@ function json(res, obj, code, origin) {
   res.end(JSON.stringify(obj));
 }
 function status() {
-  return { protocol: PROTOCOL, admin: admin.adminUser, players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
+  return { protocol: PROTOCOL, admin: admin.adminUser, accounts: true, bp: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
 }
 
 const server = http.createServer((req, res) => {
   let url;
   try { url = new URL(req.url, 'http://x'); } catch (e) { res.writeHead(400); return res.end(); }
   if (url.pathname.startsWith('/api/admin/')) { admin.handleHttp(req, res, url, clientIp(req)); return; } // API de administración (GET y POST)
+  if (accounts.handles(url.pathname)) { accounts.handleHttp(req, res, url, clientIp(req)); return; }       // cuentas, PX y tienda
+  if (bp.handles(url.pathname)) { bp.handleHttp(req, res, url, clientIp(req)); return; }                   // pase de batalla
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
   const p = url.pathname;
   if (p.startsWith('/api/')) {
@@ -346,7 +389,8 @@ const server = http.createServer((req, res) => {
     if (p === '/api/status') return json(res, status(), 200, origin);
     if (p === '/api/leaderboard') {
       const map = url.searchParams.get('map'); const m = map === null ? -1 : parseInt(map, 10);
-      return json(res, { entries: lbQuery(Number.isInteger(m) && m >= 0 && m < S.MAPS.length ? m : -1) }, 200, origin);
+      // el tic de verificado se calcula al servir la lista: así lo ven todos, también en partidas antiguas
+      return json(res, { entries: lbQuery(Number.isInteger(m) && m >= 0 && m < S.MAPS.length ? m : -1).map(e => Object.assign({}, e, { r: admin.roleOf(e.n) || e.r || 0 })) }, 200, origin);
     }
     return json(res, { error: 'no encontrado' }, 404, origin);
   }
@@ -399,9 +443,12 @@ admin = createAdmin({
     lbAll: () => lb.entries.slice(),
     lbRemove(name) { const k = String(name).toLowerCase(), n = lb.entries.length; lb.entries = lb.entries.filter(e => e.n.toLowerCase() !== k); lbSaveSoon(); return n - lb.entries.length; },
     lbClear() { const n = lb.entries.length; lb.entries = []; lbSaveSoon(); return n; },
-    exit(code) { lbSave(); admin.flushAll(); process.exit(code); }
+    exit(code) { lbSave(); admin.flushAll(); accounts.flush(); bp.flush(); finish(code); }
   }
 });
+accounts = createAccounts({ dataDir: DATA_DIR, log, S, admin });
+bp = createBattlePass({ S, accounts, admin, db: PGDB, dataDir: DATA_DIR, log });
+if (PGDB) { admin.flushAll(); accounts.flush(); lbSave(); }   // primer arranque con PostgreSQL: lo importado de archivos pasa ya a la base de datos
 
 server.on('upgrade', (req, socket, head) => {
   const reject = code => { socket.write('HTTP/1.1 ' + code + '\r\nConnection: close\r\n\r\n'); socket.destroy(); };
@@ -449,13 +496,16 @@ function onMessage(ws, m, now) {
   if (m.t === 'hello') {
     if (ws.player) return;
     if (m.v !== PROTOCOL) { ws.send(JSON.stringify({ t: 'err', m: 'Versión antigua del juego. Recarga la página.' })); return ws.close(); }
-    const wanted = sanitizeName(m.n) || 'Jugador' + (100 + Math.floor(Math.random() * 900));
+    const acct = accounts.fromToken(typeof m.acct === 'string' ? m.acct : '');   // con cuenta online el nombre es el de la cuenta (único)
+    const wanted = acct ? acct.username : (sanitizeName(m.n) || 'Jugador' + (100 + Math.floor(Math.random() * 900)));
     const idt = admin.resolveIdentity({ name: wanted, adm: typeof m.adm === 'string' ? m.adm.slice(0, 80) : '', inf: typeof m.inf === 'string' ? m.inf.slice(0, 40) : '', ip: ws.ip });
     if (!idt.ok) { ws.send(JSON.stringify({ t: 'err', m: idt.error })); return ws.close(); }
+    if (!acct && !idt.role && accounts.nameTaken(idt.name)) { ws.send(JSON.stringify({ t: 'err', m: 'Ese nombre pertenece a un jugador registrado. Inicia sesión para usarlo o elige otro.' })); return ws.close(); }
     const map = Number.isInteger(m.map) && m.map >= 0 && m.map < S.MAPS.length ? m.map : 0;
     const cls = Number.isInteger(m.c) && m.c >= 0 && m.c < S.WEAPONS.length ? m.c : 0;
     const lk = Array.isArray(m.lk) && m.lk.length === 2 && m.lk.every(Number.isInteger) ? [clamp(m.lk[0], 0, 15), clamp(m.lk[1], 0, 4)] : null;
     const p = new Player(ws, idt.name, map, cls, ws.ip, lk, idt);
+    p.acctUser = acct && !idt.role ? acct : null;
     admin.count('join'); admin.count('class', cls); admin.count('map', map);
     ws.player = p; lobby.delete(ws);
     findRoom(map).add(p);
@@ -463,8 +513,10 @@ function onMessage(ws, m, now) {
   }
   if (m.t === 'lobby') { // canal de chat de la pantalla de inicio (sin partida)
     if (ws.player || ws.lobbyName || lobby.size >= 400) return;
-    const idt = admin.resolveIdentity({ name: sanitizeName(m.n) || 'Anónimo', adm: typeof m.adm === 'string' ? m.adm.slice(0, 80) : '', inf: typeof m.inf === 'string' ? m.inf.slice(0, 40) : '', ip: ws.ip });
+    const acct = accounts.fromToken(typeof m.acct === 'string' ? m.acct : '');
+    const idt = admin.resolveIdentity({ name: acct ? acct.username : (sanitizeName(m.n) || 'Anónimo'), adm: typeof m.adm === 'string' ? m.adm.slice(0, 80) : '', inf: typeof m.inf === 'string' ? m.inf.slice(0, 40) : '', ip: ws.ip });
     if (!idt.ok) { ws.send(JSON.stringify({ t: 'err', m: idt.error })); return ws.close(); }
+    if (!acct && !idt.role && accounts.nameTaken(idt.name)) { ws.send(JSON.stringify({ t: 'err', m: 'Ese nombre pertenece a un jugador registrado. Inicia sesión para usarlo o elige otro.' })); return ws.close(); }
     ws.lobbyName = idt.name; ws.role = idt.role; ws.nameKey = idt.nameKey; ws.ipKey = idt.ipKey; lobby.add(ws);
     return ws.send(JSON.stringify({ t: 'lobbyok', n: lobby.size, rl: idt.role || 0 }));
   }
@@ -491,6 +543,7 @@ function onMessage(ws, m, now) {
       p.reloadUntil = now + w.reload * 900; p.ammo = w.mag; return;
     }
     case 'report': { const r = admin.makeReport({ player: p, name: p.name, nameKey: p.nameKey, ipKey: p.ipKey }, m); return p.send(JSON.stringify({ t: 'reportok', ok: r.ok, m: r.ok ? 'Reporte enviado. Gracias por avisar.' : r.error })); }
+    case 'vote': { if (room.phase !== 'break' || !Number.isInteger(m.m) || m.m < 0 || m.m >= S.MAPS.length) return; room.votes.set(p.id, m.m); return room.broadcast({ t: 'votes', v: room.tally() }); }
     case 'cls': if (Number.isInteger(m.c) && m.c >= 0 && m.c < S.WEAPONS.length) p.nextCls = m.c; return;
     case 'ping':
       if (Number.isFinite(m.rtt)) p.ping = clamp(m.rtt, 0, 1000);
@@ -501,5 +554,6 @@ function onMessage(ws, m, now) {
 admin.ready.then(() => { if (admin.credentialsNotice) console.log(admin.credentialsNotice); }); // la contraseña generada solo va a la consola (no al registro del panel)
 server.listen(PORT, HOST, () => log('Pixel Play Rusher escuchando en http://' + HOST + ':' + PORT + ' (partidas de ' + MATCH_TIME + ' s, ' + MAX_PER_ROOM + ' jugadores por sala)'));
 
-function shutdown() { log('Cerrando…'); lbSave(); admin.flushAll(); process.exit(0); }
+function finish(code) { if (PGDB) PGDB.close().finally(() => process.exit(code)); else process.exit(code); }   // con PostgreSQL se espera a que terminen los guardados
+function shutdown() { log('Cerrando…'); lbSave(); admin.flushAll(); accounts.flush(); bp.flush(); finish(0); }
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);

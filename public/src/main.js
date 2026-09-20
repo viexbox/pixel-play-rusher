@@ -3,9 +3,10 @@ import { createApp } from './app.js';
 import { defaultStorages } from './api/storage.js';
 import { createAuthScreen } from './ui/screens/AuthScreen.js';
 import { createAdminClient } from './api/adminService.js';
+import { createAccountClient } from './api/accountService.js';
 
 /* Puente con el lobby actual (index.html): nombre de cuenta, fila de sesión y botón «Cerrar sesión». */
-function createLegacyBridge(doc, app) {
+function createLegacyBridge(doc, app, getAccounts) {
   const $ = id => doc.getElementById(id), Ev = doc.defaultView.Event;
   const nameIn = $('name'), row = $('sessionRow'), who = $('sessName'), btn = $('logoutBtn');
   let armedUntil = 0, armTimer = 0;
@@ -16,15 +17,18 @@ function createLegacyBridge(doc, app) {
       nameIn.value = session.username; nameIn.readOnly = true; nameIn.title = 'Tu nombre de cuenta';
       nameIn.dispatchEvent(new Ev('change', { bubbles: true }));
     }
-    if (row) { row.hidden = false; who.textContent = session.guest ? 'Invitado · los datos solo están en este navegador' : 'Cuenta · ' + session.username; }
+    if (row) { row.hidden = false; who.textContent = session.guest ? 'Invitado · los datos solo están en este navegador' : (session.remote ? 'Cuenta online · ' : 'Cuenta · ') + session.username; }
+    doc.defaultView.dispatchEvent(new Ev('ppr-session')); // el juego recarga el saldo y el progreso de la cuenta
   }
   function clear() {
     if (nameIn) { nameIn.readOnly = false; nameIn.removeAttribute('title'); }
     if (row) row.hidden = true;
     if (btn) { btn.textContent = idleLabel; btn.classList.remove('armed'); }
+    doc.defaultView.dispatchEvent(new Ev('ppr-session'));
   }
   function logout() {
     const s = app.state.get().session; if (!s) return;
+    const ac = getAccounts && getAccounts(); if (s.remote && ac) ac.logout(); // se avisa al servidor antes de borrar el token local
     app.auth.logout(); app.state.signOut({ wipe: s.guest });
     clear(); app.ui.show('auth');
   }
@@ -45,15 +49,19 @@ export function bootstrap(opts = {}) {
   const config = opts.config || globalThis.VOLT_CONFIG || {};
   let root = doc.getElementById('uiRoot');
   if (!root) { root = doc.createElement('div'); root.id = 'uiRoot'; doc.body.appendChild(root); }
-  const app = createApp({ storages: opts.storages || defaultStorages(), root, cryptoApi: opts.cryptoApi, now: opts.now });
+  const storages = opts.storages || defaultStorages();
+  const app = createApp({ storages, root, cryptoApi: opts.cryptoApi, now: opts.now });
   if (config.auth === false) return app; // acceso desactivado desde config.js: el lobby queda como antes
 
-  const legacy = createLegacyBridge(doc, app);
+  let accountsRef = null;
+  const legacy = createLegacyBridge(doc, app, () => accountsRef);
   function enter(session) { app.state.signIn(session); legacy.apply(session); app.ui.show('lobby'); app.bus.emit('auth:login', { session }); }
   // El acceso del administrador se comprueba en el servidor: misma dirección que el juego, o la de config.js si la web está aparte
   const base = config.server ? String(config.server).replace(/\/+$/, '') + '/' : (doc.defaultView && doc.defaultView.location ? doc.defaultView.location.pathname.replace(/[^/]*$/, '') : '/');
   const admin = opts.admin || createAdminClient({ fetchFn: (...a) => globalThis.fetch(...a), base });
-  app.ui.register('auth', createAuthScreen({ doc, auth: app.auth, admin, onAuthenticated: enter }));
+  const accounts = opts.accounts || createAccountClient({ fetchFn: (...a) => globalThis.fetch(...a), base, storage: storages.local });
+  accountsRef = accounts;
+  app.ui.register('auth', createAuthScreen({ doc, auth: app.auth, admin, accounts, onAuthenticated: enter }));
   app.ui.register('lobby', { mount() {}, show() {}, hide() {} }); // el lobby ya está en la página; aquí solo se marca como activo
 
   const restored = app.auth.restoreSession();

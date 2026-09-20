@@ -4,6 +4,7 @@ import { validateLogin, validateRegister, isAdminName } from '../../api/authServ
 
 const TEMPLATE = `
 <div class="auth-panel">
+  <img class="auth-emblem" src="logo.jpg" width="72" height="72" alt="">
   <h2 id="authTitle" class="auth-logo">PIXEL PLAY <b>RUSHER</b></h2>
   <p class="auth-tag">Arena de disparos por bloques</p>
   <div class="auth-tabs" role="tablist" aria-label="Acceso">
@@ -55,10 +56,10 @@ const TEMPLATE = `
 
   <div class="auth-sep"><span>o</span></div>
   <button type="button" id="guestBtn" class="auth-guest">Entrar como invitado</button>
-  <p class="auth-note">Demostración: las cuentas se guardan solo en este navegador y no se comparten entre dispositivos.</p>
+  <p class="auth-note" id="authNote">Demostración: las cuentas se guardan solo en este navegador y no se comparten entre dispositivos.</p>
 </div>`;
 
-export function createAuthScreen({ doc, auth, admin, onAuthenticated }) {
+export function createAuthScreen({ doc, auth, admin, accounts, onAuthenticated }) {
   let pending = null; // acceso de administrador con contraseña inicial: { token, user, current }
   let el = null, tab = 'login', busy = false, touched = { login: false, register: false };
   const BACKGROUND = ['menu', 'chat', 'chatTab'];
@@ -119,6 +120,17 @@ export function createAuthScreen({ doc, auth, admin, onAuthenticated }) {
         if (a && a.ok) { setBusy(false, ''); if (a.mustChange) return askNewPassword({ token: a.token, user: a.user, current: v.password }); return finish(auth.adminSession(a.user, a.token)); }
         if (a && a.status === 429) r = { ok: false, error: { message: a.error } };
       }
+      if (!r && accounts && await accounts.available()) { // con servidor: cuentas online (nombres únicos para todos los jugadores)
+        if (which === 'register') {
+          const a = await accounts.register(String(v.username).trim(), String(v.email).trim(), v.password);
+          if (a && a.ok) { setBusy(false, ''); return finish(auth.remoteSession(a.profile.username, a.token)); }
+          if (a) { setBusy(false, ''); const f = form('register'); if (/nombre|usuario/i.test(a.error)) setErr(f, 'username', a.error); else if (/correo/i.test(a.error)) setErr(f, 'email', a.error); else setMsg(f, a.error); return; }
+        } else {
+          const a = await accounts.login(String(v.identifier).trim(), v.password);
+          if (a && a.ok) { setBusy(false, ''); return finish(auth.remoteSession(a.profile.username, a.token)); }
+          if (a && a.status === 429) r = { ok: false, error: { message: a.error } };     // si no, se prueba también con las cuentas locales antiguas
+        }
+      }
       if (!r) r = which === 'login' ? await auth.login(v) : await auth.register(v);
     }
     catch (e) { r = { ok: false, error: { message: 'No se pudo completar la operación. Inténtalo de nuevo.' } }; }
@@ -162,7 +174,10 @@ export function createAuthScreen({ doc, auth, admin, onAuthenticated }) {
       });
       el.querySelector('#guestBtn').addEventListener('click', () => { if (busy) return; const r = auth.guest(); if (r.ok) finish(r.session); });
     },
-    show() { el.hidden = false; background(true); setTab(tab); },
+    show() {
+      el.hidden = false; background(true); setTab(tab);
+      if (accounts) accounts.available().then(on => { if (on) el.querySelector('#authNote').textContent = 'Cuenta online: tu nombre de usuario es único y tu progreso y tus PX se guardan en el servidor, en cualquier dispositivo.'; });
+    },
     hide() { el.hidden = true; background(false); }
   };
 }

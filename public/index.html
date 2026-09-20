@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="src/ui/auth.css">
 <title>Pixel Play Rusher · Arena de disparos por bloques</title>
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="description" content="Pixel Play Rusher: shooter en primera persona por bloques con partidas online, mapas, clases y clasificación global.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,7 +34,9 @@ input,select{font:inherit}
 /* ---------- Pantalla de inicio (lobby) ---------- */
 #menu{position:fixed;inset:0;pointer-events:none;overflow:hidden}
 #menu > *{pointer-events:auto}
+body.tabopen #brandTop{opacity:0;transition:opacity .15s}
 #brandTop{position:absolute;top:14px;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;width:max-content;max-width:40vw}
+.brandimg{display:block;margin:0 auto 6px;width:clamp(64px,9vw,112px);height:auto;border-radius:20%;box-shadow:0 0 22px rgba(120,235,255,.45),0 6px 18px rgba(0,0,0,.5)}
 .logo{font-family:var(--pix);font-weight:400;font-size:clamp(15px,2.35vw,34px);line-height:1.25;letter-spacing:.02em;color:#fff;text-shadow:0 3px 0 #ff4d6d,0 6px 0 rgba(0,0,0,.4)}
 .logo b{font-weight:400;color:var(--volt);text-shadow:0 3px 0 #b8860b,0 6px 0 rgba(0,0,0,.4)}
 .tag{margin-top:12px;font-size:12px;letter-spacing:.24em;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.85);text-shadow:0 1px 3px rgba(0,0,0,.8)}
@@ -79,13 +82,13 @@ input,select{font:inherit}
 .tabpane{min-height:0}
 .classes{display:grid;gap:6px}
 .maps{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
-.mapc{display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:center;text-align:left;padding:8px;background:rgba(255,255,255,.07);border-left:3px solid transparent;transition:background .1s}
+.mapc{display:grid;grid-template-columns:136px 1fr;gap:12px;align-items:center;text-align:left;padding:8px;background:rgba(255,255,255,.07);border-left:3px solid transparent;transition:background .1s}
 .mapc:hover{background:rgba(255,255,255,.12)}
 .mapc[aria-pressed="true"]{background:linear-gradient(90deg,rgba(255,220,58,.22),rgba(255,255,255,.06));border-left-color:var(--volt)}
 .mapc b{display:block;font-size:17px;font-style:italic;font-weight:900;letter-spacing:.03em}
 .mapc .d{display:block;font-size:13px;line-height:1.25;opacity:.85}
 .mapc small{display:block;font-size:11px;margin-top:4px;opacity:.6;letter-spacing:.1em}
-.sw{position:relative;width:96px;height:66px;overflow:hidden;border:1px solid var(--line)}
+.sw{position:relative;width:136px;height:76px;overflow:hidden;border:1px solid var(--line);background-size:cover}
 .sw em{position:absolute;left:0;right:0;bottom:0;height:36%}
 .sw i{position:absolute;bottom:36%;width:20px}
 table.tbl{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
@@ -393,6 +396,8 @@ body.playing .chatrow:focus-within{opacity:1}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
 /* Roles: administrador (dorado neón) e influencers (tic azul) */
+.pn{color:#5aa9ff;font-weight:700;text-shadow:none}
+#name{color:#5aa9ff}body.verified #name{color:#ffd54a;text-shadow:0 0 3px #ffb400,0 0 9px rgba(255,180,0,.85)}
 .rl-admin{color:#ffd54a!important;font-weight:900;text-shadow:0 0 3px #ffb400,0 0 8px #ffb400,0 0 16px rgba(255,180,0,.85);animation:goldn 2.4s ease-in-out infinite alternate}
 @keyframes goldn{from{text-shadow:0 0 3px #ffb400,0 0 7px #ffb400,0 0 13px rgba(255,180,0,.7)}to{text-shadow:0 0 4px #ffd54a,0 0 11px #ffb400,0 0 22px rgba(255,180,0,.95)}}
 .vt{width:1.05em;height:1.05em;vertical-align:-.18em;margin-left:.22em;flex:none;display:inline-block}
@@ -424,6 +429,96 @@ body.playing .chatrow:focus-within{opacity:1}
 #repText,#repTarget,#repCat,#infKey{width:100%;padding:9px 10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);color:#fff;font:inherit}
 #reportForm label{display:block;margin:8px 0 3px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;opacity:.75}
 #repMsg{min-height:20px;margin:8px 0;font-weight:700;color:var(--ice)}
+
+
+/* ===== Pase de batalla (pantalla completa, estilo Krunker) ===== */
+.nav .newtag{font-style:normal;font-size:10px;font-weight:900;letter-spacing:.08em;background:var(--volt);color:#141200;padding:1px 6px;margin-left:8px;vertical-align:2px}
+.mybanner{margin:8px 0 0;padding:6px 12px;display:flex;align-items:center;gap:10px;font-weight:900;letter-spacing:.14em;font-size:12px;background:linear-gradient(100deg,var(--b1),var(--b2));border:1px solid rgba(255,255,255,.35);color:#fff;text-shadow:0 1px 3px #000;clip-path:polygon(0 0,100% 0,calc(100% - 10px) 100%,0 100%)}
+.mybanner b{font-size:20px;font-style:italic;color:#fff8d6;text-shadow:0 0 10px rgba(255,176,32,.9)}
+#passScreen{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;color:#fff;background:radial-gradient(1200px 500px at 15% -10%,rgba(255,176,32,.14),transparent 60%),radial-gradient(900px 500px at 100% 110%,rgba(181,108,255,.18),transparent 60%),#0a0e1c;overflow:auto}
+#passScreen[hidden]{display:none}
+.ps-head{display:flex;flex-wrap:wrap;align-items:center;gap:14px 22px;padding:14px 22px;background:linear-gradient(90deg,#1b2140,#0d1124);border-bottom:2px solid var(--volt)}
+.ps-title b{display:block;font-size:28px;font-style:italic;font-weight:900;letter-spacing:.06em;line-height:1}
+.ps-season{display:inline-block;margin-top:4px;font-size:11px;font-weight:900;letter-spacing:.22em;background:linear-gradient(90deg,#ffb020,#ff3b48);color:#fff;padding:2px 10px}
+.ps-level{min-width:260px;flex:1 1 260px;max-width:430px}
+.ps-level .lv{font-size:13px;letter-spacing:.2em;opacity:.85}.ps-level .lv b{font-size:30px;font-style:italic;letter-spacing:0;color:var(--volt);margin-left:6px}
+.ps-vipstat{margin-left:10px;font-size:11px;font-weight:900;letter-spacing:.14em;padding:2px 8px;border:1px solid currentColor;color:#9aa4b8}.ps-vipstat.on{color:#ffb020;background:rgba(255,176,32,.14);text-shadow:0 0 8px rgba(255,176,32,.7)}
+.xpbar{position:relative;height:18px;margin-top:4px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);overflow:hidden}
+.xpbar i{position:absolute;inset:0 auto 0 0;width:0;background:linear-gradient(90deg,#ffb020,#ffe14a);transition:width .5s}
+.xpbar em{position:absolute;inset:0;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:900;letter-spacing:.1em;text-shadow:0 1px 2px #000}
+.ps-actions{margin-left:auto;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ps-btn{font:inherit;font-weight:900;letter-spacing:.07em;font-size:13px;padding:10px 14px;border:0;cursor:pointer;color:#141200;background:var(--volt);clip-path:polygon(0 0,100% 0,calc(100% - 9px) 100%,0 100%)}
+.ps-btn.vip{background:linear-gradient(90deg,#ffb020,#ff6a3a)}.ps-btn.alt{background:#2a3355;color:#fff}.ps-btn.ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35);clip-path:none}
+.ps-btn:disabled{opacity:.4;cursor:not-allowed}.ps-btn small{opacity:.75;font-weight:700;margin-left:6px}
+.ps-wallet{font-weight:900;color:var(--volt);font-size:14px;padding:0 6px}
+.ps-note{padding:8px 22px;background:rgba(255,220,58,.12);border-bottom:1px solid rgba(255,220,58,.35);font-size:13px}
+.ps-body{flex:1;display:flex;min-height:520px}
+.ps-side{flex:none;width:86px;display:flex;flex-direction:column;gap:10px;padding:16px 0 16px 14px}
+.ps-side div{display:grid;place-items:center;text-align:center;font-weight:900;letter-spacing:.14em;font-size:12px;writing-mode:vertical-rl;transform:rotate(180deg);background:rgba(255,255,255,.06);border-left:3px solid #9aa4b8}
+.ps-side .free{height:214px}.ps-side .mid{height:34px;writing-mode:horizontal-tb;transform:none;font-size:10px;border:0;background:none}.ps-side .vip{height:214px;border-left-color:#ffb020;color:#ffb020}
+.ps-scroll{flex:1;display:flex;gap:10px;overflow-x:auto;padding:16px;scroll-snap-type:x proximity;scrollbar-color:#ffb020 #141a33}
+.ps-col{flex:none;width:158px;display:flex;flex-direction:column;gap:10px;scroll-snap-align:start}
+.ps-lv{height:34px;display:grid;place-items:center;font-weight:900;font-style:italic;font-size:17px;background:#141a33;border:1px solid #2a3355;position:relative}
+.ps-lv.done{background:linear-gradient(90deg,#3b2c00,#5a4300);border-color:#ffb020;color:#ffe14a}.ps-lv.cur{background:var(--volt);color:#141200;box-shadow:0 0 14px rgba(255,220,58,.7)}
+.rcard{--rc:#9aa4b8;position:relative;height:214px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:22px 8px 8px;background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(0,0,0,.4)),#10152b;border:2px solid var(--rc);clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))}
+.rcard .rar{position:absolute;top:0;left:0;right:0;background:var(--rc);color:#0b0f1e;font-size:10px;font-weight:900;letter-spacing:.16em;text-align:center;padding:2px 0}
+.rcard .prev{width:100%;height:82px;display:grid;place-items:center;background:radial-gradient(closest-side,rgba(255,255,255,.1),transparent)}
+.rcard .prev svg{width:100%;height:100%}
+.rcard .nm{font-size:14px;font-weight:900;font-style:italic;text-align:center;line-height:1.1;color:#fff}
+.rcard .kind{font-size:10px;letter-spacing:.1em;opacity:.65;text-align:center;text-transform:uppercase}
+.rcard .act{margin-top:auto;width:100%;display:grid}
+.rcard .act button,.rcard .act .st{font:inherit;font-size:12px;font-weight:900;letter-spacing:.08em;padding:7px 4px;text-align:center;border:0;color:#141200;background:var(--volt);cursor:pointer}
+.rcard .act .st{background:rgba(255,255,255,.08);color:#aeb8d6;cursor:default}.rcard .act .st.done{color:#6df0a4}.rcard .act .st.lock{color:#8b94b3}
+.rcard .act button.equip{background:#2a3355;color:#fff}.rcard .act button.equip.on{background:#1f6b45;color:#c9ffe0}
+.rcard.ready{box-shadow:0 0 0 2px rgba(255,220,58,.9),0 0 18px rgba(255,220,58,.5)}
+.rcard.locked{filter:saturate(.6) brightness(.82)}
+.rcard.vipoff::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(6,9,20,.55) 0 10px,rgba(6,9,20,.38) 10px 20px);pointer-events:none}
+.rcard .padlock{position:absolute;top:26px;right:8px;width:26px;height:26px;z-index:2;filter:drop-shadow(0 1px 3px #000)}
+.rcard .lockbadge{position:absolute;left:0;right:0;top:64px;z-index:2;text-align:center;font-size:11px;font-weight:900;letter-spacing:.2em;color:#ffb020;text-shadow:0 1px 4px #000}
+.ps-empty{padding:40px;text-align:center;opacity:.8}
+.ps-foot{padding:8px 22px 14px;font-size:12px;opacity:.65}
+#psModal{position:fixed;inset:0;z-index:70;display:grid;place-items:center;background:rgba(3,5,14,.78)}#psModal[hidden]{display:none}
+.psm{width:min(460px,92vw);background:#111733;border:2px solid #ffb020;box-shadow:0 0 40px rgba(255,176,32,.35);padding:18px 20px;clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%)}
+.psm h3{font-size:20px;font-style:italic;letter-spacing:.06em;margin-bottom:8px}.psm p{font-size:14px;line-height:1.45;margin:6px 0;opacity:.92}.psm ul{margin:8px 0 8px 18px;font-size:14px;line-height:1.5}
+.psm input[type=text],.psm input[type=number]{width:100%;font:inherit;font-size:16px;padding:9px 10px;margin-top:6px;background:#0a0e1f;border:1px solid #3a4470;color:#fff}
+.psm .row{display:flex;justify-content:space-between;gap:10px;margin:8px 0;font-weight:900}.psm .row b{color:var(--volt)}
+.psm .err{color:#ff8b98;font-weight:700;min-height:1.3em}.psm .btns{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+#endXp{margin-top:6px;font-weight:900;color:#ffe14a}
+@media (max-width:760px){.ps-side{display:none}.ps-col{width:142px}}
+/* Cartel del equipo asignado */
+#teamBanner{position:fixed;left:50%;top:22%;transform:translate(-50%,-14px);text-align:center;pointer-events:none;opacity:0;z-index:30;padding:14px 46px 16px;background:linear-gradient(90deg,transparent,rgba(6,9,22,.86) 16%,rgba(6,9,22,.86) 84%,transparent);transition:opacity .25s,transform .25s}
+#teamBanner.on{opacity:1;transform:translate(-50%,0)}
+#teamBanner small{display:block;font-size:13px;letter-spacing:.32em;opacity:.8}
+#teamBanner b{display:block;font-size:clamp(30px,5.4vw,58px);font-style:italic;font-weight:900;letter-spacing:.06em;line-height:1.05}
+#teamBanner em{display:block;font-style:normal;font-size:13px;letter-spacing:.12em;opacity:.85;margin-top:4px}
+#teamBanner.t0 b{color:#5c9bff;text-shadow:0 0 22px rgba(47,123,255,.9)}#teamBanner.t1 b{color:#ff6b75;text-shadow:0 0 22px rgba(255,59,72,.9)}
+/* Tienda de PX y selector de mapa al terminar */
+.storehead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-size:18px;letter-spacing:.05em}
+.storehead em{font-style:normal;color:var(--volt);font-weight:900}
+.packs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:10px 0}
+.pack{position:relative;padding:12px 10px 10px;background:linear-gradient(160deg,rgba(255,220,58,.14),rgba(8,11,24,.75));border:1px solid rgba(255,220,58,.35);text-align:center}
+.pack .pxn{font-size:26px;font-weight:900;font-style:italic;color:#fff}.pack .pxn small{display:block;font-size:12px;letter-spacing:.2em;color:var(--volt);font-style:normal}
+.pack .ptag{position:absolute;top:-8px;right:-6px;background:var(--red,#ff3b56);color:#fff;font-size:11px;font-weight:900;padding:2px 7px}
+.pack button{margin-top:8px;width:100%;padding:8px 6px;border:0;background:var(--volt);color:#141200;font:inherit;font-weight:900;letter-spacing:.06em;cursor:pointer}
+.pack button:disabled{opacity:.4;cursor:not-allowed}
+.note.warn{color:#ffb4c1;font-weight:700}.note.small{font-size:12.5px;opacity:.7}
+.endmaps{margin:10px 0}.endmaps h3{font-size:14px;letter-spacing:.14em;text-transform:uppercase;opacity:.8;margin-bottom:6px}
+.endmapbtns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.emap{position:relative;min-height:84px;padding:8px 6px;border:2px solid rgba(255,255,255,.18);background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.6)),var(--img) center/cover,linear-gradient(135deg,var(--a),var(--b));color:#fff;text-shadow:0 1px 4px #000;font:inherit;font-weight:900;cursor:pointer;display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:flex-end}
+.emap em{font-style:normal;font-size:12px;background:rgba(0,0,0,.55);color:#fff;padding:1px 8px}
+.emap[aria-pressed=true]{border-color:#fff;box-shadow:0 0 0 3px var(--volt),0 0 18px rgba(255,220,58,.7)}
+#endMapsNote{font-size:12.5px;opacity:.7;margin-top:6px}
+
+/* Equipos azul y rojo */
+.tdot{display:inline-block;width:.62em;height:.62em;margin-right:.45em;border-radius:2px;vertical-align:.04em}
+.tdot.t0{background:#2f7bff;box-shadow:0 0 6px rgba(47,123,255,.9)}.tdot.t1{background:#ff3b48;box-shadow:0 0 6px rgba(255,59,72,.9)}
+.tsb.t0{color:#5c9bff}.tsb.t1{color:#ff6b75}.tsb{font-weight:900}.tsep{margin:0 .3em;opacity:.6}
+.teampill{font-size:11px;font-weight:900;letter-spacing:.12em;padding:2px 8px;border:1px solid currentColor}
+.teampill.t0{color:#5c9bff;background:rgba(47,123,255,.16)}.teampill.t1{color:#ff6b75;background:rgba(255,59,72,.16)}
+#board tr.t0 td:first-child,#endRows tr.t0 td:first-child{box-shadow:inset 4px 0 #2f7bff}
+#board tr.t1 td:first-child,#endRows tr.t1 td:first-child{box-shadow:inset 4px 0 #ff3b48}
+#board tr.t0,#endRows tr.t0{background:rgba(47,123,255,.10)}#board tr.t1,#endRows tr.t1{background:rgba(255,59,72,.10)}
+#liveRows li.t0{border-left:3px solid #2f7bff}#liveRows li.t1{border-left:3px solid #ff3b48}
 </style>
 </head>
 <body>
@@ -468,20 +563,21 @@ body.playing .chatrow:focus-within{opacity:1}
   <div id="dmgnums"></div>
 
   <div id="hudTL">
-    <div id="hudStats" class="plate"><div class="hs-top"><b id="hsName">Jugador</b><span id="hsLvl">Nv 1</span></div><div class="hs-row"><span id="hsKD">K/D 0.0</span><span class="hs-kr"><i class="coin"></i><b id="hsKr">0</b> KR <em id="hsKrGain">+0</em></span></div></div>
+    <div id="hudStats" class="plate"><div class="hs-top"><b id="hsName">Jugador</b><span id="hsTeam" class="teampill t0"></span><span id="hsLvl">Nv 1</span></div><div class="hs-row"><span id="hsKD">K/D 0.0</span><span class="hs-kr"><i class="coin"></i><b id="hsKr">0</b> PX <em id="hsKrGain">+0</em></span></div></div>
     <div id="sysinfo"><span id="fps">— FPS</span><span id="netinfo" hidden></span></div>
     <ul id="feed"></ul>
   </div>
   <div id="matchbar">
     <div class="mb-side mb-left"><small>TUS PUNTOS</small><b id="myPts">0</b><em id="myKD">0 K · 0 M</em></div>
     <div class="mb-center"><div id="timer">3:00</div><div id="modeName"></div><div id="goal"><i id="goalfill"></i></div></div>
-    <div class="mb-side mb-right"><small>LÍDER</small><b id="leadName">—</b><em id="leadPts">0 pts</em></div>
+    <div class="mb-side mb-right"><small>EQUIPOS</small><b id="leadName">—</b><em id="leadPts">0 pts</em></div>
   </div>
   <div id="banner" hidden>ESPERANDO RIVALES…</div>
   <aside id="lb"><header><span>CLASIFICACIÓN</span><span id="lbPlace">1/1</span></header><ol id="liveRows"></ol></aside>
 
   <div id="brandHud">PIXEL PLAY <b>RUSHER</b></div>
   <div id="killcard"></div>
+  <div id="teamBanner"></div>
   <div id="toast"></div>
 
   <div id="hpbox" class="plate">
@@ -504,11 +600,12 @@ body.playing .chatrow:focus-within{opacity:1}
 <!-- Pantalla de inicio (lobby) -->
 <main id="menu">
   <header id="brandTop">
+    <img class="brandimg" src="logo.jpg" width="112" height="112" alt="Calavera dorada con corona: logo de Pixel Play Rusher">
     <h1 class="logo">PIXEL PLAY <b>RUSHER</b></h1>
     <p class="tag">Arena de disparos por bloques</p>
   </header>
 
-  <!-- Izquierda: estadísticas y KR arriba; menú de navegación y eventos debajo -->
+  <!-- Izquierda: estadísticas y PX arriba; menú de navegación y eventos debajo -->
   <div id="lobbyLeft">
     <section id="lobbyTL" class="lp" aria-label="Estadísticas del jugador">
       <div class="pcard">
@@ -519,7 +616,8 @@ body.playing .chatrow:focus-within{opacity:1}
           <div class="lvl"><span id="lvlN">Nivel 1</span><div class="bar"><b id="lvlBar"></b></div><small id="lvlTxt">0 / 250</small></div>
         </div>
       </div>
-      <div class="krrow"><span class="lab" style="font-size:11px;letter-spacing:.16em;opacity:.65">MONEDA</span><div class="kr" title="KR: la moneda del juego. Se gana jugando."><i class="coin"></i><b id="krTotal">0</b><small>KR</small></div></div>
+      <div id="myBanner" class="mybanner" hidden></div>
+      <div class="krrow"><span class="lab" style="font-size:11px;letter-spacing:.16em;opacity:.65">MONEDA</span><div class="kr" title="PX: la moneda del juego. Se gana jugando."><i class="coin"></i><b id="krTotal">0</b><small>PX</small></div></div>
       <div id="sessionRow" class="sessrow" hidden><span id="sessName"></span><button id="logoutBtn" type="button">Cerrar sesión</button></div>
       <div class="pstats">
         <div><strong id="stG">0</strong><span>Partidas</span></div>
@@ -534,6 +632,8 @@ body.playing .chatrow:focus-within{opacity:1}
         <li><button role="tab" aria-selected="false" data-tab="maps">Mapas</button></li>
         <li><button role="tab" aria-selected="false" data-tab="rank">Clasificación</button></li>
         <li><button role="tab" aria-selected="false" data-tab="ranks">Rangos</button></li>
+        <li><button role="tab" aria-selected="false" data-tab="pass">Pase <em class="newtag">S1</em></button></li>
+        <li><button role="tab" aria-selected="false" data-tab="store">Tienda</button></li>
         <li><button role="tab" aria-selected="false" data-tab="controls">Controles</button></li>
         <li><button role="tab" aria-selected="false" data-tab="settings">Ajustes</button></li>
       </ul>
@@ -559,6 +659,7 @@ body.playing .chatrow:focus-within{opacity:1}
       <p class="note">La clasificación global se guarda en el servidor y muestra tu mejor partida por mapa. «Mis partidas» solo existe en este navegador.</p>
     </div>
     <div class="tabpane" id="tab-ranks" hidden><div id="ranksBox"></div></div>
+    <div class="tabpane" id="tab-store" hidden><div id="storeBox"></div></div>
     <div class="tabpane" id="tab-controls" hidden>
       <div class="keys">
         <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>Moverte</span>
@@ -606,7 +707,7 @@ body.playing .chatrow:focus-within{opacity:1}
   <!-- Abajo, en el centro: selección de modo -->
   <section id="lobbyBC" aria-label="Modos de juego">
     <div class="modes">
-      <button class="mode" id="playOnline"><b>ONLINE</b><small>Todos contra todos</small></button>
+      <button class="mode" id="playOnline"><b>ONLINE</b><small>Azul contra rojo</small></button>
       <button class="mode" id="play"><b>ENTRENAR</b><small>Contra bots</small></button>
     </div>
     <div class="modebar">
@@ -658,7 +759,9 @@ body.playing .chatrow:focus-within{opacity:1}
   <div class="panel">
     <h2 id="endTitle">Fin de la partida</h2>
     <p class="sub" id="endSub"></p>
+    <p id="endXp" hidden></p>
     <table class="tbl"><thead><tr><th>#</th><th>Jugador</th><th class="r">Bajas</th><th class="r">Muertes</th><th class="r">Puntos</th></tr></thead><tbody id="endRows"></tbody></table>
+    <div id="endMaps" class="endmaps" hidden><h3>Elige el próximo mapa</h3><div id="endMapBtns" class="endmapbtns"></div><p id="endMapsNote"></p></div>
     <p class="note" id="endNext" hidden></p>
     <div class="row"><button class="play" id="again">Jugar otra vez</button><button class="play alt" id="toMenu">Volver al menú</button></div>
   </div>
@@ -668,7 +771,32 @@ body.playing .chatrow:focus-within{opacity:1}
 <script src="vendor/three.min.js"></script>
 <script src="config.js"></script>
 <script src="shared.js"></script>
+  <div id="passScreen" hidden role="dialog" aria-modal="true" aria-label="Pase de batalla">
+    <div class="ps-head">
+      <div class="ps-title"><b>PASE DE BATALLA</b><span class="ps-season">TEMPORADA 1</span></div>
+      <div class="ps-level">
+        <div class="lv">NIVEL<b id="psLv">1</b><span id="psVipStat" class="ps-vipstat">PASE GRATIS</span></div>
+        <div class="xpbar"><i id="psXp"></i><em id="psXpTxt">0 / 250 XP</em></div>
+      </div>
+      <div class="ps-actions">
+        <span class="ps-wallet" id="psWallet"></span>
+        <button type="button" class="ps-btn vip" id="psBuy">Comprar Pase VIP</button>
+        <button type="button" class="ps-btn alt" id="psGift">Regalar Pase</button>
+        <button type="button" class="ps-btn alt" id="psSkip">Saltar Niveles</button>
+        <button type="button" class="ps-btn" id="psClaimAll">Reclamar todo</button>
+        <button type="button" class="ps-btn ghost" id="psClose" aria-label="Cerrar">✕ Cerrar</button>
+      </div>
+    </div>
+    <div id="psNote" class="ps-note" hidden></div>
+    <div class="ps-body">
+      <div class="ps-side"><div class="free">GRATIS</div><div class="mid">NIVEL</div><div class="vip">VIP</div></div>
+      <div class="ps-scroll" id="psScroll"></div>
+    </div>
+    <div class="ps-foot">Gana XP jugando partidas online (hasta el nivel 50). Las recompensas VIP se desbloquean al comprar el pase; las de niveles ya alcanzados se pueden reclamar en cuanto lo tengas.</div>
+  </div>
+  <div id="psModal" hidden><div class="psm" id="psmBox"></div></div>
 <script src="client.js"></script>
+<script src="bp.js"></script>
 <script type="module" src="src/main.js"></script>
 <div id="notice" role="status" aria-live="polite"></div>
 <div id="goldflash"></div>

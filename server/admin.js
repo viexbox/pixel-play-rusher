@@ -28,19 +28,22 @@ function nameKey(s) {
 
 class Store {
   constructor(file, defaults, log) {
-    this.file = file; this.log = log; this.timer = null;
-    let data = null;
-    try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { /* primera ejecución */ }
+    this.file = file; this.log = log; this.timer = null; this.name = path.basename(file);
+    let data = Store.db ? Store.db.get(this.name) : null;                       // con PostgreSQL, el documento viene de la base de datos
+    if (!data) try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { /* primera ejecución (o primer arranque con PostgreSQL: se importa el archivo) */ }
     this.data = data && typeof data === 'object' ? Object.assign(JSON.parse(JSON.stringify(defaults)), data) : JSON.parse(JSON.stringify(defaults));
   }
-  reload() { try { const d = JSON.parse(fs.readFileSync(this.file, 'utf8')); if (d && typeof d === 'object') Object.assign(this.data, d); } catch (e) { /* sin cambios */ } }
+  reload() { if (Store.db) return; try { const d = JSON.parse(fs.readFileSync(this.file, 'utf8')); if (d && typeof d === 'object') Object.assign(this.data, d); } catch (e) { /* sin cambios */ } }
   save() { if (!this.timer) { this.timer = setTimeout(() => { this.timer = null; this.flush(); }, 1500); if (this.timer.unref) this.timer.unref(); } }
   flush() {
     if (this.timer) { clearTimeout(this.timer); this.timer = null; }
+    if (Store.db) { Store.db.put(this.name, this.data); return; }
     try { const tmp = this.file + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(this.data), { mode: 0o600 }); fs.renameSync(tmp, this.file); }
     catch (e) { this.log('No se pudo guardar ' + path.basename(this.file) + ': ' + e.message); }
   }
 }
+
+Store.db = null;   // lo asigna server.js cuando hay PostgreSQL
 
 function createAdmin(opts) {
   const { dataDir, log, S, rt, env = process.env } = opts;
@@ -515,9 +518,14 @@ function createAdmin(opts) {
   function flushAll() { for (const s of stores) s.flush(); }
   return {
     ready, get credentialsNotice() { return credentialsNotice; }, adminUser: ADMIN_USER, nameKey, ipKey,
+    /* extensiones para otros módulos (cuentas, tienda): rutas del panel, auditoría y comprobaciones de nombre/baneo */
+    addRoutes(extra) { Object.assign(routes, extra); }, audit,
+    roleOf(name) { const nk = nameKey(name); if (!nk) return 0; if (nk === ADMIN_KEY) return 'admin'; return infS.data.list.some(i => i.active && i.nameKey === nk) ? 'inf' : 0; },
+    isReserved(name) { const nk = nameKey(name); return !!nk && (nk.includes(ADMIN_KEY) || infS.data.list.some(i => i.active && i.nameKey === nk)); },
+    banFor(name, ip) { return bans.check({ nameKey: nameKey(name), ipKey: ipKey(ip) }); }, banMessage: b => bans.message(b),
     resolveIdentity, checkChat, onChat, onLog, recordMatch, makeReport, count, handleHttp, handleUpgrade, flushAll,
     settings: S_, maxPerRoom: () => S_.maintenance.on ? 0 : S_.maxPerRoom, roleOfToken: t => (fullToken(t) ? 'admin' : 0)
   };
 }
 
-module.exports = { createAdmin, nameKey };
+module.exports = { createAdmin, nameKey, Store };

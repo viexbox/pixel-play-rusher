@@ -20,10 +20,25 @@ if (!pw) { generated = true; pw = ''; const al = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdef
 if (pw.length < 12 || !/[A-Za-z]/.test(pw) || !/\d/.test(pw)) { console.error('La contraseña necesita al menos 12 caracteres con letras y números.'); process.exit(1); }
 fs.mkdirSync(dataDir, { recursive: true });
 const file = path.join(dataDir, 'admin.json');
+const DB_URL = process.env.DATABASE_URL;   // con PostgreSQL, las credenciales están en la tabla app_docs y no en el archivo
 let prev = {}; try { prev = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { /* nuevo */ }
 const salt = crypto.randomBytes(16).toString('hex');
 const hash = crypto.scryptSync(pw, salt, 64, { N: 16384, r: 8, p: 1 }).toString('hex');
 const now = Date.now();
-fs.writeFileSync(file, JSON.stringify({ user, email: email || prev.email || '', salt, hash, createdAt: prev.createdAt || now, changedAt: now }), { mode: 0o600 });
-console.log('Administrador «' + user + '» actualizado en ' + file);
-if (generated) console.log('Contraseña (cópiala ahora, no se vuelve a mostrar): ' + pw);
+const done = where => { console.log('Administrador «' + user + '» actualizado en ' + where); if (generated) console.log('Contraseña (cópiala ahora, no se vuelve a mostrar): ' + pw); };
+if (!DB_URL) {
+  fs.writeFileSync(file, JSON.stringify({ user, email: email || prev.email || '', salt, hash, createdAt: prev.createdAt || now, changedAt: now }), { mode: 0o600 });
+  done(file);
+} else {
+  const { Client } = require('pg'); const { sslFor } = require('../server/db.js');
+  (async () => {
+    const c = new Client({ connectionString: DB_URL, ssl: sslFor(DB_URL, process.env) }); await c.connect();
+    try {
+      await c.query('CREATE TABLE IF NOT EXISTS app_docs (name TEXT PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now())');
+      const old = (await c.query("SELECT data FROM app_docs WHERE name = 'admin.json'")).rows[0]; const p2 = old ? old.data : prev;
+      const doc = JSON.stringify({ user, email: email || p2.email || '', salt, hash, createdAt: p2.createdAt || now, changedAt: now });
+      await c.query("INSERT INTO app_docs (name, data) VALUES ('admin.json', $1::jsonb) ON CONFLICT (name) DO UPDATE SET data = EXCLUDED.data, updated_at = now()", [doc]);
+      done('PostgreSQL (app_docs)');
+    } finally { await c.end(); }
+  })().catch(e => { console.error('No se pudo actualizar en PostgreSQL: ' + e.message); process.exit(1); });
+}
