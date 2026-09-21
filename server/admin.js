@@ -26,19 +26,33 @@ function nameKey(s) {
     .replace(/0/g, 'o').replace(/[1|!]/g, 'i').replace(/3/g, 'e').replace(/[4@]/g, 'a').replace(/[5$]/g, 's').replace(/7/g, 't').replace(/[^a-z]/g, '');
 }
 
+const readJson = f => { try { const d = JSON.parse(fs.readFileSync(f, 'utf8')); return d && typeof d === 'object' ? d : null; } catch (e) { return null; } };
 class Store {
   constructor(file, defaults, log) {
     this.file = file; this.log = log; this.timer = null; this.name = path.basename(file); Store.all.add(this);   // registro global: así también se vacían los almacenes de otros módulos (temporadas, ofertas, denuncias)
     let data = Store.db ? Store.db.get(this.name) : null;                       // con PostgreSQL, el documento viene de la base de datos
-    if (!data) try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { /* primera ejecución (o primer arranque con PostgreSQL: se importa el archivo) */ }
+    if (!data && !Store.db) data = Store.readSafe(file, log);   // [NUEVO] un archivo dañado NUNCA se sobrescribe en silencio: se guarda aparte y se recupera la última copia buena
+    else if (!data) try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { /* primer arranque con PostgreSQL: se importa el archivo si existe */ }
     this.data = data && typeof data === 'object' ? Object.assign(JSON.parse(JSON.stringify(defaults)), data) : JSON.parse(JSON.stringify(defaults));
+  }
+  /* Lee un archivo de datos. Si no existe (primera ejecución) devuelve null. Si está dañado: lo aparta como «.corrupt-<fecha>» (no se pierde), recupera «.bak» (la última copia buena) y avisa. */
+  static readSafe(file, log) {
+    if (!fs.existsSync(file)) { const b = readJson(file + '.bak'); if (b) { log('AVISO: falta ' + path.basename(file) + ' y se recuperó su copia (.bak)'); } return fs.existsSync(file + '.bak') ? readJson(file + '.bak') : null; }
+    const d = readJson(file); if (d) return d;
+    const q = file + '.corrupt-' + Date.now(); let moved = true; try { fs.renameSync(file, q); } catch (e) { moved = false; }
+    const bak = readJson(file + '.bak');
+    log('¡ATENCIÓN! ' + path.basename(file) + ' estaba dañado' + (moved ? ' y se guardó aparte como ' + path.basename(q) : '') + (bak ? '; se recuperó la última copia buena (.bak).' : '; no hay copia buena: este archivo empieza vacío. Restaura una copia de seguridad si la tienes.'));
+    return bak;
   }
   reload() { if (Store.db) return; try { const d = JSON.parse(fs.readFileSync(this.file, 'utf8')); if (d && typeof d === 'object') Object.assign(this.data, d); } catch (e) { /* sin cambios */ } }
   save() { if (!this.timer) { this.timer = setTimeout(() => { this.timer = null; this.flush(); }, 1500); if (this.timer.unref) this.timer.unref(); } }
   flush() {
     if (this.timer) { clearTimeout(this.timer); this.timer = null; }
     if (Store.db) { Store.db.put(this.name, this.data); return; }
-    try { const tmp = this.file + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(this.data), { mode: 0o600 }); fs.renameSync(tmp, this.file); }
+    try {
+      if (Date.now() - (this.bakAt || 0) > 30000 && readJson(this.file)) { fs.copyFileSync(this.file, this.file + '.bak'); this.bakAt = Date.now(); }   // última copia buena (como mucho cada 30 s)
+      const tmp = this.file + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(this.data), { mode: 0o600 }); fs.renameSync(tmp, this.file);
+    }
     catch (e) { this.log('No se pudo guardar ' + path.basename(this.file) + ': ' + e.message); }
   }
 }

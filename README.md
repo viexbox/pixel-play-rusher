@@ -145,6 +145,10 @@ Cada cuenta se guarda con un **UUID permanente**; el nombre de usuario es solo u
 
 **Robustez.** Al apagar el servidor ahora se vacían también los almacenes de temporadas, eventos, ofertas de intercambio y denuncias de perfil (antes podían perder hasta 1,5 s de cambios).
 
+**Jugar online desde el archivo HTML.** `pixel-play-rusher.html` no lleva servidor: para el modo online hay que indicarle dónde está el tuyo. Pulsa el botón **«Servidor»** del menú y escribe su dirección (`https://mi-juego.onrender.com`), o abre el archivo con `…/pixel-play-rusher.html?server=https://mi-juego.onrender.com` (se recuerda en ese navegador; `?server=` vacío lo borra). El servidor acepta las conexiones que vienen de un archivo local (`ALLOW_FILE_ORIGIN=0` lo desactiva) y sigue rechazando las de webs ajenas. La conexión espera hasta 25 s (un servidor gratuito dormido tarda en despertar) y el servidor da `HELLO_TIMEOUT_MS` (20 s) al cliente para saludar; si lo corta por tardar, el cliente reintenta solo. Una sala online necesita al menos 2 jugadores para empezar («Esperando rivales…»).
+
+**Las cuentas no se pierden.** Altas, pagos, PX y Créditos se escriben a disco (o a PostgreSQL) **al instante**. Cada archivo de datos guarda además su última copia buena (`.bak`); si un archivo aparece dañado (corte de luz a mitad de escritura) **nunca se sobrescribe en silencio**: se aparta como `.corrupt-<fecha>`, se recupera la copia buena y el registro lo avisa. Ninguna parte del código borra cuentas. **Importante:** en plataformas que vacían el disco al reiniciar o redesplegar (Render, Railway, Fly…) las cuentas guardadas en archivos **se pierden** salvo que uses PostgreSQL (`DATABASE_URL`) o un disco persistente (`DATA_DIR`); el servidor lo detecta, lo avisa en el registro y en el resumen del panel. Comprobado apagando el servidor en seco (kill -9) en archivos y en PostgreSQL.
+
 **Antitrampas: paredes** (`WALL_CHECK`, activo por defecto). Además de la velocidad, los saltos y los límites, el servidor rechaza cualquier posición que deje el cuerpo dentro de un muro o que lo atraviese en un solo paso (comprobado con la misma física del cliente: jugadores legítimos en tres mapas, 0 correcciones; saltos a través de un muro de 2 m, 12 de 12 rechazados). Al tramposo se le devuelve a su sitio (no se le expulsa: un lag legítimo no debe echar a nadie); cada corrección cuenta en «Corr.» del espectador y queda una línea en el registro cada 25 intentos.
 
 **Clasificatorio con poca gente** (`RANKED_WIDEN_SECS`, 30). Una sala con menos de 2 jugadores acepta ligas cada vez más lejanas cuanto más espera (+1 liga cada 30 s, hasta 6), y entre las salas válidas se elige la de liga más cercana. Una sala con 2 o más jugadores no se ensancha.
@@ -162,6 +166,8 @@ Cada cuenta se guarda con un **UUID permanente**; el nombre de usuario es solo u
 | `TRADE_LOCK_HOURS` | `24` | Bloqueo de objetos recién conseguidos antes de venderlos o intercambiarlos |
 | `EVENT_FEATURED_MULT` | `1.5` | Bonificación del modo destacado de la semana (1 = desactivado) |
 | `EVENT_MAX_HOURS` | `168` | Duración máxima de un evento lanzado desde el panel |
+| `ALLOW_FILE_ORIGIN` | `1` | Aceptar conexiones de una página abierta desde un archivo local (0 = no) |
+| `HELLO_TIMEOUT_MS` | `20000` | Tiempo que se da al cliente para saludar tras conectar |
 | `WALL_CHECK` | `1` | Rechazar movimientos que atraviesan paredes (0 = desactivar, solo para pruebas con bots) |
 | `RANKED_WIDEN_SECS` | `30` | Segundos de espera para ampliar una liga el emparejamiento clasificatorio |
 | `BACKUP_EVERY_HOURS` / `BACKUP_KEEP` / `BACKUP_DIR` / `BACKUP_PASSPHRASE` | `24` / `7` / `DATA_DIR/backups` / (vacío) | Copias de seguridad automáticas |

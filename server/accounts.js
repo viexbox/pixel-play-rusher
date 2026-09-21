@@ -120,7 +120,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     const salt = hex(16), hash = (await scrypt(pw, salt)).toString('hex');
     if (byKey.has(key)) return err(409, 'Ese nombre de usuario ya está en uso. Elige otro.', { suggestions: suggest(username) });   // otra petición pudo ganarle mientras se calculaba el hash
     const u = { id: crypto.randomUUID(), username, key, email, salt, hash, createdAt: t, lastLogin: t, px: 0, credits: 0, act: [new Date().toISOString().slice(0, 10)], friends: [], reqIn: [], reqOut: [], blocked: [], avatar: null, status: '', verified: false, stats: EMPTY_STATS(), unlocked: [0, 1, 2, 3], claimed: [], day: { d: '', px: 0 } };
-    D.users[u.id] = u; byId.set(u.id, u); byKey.set(key, u); db.save();   // [NUEVO] la cuenta se guarda por su ID
+    D.users[u.id] = u; byId.set(u.id, u); byKey.set(key, u); db.flush(); if (Store.db) await Store.db.drain(2000);   // [NUEVO] la cuenta se guarda por su ID y al momento (no a los 1,5 s)
     log('Cuenta nueva: ' + username + ' (' + u.id + ')');
     return { ok: true, token: newSession(u), profile: pub(u) };
   }
@@ -157,36 +157,36 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     i = i | 0; const cost = S.COLOR_COSTS[i];
     if (cost == null) return err(400, 'Color no válido.'); if (u.unlocked.includes(i)) return err(400, 'Ya lo tienes.');
     if (u.px < cost) return err(402, 'Te faltan ' + (cost - u.px) + ' PX.');
-    u.px -= cost; u.unlocked.push(i); (u.colorTs = u.colorTs || {})[i] = now(); db.save(); return { ok: true, profile: pub(u) };   // colorTs: cuándo se consiguió (bloqueo de 24 h del mercado)
+    u.px -= cost; u.unlocked.push(i); (u.colorTs = u.colorTs || {})[i] = now(); db.flush(); return { ok: true, profile: pub(u) };   // colorTs: cuándo se consiguió (bloqueo de 24 h del mercado)
   }
   function claimRank(u, i) {
     i = i | 0; const r = S.RANKS[i];
     if (!r) return err(400, 'Rango no válido.'); if (u.stats.points < r.pts) return err(400, 'Aún no has alcanzado ese rango.'); if (u.claimed.includes(i)) return err(400, 'Ya reclamaste esa recompensa.');
     u.claimed.push(i); u.px += r.kr; if (r.color != null && !u.unlocked.includes(r.color)) { u.unlocked.push(r.color); (u.colorTs = u.colorTs || {})[r.color] = now(); }
-    db.save(); return { ok: true, profile: pub(u), gained: r.kr };
+    db.flush(); return { ok: true, profile: pub(u), gained: r.kr };
   }
   function adjust(username, delta, reason, by) {
     const u = byKey.get(ukey(username)); if (!u) return err(404, 'No existe ninguna cuenta con ese nombre.');
     delta = Math.trunc(+delta); if (!Number.isFinite(delta) || delta === 0 || Math.abs(delta) > 1000000) return err(400, 'La cantidad debe ser un número entero distinto de 0 (máximo 1.000.000).');
     const applied = delta < 0 ? -Math.min(u.px, -delta) : delta; u.px += applied;
     D.pxlog.unshift({ ts: now(), uid: u.id, user: u.username, delta, applied, balance: u.px, reason: clean(reason, 120), by });
-    if (D.pxlog.length > 2000) D.pxlog.length = 2000; db.save();
+    if (D.pxlog.length > 2000) D.pxlog.length = 2000; db.flush();
     return { ok: true, username: u.username, applied, balance: u.px };
   }
 
   /* Cobro y abono de PX para otros módulos (pase de batalla). spend() no deja saldos negativos: devuelve false si no alcanza. */
   function spend(u, n, reason) {
     n = Math.trunc(n); if (!(n > 0) || u.px < n) return false;
-    u.px -= n; D.pxlog.unshift({ ts: now(), uid: u.id, user: u.username, delta: -n, applied: -n, balance: u.px, reason: clean(reason, 120), by: 'juego' }); if (D.pxlog.length > 2000) D.pxlog.length = 2000; db.save(); return true;
+    u.px -= n; D.pxlog.unshift({ ts: now(), uid: u.id, user: u.username, delta: -n, applied: -n, balance: u.px, reason: clean(reason, 120), by: 'juego' }); if (D.pxlog.length > 2000) D.pxlog.length = 2000; db.flush(); return true;
   }
   function grant(u, n, reason) {
     n = Math.trunc(n); if (!(n > 0)) return; u.px += n;
-    D.pxlog.unshift({ ts: now(), uid: u.id, user: u.username, delta: n, applied: n, balance: u.px, reason: clean(reason, 120), by: 'juego' }); if (D.pxlog.length > 2000) D.pxlog.length = 2000; db.save();
+    D.pxlog.unshift({ ts: now(), uid: u.id, user: u.username, delta: n, applied: n, balance: u.px, reason: clean(reason, 120), by: 'juego' }); if (D.pxlog.length > 2000) D.pxlog.length = 2000; db.flush();
   }
   /* [NUEVO] Créditos: cobrar / abonar (los usa el mercado). spendCr no deja saldos negativos. */
   function spendCr(u, n, reason) { n = Math.trunc(n); if (!(n > 0) || u.credits < n) return false; u.credits -= n; logCr(u, -n, reason); return true; }
   function grantCr(u, n, reason) { n = Math.trunc(n); if (!(n > 0)) return; u.credits += n; logCr(u, n, reason); }
-  function logCr(u, delta, reason) { (D.crlog = D.crlog || []).unshift({ ts: now(), uid: u.id, user: u.username, delta, balance: u.credits, reason: clean(reason, 120) }); if (D.crlog.length > 2000) D.crlog.length = 2000; db.save(); }
+  function logCr(u, delta, reason) { (D.crlog = D.crlog || []).unshift({ ts: now(), uid: u.id, user: u.username, delta, balance: u.credits, reason: clean(reason, 120) }); if (D.crlog.length > 2000) D.crlog.length = 2000; db.flush(); }
   const find = name => byKey.get(ukey(name)) || null;
   const findById = id => byId.get(String(id)) || null;
 
@@ -200,7 +200,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     const key = ukey(name), other = byKey.get(key);
     if (other && other !== u) return err(409, 'Ese nombre de usuario ya está en uso. Elige otro.', { suggestions: suggest(name) });
     const old = u.username; byKey.delete(u.key); u.username = name; u.key = key; byKey.set(key, u);
-    u.renamedAt = now(); u.prevNames = (u.prevNames || []).concat(old).slice(-5); db.save();
+    u.renamedAt = now(); u.prevNames = (u.prevNames || []).concat(old).slice(-5); db.flush();
     log('Cambio de nombre: ' + old + ' → ' + name + ' (' + u.id + ')'); if (hooks.onRename) hooks.onRename(u, old);
     return { ok: true, profile: pub(u) };
   }
@@ -231,7 +231,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
       j = res.j;
     } catch (e) { log('No se pudo contactar con Stripe: ' + e.message); return err(502, 'No se pudo iniciar el pago. Inténtalo más tarde.'); }
     D.orders.unshift({ id: j.id, uid: u.id, user: u.username, pack: pack.id, px: pack.px, amount: pack.price, currency: CURRENCY, status: 'pending', ts: now() });
-    if (D.orders.length > 2000) D.orders.length = 2000; db.save();
+    if (D.orders.length > 2000) D.orders.length = 2000; db.flush();
     return { ok: true, url: j.url };
   }
   function verifySignature(raw, header) {
@@ -250,8 +250,8 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
       if (!order) { log('Pago recibido de una sesión desconocida: ' + clean(o.id, 40)); return { ok: true }; }
       if (order.status === 'paid') return { ok: true };                       // ya acreditado (Stripe reintenta los avisos)
       if (o.amount_total !== order.amount || String(o.currency).toLowerCase() !== order.currency) { order.status = 'mismatch'; db.save(); log('Pago con importe distinto al pedido ' + order.id); return { ok: true }; }
-      const u = byId.get(order.uid); if (!u) { order.status = 'orphan'; db.save(); return { ok: true }; }
-      u.px += order.px; order.status = 'paid'; order.paidAt = now(); db.save(); log('PX comprados: ' + order.px + ' para ' + u.username);
+      const u = byId.get(order.uid); if (!u) { order.status = 'orphan'; db.flush(); return { ok: true }; }
+      u.px += order.px; order.status = 'paid'; order.paidAt = now(); db.flush(); log('PX comprados: ' + order.px + ' para ' + u.username);
     }
     return { ok: true };
   }
@@ -262,7 +262,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
   const readRaw = (req, max) => new Promise((res, rej) => { let n = 0; const parts = []; req.on('data', c => { n += c.length; if (n > max) { rej(new Error('cuerpo demasiado grande')); req.destroy(); } else parts.push(c); }); req.on('end', () => res(Buffer.concat(parts).toString('utf8'))); req.on('error', rej); });
   function send(req, res, code, obj) {
     const h = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
-    const origin = req.headers.origin; if (origin && ALLOWED_ORIGINS.includes(origin)) { h['Access-Control-Allow-Origin'] = origin; h.Vary = 'Origin'; h['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'; h['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'; }
+    const origin = req.headers.origin; if (origin && (ALLOWED_ORIGINS.includes(origin) || (env.ALLOW_FILE_ORIGIN !== '0' && origin === 'null'))) { h['Access-Control-Allow-Origin'] = origin; h.Vary = 'Origin'; h['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'; h['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'; }
     res.writeHead(code, h); res.end(obj == null ? '' : JSON.stringify(obj));
   }
   async function handleHttp(req, res, url, ip) {

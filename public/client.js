@@ -1307,15 +1307,27 @@ function setServer(ok, j) {
     if (j) $('#onlineInfo').textContent = j.players + (j.players === 1 ? ' jugador conectado' : ' jugadores conectados') + ' · ' + j.rooms.length + (j.rooms.length === 1 ? ' sala activa' : ' salas activas');
     if (first) { $('#lbScope').value = 'global'; renderLeaderboard(); }
   } else {
-    $('#onlineInfo').textContent = 'El modo online no está disponible en esta página. Puedes entrenar contra bots.';
+    $('#onlineInfo').textContent = CFG_SERVER ? 'No hay respuesta del servidor ' + CFG_SERVER.replace(/^https?:\/\//, '') + '. Comprueba la dirección con el botón «Servidor». Mientras tanto puedes entrenar contra bots.' : location.protocol === 'file:' ? 'Estás abriendo el juego desde un archivo: para jugar online pulsa «Servidor» y escribe la dirección de tu servidor. Mientras tanto puedes entrenar contra bots.' : 'El modo online no está disponible en esta página. Puedes entrenar contra bots.';
     if ($('#lbScope').value === 'global') { $('#lbScope').value = 'local'; renderLeaderboard(); }
   }
+}
+/* [NUEVO] Botón «Servidor»: elegir a qué servidor online conectarse (se recuerda en este navegador) */
+function initServerBtn() {
+  const b = $('#serverBtn'); if (!b) return;
+  b.textContent = CFG_SERVER ? CFG_SERVER.replace(/^https?:\/\//, '') : location.protocol === 'file:' ? 'Sin servidor' : 'Este equipo'; b.title = CFG_SERVER || 'Dirección del servidor online';
+  b.addEventListener('click', () => {
+    const v = window.prompt('Dirección del servidor online (por ejemplo https://mi-juego.onrender.com).\nDéjalo vacío para usar el servidor de esta misma página.', CFG_SERVER || '');
+    if (v === null) return; const s = v.trim().replace(/\/+$/, '');
+    if (s && !/^https?:\/\/[^\s/?#]+(:\d+)?(\/[^\s?#]*)?$/i.test(s)) { toast('Esa dirección no es válida. Debe empezar por http:// o https://'); return; }
+    try { if (s) localStorage.setItem('ppr.server', s); else localStorage.removeItem('ppr.server'); } catch (e) { /* sin almacenamiento */ }
+    location.reload();
+  });
 }
 function checkServer() {
   if (state !== 'menu') return;
   if (typeof fetch !== 'function') return setServer(false);
   const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const tm = setTimeout(() => { if (ctl) ctl.abort(); }, 3000);
+  const tm = setTimeout(() => { if (ctl) ctl.abort(); }, 8000);   // [AJUSTE] 8 s (antes 3): un servidor recién despertado tarda en responder
   fetch(apiUrl('api/status'), { cache: 'no-store', signal: ctl ? ctl.signal : undefined })
     .then(r => (r.ok ? r.json() : Promise.reject(new Error('http'))))
     .then(j => setServer(true, j))
@@ -1339,9 +1351,15 @@ function startOnline() {
   net.ws = ws; net.joined = false;
   ws.onopen = () => netSend({ t: 'hello', v: 1, n: cfg.name, map: cfg.map, c: cfg.cls, lk: [cfg.look.col, cfg.look.skin], adm: admToken(), inf: cfg.infKey || '', acct: acctToken(), mode: S.MODES[cfg.mode] ? cfg.mode : 'duelo', rk: cfg.ranked && cfg.mode === 'duelo' ? 1 : 0 });
   ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } try { netHandle(m); } catch (e) { console.error(e); } };
-  ws.onclose = () => { if (net.ws === ws) netClosed(); };
+  ws.onclose = ev => {
+    if (net.ws !== ws) return;
+    if (!net.joined && state === 'connecting' && ev && ev.code === 1008 && (net.tries = (net.tries || 0) + 1) <= 2) { clearTimeout(net.timer); net.ws = null; online = false; state = 'menu'; setNetMsg('Reintentando la conexión…'); setTimeout(startOnline, 400); return; }   // [NUEVO] el servidor cortó por tardar en saludar: se reintenta solo (2 veces)
+    net.tries = 0; netClosed();
+  };
   ws.onerror = () => {};
-  net.timer = setTimeout(() => { if (!net.joined) netFail('El servidor no responde. Inténtalo de nuevo.'); }, 6000);
+  /* [AJUSTE] 25 s en vez de 6: un servidor gratuito que «duerme» o un móvil/PC lento tardan en conectar; mientras tanto se avisa */
+  setNetMsg('Conectando con el servidor… (si estaba dormido puede tardar hasta medio minuto)');
+  net.timer = setTimeout(() => { if (!net.joined) netFail('El servidor no responde. Inténtalo de nuevo.'); }, 25000);
 }
 /* [NUEVO] Espectador (solo administrador): entra en una sala en directo sin jugar. Uso: /?spec=<sala> con la sesión de administrador abierta en este navegador. */
 function startSpectate(roomId) {
@@ -1427,7 +1445,7 @@ function netHandle(m) {
   }
 }
 function onWelcome(m) {
-  clearTimeout(net.timer); net.joined = true; net.id = m.id;
+  clearTimeout(net.timer); net.joined = true; net.tries = 0; net.id = m.id; setNetMsg('');
   { const ec = $('#endCr'), er = $('#endRank'); if (ec) ec.hidden = true; if (er) er.hidden = true; }
   net.mode = S.MODES[m.mode] ? m.mode : 'duelo'; net.ranked = !!m.rk; net.zone = m.zone || null; net.gl = 0; net.rank = null; net.spec = !!m.spec;   // [NUEVO] modo de la sala
   if (curMap !== m.map) buildMap(m.map);
@@ -2163,7 +2181,7 @@ function initMenu() {
   if (!window.matchMedia('(any-pointer: fine)').matches) { $('#touchWarn').hidden = false; $('#play').disabled = true; noPointer = true; }   // sin ratón (móviles) no se puede jugar: los controles táctiles son para pantallas táctiles CON ratón conectado
   if (!renderer) noPointer = true;
   $('#playOnline').disabled = true;
-  renderMenuStats(); renderEvent(); renderDaily(); renderLeaderboard(); initPreview(); initChat(); checkServer();
+  initServerBtn(); renderMenuStats(); renderEvent(); renderDaily(); renderLeaderboard(); initPreview(); initChat(); checkServer();
 }
 
 let lbToken = 0;

@@ -50,6 +50,7 @@ const LEAVE_MIN_MS = +process.env.RANKED_LEAVE_MS || 60000;   // tiempo mínimo 
 const MAX_CONN_PER_IP = +process.env.MAX_CONN_PER_IP || 8;
 const TRUST_PROXY = process.env.TRUST_PROXY; // '1' = confiar siempre, '0' = nunca, sin definir = solo si la conexión llega desde una red privada (proxy)
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+const FILE_ORIGIN = process.env.ALLOW_FILE_ORIGIN !== '0';   // [NUEVO] el juego abierto desde un archivo local (pixel-play-rusher.html) manda «Origin: null»: se acepta para poder jugar online desde él (la API usa tokens, no cookies)
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const RESPAWN_MS = S.CONST.RESPAWN * 1000;
 const PROTOCOL = 1;
@@ -451,12 +452,15 @@ setInterval(() => apiHits.clear(), 60000).unref();
 
 function json(res, obj, code, origin) {
   const h = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
-  if (origin && ALLOWED_ORIGINS.includes(origin)) { h['Access-Control-Allow-Origin'] = origin; h['Vary'] = 'Origin'; }
+  if (origin && (ALLOWED_ORIGINS.includes(origin) || (FILE_ORIGIN && origin === 'null'))) { h['Access-Control-Allow-Origin'] = origin; h['Vary'] = 'Origin'; }
   res.writeHead(code || 200, h);
   res.end(JSON.stringify(obj));
 }
+/* [NUEVO] Aviso de almacenamiento: en plataformas que borran el disco al reiniciar o redesplegar (Render, Railway, Fly…) las cuentas guardadas en archivos se PIERDEN si no hay PostgreSQL ni un disco persistente (DATA_DIR) */
+const EPHEMERAL_HOST = !PGDB && !process.env.DATA_DIR ? ['RENDER', 'DYNO', 'FLY_APP_NAME', 'RAILWAY_ENVIRONMENT', 'K_SERVICE', 'VERCEL', 'NETLIFY'].find(k => process.env[k]) || '' : '';
+if (EPHEMERAL_HOST) console.log(new Date().toISOString(), '¡ATENCIÓN! Detectada la plataforma (' + EPHEMERAL_HOST + ') sin DATABASE_URL ni DATA_DIR: las cuentas se guardan en el disco del servidor, que allí se BORRA al reiniciar o redesplegar. Configura DATABASE_URL (PostgreSQL) o un disco persistente con DATA_DIR.');
 function status() {
-  return { protocol: PROTOCOL, admin: admin.adminUser, accounts: true, store: accounts.storeInfo().enabled, bp: true, market: true, social: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
+  return { storage: { mode: PGDB ? 'postgres' : 'archivos', warn: !!EPHEMERAL_HOST, platform: EPHEMERAL_HOST }, protocol: PROTOCOL, admin: admin.adminUser, accounts: true, store: accounts.storeInfo().enabled, bp: true, market: true, social: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
 }
 
 const server = http.createServer((req, res) => {
@@ -566,6 +570,7 @@ server.on('upgrade', (req, socket, head) => {
   if (origin) {
     let ok = false;
     try { ok = ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS.includes(origin) : new URL(origin).host === req.headers.host; } catch (e) { ok = false; }
+    if (!ok && FILE_ORIGIN && origin === 'null' && !isAdminWs) ok = true;   // partida desde un archivo local (no el panel de administración)
     if (!ok) return reject('403 Forbidden');
   }
   const ip = clientIp(req);
@@ -580,7 +585,7 @@ wss.on('connection', ws => {
   connections.add(ws);
   ws.alive = true; ws.player = null; ws.rl = { t: Date.now(), n: 0 };
   ws.on('pong', () => { ws.alive = true; });
-  const helloTimer = setTimeout(() => { if (!ws.player && !ws.lobbyName) ws.close(1008, 'hello'); }, 5000);
+  const helloTimer = setTimeout(() => { if (!ws.player && !ws.lobbyName) ws.close(1008, 'hello'); }, +process.env.HELLO_TIMEOUT_MS || 20000);   // [AJUSTE] 20 s (antes 5): un equipo lento tarda en enviar el saludo mientras carga los gráficos
   ws.on('message', data => {
     const now = Date.now();
     if (now - ws.rl.t > 1000) { ws.rl.t = now; ws.rl.n = 0; }
