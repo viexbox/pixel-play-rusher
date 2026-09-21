@@ -28,6 +28,7 @@ const { createMarket } = require('./server/market.js');
 const { createSocial } = require('./server/social.js');
 const { createRanked } = require('./server/ranked.js');
 const { createEvents } = require('./server/events.js');
+const { createBackup } = require('./server/backup.js');
 
 const PORT = +process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -41,6 +42,10 @@ const TEAM_LIMIT = +process.env.TEAM_KILL_LIMIT || (process.env.KILL_LIMIT ? KIL
 const KNIFE_LIMIT = +process.env.KNIFE_KILL_LIMIT || 25;   // [NUEVO] bajas para ganar en «Solo cuchillos»
 const ZONE_LIMIT = +process.env.ZONE_LIMIT || S.ZONE.LIMIT, ZONE_MOVE = +process.env.ZONE_MOVE_SECS || S.ZONE.MOVE_SECS;   // puntos para ganar en «Capturar zona» y cada cuánto cambia de sitio
 const LADDER = S.GUN_LADDER.slice(0, +process.env.LADDER_LEVELS || S.GUN_LADDER.length);   // niveles de armas de la Carrera (acortable solo para pruebas)
+/* [NUEVO] Colisiones con paredes: el servidor rechaza posiciones dentro de un muro o que lo atraviesan (WALL_CHECK=0 lo desactiva; solo para pruebas con bots que caminan en línea recta) */
+const WALL_CHECK = process.env.WALL_CHECK !== '0';
+/* [NUEVO] Emparejamiento clasificatorio con poca gente: una sala con menos de 2 jugadores acepta ligas cada vez más lejanas cuanto más tiempo lleva esperando (+1 liga cada RANKED_WIDEN_SECS, tope 6) */
+const WIDEN_MS = (+process.env.RANKED_WIDEN_SECS || 30) * 1000;
 const LEAVE_MIN_MS = +process.env.RANKED_LEAVE_MS || 60000;   // tiempo mínimo jugado para que abandonar un clasificatorio penalice
 const MAX_CONN_PER_IP = +process.env.MAX_CONN_PER_IP || 8;
 const TRUST_PROXY = process.env.TRUST_PROXY; // '1' = confiar siempre, '0' = nunca, sin definir = solo si la conexión llega desde una red privada (proxy)
@@ -52,7 +57,7 @@ const HIST_MIN = +process.env.HISTORY_MIN_SECS || 20; // segundos mínimos en un
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const r3 = v => Math.round(v * 1000) / 1000;
-let admin = null, accounts = null, bp = null, market = null, social = null, ranked = null, events = null;
+let admin = null, accounts = null, bp = null, market = null, social = null, ranked = null, events = null, backup = null;
 const log = (...a) => { const line = new Date().toISOString() + ' ' + a.join(' '); console.log(line); if (admin) admin.onLog(line); };
 
 /* =====================================================================
@@ -160,6 +165,16 @@ class Room {
   limit() { return this.mode === 'zona' ? ZONE_LIMIT : this.mode === 'cuchillos' ? KNIFE_LIMIT : this.mode === 'carrera' ? LADDER.length + 1 : TEAM_LIMIT; }
   classFor(p) { return this.mode === 'carrera' ? LADDER[Math.min(p.gl, LADDER.length - 1)] : p.nextCls; }
   gunsAllowed(p) { return this.mode === 'cuchillos' ? false : this.mode === 'carrera' ? p.gl < LADDER.length : true; }
+  noteLone() { if (this.players.size < 2) { if (!this.loneSince) this.loneSince = Date.now(); } else this.loneSince = 0; }   // desde cuándo espera rival
+  tierSpan() { return this.players.size < 2 && this.loneSince ? Math.min(6, 1 + Math.floor((Date.now() - this.loneSince) / WIDEN_MS)) : 1; }
+  /* [NUEVO] ¿Este movimiento es imposible por las paredes? 'dentro' = acaba dentro de un muro · 'muro' = lo atraviesa en un solo paso */
+  wallViolation(p, x, y, z, h, dt) {
+    const cols = this.world.colliders;
+    if (S.overlapAt(cols, x, y, z, 0.28, Math.max(1, h - 0.15))) return 'dentro';   // el cliente usa 0,35 de ancho: aquí 0,28 para no dar falsos positivos por redondeos
+    const dx = x - p.x, dy = y - p.y, dz = z - p.z, len = Math.hypot(dx, dy, dz);
+    if (len > 0.3) { const o = { x: p.x, y: p.y + 0.9, z: p.z }; if (S.rayWorld(cols, o, { x: dx / len, y: dy / len, z: dz / len }, len) < len - 0.3) return 'muro'; }
+    return null;
+  }
   tierAvg() { let n = 0, s = 0; for (const p of this.players.values()) { n++; s += S.leagueIdx(p.mmr); } return n ? s / n : 0; }
   gunLevel(p) { p.cls = p.nextCls = this.classFor(p); p.ammo = S.WEAPONS[p.cls].mag; p.reloadUntil = 0; p.send(JSON.stringify({ t: 'gg', lv: p.gl, c: p.cls })); }
   ladderScore() { this.tk = [0, 1].map(t => { let m = 0; for (const p of this.players.values()) if (p.team === t) m = Math.max(m, p.gl); return m; }); }
@@ -210,14 +225,14 @@ class Room {
     }
   }
   add(p) {
-    p.room = this; this.assignTeam(p); this.players.set(p.id, p);
+    p.room = this; this.assignTeam(p); this.players.set(p.id, p); this.noteLone();
     p.send(JSON.stringify({ t: 'welcome', v: PROTOCOL, id: p.id, n: p.name, rl: p.role || 0, tm: p.team, lim: this.limit(), mode: this.mode, rk: this.ranked ? 1 : 0, zone: this.zoneMsg(), tk: this.tk, room: this.id, map: this.map, tl: r3(this.tl), phase: this.phase, players: [...this.players.values()].filter(o => o !== p).map(o => o.pub()) }));
     this.broadcast({ t: 'join', p: p.pub() }, p);
     this.spawn(p, Date.now(), 1500);
     this.sendBoard();
   }
   remove(p) {
-    if (!this.players.delete(p.id)) return;
+    if (!this.players.delete(p.id)) return; this.noteLone();
     if (this.votes) this.votes.delete(p.id);
     if (this.phase === 'play') { if (p.kills + p.deaths > 0 && Date.now() - p.joinedAt > 60000) this.record(p, Date.now()); this.history(p, Date.now()); }
     this.broadcast({ t: 'leave', id: p.id });
@@ -384,6 +399,10 @@ class Room {
     if (dh > 13 * dt + 2 || y - p.y > 12 * dt + 2.5) { // movimiento imposible: recolocar al jugador
       p.fixes++; p.ep++; p.send(JSON.stringify({ t: 'fix', x: r3(p.x), y: r3(p.y), z: r3(p.z), ep: p.ep })); return;
     }
+    if (WALL_CHECK) {
+      const why = this.wallViolation(p, clamp(x, -half, half), clamp(y, 0, 60), clamp(z, -half, half), clamp(h, 1.2, 1.8), dt);
+      if (why) { p.fixes++; p.walls = (p.walls || 0) + 1; p.ep++; p.send(JSON.stringify({ t: 'fix', x: r3(p.x), y: r3(p.y), z: r3(p.z), ep: p.ep })); if (p.walls % 25 === 1) log('Posible atravesar paredes (' + why + '): ' + p.name + ' · ' + p.walls + ' veces'); return; }
+    }
     p.lastSt = now;
     p.x = clamp(x, -half, half); p.z = clamp(z, -half, half); p.y = clamp(y, 0, 60);
     p.yaw = yaw; p.pitch = clamp(pitch, -1.6, 1.6); p.h = clamp(h, 1.2, 1.8);
@@ -392,9 +411,15 @@ class Room {
   }
 }
 function findRoom(map, mode, isRanked, tier) {
-  let best = null; mode = mode || 'duelo'; isRanked = !!isRanked;
-  /* [NUEVO] Emparejamiento: mismo modo y, en clasificatorio, una liga media parecida (diferencia máxima de 1) */
-  for (const r of rooms.values()) if (r.map === map && r.mode === mode && r.ranked === isRanked && (!isRanked || r.players.size === 0 || Math.abs(r.tierAvg() - tier) <= 1) && r.players.size < (admin.settings.maxPerRoom || MAX_PER_ROOM) && (!best || r.players.size > best.players.size)) best = r;
+  let best = null, bestD = 0; mode = mode || 'duelo'; isRanked = !!isRanked; const max = admin.settings.maxPerRoom || MAX_PER_ROOM;
+  /* [NUEVO] Emparejamiento: mismo modo y, en clasificatorio, una liga media parecida (diferencia máxima de 1, que sube con la espera de una sala con menos de 2 jugadores).
+     Entre las salas válidas se elige la de liga más cercana y, a igualdad, la más llena. */
+  for (const r of rooms.values()) {
+    if (r.map !== map || r.mode !== mode || r.ranked !== isRanked || r.players.size >= max) continue;
+    const d = isRanked && r.players.size ? Math.abs(r.tierAvg() - tier) : 0;
+    if (isRanked && r.players.size && d > r.tierSpan()) continue;
+    if (!best || d < bestD - 1e-9 || (Math.abs(d - bestD) < 1e-9 && r.players.size > best.players.size)) { best = r; bestD = d; }
+  }
   return best || new Room(map, mode, isRanked);
 }
 
@@ -528,6 +553,7 @@ function presence(uid) { let best = 'off'; for (const w of connections) if (w.ac
 social = createSocial({ S, accounts, admin, bp, db: PGDB, dataDir: DATA_DIR, log, presence, rankedOf: u => (ranked ? ranked.publicOf(u) : null) });
 ranked = createRanked({ S, accounts, admin, dataDir: DATA_DIR, log });   // [NUEVO] clasificatorio y temporadas
 events = createEvents({ S, accounts, admin, dataDir: DATA_DIR, log });   // [NUEVO] eventos temporales
+backup = createBackup({ db: PGDB, dataDir: DATA_DIR, admin, log, flush: async () => { lbSave(); admin.flushAll(); await accounts.flush(); await bp.flush(); } });   // [NUEVO] copias de seguridad automáticas
 /* [NUEVO] Si una cuenta cambia de nombre, sus entradas de la clasificación cambian con ella (siguen a su ID; las antiguas, sin ID, se reconocen por el nombre viejo) */
 accounts.hooks.onRename = (u, old) => { const ok = old.toLowerCase(); let n = 0; for (const e of lb.entries) if (e.a === u.id || (!e.a && e.n.toLowerCase() === ok)) { e.a = u.id; e.n = u.username; n++; } if (n) lbSaveSoon(); };
 if (PGDB) { admin.flushAll(); accounts.flush(); lbSave(); }   // primer arranque con PostgreSQL: lo importado de archivos pasa ya a la base de datos

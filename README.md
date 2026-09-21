@@ -145,6 +145,12 @@ Cada cuenta se guarda con un **UUID permanente**; el nombre de usuario es solo u
 
 **Robustez.** Al apagar el servidor ahora se vacían también los almacenes de temporadas, eventos, ofertas de intercambio y denuncias de perfil (antes podían perder hasta 1,5 s de cambios).
 
+**Antitrampas: paredes** (`WALL_CHECK`, activo por defecto). Además de la velocidad, los saltos y los límites, el servidor rechaza cualquier posición que deje el cuerpo dentro de un muro o que lo atraviese en un solo paso (comprobado con la misma física del cliente: jugadores legítimos en tres mapas, 0 correcciones; saltos a través de un muro de 2 m, 12 de 12 rechazados). Al tramposo se le devuelve a su sitio (no se le expulsa: un lag legítimo no debe echar a nadie); cada corrección cuenta en «Corr.» del espectador y queda una línea en el registro cada 25 intentos.
+
+**Clasificatorio con poca gente** (`RANKED_WIDEN_SECS`, 30). Una sala con menos de 2 jugadores acepta ligas cada vez más lejanas cuanto más espera (+1 liga cada 30 s, hasta 6), y entre las salas válidas se elige la de liga más cercana. Una sala con 2 o más jugadores no se ensancha.
+
+**Copias de seguridad automáticas** (`server/backup.js`). Cada `BACKUP_EVERY_HOURS` (24; 0 = desactivadas) se guarda una copia completa en `BACKUP_DIR` (por defecto `DATA_DIR/backups`), conservando `BACKUP_KEEP` (7). Con PostgreSQL vuelca todas las tablas (y el valor de cada contador de ids); con archivos, todo `DATA_DIR`. `BACKUP_PASSPHRASE` las cifra (AES-256-GCM). Panel → *Copias de seguridad*: crear, descargar (auditado) y borrar. Restaurar con el servidor parado: `node scripts/restore-backup.js <copia> --yes` (`DATABASE_URL` para PostgreSQL o `DATA_DIR` para archivos). Una copia en el mismo servidor no protege si ese servidor se pierde: usa otro volumen o descarga copias.
+
 **Incluido pero desactivado por defecto:** moderación de fotos de perfil (`AVATAR_MODERATION=hold|auto`, con `AVATAR_MODERATION_URL`) y dirección de CDN para las fotos (`AVATAR_CDN_URL`). Sin configurar, las fotos se ven al momento como siempre.
 
 | Variable | Por defecto | Para qué sirve |
@@ -156,6 +162,9 @@ Cada cuenta se guarda con un **UUID permanente**; el nombre de usuario es solo u
 | `TRADE_LOCK_HOURS` | `24` | Bloqueo de objetos recién conseguidos antes de venderlos o intercambiarlos |
 | `EVENT_FEATURED_MULT` | `1.5` | Bonificación del modo destacado de la semana (1 = desactivado) |
 | `EVENT_MAX_HOURS` | `168` | Duración máxima de un evento lanzado desde el panel |
+| `WALL_CHECK` | `1` | Rechazar movimientos que atraviesan paredes (0 = desactivar, solo para pruebas con bots) |
+| `RANKED_WIDEN_SECS` | `30` | Segundos de espera para ampliar una liga el emparejamiento clasificatorio |
+| `BACKUP_EVERY_HOURS` / `BACKUP_KEEP` / `BACKUP_DIR` / `BACKUP_PASSPHRASE` | `24` / `7` / `DATA_DIR/backups` / (vacío) | Copias de seguridad automáticas |
 
 ## 1. Probarlo en tu ordenador (2 minutos)
 

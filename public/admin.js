@@ -190,8 +190,20 @@ async function eventsView() {
     h('p', { class: 'muted', text: 'Multiplicadores de 1 a 3 (varios eventos a la vez se multiplican con un tope de ×3). Duración de 1 h hasta ' + Math.round(d.maxHours / 24) + ' días. Los topes diarios de PX y Créditos siguen valiendo.' }),
     h('h3', { text: 'Modo destacado de la semana (automático, ×' + d.featuredMult + ')' }), table(['Empieza', 'Modo'], d.next.map(n => h('tr', null, h('td', { text: new Date(n.startsAt).toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: '2-digit' }) }), h('td', { text: n.name })))));
 }
+/* [NUEVO] Copias de seguridad */
+async function backupsView() {
+  const d = await api('GET', '/backups'), kb = n => (n / 1024 < 1024 ? Math.round(n / 1024) + ' KB' : (n / 1048576).toFixed(1) + ' MB');
+  const download = async name => { try { const r = await fetch('/api/admin/backups/download?name=' + encodeURIComponent(name), { headers: { Authorization: 'Bearer ' + token } }); if (!r.ok) throw new Error('No se pudo descargar'); const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = name; document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); } catch (e) { toast(e.message, true); } };
+  return h('div', null, h('h2', { text: 'Copias de seguridad' }),
+    h('div', { class: 'cards' }, card('Modo', d.mode === 'postgres' ? 'PostgreSQL' : 'Archivos'), card('Frecuencia', d.everyHours ? 'cada ' + d.everyHours + ' h' : 'desactivadas'), card('Se conservan', d.keep), card('Cifrado', d.encrypted ? 'sí' : 'no')),
+    h('p', { class: 'muted', text: 'Carpeta: ' + d.dir + '. Una copia en el mismo servidor no te protege si se pierde ese servidor: usa BACKUP_DIR en otro volumen o descarga copias a menudo. Contienen correos y contraseñas cifradas: trátalas como datos sensibles (BACKUP_PASSPHRASE las cifra).' }),
+    d.lastError ? h('p', { class: 'err', text: 'Última copia fallida: ' + d.lastError }) : null,
+    h('p', null, h('button', { class: 'btn', text: d.running ? 'Creando…' : 'Crear copia ahora', onclick: () => act(async () => { await api('POST', '/backups/run', {}); render(); }, 'Copia creada') })),
+    d.backups.length ? table(['Copia', 'Fecha', 'Tamaño', ''], d.backups.map(b => h('tr', null, h('td', { text: b.name }), h('td', { text: fmtD(b.ts) }), h('td', { text: kb(b.size) }), h('td', null, h('button', { class: 'btn sm', text: 'Descargar', onclick: () => download(b.name) }), ' ', h('button', { class: 'btn sm red', text: 'Borrar', onclick: () => { if (window.confirm('¿Borrar ' + b.name + '?')) act(async () => { await api('POST', '/backups/delete', { name: b.name }); render(); }, 'Copia borrada'); } }))))) : h('p', { text: 'Todavía no hay copias.' }),
+    h('p', { class: 'muted', text: 'Restaurar: para el servidor y ejecuta  node scripts/restore-backup.js <copia> --yes  (con DATABASE_URL para PostgreSQL o con DATA_DIR para archivos).' }));
+}
 const views = {
-  events: eventsView,
+  backups: backupsView, events: eventsView,
   async overview() {
     const o = await api('GET', '/overview'), T = o.totals;
     const cards = h('div', { class: 'cards' },
