@@ -27,9 +27,9 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } }
 };
 
-const cfg = Object.assign({ name: '', cls: 0, map: 0, diff: 1, sens: 1, fov: 90, vol: 0.6, shadows: true, wheelSwap: true, shake: 100, hudScale: 100, hudCompact: false, mode: 'duelo', ranked: false, look: { col: 0, skin: 0 }, infKey: '', rankClaimed: [] }, store.get(K.cfg, {}));
+const cfg = Object.assign({ name: '', cls: 0, map: 0, diff: 1, sens: 1, fov: 90, vol: 0.6, shadows: true, wheelSwap: true, shake: 100, recoilCam: 100, fovSpeed: 8, hudScale: 100, hudCompact: false, mode: 'duelo', ranked: false, look: { col: 0, skin: 0 }, infKey: '', rankClaimed: [] }, store.get(K.cfg, {}));
 cfg.look = { col: clamp((cfg.look && cfg.look.col) | 0, 0, 9), skin: clamp((cfg.look && cfg.look.skin) | 0, 0, 4) };
-cfg.cls = clamp(cfg.cls | 0, 0, window.VoltShared.WEAPONS.length - 1); if (!cfg.optics || typeof cfg.optics !== 'object') cfg.optics = {}; if (!Array.isArray(cfg.rankClaimed)) cfg.rankClaimed = []; cfg.infKey = String(cfg.infKey || '').slice(0, 40); cfg.map = clamp(cfg.map | 0, 0, 3); cfg.diff = clamp(cfg.diff | 0, 0, 2);
+cfg.cls = clamp(cfg.cls | 0, 0, window.VoltShared.WEAPONS.length - 1); if (!cfg.optics || typeof cfg.optics !== 'object') cfg.optics = {}; if (!Array.isArray(cfg.rankClaimed)) cfg.rankClaimed = []; cfg.infKey = String(cfg.infKey || '').slice(0, 40); cfg.map = clamp(cfg.map | 0, 0, window.VoltShared.MAPS.length - 1); cfg.diff = clamp(cfg.diff | 0, 0, 2);
 if (!cfg.name) cfg.name = 'Jugador' + irand(100, 999);
 const saveCfg = () => store.set(K.cfg, cfg);
 
@@ -263,6 +263,19 @@ const TEX = {
     for (let r = 0; r < rows; r++) { const off = (r % 2) * sw / 2; for (let c = -1; c < S / sw + 1; c++) { const x = c * sw + off, y = r * rh;
       DK(g, 0.04 + R() * 0.2, x, y, sw, rh); LT(g, 0.3, x + 2, y + 1, sw - 4, 2); DK(g, 0.5, x, y + rh - 4, sw, 4); DK(g, 0.4, x, y, 2, rh); } }
     speckle(g, S, R, 400, 0.16);
+  } },
+  glass: { tile: 3.2, draw(g, S, R) {   // fachada de cristal: paneles con marco oscuro y reflejos en diagonal (se tiñe con el color de la caja)
+    white(g, S); const n = 4, p = S / n;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      const x = c * p, y = r * p; DK(g, 0.05 + R() * 0.12, x, y, p, p); LT(g, 0.24, x + 9, y + 9, p - 30, 5); LT(g, 0.16, x + 9, y + 16, 5, p - 38);
+      for (let k = 0; k < 4; k++) LT(g, 0.12, x + 16 + k * 9, y + p - 22 - k * 9, 8, 3);
+    }
+    for (let i = 0; i < n; i++) { DK(g, 0.55, i * p - 3, 0, 6, S); DK(g, 0.55, 0, i * p - 3, S, 6); } DK(g, 0.55, S - 3, 0, 3, S); DK(g, 0.55, 0, S - 3, S, 3);
+  } },
+  helipad: { tile: 9, raw: true, draw(g, S) {   // helipuerto: asfalto gris, borde y anillo amarillos y una «H» blanca. Lleva sus propios colores (raw): no se tiñe.
+    g.fillStyle = '#6f7787'; g.fillRect(0, 0, S, S); g.fillStyle = '#7a8293'; for (let i = 0; i < 16; i++) g.fillRect((i * 53) % S, (i * 37) % S, 30, 5);
+    g.strokeStyle = '#ffd23f'; g.lineWidth = 12; g.strokeRect(9, 9, S - 18, S - 18); g.beginPath(); g.arc(S / 2, S / 2, S * 0.36, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#ffffff'; const h = S * 0.27, w = 20; g.fillRect(S / 2 - h * 0.7, S / 2 - h, w, h * 2); g.fillRect(S / 2 + h * 0.7 - w, S / 2 - h, w, h * 2); g.fillRect(S / 2 - h * 0.7, S / 2 - w / 2, h * 1.4, w);
   } }
 };
 const texCache = {};
@@ -294,12 +307,12 @@ function worldUV(geo, w, h, d, tile, off) {
     uv.setXY(i, uv.getX(i) * du + (tile ? off[0] : 0), uv.getY(i) * dv + (tile ? off[1] : 0));
   }
 }
-function shadeBox(geo, bottom) {
-  const pos = geo.attributes.position, nor = geo.attributes.normal, col = new Float32Array(pos.count * 3);
+function shadeBox(geo, bottom, tint) {   // tint: color de la caja, que va en los vértices junto con el sombreado
+  const pos = geo.attributes.position, nor = geo.attributes.normal, col = new Float32Array(pos.count * 3), tr = tint ? tint.r : 1, tg = tint ? tint.g : 1, tb = tint ? tint.b : 1;
   for (let i = 0; i < pos.count; i++) {
     const ny = nor.getY(i); let k = 1;
     if (ny < -0.5) k = bottom * 0.75; else if (ny < 0.5 && pos.getY(i) < 0) k = bottom;
-    col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = k;
+    col[i * 3] = k * tr; col[i * 3 + 1] = k * tg; col[i * 3 + 2] = k * tb;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
 }
@@ -322,17 +335,61 @@ function pickType(L, cx, y0, cz, w, h, d) {
 const mapGroup = new THREE.Group(); scene.add(mapGroup);
 const outMesh = new THREE.Mesh(new THREE.PlaneGeometry(700, 700), new THREE.MeshLambertMaterial({ color: '#8f7bff' }));
 outMesh.rotation.x = -Math.PI / 2; outMesh.position.y = -0.05; outMesh.receiveShadow = false; scene.add(outMesh);
-let colliders = [], mapHalf = 40, waypoints = [], curMap = -1, curLook = null, uvR = rngSeed(3);
+let colliders = [], mapHalf = 40, waypoints = [], curMap = -1, curLook = null, uvR = rngSeed(3), curSpawns = null, curNav = null;
 
-function addMesh(cx, y0, cz, w, h, d, color, solid) {
-  const geo = new THREE.BoxGeometry(w, h, d); let m;
-  if (!solid) { shadeBox(geo, 0.55); m = new THREE.Mesh(geo, farMat(color)); }
-  else {
-    const type = pickType(curLook, cx, y0, cz, w, h, d);
-    worldUV(geo, w, h, d, TEX[type].tile, [uvR(), uvR()]); shadeBox(geo, 0.8);
-    m = new THREE.Mesh(geo, mapMat(type, color)); m.castShadow = true; m.receiveShadow = true;
+/* =====================================================================
+   [NUEVO] MAPA EN LOTES (menos draw calls): antes cada caja del mapa y de la decoración era su propia THREE.Mesh (200–400 por mapa, y otras tantas en el pase de sombras).
+   Ahora cada caja se convierte en geometría ya colocada, se agrupa por MATERIAL y por tipo de sombra, y al terminar el mapa cada grupo se fusiona en UNA sola malla
+   (mergeGeometries, propio: esta versión de Three.js no trae BufferGeometryUtils). El color de cada caja pasa a color por vértice (el shader ya multiplica
+   color de material × color de vértice, así que el resultado es idéntico): en vez de un material por color hay un material por textura. Resultado: de ~300 mallas
+   a ~10–15 por mapa. No se usa InstancedMesh porque las cajas tienen tamaños distintos y su textura se repite según el tamaño (UV en metros).
+   ===================================================================== */
+const MAX_BATCH_VERTS = 60000;   // por malla, para no pasar de 65.535 vértices (índices de 16 bits)
+const boxBatches = new Map(), colorOf = (() => { const cache = {}; return c => cache[c] || (cache[c] = new THREE.Color(c)); })(), WHITE = new THREE.Color(1, 1, 1);
+function mergeGeometries(geos) {
+  const first = geos[0], names = Object.keys(first.attributes); let vCount = 0, iCount = 0;
+  for (const g of geos) { vCount += g.attributes.position.count; iCount += g.index.count; }
+  const out = new THREE.BufferGeometry();
+  for (const n of names) {
+    const a = first.attributes[n], arr = new Float32Array(vCount * a.itemSize); let off = 0;
+    for (const g of geos) { arr.set(g.attributes[n].array, off); off += g.attributes[n].array.length; }
+    out.setAttribute(n, new THREE.BufferAttribute(arr, a.itemSize));
   }
-  m.position.set(cx, y0 + h / 2, cz); mapGroup.add(m);
+  const idx = new Uint16Array(iCount); let io = 0, vo = 0;
+  for (const g of geos) { const src = g.index.array; for (let i = 0; i < src.length; i++) idx[io++] = src[i] + vo; vo += g.attributes.position.count; }
+  out.setIndex(new THREE.BufferAttribute(idx, 1)); out.computeBoundingSphere(); out.computeBoundingBox();
+  return out;
+}
+const vcMats = {};   // un material por textura (y por color solo en los toldos, cuya textura lleva el color): el color de cada caja va en los vértices
+function vcMat(kind, type, color) {
+  const aw = kind === 'tex' && type === 'awning', key = kind + '|' + (type || '') + (aw ? '|' + color : ''); if (vcMats[key]) return vcMats[key];
+  return (vcMats[key] = kind === 'tex' ? new THREE.MeshLambertMaterial({ map: getTex(type, aw ? color : undefined), color: '#ffffff', vertexColors: true })
+    : kind === 'basic' ? new THREE.MeshBasicMaterial({ color: '#ffffff', vertexColors: true }) : new THREE.MeshLambertMaterial({ color: '#ffffff', vertexColors: true }));
+}
+function queueBox(material, cast, recv, geo) {
+  const k = material.uuid + (cast ? 'c' : '-') + (recv ? 'r' : '-'); let b = boxBatches.get(k);
+  if (!b) boxBatches.set(k, b = { material, cast, recv, geos: [], verts: 0 });
+  b.geos.push(geo); b.verts += geo.attributes.position.count;
+}
+function flushBoxes() {
+  let boxes = 0;
+  for (const b of boxBatches.values()) {
+    for (let i = 0; i < b.geos.length;) {   // varias mallas solo si un lote pasa de 60.000 vértices
+      let n = 0, v = 0; while (i + n < b.geos.length && (v + b.geos[i + n].attributes.position.count) <= MAX_BATCH_VERTS) { v += b.geos[i + n].attributes.position.count; n++; }
+      const mesh = new THREE.Mesh(mergeGeometries(b.geos.slice(i, i + n)), b.material); mesh.castShadow = b.cast; mesh.receiveShadow = b.recv; mesh.matrixAutoUpdate = false; mesh.updateMatrix(); mapGroup.add(mesh);
+      i += n; boxes += n;
+    }
+    for (const g of b.geos) g.dispose();
+  }
+  boxBatches.clear(); return boxes;
+}
+
+function addMesh(cx, y0, cz, w, h, d, color, solid, tag) {
+  const geo = new THREE.BoxGeometry(w, h, d), c = colorOf(color);
+  if (!solid) { shadeBox(geo, 0.55, c); geo.deleteAttribute('uv'); geo.translate(cx, y0 + h / 2, cz); queueBox(vcMat('far'), false, false, geo); return; }
+  const type = tag && TEX[tag] ? tag : pickType(curLook, cx, y0, cz, w, h, d);   // [NUEVO] el mapa puede fijar la textura de una caja (cristal, helipuerto…)
+  worldUV(geo, w, h, d, TEX[type].tile, TEX[type].raw ? [0, 0] : [uvR(), uvR()]); shadeBox(geo, 0.8, (type === 'awning' || TEX[type].raw) ? WHITE : c);
+  geo.translate(cx, y0 + h / 2, cz); queueBox(vcMat('tex', type, color), true, true, geo);
 }
 function floorTex(type, worldSize) {
   const t = getTex(type).clone(); t.needsUpdate = true; const r = worldSize / TEX[type].tile; t.repeat.set(r, r); return t;
@@ -341,11 +398,11 @@ function setFloor(m, L) {
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(m.half * 2, m.half * 2), new THREE.MeshLambertMaterial({ map: floorTex(L.floor, m.half * 2), color: m.floor[0] }));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; floor.userData.own = true; mapGroup.add(floor);
   if (outMesh.material.map) outMesh.material.map.dispose();
-  outMesh.material.map = floorTex(L.floor, 700); outMesh.material.color.set(m.out); outMesh.material.needsUpdate = true;
+  outMesh.material.map = floorTex(L.outFloor || L.floor, 700); outMesh.material.color.set(m.out); outMesh.material.needsUpdate = true;
 }
-const decoBox = (cx, y0, cz, w, h, d, color, basic) => {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), basic ? new THREE.MeshBasicMaterial({ color }) : mat(color));
-  m.position.set(cx, y0 + h / 2, cz); m.castShadow = !basic && h > 0.9; mapGroup.add(m); return m;
+const decoBox = (cx, y0, cz, w, h, d, color, basic, noCast) => {   // [NUEVO] va a un lote (una malla por material y sombra), no a una malla propia
+  const geo = new THREE.BoxGeometry(w, h, d); shadeBox(geo, 1, colorOf(color)); geo.deleteAttribute('uv'); geo.translate(cx, y0 + h / 2, cz);
+  queueBox(vcMat(basic ? 'basic' : 'lit'), !basic && !noCast && h > 0.9, false, geo);
 };
 function decorate(L, m) {
   const half = m.half, R = rngSeed(strHash(m.name));
@@ -389,6 +446,23 @@ function decorate(L, m) {
       else { decoBox(x, 0, z, 1.3 + R(), 0.9 + R() * 0.6, 1.3 + R(), '#98a4bd'); }
     }
     for (let i = 0; i < 14; i++) { const a = R() * TAU, r = half - 3, x = Math.max(-half + 2, Math.min(half - 2, Math.cos(a) * r * 1.2)), z = Math.max(-half + 2, Math.min(half - 2, Math.sin(a) * r * 1.2)); if (free(x, z, 1.3)) { decoBox(x, 0, z, 1.9, 1.3, 1.9, '#1f9d55'); decoBox(x, 1.3, z, 1.3, 0.6, 1.3, '#39d96a'); } }
+  } else if (L.decor === 'nexus') {
+    wallTop('#9aa3b2', 6);
+    /* Alrededores (solo decoración, sin colisión): colinas verdes escalonadas, casas de píxeles y árboles fuera del muro, como en el croquis */
+    const tree = (x, z, s) => { decoBox(x, 0, z, 0.9 * s, 3.2 * s, 0.9 * s, '#7b5330', false, true); decoBox(x, 3.2 * s, z, 3.4 * s, 2.6 * s, 3.4 * s, R() < 0.5 ? '#3fbf3a' : '#35a832', false, true); decoBox(x, 5.8 * s, z, 2.2 * s, 1.5 * s, 2.2 * s, '#4fd046', false, true); };
+    const house = (x, z, w, d, c, roof) => { decoBox(x, 0, z, w, 4.2, d, c, false, true); decoBox(x, 4.2, z, w + 0.8, 0.9, d + 0.8, roof, false, true); decoBox(x + w * 0.2, 0, z - d / 2 - 0.02, 1.6, 2.6, 0.1, '#7a4a25', false, true); };
+    const hill = (x, z, w) => { for (let k = 0; k < 4; k++) decoBox(x, k * 1.3, z, w - k * 4.6, 1.3, w - k * 4.6, k % 2 ? '#58cf42' : '#4fc23a', false, true); };
+    hill(-74, -72, 24); hill(78, 76, 22); hill(-80, 66, 20); hill(72, -78, 26);
+    [[-62, 64, 10, 9, '#e8d6a6', '#ff8a1f'], [64, 62, 9, 10, '#d9c08a', '#c9702a'], [-68, -46, 9, 9, '#c9d0da', '#ff8a1f'], [68, -52, 10, 9, '#e8d6a6', '#3a9bff'], [-60, 20, 8, 8, '#d9c08a', '#c9702a']].forEach(a => house(...a));
+    for (let i = 0; i < 46; i++) { const a = R() * TAU, r = half + 8 + R() * 30, x = Math.cos(a) * r * 1.05, z = Math.sin(a) * r * 1.05; if (Math.max(Math.abs(x), Math.abs(z)) > half + 6) tree(x, z, 0.8 + R() * 0.6); }
+    /* Dentro: farolas en los callejones, balizas de las antenas, luces de los helipuertos y banderas de cada base */
+    const lamp = (x, z) => { decoBox(x, 0, z, 0.25, 6, 0.25, '#38425a'); decoBox(x, 6, z, 1.3, 0.3, 0.7, '#fff3b0', true); };
+    [[-46, 38], [-26, 38], [26, 38], [46, 38], [-46, 47], [46, 47], [-20, -32], [16, -32], [-46, -25]].forEach(([x, z]) => lamp(x, z));
+    decoBox(45.2, 11.4, -46.8, 0.5, 0.5, 0.5, '#ff3b48', true); decoBox(46.8, 11.4, -46.8, 0.5, 0.5, 0.5, '#ff3b48', true);
+    [[-44, -47.5], [-35.3, -47.5], [-44, -38.8], [-35.3, -38.8], [-9, -47.5], [-0.3, -47.5], [-9, -38.8], [-0.3, -38.8]].forEach(([x, z]) => decoBox(x, 5.46, z, 0.35, 0.3, 0.35, '#ffd23f', true));
+    const flag = (x, z, c) => { decoBox(x, 0, z, 0.2, 5, 0.2, '#39435a'); decoBox(x + 0.9, 3.4, z, 1.6, 1.1, 0.06, c, true); };
+    flag(-47.4, 1.5, '#ff3b48'); flag(-47.4, 18.5, '#ff3b48'); flag(47.4, 3.5, '#2f7bff'); flag(47.4, 10.5, '#2f7bff');
+    for (let i = 0; i < 8; i++) { decoBox(-7.4 + i * 1.9, 0, 41.5, 0.9, 0.05, 1.2, i % 2 ? '#ffd23f' : '#39435a', true); }   // franjas de peligro a la entrada del túnel
   }
 }
 function buildMap(i) {
@@ -400,8 +474,9 @@ function buildMap(i) {
   u.sunCol.value.set(L.sun); sunLight.color.set(L.sun); scene.fog.color.set(m.fog);
   setFloor(m, L);
   const world = S.buildWorld(i, addMesh);
-  colliders = world.colliders; waypoints = world.waypoints;
+  colliders = world.colliders; waypoints = world.waypoints; curSpawns = world.spawns; curNav = world.nav;
   decorate(L, m);
+  flushBoxes();   // [NUEVO] fusiona los lotes: de ~300 mallas a ~10–15
 }
 
 /* Física y rayos (compartidos con el servidor) */
@@ -691,6 +766,7 @@ function makeLabel(text, rl, team) {
 window.PPR_BP = window.PPR_BP || { equipped: {} };   // lo que lleva puesto la cuenta (skins de armas y cuchillo, banner); bp.js lo mantiene al día
 const mySkin = wid => window.PPR_BP.equipped['weapon:' + wid] || '';
 const gun = new THREE.Group(); camera.add(gun);
+const viewmodel = S.createViewmodel();   // [NUEVO] posición y giro del arma en primera persona (vaivén y apuntado)
 /* Cuchillo en primera persona: el arma baja, el cuchillo sube, corta en diagonal y todo vuelve (0,62 s) */
 const knifeG = new THREE.Group(); camera.add(knifeG); knifeG.visible = false;
 function buildKnifeModel() {   // hoja, guarda y mango según la skin de cuchillo equipada (por defecto, acero clásico)
@@ -724,6 +800,37 @@ function applyShake(dt) {
   const k = trauma * trauma * 0.045, t = simTime;
   camera.rotation.x += Math.sin(t * 61) * k; camera.rotation.y += Math.sin(t * 53 + 1.7) * k; camera.rotation.z += Math.sin(t * 47 + 3.1) * k * 0.7;
   trauma = Math.max(0, trauma - dt * 1.7);
+}
+/* =====================================================================
+   [NUEVO] GAME FEEL: retroceso visual de la cámara (procedural recoil) y FOV dinámico por velocidad.
+   - RETROCESO: cada disparo da un impulso a la cámara —arriba (X), un poco de lado (Y), un poco de ladeo (Z) y un pequeño tirón hacia atrás—. Es SOLO visual: se aplica
+     al final del fotograma y la puntería y las balas salen de p.yaw/p.pitch, así que nunca desvía un disparo. Suavizado en dos etapas con slerp/lerp independientes del
+     framerate: la cámara SUBE rápido hacia el impulso (RECOIL_RISE) y el impulso VUELVE despacio a cero (RECOIL_RETURN). Con fuego automático se acumula hasta RECOIL_MAX.
+     Ajustes → «Retroceso de cámara» (0–100 %); se reduce al apuntar (–40 %) y se apaga con «reducir movimiento» del sistema.
+   - FOV DINÁMICO: por encima de FOV_SPEED_MIN m/s el campo de visión se abre (hasta «FOV dinámico» grados, 5–10 recomendados) y llega al máximo a FOV_SPEED_FULL m/s;
+     sumado al del deslizamiento nunca pasa de FOV_EXTRA_MAX grados de más, y no actúa al apuntar. Ajustes → «FOV dinámico» (0 = desactivado).
+   ===================================================================== */
+const GF = { RECOIL_RISE: 38, RECOIL_RETURN: 9, RECOIL_MAX: 0.14, BACK_MAX: 0.07, FOV_SPEED_MIN: 9, FOV_SPEED_FULL: 12.5, FOV_EXTRA_MAX: 10, FOV_SMOOTH: 5 };
+const recoilQ = new THREE.Quaternion(), recoilT = new THREE.Quaternion(), _qId = new THREE.Quaternion(), _rQ = new THREE.Quaternion(), _rE = new THREE.Euler(0, 0, 0, 'YXZ');
+let recoilBack = 0, recoilBackT = 0, fovBoost = 0;
+const recoilAngle = q => 2 * Math.acos(Math.min(1, Math.abs(q.w)));
+const aimDirOf = p => { const cp = Math.cos(p.pitch); return new THREE.Vector3(-Math.sin(p.yaw) * cp, Math.sin(p.pitch), -Math.cos(p.yaw) * cp); };   // hacia donde APUNTA el jugador (sin retroceso ni sacudida)
+function addCameraRecoil(w, p) {
+  const k = clamp((+cfg.recoilCam || 0) / 100, 0, 1) * (reduce ? 0 : 1) * (1 - 0.4 * p.aim); if (k <= 0) return;
+  const up = clamp(w.kick * 4.5, 0.008, 0.11) * k;
+  _rE.set(up, (Math.random() - 0.5) * 0.7 * up, (Math.random() - 0.5) * 0.5 * up, 'YXZ'); _rQ.setFromEuler(_rE); recoilT.multiply(_rQ);
+  const ang = recoilAngle(recoilT); if (ang > GF.RECOIL_MAX) recoilT.slerp(_qId, 1 - GF.RECOIL_MAX / ang);   // tope al acumular ráfagas
+  recoilBackT = Math.min(GF.BACK_MAX, recoilBackT + (0.012 + w.kick * 2.4) * k);
+}
+function resetGameFeel() { recoilQ.identity(); recoilT.identity(); recoilBack = recoilBackT = 0; fovBoost = 0; }
+const dynFovTarget = spd => { const t = clamp((spd - GF.FOV_SPEED_MIN) / (GF.FOV_SPEED_FULL - GF.FOV_SPEED_MIN), 0, 1); return reduce ? 0 : clamp(+cfg.fovSpeed || 0, 0, 10) * t * t * (3 - 2 * t); };
+/* Un paso de suavizado (recoil + FOV) y aplicación a la cámara. Va al FINAL de updatePlayer: lo anterior (rayo de la mira, etc.) ve la cámara sin retroceso. */
+function cameraFeel(dt) {
+  const rise = 1 - Math.exp(-GF.RECOIL_RISE * dt), ret = 1 - Math.exp(-GF.RECOIL_RETURN * dt);
+  recoilQ.slerp(recoilT, rise); recoilT.slerp(_qId, ret);                                        // sube rápido hacia el impulso; el impulso vuelve suave a cero
+  recoilBack += (recoilBackT - recoilBack) * rise; recoilBackT -= recoilBackT * ret;
+  if (recoilAngle(recoilQ) < 1e-4 && recoilAngle(recoilT) < 1e-4 && recoilBack < 1e-4 && recoilBackT < 1e-4) { recoilQ.identity(); recoilT.identity(); recoilBack = recoilBackT = 0; }
+  else { camera.quaternion.multiply(recoilQ); if (recoilBack > 1e-5) camera.translateZ(recoilBack); }   // arriba/lado/ladeo y un tirón hacia atrás
 }
 /* Daño recibido (lo comparten el modo offline y el online): viñeta roja proporcional al golpe, aro de dirección del atacante y sacudida */
 function playerHurtFx(amount, ax, az) {
@@ -838,7 +945,7 @@ const sfx = {
    HUD
    ===================================================================== */
 const hud = $('#hud'), el = {
-  net: $('#netinfo'), fps: $('#fps'), timer: $('#timer'), mode: $('#modeName'), goal: $('#goalfill'),
+  net: $('#netinfo'), fps: $('#fps'), timer: $('#timer'), mode: $('#modeName'), area: $('#areaName'), goal: $('#goalfill'),
   myPts: $('#myPts'), myKD: $('#myKD'), leadName: $('#leadName'), leadPts: $('#leadPts'), banner: $('#banner'),
   live: $('#liveRows'), lbPlace: $('#lbPlace'), feed: $('#feed'), cross: $('#crosshair'), hitmark: $('#hitmark'), dmgnums: $('#dmgnums'), killcard: $('#killcard'),
   scope: $('#scope'), optic: $('#optic'), scZoom: $('#scZoom'), scRange: $('#scRange'), vig: $('#dmgvig'), dir: $('#dmgdir'), lowhp: $('#lowhp'), toast: $('#toast'),
@@ -933,6 +1040,7 @@ function updateHudSlow() {
   { const tk = tkNow(), tx = 'AZUL ' + tk[0] + ' – ' + tk[1] + ' ROJO'; if (hudCache.tk !== tx) { hudCache.tk = tx; el.leadName.innerHTML = '<span class="tsb t0">' + tk[0] + '</span><span class="tsep">–</span><span class="tsb t1">' + tk[1] + '</span>'; } setTxt(el.leadPts, 'lp', 'Tu equipo: ' + TEAMS[me.team].n + ' · meta ' + teamLimit); }
   el.goal.style.width = clamp(Math.max(...tkNow()) / teamLimit * 100, 0, 100) + '%';
   { const tp = $('#hsTeam'); if (tp) { tp.textContent = 'EQUIPO ' + TEAMS[me.team].n; tp.className = 'teampill t' + me.team; } }
+  setTxt(el.area, 'area', (() => { const a = S.areaAt(curMap, me.pos.x, me.pos.y, me.pos.z); return a ? '▸ ' + a : ''; })());   // [NUEVO] rótulo «estás en…»
   setTxt(el.mode, 'mode', MAPS[curMap].name + ' · ' + (online ? S.MODES[net.mode || 'duelo'].short + (net.ranked ? ' CLASIF.' : '') : 'entrenamiento'));
   const st = statsNow(), L = levelOf(st.points || 0);
   { const rl = online && player && player.rl ? player.rl : 0, hk = rl ? player.name + '|' + rl : cfg.name; if (hudCache.hsn !== hk) { hudCache.hsn = hk; hs.name.innerHTML = nameHtml(rl ? player.name : cfg.name, rl); } } // el administrador ve su nombre dorado también en su tarjeta
@@ -1017,7 +1125,7 @@ function renderDeathPick() {
 }
 
 function pickSpawn(f) {
-  const c = waypoints.map(s => {
+  const c = (curSpawns && curSpawns[f.team] ? curSpawns[f.team] : waypoints).map(s => {   // en Nexus Outpost cada equipo aparece en su base (Spawn Red / Spawn Blue)
     let md = Infinity;
     for (const o of fighters) if (o !== f && o.alive) md = Math.min(md, Math.hypot(o.pos.x - s[0], o.pos.z - s[1]));
     return { s, score: Math.min(md, 60) + Math.random() * 10 };
@@ -1044,12 +1152,11 @@ function playerShoot() {
   if (p.reload > 0 || p.fireCd > 0 || knifeT > 0) return;
   if (p.ammo <= 0) { startReload(); return; }
   p.ammo--; p.fireCd = w.interval;
-  camera.getWorldDirection(_v1);
-  const base = _v1.clone();
+  const base = aimDirOf(p);   // [NUEVO] la bala sale de donde apuntas (p.yaw/p.pitch), no de la cámara: el retroceso visual no la desvía
   const scoped = !!scopeKind(w) && p.aim > 0.85, tight = scoped && w.scopedSpread != null;
   let sp = tight ? w.scopedSpread : w.spread;
   if (!tight) { if (!p.onGround) sp *= 2; else if (Math.hypot(p.vel.x, p.vel.z) > 1) sp *= 1.35; if (p.aim > 0.5) sp *= 0.45; if (p.h < 1.5) sp *= 0.75; }
-  const origin = camera.position.clone();
+  const origin = new THREE.Vector3(p.pos.x, p.pos.y + p.eye, p.pos.z);
   const dirs = [];
   const hand = w.dual ? (altHand++ % 2 ? 0.22 : -0.22) : 0.18 * (1 - p.aim);
   const muzzle = camera.localToWorld(new THREE.Vector3(hand, -0.16, -0.9));
@@ -1069,7 +1176,7 @@ function playerShoot() {
   sfx.shot(w, 1);
   if (scoped) { el.scope.classList.add('kick'); setTimeout(() => el.scope.classList.remove('kick'), 120); }
   if (w.scope && w.interval > 0.5) setTimeout(() => { if (state === 'playing' || state === 'paused') sfx.bolt(); }, 380);
-  gunKick = 1; addShake(w.kick * 10); const fl = flashes[w.dual ? (hand > 0 ? 1 : 0) : 0]; if (fl) { fl.visible = true; setTimeout(() => { fl.visible = false; }, 45); }
+  gunKick = 1; addShake(w.kick * 10); addCameraRecoil(w, p); const fl = flashes[w.dual ? (hand > 0 ? 1 : 0) : 0]; if (fl) { fl.visible = true; setTimeout(() => { fl.visible = false; }, 45); }
   p.pitch += w.kick * (0.6 + Math.random() * 0.8); p.yaw += rand(-0.5, 0.5) * w.kick;
   if (p.ammo <= 0) startReload();
 }
@@ -1081,8 +1188,7 @@ function playerMelee() {
 }
 function meleeHit() {
   const p = player; sfx.melee();
-  const d = new THREE.Vector3(); camera.getWorldDirection(d);
-  const r = hitscan(camera.position, d, p, 2.8);
+  const d = aimDirOf(p), r = hitscan(new THREE.Vector3(p.pos.x, p.pos.y + p.eye, p.pos.z), d, p, 2.8);
   if (r.f) { burst(r.point, '#ff5a5f', 4, 3); addShake(0.18); if (!online) damage(r.f, 60, p, false, 'Cuchillo'); }
   if (online) netSend({ t: 'melee', d: [r3(d.x), r3(d.y), r3(d.z)] });
 }
@@ -1096,6 +1202,7 @@ function updatePlayer(dt) {
   const p = player, w = WEAPONS[p.wi];
   p.protect = Math.max(0, p.protect - dt); p.fireCd = Math.max(0, p.fireCd - dt); p.meleeCd = Math.max(0, (p.meleeCd || 0) - dt);
   if (!p.alive) {
+    resetGameFeel();   // [NUEVO] al morir se quita el retroceso y el FOV extra
     knifeT = 0; pendingMelee = 0; knifeG.visible = false; slot = 0; slotK = 0; slashT = 0;   // [NUEVO] al morir se suelta el cuchillo
     if (online) el.deathCount.textContent = 'Reapareces en ' + Math.max(1, Math.ceil((net.respawnAt - performance.now()) / 1000)) + ' s. Pulsa 1–9 para cambiar de clase.';
     else if (simTime >= p.respawnAt) respawn(p);
@@ -1130,7 +1237,8 @@ function updatePlayer(dt) {
   camera.position.set(p.pos.x, p.pos.y + p.eye, p.pos.z);
   camera.rotation.set(p.pitch, p.yaw, 0);
   applyShake(dt);   // [NUEVO]
-  const fovTarget = cfg.fov * (1 + (aimFovOf(w) - 1) * p.aim) + slideK * 6 * (1 - p.aim);   // el deslizamiento abre un poco el campo de visión
+  fovBoost += (dynFovTarget(Math.hypot(p.vel.x, p.vel.z)) - fovBoost) * (1 - Math.exp(-GF.FOV_SMOOTH * dt));   // [NUEVO] FOV dinámico: se abre al superar cierta velocidad
+  const fovTarget = cfg.fov * (1 + (aimFovOf(w) - 1) * p.aim) + Math.min(GF.FOV_EXTRA_MAX, slideK * 6 + fovBoost) * (1 - p.aim);   // el deslizamiento y la velocidad abren el campo de visión (máx. +10°)
   if (Math.abs(camera.fov - fovTarget) > 0.02) { camera.fov = fovTarget; camera.updateProjectionMatrix(); }
   // arma en primera persona
   const opt = opticOf(w), sk = scopeKind(w), scoped = !!sk && p.aim > 0.85;
@@ -1155,10 +1263,16 @@ function updatePlayer(dt) {
   } else knifeG.visible = false;
   gun.visible = gun.visible && sw < 0.98;
   reloadAnim = Math.max(0, reloadAnim - dt / Math.max(0.5, w.reload));
-  const moving = Math.hypot(p.vel.x, p.vel.z), bob = p.onGround ? Math.sin(simTime * 11) * 0.006 * Math.min(1, moving / 5) : 0;
+  const moving = Math.hypot(p.vel.x, p.vel.z);
   const long = w.id === 'lince'; // el rifle largo se sitúa un poco más lejos para no tapar la pantalla
-  gun.position.set(w.dual ? 0 : (long ? 0.17 : 0.2) * (1 - p.aim), (opt ? -0.2 + (0.2 - sightH(w, opt)) * p.aim : -0.2 + (p.aim > 0.5 ? 0.03 : 0)) + bob - sw * 0.42 - slideK * 0.045, (long ? -0.42 : -0.35) + gunKick * 0.07 + sw * 0.1);
-  gun.rotation.set(gunKick * 0.06 - Math.sin(reloadAnim * Math.PI) * 0.6 - sw * 0.9, sw * 0.3, Math.sin(reloadAnim * Math.PI) * 0.25 + slideK * 0.12);
+  /* [NUEVO] Viewmodel (S.createViewmodel, en shared.js): vaivén senoidal según la velocidad y lerp suave al apuntar, con el arma desplazada justo para que su
+     punto de mira (sightH sobre el origen del arma) caiga en el centro de la pantalla. Las demás animaciones (retroceso, recarga, cambio de arma, deslizamiento) van en `extra`. */
+  const pose = viewmodel.update(dt, {
+    speed: moving, onGround: p.onGround, adsTarget: !!(mouseR && slot === 0),
+    hip: { x: w.dual ? 0 : (long ? 0.17 : 0.2), y: -0.2, z: long ? -0.42 : -0.35 }, sight: opt ? { x: 0, y: sightH(w, opt), z: 0 } : null,
+    extra: { py: -sw * 0.42 - slideK * 0.045, pz: gunKick * 0.07 + sw * 0.1, rx: gunKick * 0.06 - Math.sin(reloadAnim * Math.PI) * 0.6 - sw * 0.9, ry: sw * 0.3, rz: Math.sin(reloadAnim * Math.PI) * 0.25 + slideK * 0.12 }
+  });
+  gun.position.set(pose.px, pose.py, pose.pz); gun.rotation.set(pose.rx, pose.ry, pose.rz);
   const spr = (moving > 1 ? 10 : 6) + (p.onGround ? 0 : 8) + gunKick * 5;
   el.cross.style.setProperty('--gap', (spr * (1 - p.aim * 0.6)) + 'px');
   el.cross.style.opacity = scoped ? 0 : (opt && opt.kind !== 'scope' ? 1 - clamp(p.aim * 1.5, 0, 1) : 1);
@@ -1169,6 +1283,7 @@ function updatePlayer(dt) {
     el.cross.classList.toggle('enemy', !!(ar.f && ar.f.alive));
     if (scoped) el.scRange.textContent = ar.t < 400 ? Math.round(ar.t) + ' m' : '— m';
   }
+  cameraFeel(dt);   // [NUEVO] retroceso visual de la cámara (al final: nada de lo anterior lo ve)
 }
 
 /* --- Bots --- */
@@ -1202,11 +1317,18 @@ function updateBot(b, dt) {
     }
   } else {
     if (!ai.wp || Math.hypot(ai.wp[0] - b.pos.x, ai.wp[1] - b.pos.z) < 1.6 || (ai.repath -= dt) <= 0) {
-      for (let i = 0; i < 8; i++) { const c = waypoints[irand(0, waypoints.length - 1)]; if (Math.hypot(c[0] - b.pos.x, c[1] - b.pos.z) > 8) { ai.wp = c; break; } }
+      let pool = waypoints;
+      if (Math.random() < 0.7) {   // [NUEVO] casi siempre rondan cerca del rival vivo más cercano: se encuentran aunque las bases estén lejos
+        let foe = null, fd = Infinity; for (const o of fighters) if (o !== b && o.alive && o.team !== b.team) { const d = Math.hypot(o.pos.x - b.pos.x, o.pos.z - b.pos.z); if (d < fd) { fd = d; foe = o; } }
+        if (foe) { const near = waypoints.filter(w => Math.hypot(w[0] - foe.pos.x, w[1] - foe.pos.z) < 16); if (near.length) pool = near; }
+      }
+      for (let i = 0; i < 8; i++) { const c = pool[irand(0, pool.length - 1)]; if (Math.hypot(c[0] - b.pos.x, c[1] - b.pos.z) > 8) { ai.wp = c; break; } }
       ai.repath = rand(4, 8);
     }
     if (ai.wp) {
-      const dx = ai.wp[0] - b.pos.x, dz = ai.wp[1] - b.pos.z, want = Math.atan2(-dx, -dz);
+      let dx = ai.wp[0] - b.pos.x, dz = ai.wp[1] - b.pos.z;
+      if (curNav) { const dir = S.navDir(curNav, S.navField(curNav, ai.wp[0], ai.wp[1]), b.pos.x, b.pos.z); if (dir) { dx = dir[0]; dz = dir[1]; } }   // [NUEVO] rodea paredes siguiendo la rejilla de navegación
+      const want = Math.atan2(-dx, -dz);
       let diff = want - b.yaw; while (diff > Math.PI) diff -= TAU; while (diff < -Math.PI) diff += TAU;
       b.yaw += clamp(diff, -4 * dt, 4 * dt);
       const k = Math.abs(diff) < 1 ? 1 : 0.2; wx = fx * k; wz = fz * k;
@@ -1607,7 +1729,7 @@ function onNetEnd(m) {
   $('#endSub').innerHTML = teamScore(m.tk || [0, 0]) + (me ? 'Quedaste en el puesto ' + (idx + 1) + ' de ' + rows.length + ' con ' + me[4] + ' puntos.' + (me[4] > prevBest && me[4] > 0 ? '<span class="pill">Nuevo récord</span>' : '') + rewardHtml() : 'Fin de la partida.');
   $('#endRows').innerHTML = rows.map((r, i) => '<tr class="' + (r[0] === net.id ? 'me ' : '') + (i === 0 ? 'first ' : '') + 't' + (r[8] === 1 ? 1 : 0) + '"><td class="pos">' + (i + 1) + '</td><td>' + tdot(r[8]) + nameHtml(r[1], r[7]) + '</td><td class="r">' + r[2] + '</td><td class="r">' + r[3] + '</td><td class="r">' + r[4] + '</td></tr>').join('');
   $('#again').hidden = true; $('#endNext').hidden = false; net.endAt = performance.now() + m.next * 1000; net.endTxt = '';
-  endVote.sel = -1; endVote.counts = MAPS.map(() => 0); $('#endMaps').hidden = false; renderEndMaps();
+  endVote.sel = -1; endVote.counts = MAPS.map(() => 0); $('#endMaps').hidden = MAPS.length < 2; renderEndMaps();   /* con un solo mapa no hay nada que votar */
   updateEndCountdown();
   $('#end').hidden = false;
 }
@@ -1744,7 +1866,7 @@ function endMatch() {
   $('#endTitle').textContent = teamTitle(win, player.team);
   $('#endSub').innerHTML = teamScore(tk) + 'Quedaste en el puesto ' + place + ' de ' + s.length + ' con ' + player.points + ' puntos.' + (player.points > prevBest && player.points > 0 ? '<span class="pill">Nuevo récord</span>' : '') + rewardHtml();
   $('#endRows').innerHTML = tableRows(s, player);
-  hud.hidden = true; $('#end').hidden = false; $('#endMaps').hidden = false; renderEndMaps();
+  hud.hidden = true; $('#end').hidden = false; $('#endMaps').hidden = MAPS.length < 2; renderEndMaps();   /* con un solo mapa no hay nada que votar */
 }
 
 /* =====================================================================
@@ -2131,6 +2253,8 @@ function initMenu() {
   const ws = $('#wheelSwap'); ws.checked = !!cfg.wheelSwap; $('#wheelSwapO').textContent = cfg.wheelSwap ? 'Sí' : 'No';
   ws.addEventListener('change', () => { cfg.wheelSwap = ws.checked; $('#wheelSwapO').textContent = cfg.wheelSwap ? 'Sí' : 'No'; saveCfg(); });
   bind('shake', 'shake', v => (v ? v + '%' : 'Desactivada'));
+  bind('recoilCam', 'recoilCam', v => (v ? v + '%' : 'Desactivado'));   // [NUEVO] retroceso visual de la cámara
+  bind('fovSpeed', 'fovSpeed', v => (v ? '+' + v + '°' : 'Desactivado'));   // [NUEVO] FOV dinámico por velocidad
   /* [NUEVO] HUD: tamaño (80–120 %) y modo compacto */
   bind('hudScale', 'hudScale', v => v + '%'); $('#hudScale').addEventListener('input', applyHudPrefs);
   const hc = $('#hudCompact'); hc.checked = !!cfg.hudCompact; $('#hudCompactO').textContent = cfg.hudCompact ? 'Sí' : 'No';

@@ -73,6 +73,7 @@ const log = (...a) => { const line = new Date().toISOString() + ' ' + a.join(' '
 const LB_FILE = path.join(DATA_DIR, 'leaderboard.json');
 let lb = { entries: [] };
 try { const d = (PGDB && PGDB.get('leaderboard.json')) || JSON.parse(fs.readFileSync(LB_FILE, 'utf8')); if (d && Array.isArray(d.entries)) lb = d; } catch (e) { /* primera ejecución */ }
+{ const n0 = lb.entries.length; lb.entries = lb.entries.filter(e => Number.isInteger(e.m) && e.m >= 0 && e.m < S.MAPS.length); if (lb.entries.length !== n0) console.log('[clasificación] se descartaron ' + (n0 - lb.entries.length) + ' entradas de mapas que ya no existen'); }   // [NUEVO] solo queda «Nexus Outpost»
 let lbTimer = null;
 function lbSaveSoon() {
   if (lbTimer) return;
@@ -195,8 +196,20 @@ class Room {
     let gx = e.pos.x, gz = e.pos.z, speed = S.CONST.WALK * (knife ? 0.95 : 0.8), strafe = false;
     if (t) { const d = Math.hypot(t.x - e.pos.x, t.z - e.pos.z); gx = t.x; gz = t.z; if (!knife && d < 11) strafe = true; else if (!knife && d < 18 && now >= b.reactAt) speed *= 0.6; }
     else if (this.mode === 'zona' && this.zone) { gx = this.zone.x + Math.cos(b.id * 1.7) * 2; gz = this.zone.z + Math.sin(b.id * 1.7) * 2; if (Math.hypot(gx - e.pos.x, gz - e.pos.z) < 1.5) speed = 0; }
-    else { if (!b.wp || Math.hypot(b.wp[0] - e.pos.x, b.wp[1] - e.pos.z) < 2 || now > b.wpT) { b.wp = this.world.waypoints[Math.floor(R() * this.world.waypoints.length)]; b.wpT = now + 6000 + R() * 5000; } gx = b.wp[0]; gz = b.wp[1]; }
-    let dx = gx - e.pos.x, dz = gz - e.pos.z; const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
+    else {
+      if (!b.wp || Math.hypot(b.wp[0] - e.pos.x, b.wp[1] - e.pos.z) < 2 || now > b.wpT) {
+        const wps = this.world.waypoints; let pool = wps;
+        if (R() < 0.7) {   // [NUEVO] casi siempre rondan cerca del rival vivo más cercano (oyen los disparos): así se encuentran aunque las bases estén lejos
+          let foe = null, fd = Infinity; for (const o of this.players.values()) if (o !== b && o.alive && o.team !== b.team) { const d = Math.hypot(o.x - b.x, o.z - b.z); if (d < fd) { fd = d; foe = o; } }
+          if (foe) { const near = wps.filter(w => Math.hypot(w[0] - foe.x, w[1] - foe.z) < 16); if (near.length) pool = near; }
+        }
+        b.wp = pool[Math.floor(R() * pool.length)]; b.wpT = now + 6000 + R() * 5000;
+      }
+      gx = b.wp[0]; gz = b.wp[1];
+    }
+    let dx = gx - e.pos.x, dz = gz - e.pos.z;
+    if (!t && this.world.nav) { const dir = S.navDir(this.world.nav, S.navField(this.world.nav, gx, gz), e.pos.x, e.pos.z); if (dir) { dx = dir[0]; dz = dir[1]; } }   // [NUEVO] rodea paredes y cruza puertas siguiendo la rejilla de navegación
+    const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
     if (strafe) { if (now >= (b.strafeT || 0)) { b.strafeDir = R() < 0.5 ? 1 : -1; b.strafeT = now + 700 + R() * 900; } const px = -dz * b.strafeDir, pz = dx * b.strafeDir; dx = px * 0.9 + dx * 0.15; dz = pz * 0.9 + dz * 0.15; }
     e.vel.x = dx * speed; e.vel.z = dz * speed;
     if (S.moveEntity(this.world.colliders, e, dt)) { b.wp = null; b.strafeDir = -(b.strafeDir || 1); if (e.onGround && R() < 0.6) e.vel.y = S.CONST.JUMP * 0.9; }   // chocó con una pared: cambia de camino y a veces salta
@@ -222,20 +235,25 @@ class Room {
   ladderScore() { this.tk = [0, 1].map(t => { let m = 0; for (const p of this.players.values()) if (p.team === t) m = Math.max(m, p.gl); return m; }); }
   newZone(now, first) {
     if (this.mode !== 'zona') { this.zone = null; return; }
-    const wps = this.world.waypoints, half = this.world.half; let pick;
-    if (first || !this.zone) pick = wps.reduce((b, w) => (Math.hypot(w[0], w[1]) < Math.hypot(b[0], b[1]) ? w : b), wps[0]);   // la primera, lo más cerca posible del centro
+    const wps = this.world.waypoints, half = this.world.half, zs = this.world.zones; let pick, py = 0, pn = '';
+    if (zs && zs.length) {   // [NUEVO] mapa con zonas propias (Nexus Outpost): rota entre ellas; con bots en la sala solo las de suelo, porque ellos no suben a las azoteas
+      const ground = this.botCount() > 0 ? zs.filter(z => !z.y) : zs, list = ground.length ? ground : zs;
+      let z0; if (first || !this.zone) z0 = list[0]; else { const other = list.filter(z => z.x !== this.zone.x || z.z !== this.zone.z); const c = other.length ? other : list; z0 = c[Math.floor(Math.random() * c.length)]; }
+      pick = [z0.x, z0.z]; py = z0.y || 0; pn = z0.n || '';
+    } else if (first || !this.zone) pick = wps.reduce((b, w) => (Math.hypot(w[0], w[1]) < Math.hypot(b[0], b[1]) ? w : b), wps[0]);   // la primera, lo más cerca posible del centro
     else { const far = wps.filter(w => Math.hypot(w[0] - this.zone.x, w[1] - this.zone.z) >= 20 && Math.abs(w[0]) < half - 8 && Math.abs(w[1]) < half - 8); const pool = far.length ? far : wps; pick = pool[Math.floor(Math.random() * pool.length)]; }
-    this.zone = { x: pick[0], z: pick[1], r: S.ZONE.R, o: -1 }; this.zoneMoveAt = now + ZONE_MOVE * 1000; this.zoneT = 0;
+    this.zone = { x: pick[0], z: pick[1], y: py, n: pn, r: S.ZONE.R, o: -1 }; this.zoneMoveAt = now + ZONE_MOVE * 1000; this.zoneT = 0;
     if (!first) this.broadcast({ t: 'zone', z: this.zoneMsg() });
   }
-  zoneMsg() { return this.zone ? { x: r3(this.zone.x), z: r3(this.zone.z), r: this.zone.r, o: this.zone.o, zs: [Math.floor(this.zs[0]), Math.floor(this.zs[1])], mv: Math.max(0, Math.round((this.zoneMoveAt - Date.now()) / 1000)) } : null; }
+  zoneMsg() { return this.zone ? { x: r3(this.zone.x), z: r3(this.zone.z), y: this.zone.y || 0, n: this.zone.n || '', r: this.zone.r, o: this.zone.o, zs: [Math.floor(this.zs[0]), Math.floor(this.zs[1])], mv: Math.max(0, Math.round((this.zoneMoveAt - Date.now()) / 1000)) } : null; }
   zoneTick(now, dt) {
     const z = this.zone; if (!z) return;
-    const n = [0, 0]; for (const p of this.players.values()) if (p.alive && Math.hypot(p.x - z.x, p.z - z.z) <= z.r) n[p.team]++;
+    const inZ = p => p.alive && Math.hypot(p.x - z.x, p.z - z.z) <= z.r && Math.abs(p.y - (z.y || 0)) <= 2.6;   // [NUEVO] también cuenta la altura: quien está debajo de una azotea no captura
+    const n = [0, 0]; for (const p of this.players.values()) if (inZ(p)) n[p.team]++;
     const o = n[0] && !n[1] ? 0 : n[1] && !n[0] ? 1 : n[0] && n[1] ? 2 : -1;   // 0/1 = la controla ese equipo · 2 = disputada · -1 = vacía
     if (o === 0 || o === 1) {
       this.zs[o] += dt; this.tk[o] = Math.floor(this.zs[o]);
-      for (const p of this.players.values()) if (p.alive && p.team === o && Math.hypot(p.x - z.x, p.z - z.z) <= z.r) { p.zt = (p.zt || 0) + dt; if (p.zt >= 1) { p.zt -= 1; p.points += 10; } }   // 10 puntos por segundo dentro
+      for (const p of this.players.values()) if (p.team === o && inZ(p)) { p.zt = (p.zt || 0) + dt; if (p.zt >= 1) { p.zt -= 1; p.points += 10; } }   // 10 puntos por segundo dentro
       if (this.tk[o] >= ZONE_LIMIT) { this.endRound(now); return; }
     }
     if (o !== z.o) { z.o = o; this.zoneT = 0; }
@@ -298,12 +316,12 @@ class Room {
     this.broadcast({ t: 'board', tk: this.tk, b: [...this.players.values()].map(p => [p.id, p.kills, p.deaths, p.points]) });
   }
   spawn(p, now, protectMs) {
-    const wps = this.world.waypoints;
+    const base = this.world.spawns && this.world.spawns[p.team], wps = base || this.world.waypoints;   // [NUEVO] con bases (Nexus Outpost) cada equipo aparece en la suya
     let best = wps[0], bs = -1;
-    for (let i = 0; i < 40; i++) {
-      const s = wps[Math.floor(Math.random() * wps.length)];
+    for (let i = 0; i < (base ? base.length * 2 : 40); i++) {
+      const s = base ? base[i % base.length] : wps[Math.floor(Math.random() * wps.length)];
       let md = Infinity;
-      for (const o of this.players.values()) if (o !== p && o.alive) md = Math.min(md, Math.hypot(o.x - s[0], o.z - s[1]));
+      for (const o of this.players.values()) if (o !== p && o.alive && (!base || o.team !== p.team)) md = Math.min(md, Math.hypot(o.x - s[0], o.z - s[1]));
       const score = Math.min(md, 60) + Math.random() * 10;
       if (score > bs) { bs = score; best = s; }
     }

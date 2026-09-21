@@ -1,6 +1,6 @@
 # Pixel Play Rusher · versión online
 
-Shooter en primera persona por bloques con **partidas online**, 4 mapas, 8 clases, cuchillo y **clasificación global**.
+Shooter en primera persona por bloques con **partidas online**, un mapa táctico de cuatro niveles (**Nexus Outpost**), 8 clases, cuchillo y **clasificación global**.
 Este paquete contiene el juego (navegador) y un servidor Node.js pequeño que hace de sala de juego.
 
 ```
@@ -50,7 +50,7 @@ Con el servidor Node desplegado, **Registro** crea una cuenta online (`server/ac
 - **Niveles y rangos:** se calculan con los puntos que la cuenta acumula en el servidor.
 - **Panel → Economía (PX):** busca cuentas y suma o resta PX a mano (cantidad + motivo). Nunca deja el saldo por debajo de 0 y cada ajuste queda en la auditoría y en «Ajustes manuales de PX». También lista los pedidos de la tienda.
 - **Tienda (pestaña «Tienda» del lobby):** usa **Stripe Checkout**; nunca se guarda ninguna tarjeta. Para activarla: crea tu cuenta de Stripe, define `STRIPE_SECRET_KEY` y `PUBLIC_URL`, añade en Stripe → Desarrolladores → Webhooks el destino `https://tudominio.com/api/store/webhook` con el evento `checkout.session.completed` (y `checkout.session.async_payment_succeeded` si aceptas métodos diferidos) y copia su secreto en `STRIPE_WEBHOOK_SECRET`. **La tienda solo se abre con las tres variables** (`STRIPE_SECRET_KEY`, `PUBLIC_URL` y `STRIPE_WEBHOOK_SECRET`); para comprobarlo abre `/api/status` (debe salir `"store":true`) o mira el registro del servidor (`Tienda: ACTIVADA` o `Tienda: DESACTIVADA. Faltan las variables: …`). PayPal se activa en Stripe → Ajustes → Métodos de pago (cuentas de la UE, Reino Unido, Suiza y Noruega). La tienda ofrece **solo tarjeta y PayPal** (`STRIPE_PAYMENT_METHODS`); para que PayPal funcione hay que activarlo en Stripe → Ajustes → Métodos de pago (disponible para cuentas de Stripe de la UE salvo Hungría, Noruega, Liechtenstein, Reino Unido y Suiza, con una cuenta PayPal Business en esa zona). Sin activarlo, la tienda sigue funcionando solo con tarjeta. El importe lo fija el servidor y los PX solo se acreditan con un aviso de pago firmado, con el importe correcto y una sola vez. **Los reembolsos no descuentan PX automáticamente**: hazlo a mano desde el panel. Vender moneda virtual tiene implicaciones fiscales y de consumo según tu país: revísalas antes de cobrar. Si algún día usas Stripe en modo prueba, recuerda que la tarjeta de prueba es `4242 4242 4242 4242`.
-- **Voto de mapa:** al acabar una ronda online todos votan el siguiente mapa; gana el más votado (empate al azar). En el entrenamiento se elige el mapa en la pantalla final.
+- **Voto de mapa:** con más de un mapa, al acabar una ronda online todos votan el siguiente mapa (con uno solo no aparece); gana el más votado (empate al azar). En el entrenamiento se elige el mapa en la pantalla final.
 
 ## Pase de batalla (Temporada 1) y PostgreSQL
 
@@ -307,7 +307,7 @@ También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con co
 
 - **Salas:** cada mapa tiene sus propias salas. Con un solo jugador el reloj se detiene hasta que entra alguien más. Al terminar cada partida se guardan las puntuaciones y empieza otra.
 - **Quién decide qué:** el servidor decide vida, daño, bajas, munición, cadencia y reapariciones, y comprueba cada disparo contra las posiciones de los rivales en el momento en que tú los veías (compensación de latencia de hasta ~450 ms). **El movimiento lo calcula el navegador de cada jugador**; el servidor rechaza movimientos imposibles (teletransportes o velocidad excesiva) y limita los límites del mapa, pero un tramposo decidido podría, por ejemplo, ir algo más rápido dentro de esos márgenes o atravesar paredes. Para un juego entre amigos y comunidad pequeña es un compromiso razonable; para competiciones con premios haría falta un servidor que simule también el movimiento.
-- **Clasificación:** guarda tu mejor partida por mapa y nombre. **No hay cuentas ni contraseñas**: cualquiera puede usar el nombre de otro, y los nombres no se moderan (solo se limpian caracteres raros y se limita la longitud). Si abres el juego al público, plantéate revisar `data/leaderboard.json` de vez en cuando.
+- **Clasificación:** guarda tu mejor partida por mapa y nombre (al arrancar se descartan las entradas de mapas que ya no existen). **No hay cuentas ni contraseñas**: cualquiera puede usar el nombre de otro, y los nombres no se moderan (solo se limpian caracteres raros y se limita la longitud). Si abres el juego al público, plantéate revisar `data/leaderboard.json` de vez en cuando.
 - **Carga:** en una prueba con 40 jugadores simulados repartidos en 4 salas, el servidor usó ~4 % de un núcleo y ~3 Mbit/s en total (en el entorno donde lo probé). No lo he probado con cientos de jugadores ni con conexiones reales de internet.
 - **Chat:** los mensajes se limpian (sin `<` `>` ni caracteres de control, máx. 120 caracteres, un mensaje cada 0,7 s), pero **no hay filtro de insultos ni moderación**.
 - **Un solo proceso:** no hay balanceo entre varios servidores; las salas viven en la memoria de esa instancia. Si se reinicia, las partidas en curso se cortan (la clasificación se conserva).
@@ -317,12 +317,12 @@ También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con co
 
 ## 8. Personalizar
 
-- **Vistas previas de los mapas:** son capturas reales del juego en `public/maps/map0.jpg` … `map3.jpg` (512×288). Para cambiarlas, sustituye esos archivos manteniendo el nombre (el archivo único las lleva incrustadas al generarlo con `node scripts/build-single.js`).
+- **Vista previa del mapa:** es una captura real del juego en `public/maps/map0.jpg` (512×288). Para cambiarlas, sustituye esos archivos manteniendo el nombre (el archivo único las lleva incrustadas al generarlo con `node scripts/build-single.js`).
 - **Equipos y nombres:** al entrar te toca al azar el equipo azul o rojo (equilibrado: si un equipo tiene más gente entras en el otro) y sale un cartel grande con tu equipo; no hay fuego amigo. Los verificados (administrador e influencers) llevan el nombre dorado con brillo y el tic azul, visibles para todos; el resto, nombre azul sin brillo.
 
 - **Colores y estilo:** variables CSS al inicio de `public/index.html`.
 - **Armas:** lista `WEAPONS` en `public/shared.js` (daño, cadencia, cargador, dispersión, alcance…). Como el servidor usa el mismo archivo, los cambios valen para todos a la vez.
-- **Mapas:** lista `MAPS` en `public/shared.js`. Cada mapa es una función que coloca cajas (`b.addBox`, `b.stairs`, `b.perimeter`…). Añade uno y aparecerá en el menú y en el servidor.
+- **Mapas:** lista `MAPS` en `public/shared.js` (hoy solo **Nexus Outpost**). Cada mapa es una función que coloca cajas: `b.addBox`, `b.box(x0, x1, z0, z1, y0, y1, color, tag)` por rangos y `b.run(dir, a, c, w, n, y0, rise, color, tag)` para escaleras rectas (`tag` fija la textura: `glass`, `helipad`, `crate`…). Un mapa puede declarar además `spawns` (apariciones por equipo), `zones` (zonas del modo captura, con altura) y `areas` (nombres para el rótulo «estás en…»). Añade uno y aparecerá en el menú y en el servidor; con varios mapas vuelve el voto de fin de ronda.
 - **Reglas:** duración, límite de bajas y tamaño de sala con las variables de entorno de arriba.
 
 ## 9. Problemas frecuentes
@@ -368,3 +368,11 @@ npm run build:single     # genera pixel-play-rusher.html, todo el juego en un so
 ```
 
 Incluyen: HUD y mira del francotirador con el cliente real, API y archivos estáticos, protocolo, combate con compensación de latencia, límite de cadencia, anti-teletransporte, fin de ronda y clasificación persistente, el cliente real conectado al servidor real, orígenes y límites por IP. Con `node test/load.js 40 15` simulas carga.
+
+## Nexus Outpost (mapa único)
+
+Complejo táctico amurallado de 100 × 100 m con cuatro niveles (suelo, plaza a 1,8 m, cubierta central y azoteas a 3,6 m, tejados a 5,4 m) unidos por escaleras de peldaño 0,45 m (la física ya sube hasta 0,55 m: no hace falta saltar). Zonas: **Spawn Red** y **Spawn Blue** (cada equipo aparece en su base), **South Alley** y **Tunnel Passage**, **Main Plaza** con **Sniper Perch** y **Office Block**, **Central Courtyard** y **Lower Plaza** (cajas y contenedores), **Reactor Complex** (cubierta central con pasarela alta), **East Roof** (Helipad A), **Rooftop Network** (puentes), **Helipad B**, **West Tower Roof**, **Tech Hub**, **Armory** (con interior) y **Capture Point** (azotea con bandera).
+- **Rótulo «estás en…»:** bajo el reloj aparece el nombre de la zona donde estás (`S.areaAt`, definido por `areas` en el mapa).
+- **Capturar zona:** rota entre Central Courtyard, Main Plaza, Lower Plaza, Reactor Complex y Capture Point. La zona tiene altura: quien está debajo de una azotea no captura. Con bots en la sala solo se usan las zonas a ras de suelo.
+- **Bots:** siguen una rejilla de navegación de 1 m (`S.buildNav`, `S.navField`, `S.navDir`) para rodear paredes y cruzar puertas y túneles, y sin objetivo rondan cerca de los rivales. Solo caminan por el suelo: no suben a las azoteas.
+- **Pruebas:** `test/nexus.test.js` comprueba las zonas nombradas, las alturas, que se llegue caminando (sin saltar) a todas desde las dos bases sin trampas, las apariciones por equipo, las zonas con altura en el servidor real, la limpieza de la clasificación y la navegación de los bots.

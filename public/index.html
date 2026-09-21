@@ -215,6 +215,7 @@ body.playing .chatrow:focus-within{opacity:1}
 #timer{font-size:clamp(28px,3.6vw,46px);font-style:italic;font-weight:900;letter-spacing:.03em;line-height:1;font-variant-numeric:tabular-nums}
 #timer.low{color:var(--red);animation:blink .5s steps(2) infinite}
 #modeName{font-size:10px;letter-spacing:.2em;font-weight:800;opacity:.6;margin-top:3px;text-transform:uppercase;white-space:nowrap}
+#areaName{font-size:11px;letter-spacing:.16em;font-weight:900;color:#ffd23f;margin-top:2px;text-transform:uppercase;white-space:nowrap;text-shadow:0 1px 0 rgba(4,6,15,.9)}#areaName:empty{display:none}
 #goal{height:3px;background:rgba(255,255,255,.14);margin-top:6px}
 #goal i{display:block;height:100%;width:0;background:var(--volt);transition:width .3s}
 #banner{position:absolute;top:clamp(86px,11vh,110px);left:50%;transform:translateX(-50%);padding:6px 22px;font-size:13px;font-weight:800;letter-spacing:.2em;background:rgba(8,11,24,.82);border-left:3px solid var(--ice);border-right:3px solid var(--ice);animation:blink 1.4s ease-in-out infinite;white-space:nowrap}
@@ -675,7 +676,7 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
   </div>
   <div id="matchbar">
     <div class="mb-side mb-left"><small>TUS PUNTOS</small><b id="myPts">0</b><em id="myKD">0 K · 0 M</em></div>
-    <div class="mb-center"><div id="timer">3:00</div><div id="modeName"></div><div id="goal"><i id="goalfill"></i></div></div>
+    <div class="mb-center"><div id="timer">3:00</div><div id="modeName"></div><div id="areaName"></div><div id="goal"><i id="goalfill"></i></div></div>
     <div class="mb-side mb-right"><small>EQUIPOS</small><b id="leadName">—</b><em id="leadPts">0 pts</em></div>
   </div>
   <div id="banner" hidden>ESPERANDO RIVALES…</div>
@@ -833,7 +834,7 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
       <button class="mode" id="play"><b>ENTRENAR</b><small>Contra bots</small></button>
     </div>
     <div class="modebar">
-      <span><span class="lab">Mapa</span> <button class="mapbtn" id="mapBtn" data-go="maps">Almenas</button></span>
+      <span><span class="lab">Mapa</span> <button class="mapbtn" id="mapBtn" data-go="maps">Nexus Outpost</button></span>
       <span><span class="lab">Modo</span> <button class="mapbtn" id="modeBtn" type="button">Duelo por equipos</button></span>
       <span><span class="lab">Servidor</span> <button class="mapbtn" id="serverBtn" type="button" title="Dirección del servidor online">Este equipo</button></span>
       <span><span class="lab">Bots</span> <div class="seg" id="diff" role="group" aria-label="Dificultad de los bots"><button data-d="0">Fácil</button><button data-d="1">Normal</button><button data-d="2">Difícil</button></div></span>

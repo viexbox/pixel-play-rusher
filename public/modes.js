@@ -82,15 +82,15 @@
     const n = P.net(), z = n.zone, playing = (document.body.classList.contains('playing') || document.body.classList.contains('spectating'));
     if (!z || !playing || n.mode !== 'zona') { if (ring) ring.visible = disc.visible = false; const h = $('#zoneHud'); if (h) h.hidden = true; return; }
     ensureZone(); if (!ring) return; ring.visible = disc.visible = true;
-    ring.scale.set(z.r, 1, z.r); ring.position.set(z.x, 3.5, z.z); disc.scale.set(z.r, z.r, 1); disc.position.set(z.x, 0.06, z.z);
+    ring.scale.set(z.r, 1, z.r); const zy = z.y || 0; ring.position.set(z.x, zy + 3.5, z.z); disc.scale.set(z.r, z.r, 1); disc.position.set(z.x, zy + 0.06, z.z);   // [NUEVO] la zona puede estar en una azotea
     const c = zoneColor(z.o), pulse = 0.16 + 0.07 * Math.sin(now / 320); ring.material.color.setHex(c); disc.material.color.setHex(c); ring.material.opacity = pulse + (z.o >= 0 ? 0.06 : 0); disc.material.opacity = pulse + 0.06;
     /* Brújula y estado */
     const h = $('#zoneHud'); if (!h) return; const pl = P.player(), cam = P.camera();
     if (n.spec || !pl) { h.hidden = true; return; } h.hidden = false;
-    const d = Math.hypot(z.x - pl.pos.x, z.z - pl.pos.z), inside = d <= z.r, T = P.THREE, fw = new T.Vector3(); cam.getWorldDirection(fw);
+    const d = Math.hypot(z.x - pl.pos.x, z.z - pl.pos.z), dy = (z.y || 0) - pl.pos.y, inside = d <= z.r && Math.abs(dy) <= 2.6, above = d <= z.r && !inside, T = P.THREE, fw = new T.Vector3(); cam.getWorldDirection(fw);
     const ang = Math.atan2(fw.x * (z.z - cam.position.z) - fw.z * (z.x - cam.position.x), fw.x * (z.x - cam.position.x) + fw.z * (z.z - cam.position.z));
     const who = z.o === 0 ? 'AZUL' : z.o === 1 ? 'ROJO' : z.o === 2 ? 'DISPUTADA' : 'LIBRE', mine = z.o === pl.team;
-    const txt = 'ZONA · ' + who + (inside ? ' · ¡estás dentro!' : ' · a ' + Math.round(d) + ' m') + ' · cambia en ' + Math.max(0, z.mv - Math.floor((performance.now() - (n.zoneAt || 0)) / 1000)) + ' s';
+    const txt = 'ZONA · ' + (z.n ? z.n.toUpperCase() + ' · ' : '') + who + (inside ? ' · ¡estás dentro!' : above ? (dy > 0 ? ' · ▲ sube' : ' · ▼ baja') : ' · a ' + Math.round(d) + ' m') + ' · cambia en ' + Math.max(0, z.mv - Math.floor((performance.now() - (n.zoneAt || 0)) / 1000)) + ' s';
     if (h.dataset.t !== txt) { h.dataset.t = txt; h.querySelector('span').textContent = txt; }
     h.style.setProperty('--c', '#' + c.toString(16).padStart(6, '0')); h.classList.toggle('mine', mine && z.o >= 0);
     const ar = h.querySelector('i'); ar.style.transform = 'rotate(' + (inside ? 0 : -ang) + 'rad)'; ar.style.opacity = inside ? 0.25 : 1;

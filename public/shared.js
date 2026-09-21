@@ -35,9 +35,20 @@ const OPTICS = {
 /* Constructor de mapas: el navegador dibuja cada caja; el servidor solo guarda las colisiones. */
 function makeBuilder(onBox, cols) {
   const b = {
-    addBox(cx, y0, cz, w, h, d, color, solid = true) {
-      if (onBox) onBox(cx, y0, cz, w, h, d, color, solid);
+    addBox(cx, y0, cz, w, h, d, color, solid = true, tag) {
+      if (onBox) onBox(cx, y0, cz, w, h, d, color, solid, tag);
       if (solid) cols.push({ minX: cx - w / 2, maxX: cx + w / 2, minY: y0, maxY: y0 + h, minZ: cz - d / 2, maxZ: cz + d / 2 });
+    },
+    /* Caja por RANGOS (x0..x1, z0..z1, y0..y1). tag = textura explícita ('glass', 'helipad', 'crate'…); solid = false → decoración sin colisión. */
+    box(x0, x1, z0, z1, y0, y1, color, tag, solid = true) { b.addBox((x0 + x1) / 2, y0, (z0 + z1) / 2, x1 - x0, y1 - y0, z1 - z0, color, solid, tag); },
+    /* Escalera recta que SUBE hacia dir ('N' = −z, 'S' = +z, 'E' = +x, 'W' = −x). a = coordenada donde arranca el primer peldaño (la del eje de marcha), c = centro en el otro eje,
+       w = ancho, n peldaños de 1 m que suben `rise` cada uno; y0 = altura del suelo DE ARRANQUE (0 en el suelo, 1,8 en la plaza…): el último peldaño queda a y0 + n·rise. Cada peldaño es una columna maciza desde `base`. */
+    run(dir, a, c, w, n, y0, rise, color, tag, base = 0) {
+      const sg = dir === 'N' || dir === 'W' ? -1 : 1, alongX = dir === 'E' || dir === 'W';
+      for (let k = 0; k < n; k++) {
+        const p = a + sg * (k + 0.5), top = y0 + (k + 1) * rise;
+        if (alongX) b.addBox(p, base, c, 1, top - base, w, color, true, tag); else b.addBox(c, base, p, w, top - base, 1, color, true, tag);
+      }
     },
     perimeter(half, h, color) {
       const s = half * 2 + 4;
@@ -65,131 +76,132 @@ function makeBuilder(onBox, cols) {
 
 const MAPS = [
   {
-    name: 'Almenas', half: 40, desc: 'Fortaleza con pirámide central y torres de esquina con escaleras. Mucho juego en vertical.',
-    sky: ['#1f6dff', '#bfe4ff'], fog: '#bfe4ff', floor: ['#a7b6ff', '#8f9dff'], out: '#8f7bff', pal: ['#2f80ff', '#ffd23f', '#ff4d6d', '#2ec4b6', '#8b5cf6'],
-    look: { floor: 'tile', wall: 'brick', block: 'stone', plat: 'stone', sun: '#fff1c9', decor: 'castle', wallH: 10 },
+    name: 'Nexus Outpost', half: 50,
+    desc: 'Complejo táctico amurallado de 4 niveles: plaza elevada con torre de francotiradores, patio central, reactor en alto, red de tejados con helipuertos, centro tecnológico, armería y un punto de captura en la azotea.',
+    sky: ['#2a86ff', '#cfe6ff'], fog: '#cfe6ff', floor: ['#7f8898', '#6f7888'], out: '#62c94a', pal: ['#aab2be', '#ff8a1f', '#3fd15a', '#3a9bff', '#ffd23f'],
+    look: { floor: 'concfloor', outFloor: 'grass', wall: 'concrete', block: 'concrete', metal: 'metal', crate: 'crate', plat: 'concfloor', sun: '#fff4d6', decor: 'nexus', wallH: 8.5 },
+    /* Apariciones por equipo (equipo 1 = ROJO, equipo 0 = AZUL): [x, z] */
+    spawns: {
+      1: [[-44, 4], [-40, 7], [-44, 10], [-38, 13], [-44, 16], [-36, 18], [-41, 21]],
+      0: [[41, 3], [45, 5], [40, 7], [44, 9], [41, 11], [46, 2], [38, 5]]
+    },
+    /* Zonas del modo «Capturar zona» (y = altura del suelo de la zona): la captura solo cuenta a quien está a esa altura (±2,6 m) */
+    zones: [
+      { n: 'Central Courtyard', x: -6, z: 28, y: 0 }, { n: 'Main Plaza', x: -24, z: -14, y: 1.8 }, { n: 'Lower Plaza', x: 25, z: 24, y: 0 },
+      { n: 'Reactor Complex', x: 10, z: -1, y: 3.6 }, { n: 'Capture Point', x: 40, z: -13, y: 3.6 }
+    ],
+    /* Nombres de las zonas del mapa (para el rótulo «estás en…»): el primero que encaje gana. y = altura de los pies. */
+    areas: [
+      { n: 'Helipad A', x0: -44, x1: -35, z0: -47.5, z1: -38.5, y0: 4.5, y1: 9 }, { n: 'Helipad B', x0: -9, x1: 0, z0: -47.5, z1: -38.5, y0: 4.5, y1: 9 },
+      { n: 'Tech Hub', x0: 32, x1: 48, z0: -48, z1: -30, y0: 4.5, y1: 9 }, { n: 'West Tower Roof', x0: 16, x1: 26, z0: -48, z1: -34, y0: 4.5, y1: 9 },
+      { n: 'East Roof', x0: -46, x1: -22, z0: -48, z1: -30, y0: 4.5, y1: 9 },
+      { n: 'Reactor Complex', x0: -2, x1: 18, z0: -34, z1: 2, y0: 2.5, y1: 10 },
+      { n: 'Sniper Perch', x0: -48, x1: -33, z0: -22, z1: -8, y0: 2.2, y1: 10 },
+      { n: 'Rooftop Network', x0: -50, x1: 50, z0: -50, z1: -22, y0: 4.5, y1: 9 },
+      { n: 'Capture Point', x0: 30, x1: 48, z0: -30, z1: 0, y0: 2.5, y1: 8 },
+      { n: 'Armory', x0: 32, x1: 47, z0: 12, z1: 36, y0: -1, y1: 5 }, { n: 'Armory', x0: 24, x1: 32, z0: 29, z1: 35, y0: -1, y1: 5 }, { n: 'Tunnel Passage', x0: -8, x1: 8, z0: 40, z1: 46, y0: -1, y1: 4 },
+      { n: 'Office Block', x0: -46, x1: -22, z0: -36, z1: -24, y0: -1, y1: 4 }, { n: 'Main Plaza', x0: -41, x1: -4, z0: -30, z1: -4, y0: 1, y1: 4 },
+      { n: 'Spawn Red', x0: -50, x1: -30, z0: -4, z1: 24, y0: -1, y1: 2.5 }, { n: 'Spawn Blue', x0: 36, x1: 50, z0: -2, z1: 12, y0: -1, y1: 2.5 },
+      { n: 'South Alley', x0: -50, x1: 50, z0: 36, z1: 50, y0: -1, y1: 4 }, { n: 'Lower Plaza', x0: 17, x1: 32, z0: 2, z1: 36, y0: -1, y1: 3 },
+      { n: 'Central Courtyard', x0: -34, x1: 17, z0: 4, z1: 36, y0: -1, y1: 3 }
+    ],
     build(b) {
-      const P = { sky: '#4cc9f0', coral: '#ff4d6d', mint: '#2ec4b6', lilac: '#8b5cf6', sun: '#ff9f1c', sand: '#ffd23f', ink: '#5b3cc4' };
-      b.perimeter(40, 10, P.lilac);
-      b.addBox(0, 0, 0, 14, 1.2, 14, P.sand); b.addBox(0, 1.2, 0, 10, 1.2, 10, P.sun); b.addBox(0, 2.4, 0, 6, 1.2, 6, P.coral);
-      b.mirror4((sx, sz) => {
-        b.addBox(sx * 28, 0, sz * 28, 8, 5, 8, P.mint);
-        b.stairs(sx * 15, sz * 28, sx, 0, 9, 4.5, 3, P.sun);
-        b.addBox(sx * 14, 0, sz * 8, 3, 2.4, 8, P.coral);
-        b.addBox(sx * 8, 0, sz * 20, 8, 2.4, 3, P.sky);
-        b.addBox(sx * 24, 0, sz * 8, 4, 1.2, 4, P.lilac);
-        b.addBox(sx * 30, 0, sz * 14, 2, 3, 10, P.sand);
-        b.addBox(sx * 10, 0, sz * 10, 2, 1.2, 2, P.ink);
-      });
-      [1, -1].forEach(s => { b.addBox(0, 0, s * 22, 10, 3.6, 2, P.sky); b.addBox(s * 22, 0, 0, 2, 2.4, 10, P.mint); });
-      b.horizon(26, 80, 125, 14, 54, 8, 20, ['#6d5bd0', '#ff7aa2', '#6d5bd0']);
-    }
-  },
-  {
-    name: 'Dunas', half: 44, desc: 'Ruinas del desierto: plaza amurallada, puestos de mercado y torres de vigilancia.',
-    sky: ['#1183ff', '#ffd58a'], fog: '#ffd58a', floor: ['#f5bd66', '#e8a94a'], out: '#f2b45a', pal: ['#ffd58a', '#ffdc94', '#f0a55a', '#12c2b3', '#d9773a'],
-    look: { floor: 'sandfloor', wall: 'sand', block: 'sand', hill: 'sandfloor', awning: 'awning', sun: '#ffe9b0', decor: 'desert', wallH: 9 },
-    build(b) {
-      const W = '#f0a55a', D = '#d9773a', T = '#12c2b3', L = '#ffe0a0';
-      b.perimeter(44, 9, '#e08e45');
-      // Plaza central con cuatro accesos
-      [-10, 10].forEach(z => { b.addBox(-6.5, 0, z, 7, 4, 2, W); b.addBox(6.5, 0, z, 7, 4, 2, W); });
-      [-10, 10].forEach(x => { b.addBox(x, 0, -6.5, 2, 4, 7, W); b.addBox(x, 0, 6.5, 2, 4, 7, W); });
-      b.addBox(0, 0, 0, 4, 1.2, 4, D);
-      // Torres de vigilancia
-      b.addBox(0, 0, -36, 10, 4, 6, D); b.stairs(13, -36, -1, 0, 8, 4, 3, L);
-      b.addBox(0, 0, 36, 10, 4, 6, D); b.stairs(-13, 36, 1, 0, 8, 4, 3, L);
-      // Puestos de mercado
-      const stall = (x, z) => {
-        b.addBox(x, 0, z, 5, 1.1, 1.6, D); b.addBox(x - 2.4, 0, z - 1.1, 0.5, 3, 0.5, W); b.addBox(x + 2.4, 0, z - 1.1, 0.5, 3, 0.5, W);
-        b.addBox(x, 3, z - 0.3, 6, 0.3, 3.2, T);
-      };
-      [-32, -20, 20, 32].forEach(x => [-24, 24].forEach(z => stall(x, z)));
-      // Dunas escalonadas
-      [-30, 30].forEach(x => { b.addBox(x, 0, 0, 14, 0.5, 14, L); b.addBox(x, 0.5, 0, 10, 0.5, 10, L); b.addBox(x, 1, 0, 6, 0.5, 6, L); b.addBox(x, 1.5, 0, 3, 0.5, 3, W); });
-      b.mirror4((sx, sz) => { b.addBox(sx * 16, 0, sz * 16, 3, 1.2, 3, D); b.addBox(sx * 38, 0, sz * 14, 2, 3, 8, W); b.addBox(sx * 16, 0, sz * 32, 6, 2, 2, D); });
-      b.horizon(22, 85, 130, 12, 30, 22, 38, ['#f2b45a', '#e8954a']);
-    }
-  },
-  {
-    name: 'Contenedores', half: 42, desc: 'Puerto industrial: pasillos de contenedores apilados, plataforma central y tejados accesibles.',
-    sky: ['#2472ff', '#d6e6ff'], fog: '#cfdcf2', floor: ['#8f9bb3', '#7d8aa3'], out: '#7f8aa0', pal: ['#d6e6ff', '#b2bccd', '#e63946', '#1d6cf2', '#ffbe0b'],
-    look: { floor: 'concfloor', wall: 'concrete', block: 'concrete', metal: 'metal', crate: 'crate', plat: 'concrete', sun: '#fff6e0', decor: 'port', wallH: 9 },
-    build(b) {
-      const C = ['#e63946', '#1d6cf2', '#ffbe0b', '#2ecc71', '#ff7b00', '#8e44ff']; let ci = 0; const col = () => C[(ci++) % C.length];
-      b.perimeter(42, 9, '#8a96b0');
-      const row = (z, xs) => xs.forEach(x => b.addBox(x, 0, z, 12, 2.6, 2.8, col()));
-      row(-26, [-24, 0, 24]); row(-9, [-36, -12, 12, 36]); row(9, [-36, -12, 12, 36]); row(26, [-24, 0, 24]);
-      // Segundo piso accesible por escaleras
-      b.addBox(24, 2.6, -26, 12, 2.6, 2.8, col()); b.stairs(24, -13.6, 0, -1, 11, 5.2, 3, '#c9d1e0');
-      b.addBox(-24, 2.6, 26, 12, 2.6, 2.8, col()); b.stairs(-24, 13.6, 0, 1, 11, 5.2, 3, '#c9d1e0');
-      b.addBox(-12, 2.6, -9, 12, 2.6, 2.8, col()); b.addBox(12, 2.6, 9, 12, 2.6, 2.8, col());
-      // Plataforma central
-      b.addBox(0, 0, 0, 10, 2.5, 10, '#c9d1e0'); b.stairs(-10, 0, 1, 0, 5, 2.5, 3, '#9aa6be'); b.stairs(10, 0, -1, 0, 5, 2.5, 3, '#9aa6be');
-      b.addBox(0, 2.5, 0, 3, 1.2, 3, col());
-      b.mirror4((sx, sz) => { b.addBox(sx * 20, 0, sz * 17.5, 2.5, 1.2, 2.5, col()); b.addBox(sx * 3, 0, sz * 17, 1.6, 1.6, 1.6, '#5f6b85'); });
-      b.horizon(24, 80, 125, 20, 58, 8, 14, ['#7f95c4', '#6d84b8']);
-    }
-  },
-  {
-    name: 'Bosque', half: 42, desc: 'Cabaña central, colinas escalonadas, troncos y árboles para cubrirte.',
-    sky: ['#2a8cff', '#c9f2a8'], fog: '#c9f2a8', floor: ['#3fc24c', '#2fae3e'], out: '#38b04a', pal: ['#c9f2a8', '#5ad15f', '#1f9d55', '#9a5b2e', '#f0a860'],
-    look: { floor: 'grass', wall: 'leaf', block: 'wood', trunk: 'bark', leaf: 'leaf', roof: 'roof', hill: 'grass', rock: 'stone', sun: '#fff3c9', decor: 'forest', wallH: 10 },
-    build(b) {
-      const G = '#4cd964', DG = '#1f9d55', BR = '#9a5b2e', ST = '#a3adc4', WD = '#f0a860';
-      b.perimeter(42, 10, DG);
-      // Cabaña
-      b.addBox(0, 0, 0, 16, 0.5, 16, WD);
-      [-7.5, 7.5].forEach(z => { b.addBox(-5.5, 0.5, z, 5, 3.5, 1, BR); b.addBox(5.5, 0.5, z, 5, 3.5, 1, BR); });
-      [-7.5, 7.5].forEach(x => { b.addBox(x, 0.5, -5.5, 1, 3.5, 5, BR); b.addBox(x, 0.5, 5.5, 1, 3.5, 5, BR); });
-      b.addBox(0, 4, 0, 18, 0.4, 18, '#e5484d'); b.addBox(0, 0.5, 0, 3, 1, 3, BR);
-      // Colinas escalonadas
-      b.mirror4((sx, sz) => { b.addBox(sx * 26, 0, sz * 26, 18, 0.5, 18, G); b.addBox(sx * 26, 0.5, sz * 26, 12, 0.5, 12, G); b.addBox(sx * 26, 1, sz * 26, 6, 0.5, 6, DG); });
-      // Árboles
-      [[-30, -10], [-10, -22], [12, -30], [32, 6], [-34, 2], [-16, 12], [16, -12], [8, -18], [-8, 20], [24, -2], [-24, -4], [0, -34], [0, 34], [-38, -30], [38, -12], [-38, 14], [30, 38]].forEach(([x, z]) => {
-        b.addBox(x, 0, z, 1.4, 7, 1.4, BR); b.addBox(x, 6, z, 6, 2, 6, G); b.addBox(x, 8, z, 3.6, 1.6, 3.6, DG);
-      });
-      // Troncos y rocas
-      b.addBox(-20, 0, 0, 8, 1.1, 1.6, BR); b.addBox(20, 0, 2, 1.6, 1.1, 8, BR);
-      b.mirror4((sx, sz) => b.addBox(sx * 14, 0, sz * 20, 3, 1.6, 3, ST));
-      b.horizon(26, 80, 125, 22, 46, 8, 14, ['#3fbf5a', '#2a9d4b']);
-    }
-  },
-  {
-    name: 'Fábrica', half: 40, desc: 'Nave industrial al atardecer: plataforma central, columnas altas y muros con huecos para flanquear.',
-    sky: ['#2c3566', '#ffb37a'], fog: '#e9b08a', floor: ['#6f7891', '#616a84'], out: '#59627c', pal: ['#ffb37a', '#7b869f', '#e5533d', '#ffb020', '#39445e'],
-    look: { floor: 'concfloor', wall: 'concrete', block: 'concrete', metal: 'metal', crate: 'crate', plat: 'concrete', sun: '#ffd9a8', decor: 'port', wallH: 9 },
-    build(b) {
-      const M = '#7b869f', Y = '#ffb020', R = '#e5533d', D = '#39445e', G = '#9aa6be';
-      b.perimeter(40, 9, '#6b7590');
-      // Plataforma central con escaleras a los lados y una cobertura arriba
-      b.addBox(0, 0, 0, 12, 3.2, 12, G); b.stairs(-12, 0, 1, 0, 6, 3.2, 4, M); b.stairs(12, 0, -1, 0, 6, 3.2, 4, M); b.addBox(0, 3.2, 0, 3, 1.4, 3, Y);
-      b.mirror4((sx, sz) => {
-        b.addBox(sx * 15, 0, sz * 15, 3.5, 6, 3.5, D);            // columnas altas
-        b.addBox(sx * 26, 0, sz * 8, 2, 1.6, 14, M);              // muros bajos laterales
-        b.addBox(sx * 8, 0, sz * 27, 14, 3, 2, R);                // muros altos con huecos en el centro
-        b.addBox(sx * 30, 0, sz * 26, 6, 2.6, 6, Y);              // contenedores de esquina
-        b.addBox(sx * 20, 0, sz * 22, 2.4, 1.3, 2.4, G);          // cajas sueltas
-      });
-      b.horizon(24, 70, 120, 16, 44, 8, 14, ['#6c7bb3', '#5d6ba3']);
-    }
-  },
-  {
-    name: 'Cañón', half: 40, desc: 'Dos mesetas rocosas unidas por un cauce seco: combate a distancia arriba y cuerpo a cuerpo abajo.',
-    sky: ['#1a78ff', '#ffd9a0'], fog: '#f6cf9c', floor: ['#e7b170', '#d99f5c'], out: '#d99f5c', pal: ['#ffd9a0', '#e3a666', '#b8683a', '#c98a52', '#7a3f22'],
-    look: { floor: 'sandfloor', wall: 'sand', block: 'sand', hill: 'sandfloor', awning: 'awning', sun: '#ffe9b0', decor: 'desert', wallH: 10 },
-    build(b) {
-      const RK = '#c98a52', RD = '#a86a38', LT = '#dfa872', DK = '#7a3f22';
-      b.perimeter(40, 10, '#b8683a');
-      [-1, 1].forEach(s => {
-        b.addBox(s * 27, 0, 0, 16, 4.4, 24, RK); b.addBox(s * 27, 4.4, 0, 8, 1.2, 10, LT);           // mesetas con cima escalonada
-        b.stairs(s * 9, -7, s, 0, 10, 4.4, 5, RD); b.stairs(s * 9, 7, s, 0, 10, 4.4, 5, RD);          // dos rampas por meseta hacia el cauce
-        b.addBox(s * 34, 0, 16, 4, 2, 4, DK); b.addBox(s * 34, 0, -16, 4, 2, 4, DK);
-      });
-      // Cauce seco central: columnas de roca y muretes para cubrirse
-      b.mirror4((sx, sz) => { b.addBox(sx * 5, 0, sz * 13, 3, 3.6, 3, RD); b.addBox(sx * 3, 0, sz * 27, 8, 1.6, 2, LT); });
-      b.addBox(0, 0, 0, 5, 1.4, 5, RK); b.addBox(0, 0, 30, 6, 2.4, 3, RD); b.addBox(0, 0, -30, 6, 2.4, 3, RD);
-      b.horizon(20, 70, 115, 14, 40, 8, 16, ['#e3a666', '#d18d4d']);
+      const H1 = 1.8, H2 = 3.6, R = 5.4, ST = 0.45;
+      const GR = '#8f98a8', GD = '#6f7889', GL = '#b9c0cb', PL = '#9aa3b1', OR = '#ff8a1f', GN = '#3fd15a', BL = '#3a9bff', YL = '#ffd23f', RD = '#ff3b48', WD = '#d89a52', WT = '#5fd0ff', DK = '#39435a';
+      const P = (x0, x1, z0, z1, y0, y1, c, t) => b.box(x0, x1, z0, z1, y0, y1, c, t);          // caja maciza por rangos
+      const F = (x0, x1, z0, z1, c) => b.box(x0, x1, z0, z1, 0, 0.03, c, null, false);          // marca pintada en el suelo (sin colisión)
+      const crate = (x, z, s = 2, h = 2, y = 0) => P(x - s / 2, x + s / 2, z - s / 2, z + s / 2, y, y + h, WD, 'crate');
+      const cont = (x, z, alongX, c) => (alongX ? P(x - 3, x + 3, z - 1.2, z + 1.2, 0, 2.6, c, 'metal') : P(x - 1.2, x + 1.2, z - 3, z + 3, 0, 2.6, c, 'metal'));
+      const bar = (x, z, alongX) => (alongX ? P(x - 1.6, x + 1.6, z - 0.25, z + 0.25, 0, 1.1, WD, 'wood') : P(x - 0.25, x + 0.25, z - 1.6, z + 1.6, 0, 1.1, WD, 'wood'));   // barricada baja de madera
+      const rail = (x0, x1, z0, z1, y, c = GD) => P(x0, x1, z0, z1, y, y + 0.9, c, 'concrete');   // parapeto bajo
+
+      b.perimeter(50, 8.5, '#8d96a6');
+      b.horizon(28, 78, 122, 14, 46, 8, 18, ['#8f99ad', '#a4adbf', '#7f8aa0']);   // los edificios de la ciudad al otro lado del muro
+
+      /* ================= SPAWN RED · torre de francotiradores · Main Plaza ================= */
+      F(-48, -30, 0, 20, RD); F(-48, -30, 0, 0.5, '#ffffff'); F(-48, -30, 19.5, 20, '#ffffff');
+      P(-47, -43, 24, 24.6, 0, 1.2, GD, 'concrete'); P(-33, -29, 22, 22.6, 0, 1.2, GD, 'concrete'); P(-47, -46.4, 4, 9, 0, 1.2, GD, 'concrete');
+      b.run('N', 0, -33, 6, 4, 0, ST, GL, 'stone');                                     // Spawn Red → Main Plaza
+      P(-41, -6, -30, -4, 0, H1, PL, 'concfloor');                                      // Main Plaza (1,8 m)
+      // Sniper Perch
+      P(-48, -41, -22, -8, 0, R - 0.5, GR, 'concrete'); P(-48, -41, -22, -8, R - 0.5, R, OR, 'concrete');
+      P(-48, -41, -22, -21.6, R, R + 1.2, GD, 'concrete'); P(-48, -41, -8.4, -8, R, R + 1.2, GD, 'concrete'); P(-48, -47.6, -21.6, -8.4, R, R + 1.2, GD, 'concrete');
+      P(-41.4, -41, -21.6, -18, R, R + 1.2, GD, 'concrete'); P(-41.4, -41, -14, -8.4, R, R + 1.2, GD, 'concrete');
+      [[-48, -22], [-42.5, -22], [-48, -14.5], [-42.5, -14.5]].forEach(([x, z]) => P(x, x + 0.5, z, z + 0.5, R, R + 3, OR, 'metal'));
+      P(-48, -41.5, -22, -14, R + 3, R + 3.4, OR, 'concrete'); P(-47.9, -42, -21.9, -21.7, R + 1.2, R + 3, BL, 'glass');
+      b.run('W', -33, -16, 4, 8, H1, ST, GL, 'stone', H1);                              // Main Plaza → Sniper Perch
+      // props de la plaza
+      P(-40, -37, -29, -25, H1, H1 + 0.7, GD, 'stone'); P(-39.7, -37.3, -28.7, -25.3, H1 + 0.7, H1 + 1.4, GN, 'stone');
+      P(-30, -25, -20, -19.4, H1, H1 + 1.2, GD, 'concrete'); P(-16, -11, -24, -23.4, H1, H1 + 1.2, GD, 'concrete'); P(-28, -27.4, -12, -7, H1, H1 + 1.2, GD, 'concrete');
+      crate(-21, -9, 2, 2, H1); crate(-18.8, -9.2, 1.8, 1.8, H1); crate(-20, -9, 1.6, 1.6, H1 + 2); P(-12, -10.4, -28, -26, H1, H1 + 2.2, BL, 'metal'); P(-8.4, -6.8, -12, -9, H1, H1 + 1.4, GD, 'metal');
+      /* ================= OFFICE BLOCK (East Roof · Helipad A) ================= */
+      P(-46, -38, -48, -30, 0, R, GR, 'concrete'); P(-30, -22, -48, -30, 0, R, GR, 'concrete'); P(-38, -30, -48, -38, 0, R, GR, 'concrete');
+      P(-38, -36, -38, -30, 0, R, GR, 'concrete'); P(-32, -30, -38, -30, 0, R, GR, 'concrete');
+      b.run('N', -30, -34, 4, 8, H1, ST, GL, 'stone');                                  // Main Plaza → tejado de las oficinas
+      P(-45, -39, -30, -29.8, 2.6, 4.8, BL, 'glass'); P(-30, -23, -30, -29.8, 2.6, 4.8, BL, 'glass'); P(-46, -36, -30, -29.7, 4.9, R, OR, 'concrete'); P(-32, -22, -30, -29.7, 4.9, R, OR, 'concrete');
+      P(-44, -35, -47.5, -38.5, R, R + 0.06, '#ffffff', 'helipad');                     // Helipad A (9 × 9 m)
+      rail(-46, -22, -48, -47.6, R); rail(-46, -45.6, -47.6, -30, R); rail(-22.4, -22, -47.6, -44, R); rail(-22.4, -22, -40, -30, R); rail(-46, -36, -30.4, -30, R); rail(-32, -22, -30.4, -30, R);
+      P(-30, -27, -46, -43, R, R + 1.3, GD, 'metal'); P(-27, -24, -37, -34, R, R + 1.3, GD, 'metal');
+      b.run('S', -34, -17, 6, 4, 0, ST, GL, 'stone');                                   // Main Plaza → pasaje norte
+      /* ================= REACTOR COMPLEX (cubierta central a 3,6 m) ================= */
+      P(-2, 18, -24, 2, 0, H2, PL, 'concfloor');
+      b.run('E', -6, -14, 8, 4, H1, ST, GL, 'stone');                                   // Main Plaza → Reactor
+      b.run('N', 10, 8, 4, 8, 0, ST, GL, 'stone');                                       // Reactor → Central Courtyard
+      P(2, 10, -16, -8, H2, 9, GD, 'metal');                                            // núcleo del reactor
+      [[-1, -19, 13, -16], [-1, -8, 13, -5], [-1, -16, 2, -8], [10, -16, 13, -8]].forEach(([x0, z0, x1, z1]) => P(x0, x1, z0 < z1 ? z0 : z1, z0 < z1 ? z1 : z0, 6, 6.3, YL, 'metal'));
+      [[-1, -19], [12.4, -19], [-1, -5.6], [12.4, -5.6]].forEach(([x, z]) => P(x, x + 0.6, z, z + 0.6, H2, 9.2, YL, 'metal'));
+      P(-1, 13, -19, -18.7, 6.3, 7.2, YL, 'metal'); P(-1, -0.7, -18.7, -5, 6.3, 7.2, YL, 'metal'); P(12.7, 13, -18.7, -5, 6.3, 7.2, YL, 'metal'); P(-1, 3, -5.3, -5, 6.3, 7.2, YL, 'metal'); P(7, 13, -5.3, -5, 6.3, 7.2, YL, 'metal');
+      b.run('N', 1, 5, 4, 6, H2, ST, YL, 'metal', H2);                                  // cubierta → pasarela del reactor
+      crate(14, -20, 2, 2, H2); crate(15.5, -18.5, 1.6, 1.6, H2); P(14, 16, 0, 0.6, H2, H2 + 1.1, GD, 'concrete'); P(-1.6, -1, -6, 0, H2, H2 + 1, GD, 'concrete');
+      // pasarela norte hacia el Helipad B
+      P(2, 8, -34, -24, 3.2, H2, GD, 'concfloor'); rail(2, 2.4, -34, -24, H2); rail(7.6, 8, -34, -24, H2);
+      b.run('N', -34, 5, 6, 4, H2, ST, GL, 'stone');                                    // pasarela → tejado del Helipad B
+      /* ================= HELIPAD B · WEST TOWER ROOF · red de tejados ================= */
+      P(-12, 10, -48, -38, 0, R, GR, 'concrete'); P(-12, 2, -38, -34, 0, R, GR, 'concrete'); P(8, 10, -38, -34, 0, R, GR, 'concrete');
+      P(-9, 0, -47.5, -38.5, R, R + 0.06, '#ffffff', 'helipad');                         // Helipad B (9 × 9 m)
+      rail(-12, 10, -48, -47.6, R); rail(-12, -11.6, -47.6, -44, R); rail(-12, -11.6, -40, -34, R); rail(9.6, 10, -47.6, -44, R); rail(9.6, 10, -40, -34, R); rail(-12, 2, -34.4, -34, R); rail(8, 10, -34.4, -34, R);
+      P(4, 7, -46, -43, R, R + 1.3, GD, 'metal'); P(-12, 2, -34.6, -34, R - 0.5, R, OR, 'concrete'); P(8, 10, -34.6, -34, R - 0.5, R, OR, 'concrete');   // (la franja no cruza el hueco de la escalera: x 2–8)
+      P(16, 26, -48, -34, 0, R, GR, 'concrete'); P(16, 26, -34.6, -34, R - 0.5, R, OR, 'concrete'); P(19, 24, -46, -41, R, R + 2.4, GR, 'concrete'); P(19.2, 23.8, -41, -40.8, R + 0.6, R + 2, BL, 'glass');
+      rail(16, 26, -48, -47.6, R); rail(16, 16.4, -47.6, -44, R); rail(16, 16.4, -40, -34, R); rail(25.6, 26, -47.6, -44, R); rail(25.6, 26, -40, -34, R); rail(16, 26, -34.4, -34, R);
+      P(-22, -12, -44, -40, R - 0.4, R, GD, 'concfloor'); P(10, 16, -44, -40, R - 0.4, R, GD, 'concfloor'); P(26, 32, -44, -40, R - 0.4, R, GD, 'concfloor');   // pasarelas entre tejados
+      [[-22, -12], [10, 16], [26, 32]].forEach(([x0, x1]) => { rail(x0, x1, -44, -43.6, R); rail(x0, x1, -40.4, -40, R); });
+      /* ================= TECH HUB (NE) ================= */
+      P(32, 48, -48, -34, 0, R, GR, 'concrete'); P(32, 38, -34, -30, 0, R, GR, 'concrete'); P(44, 48, -34, -30, 0, R, GR, 'concrete');
+      P(32, 38, -34.6, -34, R - 0.5, R, GN, 'concrete'); P(44, 48, -34.6, -34, R - 0.5, R, GN, 'concrete'); P(31.8, 32, -46, -36, 2.4, 5, BL, 'glass'); P(32, 48, -48, -47.5, R - 0.7, R, GN, 'concrete');
+      [[45, -47], [46.6, -47]].forEach(([x, z]) => P(x, x + 0.4, z, z + 0.4, R, R + 6, DK, 'metal')); P(35, 38.5, -46, -43, R, R + 1.4, GD, 'metal'); P(41, 44, -45, -42, R, R + 1.4, GD, 'metal');
+      rail(32, 48, -48, -47.6, R); rail(47.6, 48, -47.6, -34, R); rail(32, 32.4, -47.6, -44, R); rail(32, 32.4, -40, -34, R); rail(32, 48, -34.4, -34, R);
+      b.run('N', -30, 41, 6, 4, H2, ST, GL, 'stone');                                   // azotea del Capture Point → Tech Hub
+      /* ================= CAPTURE POINT (azotea de la torre este) ================= */
+      P(30, 48, -30, -2, 0, H2, GD, 'concrete');
+      P(33, 45, -2, -1.8, 0.8, 3.2, BL, 'glass'); P(30, 48, -2, -1.7, 3.3, H2, GN, 'concrete');
+      P(35, 45, -20, -10, H2, H2 + 0.45, GR, 'concfloor'); P(39.8, 40.2, -15.2, -14.8, H2 + 0.45, H2 + 6, DK, 'metal'); b.box(40.2, 42.6, -15.1, -14.9, H2 + 4.5, H2 + 5.9, RD, null, false);
+      rail(47.6, 48, -30, -2, H2); rail(30, 47.6, -2.4, -2, H2, GD); rail(30, 30.4, -30, -14, H2); rail(30, 30.4, -8, -2, H2);
+      P(18, 30, -14, -8, 3.2, H2, GD, 'concfloor'); P(23.3, 24.7, -13.7, -12.3, 0, 3.2, GD, 'concrete'); P(23.3, 24.7, -9.7, -8.3, 0, 3.2, GD, 'concrete');   // «autopista» elevada
+      rail(18, 30, -14, -13.6, H2); rail(18, 30, -8.4, -8, H2);
+      b.run('N', 6, 34, 4, 8, 0, ST, GL, 'stone');                                       // Lower Plaza → azotea del Capture Point
+      P(37, 41, -26, -23, H2, H2 + 1.2, GD, 'metal');
+      /* ================= ARMORY (SE) ================= */
+      P(32, 47, 12, 19, 0, H2, GD, 'concrete');                                         // franja norte (maciza)
+      P(32, 33, 19, 21, 0, 3.2, GD, 'concrete'); P(32, 33, 25, 36, 0, 3.2, GD, 'concrete');   // muro oeste con puerta (z 21–25)
+      P(46, 47, 19, 36, 0, 3.2, GD, 'concrete'); P(33, 38, 35, 36, 0, 3.2, GD, 'concrete'); P(42, 46, 35, 36, 0, 3.2, GD, 'concrete');   // muro este y sur con puerta (x 38–42)
+      P(32, 47, 19, 36, 3.2, H2, GR, 'concfloor');                                      // techo
+      P(32, 47, 12, 12.4, H2, H2 + 0.9, OR, 'concrete'); P(32, 47, 35.6, 36, H2, H2 + 0.9, OR, 'concrete'); rail(46.6, 47, 12.4, 35.6, H2, OR); rail(32, 32.4, 12.4, 30, H2, OR);
+      P(35, 44, 25, 25.8, 0, 1.3, DK, 'metal'); P(35, 44, 31, 31.8, 0, 1.3, DK, 'metal'); crate(36, 28, 1.8, 1.8); crate(44, 28, 2, 2); crate(41, 33, 1.6, 1.6); P(38, 42, 20, 20.6, 0, 1, GD, 'concrete');
+      b.run('E', 24, 32, 4, 8, 0, ST, GL, 'stone');                                      // Lower Plaza → azotea de la Armory
+      P(24, 25, 34.6, 36, 0, 1.4, GD, 'metal');
+      /* ================= PATIO CENTRAL · LOWER PLAZA · calles ================= */
+      P(-6.5, -1.5, 19.5, 24.5, 0, 0.8, GL, 'stone'); P(-5.7, -2.3, 20.3, 23.7, 0.8, 1.0, WT, 'glass'); P(-4.4, -3.6, 21.6, 22.4, 1.0, 2.6, GL, 'stone');   // fuente
+      crate(-13, 26, 2, 2); crate(-11, 26.4, 2, 2); crate(-12, 26.2, 1.8, 1.8, 2); crate(-13, 16, 2, 2); crate(9, 22, 2, 2); crate(11, 22.6, 2, 2); crate(10, 22.3, 1.6, 1.6, 2); crate(2, 30, 2, 2); crate(-20, 20, 2, 2); crate(-18, 20.4, 1.8, 1.8);
+      [[-16, 14, 1], [-8, 12.5, 1], [4, 14, 1], [-16, 30, 1], [0, 26, 1], [-8, 32, 1], [12, 30, 0], [-24, 12, 0], [14, 14, 0]].forEach(([x, z, a]) => bar(x, z, !!a));
+      cont(-30, 16, false, BL); cont(-30, 28, false, OR); cont(-24.6, 4.6, true, GN);                                                    // Patio oeste
+      cont(22, 10, true, OR); cont(28, 14, false, BL); cont(21, 26, false, GN); cont(28, 30, true, RD); crate(24, 18, 2, 2); crate(26, 19.4, 2, 2); crate(25, 18.7, 1.6, 1.6, 2); bar(20, 22, false); bar(29, 22, true);
+      P(-8, 8, 34, 40, 0, R, GR, 'concrete'); P(-8, 8, 46, 50, 0, R, GR, 'concrete'); P(-8, 8, 40, 46, 3.6, R, GR, 'concrete');       // Tunnel Passage (pasaje cubierto)
+      P(-8, 8, 33.4, 34, R - 0.5, R, OR, 'concrete'); F(-50, -8, 43.8, 44.2, YL); F(8, 50, 43.8, 44.2, YL); F(-8, 8, 43.8, 44.2, YL);
+      crate(-30, 44, 2, 2); crate(-28, 45.4, 1.8, 1.8); cont(-40, 41, true, GN); crate(-20, 47, 2, 2); crate(20, 42, 2, 2); cont(34, 42, true, BL); crate(28, 47, 2, 2); crate(26, 45.8, 1.6, 1.6);
+      // Spawn Blue
+      F(38, 48, 2, 12, '#2f7bff'); P(46, 46.6, 3, 8, 0, 1.2, GD, 'concrete'); P(38, 42, 13, 13.6, 0, 1.2, GD, 'concrete');
+      // pasaje norte y patio norte
+      crate(-19, -42, 2, 2); crate(-15.6, -45, 2, 2); cont(-17, -36, true, BL); cont(13, -45, false, OR); crate(13, -38, 2, 2); crate(20, -30, 2, 2); crate(6, -30, 2, 2); bar(-4, -28, true); bar(24, -26, true);
     }
   }
 ];
@@ -284,13 +296,60 @@ function rayCyl(o, d, cx, cz, r, y0, y1) {
   const y = o.y + d.y * t; return (y >= y0 && y <= y1) ? t : Infinity;
 }
 
+/* Nombre de la zona del mapa donde está alguien (x, y = altura de los pies, z), o '' si no está en ninguna. Usa m.areas: el primero que encaje gana. */
+function areaAt(mapIdx, x, y, z) {
+  const a = MAPS[mapIdx] && MAPS[mapIdx].areas; if (!a) return '';
+  for (let i = 0; i < a.length; i++) { const r = a[i]; if (x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1 && y >= r.y0 && y <= r.y1) return r.n; }
+  return '';
+}
+
+/* ---------- Navegación de los bots (solo por el suelo) ----------
+   Rejilla de 1 m con las celdas por las que cabe un cuerpo (radio 0,5) y campo de distancias hacia un destino (búsqueda en anchura, en caché por celda de destino).
+   Antes los bots caminaban en línea recta hacia un punto y, si chocaban, elegían otro: en un recinto con calles, puertas y túneles se quedaban pegados a las paredes. */
+const NAV8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+function buildNav(cols, half) {
+  const n = Math.floor(half * 2), free = new Uint8Array(n * n);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) free[i * n + j] = overlapAt(cols, -half + i + 0.5, 0, -half + j + 0.5, 0.5, 1.8) ? 0 : 1;
+  return { n, half, free, cache: new Map() };
+}
+function navField(nav, tx, tz) {
+  const n = nav.n, ci = Math.max(0, Math.min(n - 1, Math.floor(tx + nav.half))), cj = Math.max(0, Math.min(n - 1, Math.floor(tz + nav.half))), key = ci * n + cj;
+  const hit = nav.cache.get(key); if (hit) return hit;
+  const dist = new Int16Array(n * n).fill(-1); let s = -1;
+  for (let r = 0; r <= 3 && s < 0; r++) for (let di = -r; di <= r && s < 0; di++) for (let dj = -r; dj <= r; dj++) { const i = ci + di, j = cj + dj; if (i >= 0 && j >= 0 && i < n && j < n && nav.free[i * n + j]) { s = i * n + j; break; } }   // si el destino está ocupado, la celda libre más cercana
+  if (s >= 0) {
+    const q = new Int32Array(n * n); let qh = 0, qt = 0; dist[s] = 0; q[qt++] = s;
+    while (qh < qt) {
+      const c = q[qh++], i = (c / n) | 0, j = c % n, d = dist[c] + 1;
+      for (const [di, dj] of NAV8) {
+        const ni = i + di, nj = j + dj; if (ni < 0 || nj < 0 || ni >= n || nj >= n) continue; const nc = ni * n + nj; if (!nav.free[nc] || dist[nc] >= 0) continue;
+        if (di && dj && (!nav.free[(i + di) * n + j] || !nav.free[i * n + j + dj])) continue;   // sin cortar esquinas
+        dist[nc] = d; q[qt++] = nc;
+      }
+    }
+  }
+  nav.cache.set(key, dist); return dist;
+}
+/* Dirección unitaria [dx, dz] hacia el destino siguiendo el campo (mira 2 celdas por delante para no ir a saltos); null si no hay camino desde aquí. */
+function navDir(nav, dist, x, z) {
+  const n = nav.n; let ci = Math.max(0, Math.min(n - 1, Math.floor(x + nav.half))), cj = Math.max(0, Math.min(n - 1, Math.floor(z + nav.half))); const i0 = ci, j0 = cj;
+  let cur = dist[ci * n + cj]; if (cur === 0) return null;
+  for (let step = 0; step < 2; step++) {
+    let bi = -1, bj = -1, bd = cur < 0 ? Infinity : cur;
+    for (const [di, dj] of NAV8) { const ni = ci + di, nj = cj + dj; if (ni < 0 || nj < 0 || ni >= n || nj >= n) continue; const d = dist[ni * n + nj]; if (d >= 0 && d < bd) { bd = d; bi = ni; bj = nj; } }
+    if (bi < 0) break; ci = bi; cj = bj; cur = bd;
+  }
+  if (ci === i0 && cj === j0) return null;
+  const dx = -nav.half + ci + 0.5 - x, dz = -nav.half + cj + 0.5 - z, l = Math.hypot(dx, dz) || 1; return [dx / l, dz / l];
+}
+
 /* Construye el mundo de un mapa: colisiones y puntos de paso/aparición. */
 function buildWorld(i, onBox) {
   const m = MAPS[i], colliders = [], b = makeBuilder(onBox, colliders);
   m.build(b);
   const waypoints = [];
   for (let x = -(m.half - 4); x <= m.half - 4; x += 4) for (let z = -(m.half - 4); z <= m.half - 4; z += 4) if (!overlapAt(colliders, x, 0, z, 0.6, 1.8)) waypoints.push([x, z]);
-  return { colliders, waypoints, half: m.half, map: m };
+  return { colliders, waypoints, half: m.half, map: m, spawns: m.spawns || null, zones: m.zones || null, areas: m.areas || [], nav: buildNav(colliders, m.half) };
 }
 
 /* Economía (PX) y progreso: se comparten con el servidor, que es quien reparte y cobra en las cuentas online. */
@@ -474,7 +533,64 @@ function moveStep(p, inp, dt) {
   return out;
 }
 
-const api = { MOVE, startSlide, moveStep, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
+/* =========================================================================================================
+   [NUEVO] VIEWMODEL (el arma en primera persona): vaivén según la velocidad y transición suave al apuntar (ADS).
+   Módulo puro (sin THREE): calcula la POSICIÓN y la ROTACIÓN del arma respecto a la cámara; el motor solo las aplica (gun.position.set / gun.rotation.set).
+   - WEAPON BOBBING con ondas senoidales que dependen de la velocidad: la FASE avanza con la distancia recorrida (phase += BOB_STRIDE · velocidad · dt), así que
+     la frecuencia sube y baja con la velocidad del jugador; la AMPLITUD crece con la velocidad (hasta BOB_SPEED_REF m/s) y se suaviza al parar o al saltar.
+     Vertical = sin(2·fase) (dos pasos por ciclo), lateral = sin(fase), con un poco de ladeo y cabeceo. En el aire la fase se congela y la amplitud se apaga.
+     Al apuntar el vaivén se reduce a BOB_ADS (15 %) para que la mira no baile. Parado: una respiración muy suave.
+   - ADS: el factor `ads` (0..1) se acerca a su objetivo con un lerp exponencial independiente del framerate (ADS_RATE) y la posición del arma es
+     lerp(cadera, ADS, suavizado(ads)). La posición ADS se DERIVA del punto de mira del modelo (`sight`, en coordenadas del arma): el arma se desplaza justo lo
+     necesario para que ese punto caiga en el centro de la pantalla (0, 0 en el espacio de la cámara), a la profundidad de la cadera. Sin `sight` (armas sin mira)
+     sube ADS_FALLBACK_LIFT y se centra en X. Se puede pasar la posición ADS a mano (`ads`) o dirigir el factor desde fuera (`adsFactor`).
+   - `extra` suma desplazamientos y giros de otras animaciones (retroceso del arma, recarga, cambio de arma, deslizamiento…).
+   - viewmodelSight(pose, sight) da dónde está el punto de mira en el espacio de la cámara (en ADS y sin `extra` es (0, 0, z): sirve para comprobar la alineación).
+   Convenciones de Three.js: la cámara mira hacia −Z; y arriba; los giros son Euler 'XYZ' (Object3D por defecto). ========================================================================================================= */
+const VIEWMODEL = {
+  BOB_STRIDE: 0.75,       // rad de fase por metro recorrido (a 7,4 m/s el vaivén vertical va a ~11 rad/s)
+  BOB_SPEED_REF: 5,       // m/s a partir de los cuales el vaivén ya tiene toda su amplitud
+  BOB_Y: 0.006, BOB_X: 0.005, BOB_ROLL: 0.012, BOB_PITCH: 0.006,   // amplitudes: metros (Y, X) y radianes (ladeo, cabeceo)
+  BOB_FADE: 8,            // 1/s: con qué rapidez aparece y desaparece la amplitud al empezar o dejar de moverse
+  BOB_ADS: 0.15,          // fracción del vaivén que queda al apuntar del todo
+  IDLE_Y: 0.0015, IDLE_HZ: 0.18,   // respiración parado (metros y Hz)
+  ADS_RATE: 22,           // 1/s: velocidad del lerp hacia/desde el apuntado (≈ 0,1 s al 90 %)
+  ADS_FALLBACK_LIFT: 0.03 // armas sin mira: cuánto sube el arma al apuntar
+};
+const _vmLerp = (a, b, t) => a + (b - a) * t;
+function createViewmodel(params) {
+  const P = Object.assign({}, VIEWMODEL, params), st = { ads: 0, phase: 0, amp: 0, idleT: 0 }, pose = { px: 0, py: 0, pz: 0, rx: 0, ry: 0, rz: 0, ads: 0 };
+  /* dt en s. inp: { speed (m/s horizontal), onGround, adsTarget (bool) | adsFactor (0..1, lo dirige el motor), hip {x,y,z}, sight {x,y,z}|null, ads {x,y,z}?, extra {px,py,pz,rx,ry,rz}? }
+     Devuelve (y reutiliza) el objeto `pose`: { px, py, pz, rx, ry, rz, ads } */
+  function update(dt, inp) {
+    const hip = inp.hip || { x: 0.2, y: -0.2, z: -0.35 }, ex = inp.extra || {}, target = inp.adsTarget ? 1 : 0;
+    if (inp.adsFactor != null) st.ads = Math.max(0, Math.min(1, inp.adsFactor));
+    else { st.ads += (target - st.ads) * (1 - Math.exp(-P.ADS_RATE * dt)); if (Math.abs(st.ads - target) < 1e-4) st.ads = target; }
+    const e = st.ads * st.ads * (3 - 2 * st.ads);                               // suavizado: arranca y llega despacio
+    const s = inp.sight, adsP = inp.ads || (s ? { x: -s.x, y: -s.y, z: hip.z } : { x: 0, y: hip.y + P.ADS_FALLBACK_LIFT, z: hip.z });
+    const speed = inp.onGround === false ? 0 : Math.max(0, +inp.speed || 0);
+    st.amp += (Math.min(1, speed / P.BOB_SPEED_REF) - st.amp) * (1 - Math.exp(-P.BOB_FADE * dt));
+    st.phase += P.BOB_STRIDE * speed * dt; st.idleT += dt;
+    const k = 1 - (1 - P.BOB_ADS) * e, a = st.amp * k, w1 = Math.sin(st.phase), w2 = Math.sin(2 * st.phase);
+    const idle = Math.sin(st.idleT * 2 * Math.PI * P.IDLE_HZ) * P.IDLE_Y * (1 - st.amp) * k;
+    pose.px = _vmLerp(hip.x, adsP.x, e) + w1 * P.BOB_X * a + (ex.px || 0);
+    pose.py = _vmLerp(hip.y, adsP.y, e) + w2 * P.BOB_Y * a + idle + (ex.py || 0);
+    pose.pz = _vmLerp(hip.z, adsP.z, e) + (ex.pz || 0);
+    pose.rx = Math.cos(2 * st.phase) * P.BOB_PITCH * a + (ex.rx || 0); pose.ry = ex.ry || 0; pose.rz = w1 * P.BOB_ROLL * a + (ex.rz || 0);
+    pose.ads = st.ads; return pose;
+  }
+  return { params: P, state: st, pose, update, reset() { st.ads = st.phase = st.amp = st.idleT = 0; } };
+}
+/* Dónde queda el punto de mira `sight` (coordenadas del arma) en el espacio de la cámara con esa pose. En ADS y sin `extra` es (0, 0, z): el centro de la pantalla. */
+function viewmodelSight(pose, sight) {
+  let x = sight.x, y = sight.y, z = sight.z || 0, t;
+  const cz = Math.cos(pose.rz), sz = Math.sin(pose.rz); t = x * cz - y * sz; y = x * sz + y * cz; x = t;   // Rz
+  const cy = Math.cos(pose.ry), sy = Math.sin(pose.ry); t = x * cy + z * sy; z = -x * sy + z * cy; x = t;   // Ry
+  const cx = Math.cos(pose.rx), sx = Math.sin(pose.rx); t = y * cx - z * sx; z = y * sx + z * cx; y = t;   // Rx
+  return { x: x + pose.px, y: y + pose.py, z: z + pose.pz };
+}
+
+const api = { areaAt, buildNav, navField, navDir, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
