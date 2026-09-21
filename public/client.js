@@ -954,7 +954,7 @@ const hud = $('#hud'), el = {
   ammobox: $('#ammobox'), wname: $('#wname'), wtype: $('#wtype'), wicon: $('#wicon'), mag: $('#mag'), magmax: $('#magmax'), pips: $('#pips'),
   reload: $('#amReload'), reloadBar: $('#amReloadBar'), reloadmsg: $('#reloadmsg'),
   board: $('#board'), boardRows: $('#boardRows'),
-  death: $('#death'), deathBy: $('#deathBy'), deathCount: $('#deathCount'), deathPick: $('#deathPick')
+  death: $('#death'), deathBy: $('#deathBy'), deathCount: $('#deathCount')
 };
 const _aimV = new THREE.Vector3();
 let toastT = 0, hitT = 0, vigT = 0, dirT = 0, fpsAcc = 0, fpsN = 0, aimTick = 0;
@@ -1104,6 +1104,7 @@ function kill(victim, attacker, head, weaponName) {
     const pts = 100 + (head ? 50 : 0); attacker.points += pts; if (head) attacker.hs++;
     if (attacker === player) {
       sfx.kill(); hitmark('kill');
+      botCash += S.CONST.SHOP_KILL_CASH; renderDeathPick();   // [NUEVO] recompensa de la tienda de armas
       killPopup(victim.name, pts, head, attacker.streak);
     }
     feedAdd(attacker, victim, weaponName, head);
@@ -1119,9 +1120,32 @@ function kill(victim, attacker, head, weaponName) {
   updateHudSlow();
   if (attacker && attacker !== victim && !online && teamKills(attacker.team) >= teamLimit) endMatch();
 }
-let deathLook = null;
+let deathLook = null, botCash = S.CONST.SHOP_START_CASH;   // [NUEVO] tienda de armas: dinero del jugador en el modo entrenamiento (sin servidor)
+/* [NUEVO] Tienda de armas de la pantalla de reaparición: 8 tarjetas (S.SHOP) con precio en Cash, estadísticas y compra; el resto de armas se elige gratis con 1–9, como antes. */
+function curCash() { return online ? (net.cash || 0) : botCash; }
 function renderDeathPick() {
-  el.deathPick.innerHTML = WEAPONS.map((w, i) => '<span class="' + (i === cfg.cls ? 'sel' : '') + '">' + (i + 1) + ' · ' + w.name + '</span>').join('');
+  const cash = curCash(); $('#shopCashN').textContent = cash.toLocaleString('es-ES');
+  $('#shopGrid').innerHTML = S.SHOP.map((item, si) => {
+    const w = WEAPONS[item.wi], st = S.shopStats(w), owned = item.wi === cfg.cls, afford = cash >= item.price;
+    return '<div class="wcard ' + (owned ? 'owned' : afford ? '' : 'locked') + '" role="listitem">' +
+      '<div class="wpic">' + (WICON[w.name] || '') + '</div>' +
+      '<div class="wname"><b>' + esc(w.name) + '</b><em>$' + item.price.toLocaleString('es-ES') + '</em></div>' +
+      '<div class="wtype">' + esc(w.type) + '</div>' +
+      '<div class="wstats"><span>DMG <b>' + st.dmg + '</b></span><span>RPM <b>' + st.rpm + '</b></span><span>RNG <b>' + st.rng + '</b></span><span>ACC <b>' + st.acc + '%</b></span></div>' +
+      '<button type="button" data-si="' + si + '" ' + (owned || !afford ? 'disabled' : '') + '>' + (owned ? 'Equipada' : 'Purchase') + '</button></div>';   // [CORREGIDO] sin dinero suficiente también se deshabilita, no solo si ya está equipada
+  }).join('');
+}
+/* Compra (o, si el arma no está en la tienda, cambio gratis como antes): equipa el arma elegida para el próximo respawn. */
+/* [NUEVO] si = índice en S.SHOP. Es la ÚNICA forma de cambiar de arma tras morir: se paga con el Cash de la partida. */
+function buy(si) {
+  const item = S.SHOP[si]; if (!item || item.wi === cfg.cls) return;
+  if (online) { netSend({ t: 'buy', i: si }); return; }   // el servidor valida el precio y confirma
+  if (botCash < item.price) { toast('No te alcanza el dinero.'); return; }
+  botCash -= item.price; selectClass(item.wi); renderDeathPick();
+}
+function onNetBuy(m) {
+  if (!m.ok) { if (Number.isFinite(m.cash)) net.cash = m.cash; toast(m.reason === 'cash' ? 'No te alcanza el dinero.' : 'Compra no válida.'); renderDeathPick(); return; }
+  net.cash = m.cash; selectClass(m.wi); renderDeathPick();
 }
 
 function pickSpawn(f) {
@@ -1204,9 +1228,9 @@ function updatePlayer(dt) {
   if (!p.alive) {
     resetGameFeel();   // [NUEVO] al morir se quita el retroceso y el FOV extra
     knifeT = 0; pendingMelee = 0; knifeG.visible = false; slot = 0; slotK = 0; slashT = 0;   // [NUEVO] al morir se suelta el cuchillo
-    if (online) el.deathCount.textContent = 'Reapareces en ' + Math.max(1, Math.ceil((net.respawnAt - performance.now()) / 1000)) + ' s. Pulsa 1–9 para cambiar de clase.';
+    if (online) el.deathCount.textContent = 'Reapareces en ' + Math.max(1, Math.ceil((net.respawnAt - performance.now()) / 1000)) + ' s.';   // [CORREGIDO] ya no se cambia de arma con 1-9: ahora es la tienda
     else if (simTime >= p.respawnAt) respawn(p);
-    else el.deathCount.textContent = 'Reapareces en ' + Math.ceil(p.respawnAt - simTime) + ' s. Pulsa 1–9 para cambiar de clase.';
+    else el.deathCount.textContent = 'Reapareces en ' + Math.ceil(p.respawnAt - simTime) + ' s.';   // [CORREGIDO] ya no se cambia de arma con 1-9: ahora es la tienda
     return;
   }
   // regeneración (en línea la calcula el servidor)
@@ -1395,7 +1419,7 @@ const BASE = location.pathname.replace(/[^/]*$/, '');
 const CFG_SERVER = window.VOLT_CONFIG && window.VOLT_CONFIG.server ? String(window.VOLT_CONFIG.server).replace(/\/+$/, '') : '';
 const apiUrl = p => (CFG_SERVER ? CFG_SERVER + '/' : BASE) + p;
 const wsUrl = () => (CFG_SERVER ? CFG_SERVER.replace(/^http/, 'ws') + '/ws' : (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + BASE + 'ws');
-const net = { tk: null, ws: null, id: null, ep: 0, ping: 0, sendAcc: 0, pingAcc: 0, respawnAt: 0, wait: false, endAt: 0, joined: false, timer: 0, remotes: new Map(), endTxt: '' };
+const net = { tk: null, ws: null, id: null, ep: 0, ping: 0, sendAcc: 0, pingAcc: 0, respawnAt: 0, wait: false, endAt: 0, joined: false, timer: 0, remotes: new Map(), endTxt: '', cash: S.CONST.SHOP_START_CASH };   // [NUEVO] cash: dinero de la tienda de armas
 const INTERP = 100;
 const r3 = v => Math.round(v * 1000) / 1000;
 const wrapAng = a => { while (a > Math.PI) a -= TAU; while (a < -Math.PI) a += TAU; return a; };
@@ -1547,6 +1571,8 @@ function netHandle(m) {
     case 'bpxp': return window.PPR_BP.onXp && window.PPR_BP.onXp(m);
     case 'votes': endVote.counts = m.v; return renderEndMaps();
     case 'map': buildMap(m.map); return;
+    case 'cash': net.cash = m.cash; renderDeathPick(); return;   // [NUEVO] tienda de armas: dinero actualizado (reinicio de ronda)
+    case 'buy': return onNetBuy(m);   // [NUEVO] tienda de armas: resultado de una compra
     case 'err': if (!net.joined) return netFail(m.m || 'Error del servidor.'); leaveToMenu(); return setNetMsg(m.m || 'Error del servidor.');
   }
 }
@@ -1554,6 +1580,7 @@ function onWelcome(m) {
   clearTimeout(net.timer); net.joined = true; net.tries = 0; net.id = m.id; setNetMsg('');
   { const ec = $('#endCr'), er = $('#endRank'); if (ec) ec.hidden = true; if (er) er.hidden = true; }
   net.mode = S.MODES[m.mode] ? m.mode : 'duelo'; net.ranked = !!m.rk; net.zone = m.zone || null; net.gl = 0; net.rank = null; net.spec = !!m.spec;   // [NUEVO] modo de la sala
+  net.cash = Number.isFinite(m.cash) ? m.cash : S.CONST.SHOP_START_CASH;   // [NUEVO] tienda de armas
   if (curMap !== m.map) buildMap(m.map);
   clearFighters();
   if (m.spec) {   // espectador: sin jugador propio; la cámara sigue a los demás
@@ -1634,7 +1661,7 @@ function onNetShot(m) {
 }
 function onNetHit(m) {
   dmgNumber(m.d, !!m.h, !!m.k);
-  if (m.k) { hitmark('kill'); return; }
+  if (m.k) { if (Number.isFinite(m.cash)) { net.cash = m.cash; renderDeathPick(); } hitmark('kill'); return; }   // [NUEVO] tienda de armas: dinero por la baja
   hitmark(m.h ? 'head' : 'hit'); (m.h ? sfx.head : sfx.hit)();
 }
 function onNetHurt(m) {
@@ -1794,6 +1821,7 @@ function clearFighters() {
 function startMatch() {
   if (!renderer) return;
   online = false; netDisconnect(); lobbyClose();
+  botCash = S.CONST.SHOP_START_CASH;   // [NUEVO] tienda de armas: dinero de la partida
   if (curMap !== cfg.map) buildMap(cfg.map);   // p. ej. tras elegir otro mapa en la pantalla final
   initAudio();
   clearFighters();
@@ -2250,6 +2278,11 @@ function initMenu() {
   /* Inicio: cajón de equipamiento, noticia del mapa y acceso al Pase */
   const closeEq = () => document.body.classList.remove('eqopen');
   $('#eqOpen').addEventListener('click', () => document.body.classList.add('eqopen'));
+  /* [NUEVO] Tienda de armas de la pantalla de reaparición */
+  $('#shopToggle').addEventListener('click', () => $('#shop').classList.toggle('off'));
+  $('#shopBack').addEventListener('click', () => $('#shop').classList.add('off'));
+  $('#shopGrid').addEventListener('click', e => { const b = e.target.closest('button[data-si]'); if (b && !b.disabled) buy(+b.dataset.si); });
+  $('#shopGo').addEventListener('click', () => { if (!online && player && !player.alive) player.respawnAt = simTime; });   // entrenamiento: reaparece ya; online: el servidor manda el tiempo
   $('#eqClose').addEventListener('click', closeEq);
   window.addEventListener('keydown', e => { if (e.key === 'Escape') closeEq(); });
   ['#play', '#playOnline'].forEach(id => $(id).addEventListener('click', closeEq, true));
@@ -2369,8 +2402,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Digit1') setSlot(0); else if (e.code === 'Digit2' || e.code === 'Digit3') setSlot(1); else if (e.code === 'KeyQ') setSlot(1 - slot);   // [NUEVO] 1 = arma, 2 = cuchillo, Q = alternar
   if (e.code === 'KeyC' && player.alive && S.startSlide(player)) sfx.slide();   // [NUEVO] agacharse en marcha = deslizarse (reglas en S.MOVE)
   if (e.code === 'KeyB' && player.alive) cycleOptic();
-  const m = /^Digit([1-9])$/.exec(e.code);
-  if (m && !player.alive) { selectClass(+m[1] - 1); renderDeathPick(); if (online) netSend({ t: 'cls', c: +m[1] - 1 }); }
+  // [NUEVO] el arma para el próximo respawn se elige y se paga en la tienda (#shop); ya no se cambia gratis con 1-9 al morir.
   if (e.code === 'KeyV') playerMelee();
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Tab') el.board.hidden = true; });

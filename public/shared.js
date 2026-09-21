@@ -4,7 +4,7 @@
 'use strict';
 const TAU = Math.PI * 2;
 /* [AJUSTE estilo Krunker] Más velocidad, salto más seco y gravedad mayor (menos tiempo en el aire). El servidor vigila la velocidad con MOVE.MAX_H (15,5 m/s): el bunny hop llega a ~11 m/s, el deslizamiento a ~12,4 y un slide hop a ~14,9. */
-const CONST = { WALK: 7.4, SPRINT: 8.8, CROUCH: 4.2, JUMP: 8.6, GRAV: 27, STEP: 0.55, MATCH_TIME: 180, KILL_LIMIT: 25, RESPAWN: 3 };
+const CONST = { WALK: 7.4, SPRINT: 8.8, CROUCH: 4.2, JUMP: 8.6, GRAV: 27, STEP: 0.55, MATCH_TIME: 180, KILL_LIMIT: 25, RESPAWN: 3, SHOP_START_CASH: 800, SHOP_KILL_CASH: 350 };   // [NUEVO] economía de la tienda de armas
 
 const WEAPONS = [
   { id: 'asalto', name: 'Asalto', type: 'Fusil de asalto', desc: 'Equilibrado y fiable a cualquier distancia.', dmg: 20, interval: 0.1, mag: 30, reload: 1.7, spread: 0.011, pellets: 1, range: 130, kick: 0.006, fall: null, aimFov: 0.78, speed: 1, stats: [3, 4, 4], col: '#ff5a5f', size: [0.07, 0.1, 0.5], look: { mag: [0.05, 0.16, 0.08, -0.3], barrel: 0.5 }, optics: ['punto', 'hierro'] },
@@ -444,6 +444,18 @@ const MARKET = { FEE: 0.10, MAX_LISTINGS: 8, MAX_PRICE: 1000000, MIN_PRICE: { co
 
 /* ---------- [NUEVO] Modos de juego, clasificatorio y ligas ----------
    Todos los modos son por equipos (azul / rojo, sin fuego amigo). «duelo» es el modo de siempre. */
+/* [NUEVO] Tienda de armas de la pantalla de reaparición: 8 armas con precio en Cash (dinero de partida que se reinicia cada ronda; se gana matando).
+   wi = índice en WEAPONS; price = precio en Cash. Se usan armas ya existentes del juego (no se añaden modelos nuevos). */
+const SHOP = ['asalto', 'centinela', 'lince', 'trueno', 'rafaga', 'vortice', 'precision', 'sheriff'].map((id, i) => ({
+  wi: WEAPONS.findIndex(w => w.id === id), price: [1200, 1450, 2100, 950, 1100, 1300, 400, 650][i]
+}));
+/* Estadísticas de la tarjeta de la tienda (DMG · RPM · RNG · ACC), derivadas de los números reales del arma. */
+function shopStats(w) {
+  const rpm = Math.round(60 / w.interval), acc = Math.max(40, Math.min(97, Math.round(100 - (w.scopedSpread != null ? w.scopedSpread : w.spread) * 1000)));
+  const rng = Math.max(1, Math.min(99, Math.round(w.range / 2)));
+  return { dmg: w.dmg, rpm, acc, rng };
+}
+
 const MODES = {
   duelo:     { id: 'duelo',     name: 'Duelo por equipos', short: 'DUELO',    desc: 'El clásico: gana el equipo que llegue antes al límite de bajas.', guns: true },
   zona:      { id: 'zona',      name: 'Capturar zona',     short: 'ZONA',     desc: 'Una zona cambia de sitio cada 50 s. Suma puntos el equipo que la controla en solitario.', guns: true },
@@ -590,7 +602,7 @@ function viewmodelSight(pose, sight) {
   return { x: x + pose.px, y: y + pose.py, z: z + pose.pz };
 }
 
-const api = { areaAt, buildNav, navField, navDir, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
+const api = { areaAt, buildNav, navField, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

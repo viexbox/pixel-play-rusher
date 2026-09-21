@@ -128,6 +128,7 @@ class Player {
     this.hp = 100; this.alive = false; this.ep = 0;
     this.kills = 0; this.deaths = 0; this.points = 0; this.hs = 0; this.streak = 0; this.bestStreak = 0; this.acctUser = null; this.team = 0;
     this.protectUntil = 0; this.respawnAt = 0; this.lastHit = 0; this.lastSt = 0;
+    this.cash = S.CONST.SHOP_START_CASH;   // [NUEVO] tienda de armas: dinero de partida, se reinicia cada ronda y se gana matando
     this.ammo = 0; this.reloadUntil = 0; this.nextFire = 0; this.nextMelee = 0;
     this.hist = []; this.ping = 60; this.joinedAt = Date.now(); this.room = null; this.gl = 0; this.mmr = 0;   // gl: nivel en la Carrera de armas · mmr: puntuación clasificatoria
   }
@@ -286,7 +287,7 @@ class Room {
   }
   add(p) {
     p.room = this; this.assignTeam(p); this.players.set(p.id, p); this.noteLone();
-    p.send(JSON.stringify({ t: 'welcome', v: PROTOCOL, id: p.id, n: p.name, rl: p.role || 0, tm: p.team, lim: this.limit(), mode: this.mode, rk: this.ranked ? 1 : 0, zone: this.zoneMsg(), tk: this.tk, room: this.id, map: this.map, tl: r3(this.tl), phase: this.phase, players: [...this.players.values()].filter(o => o !== p).map(o => o.pub()) }));
+    p.send(JSON.stringify({ t: 'welcome', v: PROTOCOL, id: p.id, n: p.name, rl: p.role || 0, tm: p.team, lim: this.limit(), mode: this.mode, rk: this.ranked ? 1 : 0, zone: this.zoneMsg(), tk: this.tk, room: this.id, map: this.map, cash: p.cash, shop: S.SHOP, tl: r3(this.tl), phase: this.phase, players: [...this.players.values()].filter(o => o !== p).map(o => o.pub()) }));
     this.broadcast({ t: 'join', p: p.pub() }, p);
     this.spawn(p, Date.now(), 1500);
     this.sendBoard();
@@ -381,7 +382,7 @@ class Room {
     const votes = this.tally(), top = Math.max(...votes);          // el mapa más votado gana; en empate, al azar entre los empatados
     if (top > 0) { const win = votes.map((n, i) => (n === top ? i : -1)).filter(i => i >= 0), pick = win[Math.floor(Math.random() * win.length)]; if (pick !== this.map) { this.map = pick; this.world = worlds[pick]; this.broadcast({ t: 'map', map: pick }); } }
     this.phase = 'play'; this.tl = MATCH_TIME; this.tk = [0, 0]; this.zs = [0, 0]; this.newZone(now, true); this.rebalance();
-    for (const p of this.players.values()) { p.kills = p.deaths = p.points = p.hs = p.streak = p.bestStreak = 0; p.gl = 0; p.zt = 0; p.alive = false; p.roundStart = now; }
+    for (const p of this.players.values()) { p.kills = p.deaths = p.points = p.hs = p.streak = p.bestStreak = 0; p.gl = 0; p.zt = 0; p.alive = false; p.roundStart = now; p.cash = S.CONST.SHOP_START_CASH; p.send(JSON.stringify({ t: 'cash', cash: p.cash })); }
     this.broadcast({ t: 'round', tl: MATCH_TIME, lim: this.limit(), zone: this.zoneMsg(), nb: this.botCount() });
     for (const p of this.players.values()) this.spawn(p, now, 4000);
     this.sendBoard();
@@ -404,7 +405,8 @@ class Room {
     if (!v.alive || this.phase !== 'play' || v.team === a.team) return;
     v.hp -= amount; v.lastHit = now;
     const killed = v.hp <= 0;
-    a.send(JSON.stringify({ t: 'hit', v: v.id, h: head ? 1 : 0, d: amount, k: killed ? 1 : 0 }));
+    if (killed) a.cash += S.CONST.SHOP_KILL_CASH;   // [NUEVO] recompensa de la tienda de armas por cada baja
+    a.send(JSON.stringify({ t: 'hit', v: v.id, h: head ? 1 : 0, d: amount, k: killed ? 1 : 0, cash: killed ? a.cash : undefined }));
     v.send(JSON.stringify({ t: 'hurt', hp: Math.max(0, Math.round(v.hp)), d: Math.round(amount), ax: r3(a.x), az: r3(a.z) }));   // [NUEVO] d = daño recibido (para la viñeta y la sacudida)
     if (!killed) return;
     v.alive = false; v.hp = 0; v.deaths++; v.streak = 0; v.respawnAt = now + RESPAWN_MS;
@@ -758,6 +760,13 @@ function onMessage(ws, m, now) {
     case 'report': { const r = admin.makeReport({ player: p, name: p.name, nameKey: p.nameKey, ipKey: p.ipKey }, m); return p.send(JSON.stringify({ t: 'reportok', ok: r.ok, m: r.ok ? 'Reporte enviado. Gracias por avisar.' : r.error })); }
     case 'vote': { if (room.phase !== 'break' || !Number.isInteger(m.m) || m.m < 0 || m.m >= S.MAPS.length) return; room.votes.set(p.id, m.m); return room.broadcast({ t: 'votes', v: room.tally() }); }
     case 'cls': if (Number.isInteger(m.c) && m.c >= 0 && m.c < S.WEAPONS.length) p.nextCls = m.c; return;
+    case 'buy': {   // [NUEVO] tienda de armas de la pantalla de reaparición
+      const item = S.SHOP[m.i];
+      if (!Number.isInteger(m.i) || !item) return p.send(JSON.stringify({ t: 'buy', ok: false, i: m.i, reason: 'weapon' }));
+      if (p.cash < item.price) return p.send(JSON.stringify({ t: 'buy', ok: false, i: m.i, reason: 'cash', cash: p.cash }));
+      p.cash -= item.price; p.nextCls = item.wi;
+      return p.send(JSON.stringify({ t: 'buy', ok: true, i: m.i, wi: item.wi, cash: p.cash }));
+    }
     case 'ping':
       if (Number.isFinite(m.rtt)) p.ping = clamp(m.rtt, 0, 1000);
       return p.send(JSON.stringify({ t: 'pong', ts: m.ts }));

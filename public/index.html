@@ -497,12 +497,43 @@ body.playing .chatrow:focus-within{opacity:1}
 #board .tbl td.pos{font-family:var(--hudf);font-style:italic;font-weight:900}
 #board .tbl tr.me td{background:rgba(255,220,58,.16);color:var(--volt)}
 #board .tbl tr.first td.pos{color:var(--volt)}
-#death{position:absolute;left:50%;top:30%;transform:translate(-50%,-50%);min-width:min(470px,92vw);text-align:center;padding:16px 28px 14px;background:linear-gradient(180deg,rgba(100,8,26,.9),rgba(22,6,18,.9));border-top:3px solid var(--red)}
-#death h2{font-size:clamp(28px,3.4vw,40px);font-style:italic;font-weight:900;letter-spacing:.1em;color:var(--red);text-transform:uppercase}
-#death p{font-size:17px;margin-top:4px;letter-spacing:.04em}
-#death .pick{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:12px auto 0;max-width:520px}
-#death .pick span{padding:3px 9px;background:rgba(255,255,255,.1);font-size:12px;font-weight:700;letter-spacing:.08em;border-bottom:2px solid transparent}
-#death .pick span.sel{border-bottom-color:var(--volt);color:var(--volt)}
+/* ---------- Pantalla de muerte: cabecera + tienda de armas (Cash) ---------- */
+#death{position:absolute;left:50%;top:8%;transform:translateX(-50%);width:min(900px,94vw);max-height:86vh;overflow:auto;text-align:left;padding:0 0 14px}
+#deathHead{text-align:center;padding:14px 20px 10px}
+#deathHead h2{font-size:clamp(24px,3vw,34px);font-style:italic;font-weight:900;letter-spacing:.1em;color:var(--red);text-transform:uppercase;margin:0}
+#deathHead p{font-size:15px;margin-top:4px;letter-spacing:.04em}
+#shopToggle{display:block;margin:10px auto 0;padding:5px 16px;background:rgba(255,255,255,.08);border:2px solid var(--ice);color:#fff;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+#shopToggle:hover{background:var(--ice);color:#04202a}
+#shop{margin:12px 14px 0;background:linear-gradient(180deg,rgba(6,14,26,.97),rgba(4,9,18,.97));border:2px solid var(--ice);box-shadow:0 0 0 1px #000,0 0 34px -6px rgba(56,228,255,.6)}
+#shop.off{display:none}
+#shopBar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 18px;background:linear-gradient(100deg,#eef4fb 0 46%,var(--ice) 46% 54%,#0a1622 54%);clip-path:polygon(0 0,100% 0,96% 100%,0 100%)}
+#shopBar b{font-family:var(--pix);font-size:15px;letter-spacing:.04em;color:#0a1622}
+#shopCash{display:flex;align-items:center;gap:6px;padding:4px 12px;background:#0a1622;border:2px solid var(--ok);color:var(--ok);font-family:var(--pix);font-size:14px}
+#shopGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:14px}
+.wcard{display:flex;flex-direction:column;gap:6px;padding:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.16)}
+.wcard .wpic{height:52px;display:flex;align-items:center;justify-content:center;opacity:.9}
+.wcard .wname{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.wcard .wname b{font-size:14px;font-weight:900;letter-spacing:.02em;text-transform:uppercase}
+.wcard .wname em{font-style:normal;font-weight:900;color:var(--ok);font-size:13px;white-space:nowrap}
+.wcard .wtype{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#93a3bf;margin-top:-4px}
+.wcard .wstats{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;font-size:11px;color:#c7d2e6}
+.wcard .wstats span{display:flex;justify-content:space-between}
+.wcard .wstats span b{color:#fff;font-weight:800}
+.wcard button{margin-top:2px;height:32px;background:transparent;border:2px solid var(--ice);color:var(--ice);font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.wcard button:hover:not([disabled]){background:var(--ice);color:#04202a}
+.wcard.owned{border-color:var(--volt)}
+.wcard.owned button{border-color:var(--volt);color:var(--volt);background:rgba(255,220,58,.12)}
+.wcard.owned button:hover{background:var(--volt);color:#241900}
+.wcard.locked{opacity:.45}
+.wcard.locked button{border-color:#546077;color:#8494b0;cursor:not-allowed}
+#shopFoot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px 16px}
+#shopFoot button{height:38px;padding:0 22px;font-size:13px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,255,255,.05)}
+#shopBack{border:2px solid var(--red);color:var(--red)}
+#shopBack:hover{background:var(--red);color:#210007}
+#shopGo{border:2px solid var(--ok);color:var(--ok)}
+#shopGo:hover:not([disabled]){background:var(--ok);color:#031c10}
+#shopGo[disabled]{border-color:#3a4256;color:#5b6579;cursor:default}
+@media (max-width:760px){#shopGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:1180px){#hudStats{width:210px}#hudStats .hs-row span:first-child{display:none}.mb-side{min-width:96px;padding:8px 12px}#timer{font-size:28px}.mb-center{padding:7px 18px 10px;min-width:130px}}
 @media (prefers-reduced-motion:reduce){#hud *{animation:none!important}}
 
@@ -833,7 +864,17 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
   </div>
 
   <div id="board" hidden><h2>Clasificación de la partida</h2><table class="tbl"><thead><tr><th>#</th><th>Jugador</th><th class="r">Bajas</th><th class="r">Muertes</th><th class="r">Puntos</th></tr></thead><tbody id="boardRows"></tbody></table></div>
-  <div id="death" hidden><h2>Eliminado</h2><p id="deathBy"></p><p id="deathCount"></p><div class="pick" id="deathPick"></div></div>
+  <div id="death" hidden>
+    <div id="deathHead"><h2>Eliminado</h2><p id="deathBy"></p><p id="deathCount"></p><button type="button" id="shopToggle">Tienda de armas</button></div>
+    <div id="shop">
+      <div id="shopBar"><b>WEAPON SHOP</b><div id="shopCash"><span aria-hidden="true">$</span><span id="shopCashN">0</span></div></div>
+      <div id="shopGrid" role="list" aria-label="Armas en venta"></div>
+      <div id="shopFoot">
+        <button type="button" id="shopBack">Back</button>
+        <button type="button" id="shopGo">Reaparecer</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Pantalla de inicio (lobby) -->
