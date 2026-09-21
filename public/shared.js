@@ -3,7 +3,7 @@
 (function (root) {
 'use strict';
 const TAU = Math.PI * 2;
-/* [AJUSTE estilo Krunker] Más velocidad, salto más seco y gravedad mayor (menos tiempo en el aire). El servidor tolera hasta 13 m/s en horizontal: con el bunny hop máximo se llega a ~11 m/s y el deslizamiento a ~12,4. */
+/* [AJUSTE estilo Krunker] Más velocidad, salto más seco y gravedad mayor (menos tiempo en el aire). El servidor vigila la velocidad con MOVE.MAX_H (15,5 m/s): el bunny hop llega a ~11 m/s, el deslizamiento a ~12,4 y un slide hop a ~14,9. */
 const CONST = { WALK: 7.4, SPRINT: 8.8, CROUCH: 4.2, JUMP: 8.6, GRAV: 27, STEP: 0.55, MATCH_TIME: 180, KILL_LIMIT: 25, RESPAWN: 3 };
 
 const WEAPONS = [
@@ -405,7 +405,76 @@ const LEAGUES = [
 const leagueIdx = mmr => { let i = 0; LEAGUES.forEach((l, k) => { if (mmr >= l.min) i = k; }); return i; };
 const RANKED = { START: 1000, MIN_GAMES: 5, K: 24, K_PLACE: 32, PLACEMENT: 10, LEAVE_PENALTY: 15, MIN_TEAM: 1 };   // partidas mínimas para premio, K de Elo, penalización por abandonar
 
-const api = { COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
+/* =========================================================================================================
+   [NUEVO] MOVIMIENTO: deslizamiento y slide hop al estilo Krunker (+ «coyote time» y buffer de salto).
+   Toda la lógica de velocidad, deslizamiento y salto vive aquí, en funciones puras que usan el cliente, las pruebas y el servidor (para el tope de velocidad).
+   - FRICCIÓN: en suelo, sin deslizar, la velocidad se ajusta a la deseada a GROUND_ACCEL (95 m/s²: casi instantáneo, es decir, MUCHA fricción). Al deslizarse
+     la fricción baja unas 15 veces (≈ 6 m/s² a 12 m/s): solo un rozamiento suave (SLIDE_DRAG, exponencial), y no se puede corregir el rumbo.
+   - SLIDE HOP: saltar durante el deslizamiento, o hasta SLIDE_GRACE s después de que acabe (aunque el suelo ya no lo frene), MANTIENE el vector de velocidad horizontal
+     y lo multiplica por SLIDE_JUMP (impulso), con tope MAX_H. En el aire de ese salto apenas hay rozamiento (AIR_DRAG) y se puede girar sin perder velocidad (AIR_TURN).
+   - COYOTE: se puede saltar hasta COYOTE s después de salir de un borde; el buffer guarda la pulsación JUMP_BUF s antes de aterrizar.
+   MAX_H es también el tope que usa el servidor para vigilar la velocidad (movimiento imposible). ========================================================================================================= */
+const MOVE = {
+  GROUND_ACCEL: 95, AIR_ACCEL: 24,                          // aceleración de suelo (mucha fricción) y de aire
+  SLIDE_MIN: 5, SLIDE_BOOST: 1.35, SLIDE_V0: 11, SLIDE_V1: 12.4, SLIDE_TIME: 0.95, SLIDE_CD: 0.9, SLIDE_END: 3.2,   // entrada al deslizamiento
+  SLIDE_DRAG: 0.6,                                          // rozamiento del deslizamiento (1/s): ×0,57 en 0,95 s
+  SLIDE_GRACE: 0.22, SLIDE_JUMP: 1.2, MAX_H: 15.5,          // salto al final del deslizamiento, multiplicador de impulso y tope de velocidad horizontal
+  AIR_DRAG: 0.08, AIR_TURN: 2.6,                            // aire tras un slide hop: rozamiento (1/s) y giro máximo (rad/s)
+  COYOTE: 0.1, JUMP_BUF: 0.12,                              // «coyote time» y buffer de salto (s)
+  HOP_MAX: 1.25, HOP_STEP: 0.05, HOP_DECAY: 0.8             // bunny hop normal
+};
+/* Empieza un deslizamiento si se puede (en suelo, corriendo y sin espera). No reduce nunca la velocidad que ya llevas. Devuelve true si empezó. */
+function startSlide(p) {
+  const M = MOVE, s = Math.hypot(p.vel.x, p.vel.z);
+  if (!p.onGround || (p.slideCd || 0) > 0 || p.slide > 0 || s <= M.SLIDE_MIN) return false;
+  const v = Math.min(M.MAX_H, Math.max(s, Math.min(M.SLIDE_V1, Math.max(s * M.SLIDE_BOOST, M.SLIDE_V0))));
+  p.vel.x *= v / s; p.vel.z *= v / s; p.slide = M.SLIDE_TIME; p.slideCd = M.SLIDE_CD; p.slideGrace = 0; p.slideSpeed = v; p.slideHop = false;
+  return true;
+}
+/* Un paso de velocidad, deslizamiento y salto. p: { vel, onGround, slide, slideCd, slideGrace, slideSpeed, slideHop, jumpBuf, coyote, groundT, hop, jumping }
+   inp: { wx, wz (dirección deseada normalizada), fwd, str (−1..1), speed (velocidad objetivo ya con modificadores), jump (Espacio pulsado) }
+   No mueve la posición (eso lo hace moveEntity). Devuelve { jumped, slideJump }. */
+function moveStep(p, inp, dt) {
+  const M = MOVE, out = { jumped: false, slideJump: false }, hs = () => Math.hypot(p.vel.x, p.vel.z);
+  p.slideCd = Math.max(0, (p.slideCd || 0) - dt); p.slideGrace = Math.max(0, (p.slideGrace || 0) - dt);
+  if (p.onGround && p.slide <= 0 && !(p.slideGrace > 0)) p.slideHop = false;   // al aterrizar se acaba el impulso de aire
+  if (p.slide > 0) {   // deslizándose: poco rozamiento y sin control del rumbo
+    const k = Math.exp(-M.SLIDE_DRAG * dt); p.vel.x *= k; p.vel.z *= k; p.slide -= dt;
+    const sp = hs(); p.slideSpeed = sp;
+    if (!p.onGround) { p.slide = 0; if (sp > M.SLIDE_END) { p.slideGrace = M.SLIDE_GRACE; p.slideHop = true; } }   // se sale por un borde: conserva el impulso en el aire
+    else if (sp < M.SLIDE_END) p.slide = 0;                                                                        // ya casi parado
+    else if (p.slide <= 0) { p.slide = 0; p.slideGrace = M.SLIDE_GRACE; }                                         // fin del deslizamiento: margen para saltar con impulso
+  } else if (p.slideGrace > 0 && p.onGround) {   // margen final: el suelo sigue sin frenar del todo
+    const k = Math.exp(-M.SLIDE_DRAG * dt); p.vel.x *= k; p.vel.z *= k;
+  } else if (!p.onGround && p.slideHop) {        // aire de un slide hop: mantiene el vector de velocidad y solo permite girarlo
+    const k = Math.exp(-M.AIR_DRAG * dt); p.vel.x *= k; p.vel.z *= k;
+    const sp = hs();
+    if ((inp.wx || inp.wz) && sp > 0.01) {
+      const a = Math.atan2(p.vel.z, p.vel.x), b = Math.atan2(inp.wz, inp.wx); let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+      const t = Math.max(-M.AIR_TURN * dt, Math.min(M.AIR_TURN * dt, d)); p.vel.x = Math.cos(a + t) * sp; p.vel.z = Math.sin(a + t) * sp;
+    }
+  } else {               // movimiento normal: la velocidad se ajusta a la deseada (en suelo casi al instante = mucha fricción)
+    const acc = p.onGround ? M.GROUND_ACCEL : M.AIR_ACCEL, lim = acc * dt;
+    p.vel.x += Math.max(-lim, Math.min(lim, inp.wx * inp.speed - p.vel.x)); p.vel.z += Math.max(-lim, Math.min(lim, inp.wz * inp.speed - p.vel.z));
+  }
+  /* Salto: buffer, coyote time, slide hop y bunny hop */
+  p.jumpBuf = inp.jump ? M.JUMP_BUF : Math.max(0, (p.jumpBuf || 0) - dt);
+  if (p.onGround) { p.coyote = M.COYOTE; p.groundT = (p.groundT || 0) + dt; } else { p.coyote = Math.max(0, (p.coyote || 0) - dt); p.groundT = 0; }
+  if (p.onGround && p.groundT > 0.3) p.hop = Math.max(1, (p.hop || 1) - dt * M.HOP_DECAY);
+  if (p.jumpBuf > 0 && (p.onGround || p.coyote > 0) && p.vel.y <= 0.5 && !p.jumping) {
+    const sp = hs();
+    if (p.slide > 0 || p.slideGrace > 0) {
+      const base = p.slide > 0 ? sp : Math.max(sp, p.slideSpeed || 0);       // en el margen final cuenta la velocidad que llevaba al acabar
+      if (sp > 0.3) { const k = Math.min(M.MAX_H, Math.max(base, base * M.SLIDE_JUMP)) / sp; p.vel.x *= k; p.vel.z *= k; }   // MISMA dirección, más velocidad
+      p.slideHop = true; out.slideJump = true;
+    } else if (p.onGround && p.groundT < 0.2 && (inp.fwd !== 0 || inp.str !== 0)) p.hop = Math.min(M.HOP_MAX, (p.hop || 1) + M.HOP_STEP);   // bunny hop
+    p.vel.y = CONST.JUMP; p.onGround = false; p.slide = 0; p.slideGrace = 0; p.jumpBuf = 0; p.coyote = 0; p.jumping = true; out.jumped = true;
+  }
+  if (p.onGround && p.vel.y <= 0) p.jumping = false;
+  return out;
+}
+
+const api = { MOVE, startSlide, moveStep, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

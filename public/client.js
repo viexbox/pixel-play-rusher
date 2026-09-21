@@ -1114,26 +1114,8 @@ function updatePlayer(dt) {
   let speed = crouching ? CROUCH : sprint ? SPRINT : WALK;
   if (p.aim > 0.3) speed *= 0.85;   // [AJUSTE] apuntar frena menos (antes 0,72)
   speed *= w.speed * (crouching ? 1 : p.hop || 1) * (online && net.mode === 'cuchillos' ? 1.12 : 1);   // [NUEVO] a cuchillo, un poco más rápido;    // [NUEVO] p.hop = impulso acumulado del bunny hop (1 a 1,25)
-  p.slideCd = Math.max(0, (p.slideCd || 0) - dt);
-  if (p.slide > 0) { // deslizamiento: la velocidad se conserva y se va perdiendo poco a poco; se puede saltar para salir con impulso
-    const k = Math.max(0, 1 - 1.1 * dt); p.vel.x *= k; p.vel.z *= k; p.slide -= dt;
-    if (Math.hypot(p.vel.x, p.vel.z) < 3.2 || !p.onGround) p.slide = Math.min(p.slide, 0);
-  } else {
-    const acc = p.onGround ? 95 : 24;   // [AJUSTE] aceleración casi instantánea en suelo y más control en el aire (antes 60 / 14)
-    p.vel.x += clamp(wx * speed - p.vel.x, -acc * dt, acc * dt);
-    p.vel.z += clamp(wz * speed - p.vel.z, -acc * dt, acc * dt);
-  }
-  /* [NUEVO] Salto estilo Krunker: buffer de 0,12 s (si pulsas un poco antes de aterrizar, saltas al tocar el suelo), «coyote» de 0,08 s (puedes saltar justo
-     al salir de un borde) y bunny hop: mantener Espacio encadena saltos y cada salto en cuanto aterrizas suma impulso (hasta ×1,25 la velocidad; se pierde al pisar suelo). */
-  p.jumpBuf = keys.Space ? 0.12 : Math.max(0, (p.jumpBuf || 0) - dt);
-  if (p.onGround) { p.coyote = 0.08; p.groundT = (p.groundT || 0) + dt; } else { p.coyote = Math.max(0, (p.coyote || 0) - dt); p.groundT = 0; }
-  if (p.onGround && p.groundT > 0.3) p.hop = Math.max(1, (p.hop || 1) - dt * 0.8);
-  if (p.jumpBuf > 0 && (p.onGround || p.coyote > 0) && p.vel.y <= 0.5 && !p.jumping) {
-    if (p.slide > 0) { const sp = Math.hypot(p.vel.x, p.vel.z), k = Math.min(12.5, sp * 1.08) / Math.max(sp, 0.01); p.vel.x *= k; p.vel.z *= k; } // salto desde el deslizamiento: pequeño impulso
-    else if (p.onGround && p.groundT < 0.2 && (fwd !== 0 || str !== 0)) p.hop = Math.min(1.25, (p.hop || 1) + 0.05);   // saltar casi al aterrizar y avanzando = bunny hop
-    p.vel.y = JUMP; p.onGround = false; p.slide = 0; p.jumpBuf = 0; p.coyote = 0; p.jumping = true;
-  }
-  if (p.onGround && p.vel.y <= 0) p.jumping = false;
+  /* [NUEVO] Velocidad, deslizamiento, slide hop, coyote time y salto: la lógica está en shared.js (S.moveStep y los parámetros de S.MOVE) para que cliente, pruebas y servidor usen las mismas reglas */
+  S.moveStep(p, { wx, wz, fwd, str, speed, jump: !!keys.Space }, dt);
   // altura (agachado / deslizamiento)
   const wantH = (crouching || p.slide > 0) ? 1.2 : 1.8;
   if (wantH > p.h) { if (!overlapAt(p.pos.x, p.pos.y, p.pos.z, p.hw, wantH)) p.h = wantH; }
@@ -2241,10 +2223,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Escape' && !locked) pauseGame();
   if (e.code === 'KeyR' && player.alive && slot === 0) startReload();   // con el cuchillo en mano no se recarga
   if (e.code === 'Digit1') setSlot(0); else if (e.code === 'Digit2' || e.code === 'Digit3') setSlot(1); else if (e.code === 'KeyQ') setSlot(1 - slot);   // [NUEVO] 1 = arma, 2 = cuchillo, Q = alternar
-  if (e.code === 'KeyC' && player.alive && player.onGround && (player.slideCd || 0) <= 0 && Math.hypot(player.vel.x, player.vel.z) > 5) { // agacharse en marcha = deslizarse
-    const s = Math.hypot(player.vel.x, player.vel.z), v = Math.min(12.4, Math.max(s * 1.35, 11)); player.vel.x = player.vel.x / s * v; player.vel.z = player.vel.z / s * v;   // [AJUSTE] deslizamiento más rápido y con menos espera (antes 12 / 10,5 / 1,2 s)
-    player.slide = 0.95; player.slideCd = 0.9; sfx.slide();
-  }
+  if (e.code === 'KeyC' && player.alive && S.startSlide(player)) sfx.slide();   // [NUEVO] agacharse en marcha = deslizarse (reglas en S.MOVE)
   if (e.code === 'KeyB' && player.alive) cycleOptic();
   const m = /^Digit([1-9])$/.exec(e.code);
   if (m && !player.alive) { selectClass(+m[1] - 1); renderDeathPick(); if (online) netSend({ t: 'cls', c: +m[1] - 1 }); }

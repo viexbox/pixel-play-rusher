@@ -443,7 +443,7 @@ class Room {
     const half = this.world.half - 0.35;
     const dt = Math.max(0.02, (now - p.lastSt) / 1000);
     const dh = Math.hypot(x - p.x, z - p.z);
-    if (dh > 13 * dt + 2 || y - p.y > 12 * dt + 2.5) { // movimiento imposible: recolocar al jugador
+    if (dh > (S.MOVE.MAX_H + 0.5) * dt + 2 || y - p.y > 12 * dt + 2.5) {   // [AJUSTE] el tope horizontal sale de S.MOVE.MAX_H (slide hop incluido) // movimiento imposible: recolocar al jugador
       p.fixes++; p.ep++; p.send(JSON.stringify({ t: 'fix', x: r3(p.x), y: r3(p.y), z: r3(p.z), ep: p.ep })); return;
     }
     if (WALL_CHECK) {
