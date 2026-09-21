@@ -1405,6 +1405,8 @@ function setNetMsg(t) { const e = $('#netMsg'); e.textContent = t || ''; e.hidde
 function setServer(ok, j) {
   const first = ok && !serverOK;
   serverOK = ok; if (ok) lobbyConnect(); else lobbyClose();
+  { const pl = $('#lobbyPlay'); if (pl) pl.classList.toggle('srvok', !!ok); }   // punto verde/rojo del botón «Servidor»
+  setTimeout(() => { const oi = $('#onlineInfo'); if (oi) oi.title = oi.textContent; }, 0);   // el aviso se recorta a 4 líneas: el texto completo sale al pasar el ratón
   $('#playOnline').disabled = !ok || noPointer || !!net.ws;
   const opt = $('#lbScope').querySelector('option[value="global"]'); if (opt) opt.disabled = !ok;
   if (ok) {
@@ -2016,12 +2018,21 @@ function pickColor(i) {
   cfg.look.col = i; saveCfg(); buildCustom(); updatePreview();
 }
 function pickSkin(i) { cfg.look.skin = i; saveCfg(); buildCustom(); updatePreview(); }
+/* Resumen del equipamiento (panel del inicio): arma, mira, color y piel; el cajón «Personalizar equipo» los cambia */
+function updateEquip() {
+  const w = WEAPONS[cfg.cls], el = $('#eqPrimary'); if (!w || !el) return;
+  const o = w.optics ? opticOf(w) : null;
+  el.textContent = w.name; $('#eqOptic').textContent = o ? o.name : 'Sin mira';
+  $('#eqColor').textContent = COLORS[cfg.look.col].n; $('#eqSkin').textContent = 'Tono ' + (cfg.look.skin + 1);
+  const b = $('#eqBust'); if (b) { b.style.setProperty('--shirt', COLORS[cfg.look.col].c); b.style.setProperty('--skin', SKINS[cfg.look.skin]); }
+}
 function updateLobby() {
   const w = WEAPONS[cfg.cls];
   $('#charTitle').textContent = w.name + ' · ' + w.type;
   $('#mapBtn').textContent = MAPS[cfg.map].name;
   $('#avatar').textContent = (cfg.name || 'P').charAt(0).toUpperCase();
   $('#avatar').style.color = COLORS[cfg.look.col].c;
+  updateEquip();
 }
 function cycleOptic() {
   const p = player, w = WEAPONS[p.wi]; if (!w.optics || p.aim > 0.3 || p.reload > 0) return;
@@ -2105,7 +2116,7 @@ function lobbyRefresh() { renderMenuStats(); renderEvent(); renderDaily(); build
 
 /* --- Vista previa 3D del personaje (se dibuja en la misma pantalla, sobre el hueco del panel) --- */
 const pv = { scene: null, cam: null, mesh: null, ang: Math.PI + 0.5, drag: false, lastX: 0, on: false };
-function updatePreview() { if (pv.mesh) fillCharacter(pv.mesh, COLORS[cfg.look.col].c, cfg.cls, 1, cfg.look.skin, cfg.optics[WEAPONS[cfg.cls].id]); }
+function updatePreview() { if (pv.mesh) fillCharacter(pv.mesh, COLORS[cfg.look.col].c, cfg.cls, 1, cfg.look.skin, cfg.optics[WEAPONS[cfg.cls].id]); updateEquip(); }
 function initPreview() {
   if (!renderer || !renderer.setScissorTest) return;
   pv.scene = new THREE.Scene(); pv.cam = new THREE.PerspectiveCamera(30, 1, 0.1, 40);
@@ -2236,6 +2247,15 @@ function initMenu() {
   $('#swColors').addEventListener('click', e => { const b = e.target.closest('.cs'); if (b) pickColor(+b.dataset.i); });
   $('#swSkins').addEventListener('click', e => { const b = e.target.closest('.cs'); if (b) pickSkin(+b.dataset.i); });
   $('#mapBtn').addEventListener('click', () => showTab('maps'));
+  /* Inicio: cajón de equipamiento, noticia del mapa y acceso al Pase */
+  const closeEq = () => document.body.classList.remove('eqopen');
+  $('#eqOpen').addEventListener('click', () => document.body.classList.add('eqopen'));
+  $('#eqClose').addEventListener('click', closeEq);
+  window.addEventListener('keydown', e => { if (e.key === 'Escape') closeEq(); });
+  ['#play', '#playOnline'].forEach(id => $(id).addEventListener('click', closeEq, true));
+  $('#newsMap').addEventListener('click', () => showTab('maps'));
+  $('#newsThumb').style.backgroundImage = 'url(' + mapImg(0) + ')';
+  $('#passRow').addEventListener('click', () => { const b = document.querySelector('.nav button[data-tab=pass]'); if (b) b.click(); });
   const setDiff = d => { cfg.diff = d; saveCfg(); $$('#diff button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.d === d))); };
   $('#diff').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setDiff(+b.dataset.d); });
   setDiff(cfg.diff);

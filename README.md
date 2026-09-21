@@ -376,3 +376,14 @@ Complejo táctico amurallado de 100 × 100 m con cuatro niveles (suelo, plaza a 
 - **Capturar zona:** rota entre Central Courtyard, Main Plaza, Lower Plaza, Reactor Complex y Capture Point. La zona tiene altura: quien está debajo de una azotea no captura. Con bots en la sala solo se usan las zonas a ras de suelo.
 - **Bots:** siguen una rejilla de navegación de 1 m (`S.buildNav`, `S.navField`, `S.navDir`) para rodear paredes y cruzar puertas y túneles, y sin objetivo rondan cerca de los rivales. Solo caminan por el suelo: no suben a las azoteas.
 - **Pruebas:** `test/nexus.test.js` comprueba las zonas nombradas, las alturas, que se llegue caminando (sin saltar) a todas desde las dos bases sin trampas, las apariciones por equipo, las zonas con altura en el servidor real, la limpieza de la clasificación y la navegación de los bots.
+
+## Menú principal (nuevo diseño)
+
+Pantalla de inicio rehecha sobre el mapa en 3D (`public/index.html`, bloque «Pantalla de inicio (lobby)»). Es fluida: usa `clamp`, `vw` y `vh`, y se probó a 1280 × 720, 1440 × 900 y 1920 × 1080.
+- **Centro:** título grande y botones **ONLINE** y **ENTRENAR**; debajo, el mapa y la dificultad de los bots. Con una sección abierta, el título se oculta y los botones bajan.
+- **Arriba, en el centro:** Inicio, Tienda, Mercado, Pase, Clasificación y Perfil. Rangos y Mapas están en el perfil; Controles y Ajustes, en la barra de abajo.
+- **Izquierda:** noticias (mapa nuevo, evento de hoy y desafíos diarios), servidor y modo de juego (las tarjetas de `public/modes.js`; **Clasificatorio** es la casilla del Duelo y necesita cuenta) y el resumen del equipamiento.
+- **Derecha:** perfil (nombre, nivel, PX y Créditos, estadísticas y acceso al Pase).
+- **«Personalizar equipo»** abre un cajón con el personaje en 3D, las armas, la mira y los colores; ✕ o Esc lo cierran.
+- **Chat:** en el inicio va abajo a la derecha; en la partida sigue abajo a la izquierda.
+- Los identificadores que usan `client.js` y las pruebas (`#playOnline`, `#play`, `#mapBtn`, `#modeBtn`, `#serverBtn`, `#diff`, `#classes`, `#swColors`…) se conservan; las pestañas siguen enganchándose por las clases `.nav` y `.tabs`.

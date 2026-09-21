@@ -20,6 +20,28 @@
   function refreshButtons() {
     const b = $('#modeBtn'); if (b) b.textContent = label();
     const s = $('#playOnline small'); if (s) s.textContent = label();
+    renderInline();
+  }
+  /* Tarjetas de modo en el panel del inicio (los mismos modos y la misma casilla de Clasificatorio que la ventana «Modo», sin abrirla) */
+  const MODE_COL = { duelo: '#2f7bff', zona: '#ff8a1f', cuchillos: '#3fd15a', carrera: '#ff3b48' };
+  function renderInline() {
+    const box = $('#modeCards'); if (!box) return;
+    const rkOn = !!(cfg.ranked && cfg.mode === 'duelo');
+    box.innerHTML = Object.values(S.MODES).map(x => '<button type="button" class="mcard' + (cfg.mode === x.id && !rkOn ? ' on' : '') + '" data-m="' + x.id + '" aria-pressed="' + (cfg.mode === x.id && !rkOn) + '" title="' + esc(x.desc) + '"><i style="--c:' + (MODE_COL[x.id] || '#fff') + '"></i>' + esc(x.short) + '</button>').join('') +
+      '<button type="button" class="mcard wide' + (rkOn ? ' on' : '') + '" data-rk="1" aria-pressed="' + rkOn + '" title="Partidas con Elo y ligas (necesita cuenta online)"><i style="--c:#ffd23f"></i>CLASIFICATORIO</button>';
+    const d = $('#modeDesc'); if (d) d.textContent = rkOn ? 'Clasificatorio: Duelo por equipos con Elo y ligas, de Bronce a Maestro. Necesita cuenta online.' : S.MODES[cfg.mode].desc;
+  }
+  function initInline() {
+    const box = $('#modeCards'); if (!box) return;
+    box.addEventListener('click', e => {
+      const c = e.target.closest('[data-m]');
+      if (c) { cfg.mode = c.dataset.m; if (cfg.mode !== 'duelo') cfg.ranked = false; P.saveCfg(); refreshButtons(); return; }
+      if (e.target.closest('[data-rk]')) {
+        if (!tk()) { openModeModal(); return; }   // sin cuenta se abre la ventana, que explica por qué hace falta
+        if (cfg.ranked && cfg.mode === 'duelo') cfg.ranked = false; else { cfg.mode = 'duelo'; cfg.ranked = true; }
+        P.saveCfg(); refreshButtons();
+      }
+    });
   }
   async function loadRanked() { try { rk = await api('GET', 'api/ranked'); } catch (e) { rk = null; } return rk; }
 
@@ -136,7 +158,7 @@
   /* ---------- Arranque ---------- */
   function init() {
     const mb = $('#modeBtn'); if (mb) mb.addEventListener('click', openModeModal);
-    if (!S.MODES[cfg.mode]) cfg.mode = 'duelo'; refreshButtons(); initSpec();
+    if (!S.MODES[cfg.mode]) cfg.mode = 'duelo'; initInline(); refreshButtons(); initSpec();
     (function loop(now) { requestAnimationFrame(loop); try { drawZone(now); } catch (e) { /* la escena aún no está lista */ } })(0);
     setInterval(updateBar, 300); setInterval(() => { if (tk()) checkReward(); else lastAcct = null; }, 2500);
   }
