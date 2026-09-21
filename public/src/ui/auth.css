@@ -38,3 +38,6 @@
 .sessrow button.armed{background:var(--red,#ff3b56);border-color:var(--red,#ff3b56)}
 
 .auth-emblem{display:block;margin:0 auto 8px;border-radius:20%;box-shadow:0 0 16px rgba(120,235,255,.4)}
+
+.auth-link{background:none;border:0;padding:0;margin:-2px 0 2px;color:#38e4ff;font:600 13px var(--hudf,'Exo 2',Arial,sans-serif);text-align:left;cursor:pointer;text-decoration:underline}.auth-link:hover{color:#fff}
+.auth-form .chk a{color:#38e4ff}

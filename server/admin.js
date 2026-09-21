@@ -390,7 +390,7 @@ function createAdmin(opts) {
     const mem = process.memoryUsage(), t = now(), day = h => Object.values(ST.seen).filter(x => t - x < h * 3600000).length;
     const lbAll = rt.lbAll(), top = [...lbAll].sort((a, b) => b.p - a.p).slice(0, 5);
     return {
-      now: t, uptime: Math.round(process.uptime()), online: rt.playerCount(), lobby: rt.lobbyCount(), rooms: rt.rooms().map(r => ({ id: r.id, map: r.map, mode: r.mode || 'duelo', ranked: !!r.ranked, specs: r.specs ? r.specs.size : 0, players: r.players.size, phase: r.phase, tl: Math.round(r.tl) })),
+      now: t, uptime: Math.round(process.uptime()), online: rt.playerCount(), lobby: rt.lobbyCount(), rooms: rt.rooms().map(r => ({ id: r.id, map: r.map, mode: r.mode || 'duelo', ranked: !!r.ranked, specs: r.specs ? r.specs.size : 0, players: r.humanCount ? r.humanCount() : r.players.size, bots: r.botCount ? r.botCount() : 0, phase: r.phase, tl: Math.round(r.tl) })),
       peak: ST.peak, totals: { matches: ST.matches, kills: ST.kills, shots: ST.shots, hits: ST.hits, joins: ST.joins, messages: ST.messages, blocked: ST.blocked, reports: ST.reports, bans: ST.bans, kicks: ST.kicks, since: ST.since },
       accuracy: ST.shots ? +(ST.hits / ST.shots).toFixed(3) : 0, uniques24h: day(24), uniques7d: day(168), perMap: ST.perMap, perClass: ST.perClass, maps: S.MAPS.map(m => m.name), classes: S.WEAPONS.map(w => w.name),
       openReports: reportsS.data.list.filter(r => r.status === 'open').length, activeBans: bansS.data.list.filter(b => b.active && (!b.until || b.until > t)).length,
@@ -540,7 +540,7 @@ function createAdmin(opts) {
     roleOf(name) { const nk = nameKey(name); if (!nk) return 0; if (nk === ADMIN_KEY) return 'admin'; return infS.data.list.some(i => i.active && i.nameKey === nk) ? 'inf' : 0; },
     isReserved(name) { const nk = nameKey(name); return !!nk && (nk.includes(ADMIN_KEY) || infS.data.list.some(i => i.active && i.nameKey === nk)); },
     banFor(name, ip) { return bans.check({ nameKey: nameKey(name), ipKey: ipKey(ip) }); }, banMessage: b => bans.message(b),
-    stats: () => ST, resolveIdentity, checkChat, onChat, onLog, recordMatch, makeReport, count, handleHttp, handleUpgrade, flushAll,
+    sendMail, smtpOn, stats: () => ST, resolveIdentity, checkChat, onChat, onLog, recordMatch, makeReport, count, handleHttp, handleUpgrade, flushAll,
     settings: S_, maxPerRoom: () => S_.maintenance.on ? 0 : S_.maxPerRoom, roleOfToken: t => (fullToken(t) ? 'admin' : 0)
   };
 }

@@ -196,7 +196,9 @@ function createMarket({ S, accounts, bp, admin, dataDir, log, env }) {
   });
   /* Datos para las métricas del panel */
   const stats = async () => { live(); const d7 = Date.now() - 7 * 86400000; return { listings: (await store.marketListings()).length, offersOpen: T.offers.filter(o => o.status === 'open').length, tradesDone7d: T.offers.filter(o => o.status === 'done' && (o.doneAt || 0) >= d7).length, tradesDone: T.offers.filter(o => o.status === 'done').length }; };
-  return { handles, handleHttp, stats };
+  /* Al eliminar una cuenta: sus propuestas de intercambio dejan de valer */
+  const removeUser = u => { for (const o of T.offers) if (o.status === 'open' && (o.from === u.id || o.to === u.id)) o.status = 'void'; trades.save(); };
+  return { handles, handleHttp, stats, removeUser };
 }
 
 module.exports = { createMarket };

@@ -248,6 +248,20 @@ function rayBox(ox, oy, oz, dx, dy, dz, c) {
   }
   return t0;
 }
+/* [NUEVO] Antitrampas de paredes (las usa el servidor; están aquí para poder probarlas sin servidor).
+   Un jugador legítimo que rodea la esquina de una caja produce dos posiciones válidas cuya línea recta roza la esquina; eso NO es atravesar un muro.
+   Por eso el cruce se comprueba contra las cajas encogidas `m` metros por cada lado: solo cuenta si la trayectoria entra CLARAMENTE en el muro. */
+function insetColliders(cols, m) {
+  const out = []; for (const c of cols) if (c.maxX - c.minX > 2 * m + 0.05 && c.maxZ - c.minZ > 2 * m + 0.05) out.push({ minX: c.minX + m, maxX: c.maxX - m, minZ: c.minZ + m, maxZ: c.maxZ - m, minY: c.minY, maxY: c.maxY }); return out;
+}
+/* p = posición anterior aceptada; (x, y, z) = la nueva; h = altura. Devuelve 'dentro' (acaba dentro de un muro), 'muro' (lo atraviesa) o null. */
+function wallViolation(cols, inset, p, x, y, z, h) {
+  /* el cliente usa 0,35 de ancho y manda la posición redondeada a 3 decimales: de pie sobre un escalón de 0,5333 m llega y = 0,533, 0,3 mm «dentro». Por eso 0,28 de ancho y 6 cm de tolerancia vertical. */
+  if (overlapAt(cols, x, y + 0.06, z, 0.28, Math.max(1, h - 0.21))) return 'dentro';
+  const dx = x - p.x, dy = y - p.y, dz = z - p.z, len = Math.hypot(dx, dy, dz);
+  if (len > 0.3 && rayWorld(inset, { x: p.x, y: p.y + 0.9, z: p.z }, { x: dx / len, y: dy / len, z: dz / len }, len) < len) return 'muro';
+  return null;
+}
 function rayWorld(cols, o, d, maxT) {
   let best = maxT;
   for (let i = 0; i < cols.length; i++) { const t = rayBox(o.x, o.y, o.z, d.x, d.y, d.z, cols[i]); if (t < best) best = t; }
@@ -391,7 +405,7 @@ const LEAGUES = [
 const leagueIdx = mmr => { let i = 0; LEAGUES.forEach((l, k) => { if (mmr >= l.min) i = k; }); return i; };
 const RANKED = { START: 1000, MIN_GAMES: 5, K: 24, K_PLACE: 32, PLACEMENT: 10, LEAVE_PENALTY: 15, MIN_TEAM: 1 };   // partidas mínimas para premio, K de Elo, penalización por abandonar
 
-const api = { COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, raySphere, rayCyl };
+const api = { COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

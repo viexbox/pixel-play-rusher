@@ -579,6 +579,17 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
 .tr-row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;margin:4px 0;background:rgba(255,255,255,.05);border-radius:10px;font-size:14px}.tr-b{display:flex;gap:6px}
 .tr-it{display:inline-block;padding:1px 9px;border:1px solid var(--rc);color:var(--rc);border-radius:99px;font-weight:800;font-size:12px}.tr-st{font-size:12px;font-weight:800;opacity:.8}.tr-st.done{color:#37f29a}
 
+
+/* ===== [NUEVO] Mi cuenta: correo, contraseña y eliminación ===== */
+#acModal{position:fixed;inset:0;z-index:400;display:grid;place-items:center;background:rgba(3,5,14,.82)}#acModal[hidden]{display:none}
+.acb{width:min(500px,94vw);max-height:92vh;overflow:auto;background:#111733;border:2px solid #38e4ff;border-radius:12px;padding:18px 20px;color:#fff;font-family:var(--hudf,system-ui,sans-serif)}
+.acb h3{font-size:20px;margin:0 0 10px}.acb p{font-size:14px;margin:8px 0}.acf{display:block;margin:10px 0;font-size:13px;opacity:.95}.acf span{display:block;margin-bottom:4px}
+.acf input{width:100%;box-sizing:border-box;padding:10px;background:#0a0e1f;border:1px solid #3a4470;color:#fff;border-radius:8px;font:600 16px inherit}.acf input:focus{outline:none;border-color:var(--volt,#ffdc3a)}
+.ace{color:#ff8b98;font-weight:700;min-height:1.2em}.aco{color:#37f29a;font-weight:700}.acn{font-size:12px!important;opacity:.7}.acn a{color:#38e4ff}
+.acbtns{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:12px}.acok{color:#37f29a;font-weight:800;font-size:12px}.acbad{color:#ffb020;font-weight:800;font-size:12px}
+.acrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid rgba(255,255,255,.1);font-size:14px}.acbt{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.acwarn{border:1px solid #ff4d5a;background:rgba(255,77,90,.12);border-radius:8px;padding:9px 12px;font-size:13px;margin:6px 0}
+.mail-banner{margin:6px 0;padding:8px 12px;border-radius:10px;background:rgba(255,176,32,.14);border:1px solid #ffb020;font-size:13px}.mail-banner.bad{background:rgba(255,77,90,.14);border-color:#ff4d5a}.mail-banner .ps-btn{margin-left:6px}.mail-banner[hidden]{display:none}
 /* Cartel del equipo asignado */
 #teamBanner{position:fixed;left:50%;top:22%;transform:translate(-50%,-14px);text-align:center;pointer-events:none;opacity:0;z-index:30;padding:14px 46px 16px;background:linear-gradient(90deg,transparent,rgba(6,9,22,.86) 16%,rgba(6,9,22,.86) 84%,transparent);transition:opacity .25s,transform .25s}
 #teamBanner.on{opacity:1;transform:translate(-50%,0)}
@@ -791,6 +802,7 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
       <div class="set"><label for="shake">Sacudida de pantalla</label><input type="range" id="shake" min="0" max="100" step="5"><output id="shakeO"></output></div>   <!-- [NUEVO] 0 % = sin sacudida -->
       <div class="set"><label for="hudScale">Tamaño del HUD</label><input type="range" id="hudScale" min="80" max="120" step="5"><output id="hudScaleO"></output></div>   <!-- [NUEVO] -->
       <div class="set"><label for="hudCompact">HUD compacto</label><input type="checkbox" id="hudCompact"><output id="hudCompactO"></output></div>   <!-- [NUEVO] menos elementos en pantalla -->
+      <div class="set" id="accountRow" hidden><label>Mi cuenta</label><button type="button" class="ps-btn sm" id="accountBtn">Correo, contraseña y eliminación</button></div>   <!-- [NUEVO] -->
       <div class="set infset"><label for="infKey">Código de influencer</label><input id="infKey" maxlength="24" placeholder="INF-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"><output id="infO"></output></div>
       <p class="hint" style="margin-top:8px;font-size:12.5px;opacity:.65">Si eres influencer, escribe aquí la clave que te dio el dueño de la web: tu nombre saldrá con el tic azul y tus bajas con el efecto dorado.</p>
     </div>
@@ -825,6 +837,7 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
       <span><span class="lab">Bots</span> <div class="seg" id="diff" role="group" aria-label="Dificultad de los bots"><button data-d="0">Fácil</button><button data-d="1">Normal</button><button data-d="2">Difícil</button></div></span>
     </div>
     <p id="onlineInfo"></p>
+    <p id="mailBanner" class="mail-banner" hidden></p>
     <p class="warn" id="netMsg" hidden></p>
     <p class="warn" id="touchWarn" hidden>Pixel Play Rusher se juega con teclado y ratón. Ábrelo desde un ordenador.</p>
     <p class="warn" id="glWarn" hidden>Tu navegador no puede mostrar gráficos 3D (WebGL). Prueba con otro navegador o activa la aceleración por hardware.</p>
@@ -941,6 +954,7 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
 <script src="bp.js"></script>
 <script src="social.js"></script>
 <script src="modes.js"></script>
+<script src="account.js"></script>
 
 <script type="module" src="src/main.js"></script>
 <div id="notice" role="status" aria-live="polite"></div>

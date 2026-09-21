@@ -54,6 +54,14 @@ function pgStore(pool, S) {
       return r.rowCount > 0;
     },
     async logGift(from, to) { await pool.query('INSERT INTO bp_gifts (from_user, to_user, season) VALUES ($1, $2, $3)', [from, to, SEASON]); },
+    /* [NUEVO] Borrar todo lo de una cuenta (al eliminarla): pase, objetos, regalos, anuncios y foto; las ventas antiguas se anonimizan para no romper el historial de precios */
+    async deleteUser(uid) {
+      await tx(async c => {
+        for (const t of ['bp_progress', 'bp_claims', 'bp_inventory', 'bp_equipped']) await c.query('DELETE FROM ' + t + ' WHERE user_id = $1', [uid]);
+        await c.query('DELETE FROM bp_gifts WHERE from_user::text = $1 OR to_user::text = $1', [uid]); await c.query('DELETE FROM market_listings WHERE seller = $1', [uid]); await c.query('DELETE FROM user_avatars WHERE user_id = $1', [uid]);
+        await c.query("UPDATE market_sales SET seller = 'eliminado' WHERE seller = $1", [uid]); await c.query("UPDATE market_sales SET buyer = 'eliminado' WHERE buyer = $1", [uid]);
+      });
+    },
     /* [NUEVO] Reasigna las filas de cuentas antiguas (id numérico) a su UUID. Idempotente: si ya no hay filas con el id antiguo no hace nada. */
     remapUsers(pairs) {
       const olds = pairs.map(p => String(p.old)), news = pairs.map(p => p.id);
@@ -148,6 +156,11 @@ function fileStore(dataDir, log, S) {
       st.save();
     },
     async logGift(from, to) { D.gifts.push({ from, to, season: SEASON, ts: Date.now() }); if (D.gifts.length > 5000) D.gifts.shift(); st.save(); },
+    async deleteUser(uid) {   // [NUEVO] borrar todo lo de una cuenta (ver la versión de PostgreSQL)
+      delete D.users[uid]; D.gifts = D.gifts.filter(g => String(g.from) !== uid && String(g.to) !== uid);
+      if (D.market) { D.market.listings = D.market.listings.filter(l => l.seller !== uid); for (const x of D.market.sales) { if (x.seller === uid) x.seller = 'eliminado'; if (x.buyer === uid) x.buyer = 'eliminado'; } }
+      st.flush();
+    },
     /* ---- [NUEVO] Mercado, historial e intercambios (mismo comportamiento que en PostgreSQL) ---- */
     marketListings: async () => { const M = mk(); return M.listings.slice().reverse().slice(0, 2000).map(x => Object.assign({}, x)); },
     async marketList(uid, t, id, price, max, o = {}) {

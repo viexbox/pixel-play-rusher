@@ -20,6 +20,7 @@ const TEMPLATE = `
       <span class="pw"><input name="password" type="password" required maxlength="128" autocomplete="current-password"><button type="button" class="pw-toggle" aria-label="Mostrar u ocultar la contraseña">Mostrar</button></span>
       <small class="err" data-err="password" role="alert"></small></label>
     <label class="chk"><input name="remember" type="checkbox" checked><span>Recordarme en este dispositivo</span></label>
+    <button type="button" class="auth-link" id="forgotBtn">¿Has olvidado tu contraseña?</button>
     <p class="auth-msg" data-msg role="alert"></p>
     <button type="submit" class="auth-submit">Entrar</button>
   </form>
@@ -37,6 +38,8 @@ const TEMPLATE = `
     <label class="af"><span>Repite la contraseña</span>
       <input name="password2" type="password" required maxlength="128" autocomplete="new-password">
       <small class="err" data-err="password2" role="alert"></small></label>
+    <label class="chk"><input name="terms" type="checkbox"><span>Acepto los <a href="terminos" target="_blank" rel="noopener">Términos de uso</a> y la <a href="privacidad" target="_blank" rel="noopener">Política de privacidad</a></span></label>
+    <small class="err" data-err="terms" role="alert"></small>
     <p class="auth-msg" data-msg role="alert"></p>
     <button type="submit" class="auth-submit">Crear cuenta</button>
   </form>
@@ -77,7 +80,8 @@ export function createAuthScreen({ doc, auth, admin, accounts, onAuthenticated }
   function setMsg(f, msg) { f.querySelector('[data-msg]').textContent = msg || ''; }
   function validate(which, f) {
     const errs = which === 'login' ? validateLogin(values(f)) : validateRegister(values(f));
-    const fields = which === 'login' ? ['identifier', 'password'] : ['username', 'email', 'password', 'password2'];
+    if (which === 'register' && !f.elements.terms.checked) errs.terms = 'Debes aceptar los términos y la privacidad para crear la cuenta.';   // [NUEVO]
+    const fields = which === 'login' ? ['identifier', 'password'] : ['username', 'email', 'password', 'password2', 'terms'];
     let first = null;
     for (const name of fields) { setErr(f, name, errs[name] || ''); if (errs[name] && !first) first = name; }
     return first;
@@ -99,7 +103,7 @@ export function createAuthScreen({ doc, auth, admin, accounts, onAuthenticated }
     for (const id of BACKGROUND) { const n = doc.getElementById(id); if (!n) continue; if (lock) { n.setAttribute('inert', ''); n.setAttribute('aria-hidden', 'true'); } else { n.removeAttribute('inert'); n.removeAttribute('aria-hidden'); } }
   }
   function finish(session) {
-    for (const f of [form('login'), form('register')]) { f.reset(); for (const n of ['identifier', 'password', 'username', 'email', 'password2']) setErr(f, n, ''); setMsg(f, ''); }
+    for (const f of [form('login'), form('register')]) { f.reset(); for (const n of ['identifier', 'password', 'username', 'email', 'password2', 'terms']) setErr(f, n, ''); setMsg(f, ''); }
     touched = { login: false, register: false };
     onAuthenticated(session);
   }
@@ -122,7 +126,7 @@ export function createAuthScreen({ doc, auth, admin, accounts, onAuthenticated }
       }
       if (!r && accounts && await accounts.available()) { // con servidor: cuentas online (nombres únicos para todos los jugadores)
         if (which === 'register') {
-          const a = await accounts.register(String(v.username).trim(), String(v.email).trim(), v.password);
+          const a = await accounts.register(String(v.username).trim(), String(v.email).trim(), v.password, v.terms === true);
           if (a && a.ok) { setBusy(false, ''); return finish(auth.remoteSession(a.profile.username, a.token)); }
           if (a) { setBusy(false, ''); const f = form('register'); if (/nombre|usuario/i.test(a.error)) setErr(f, 'username', a.error + (a.suggestions && a.suggestions.length ? ' Prueba con: ' + a.suggestions.join(', ') + '.' : '')); else if (/correo/i.test(a.error)) setErr(f, 'email', a.error); else setMsg(f, a.error); return; }
         } else {

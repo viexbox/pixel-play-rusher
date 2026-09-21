@@ -48,7 +48,7 @@
 
   function cardHtml(p) {
     const own = p.relation === 'self', b = p.banner && S.BANNERS.find(x => x.id === p.banner), on = p.online && ONLINE[p.online], st = p.stats;
-    const acts = own ? '<button class="ps-btn" data-a="editphoto">Cambiar foto</button><button class="ps-btn alt" data-a="editstatus">Cambiar estado</button><button class="ps-btn alt" data-a="rename">Cambiar nombre</button>'
+    const acts = own ? '<button class="ps-btn" data-a="editphoto">Cambiar foto</button><button class="ps-btn alt" data-a="editstatus">Cambiar estado</button><button class="ps-btn alt" data-a="rename">Cambiar nombre</button><button class="ps-btn alt" data-a="account">Mi cuenta</button>'
       : !tk() ? '<span class="pf-hint">Inicia sesión para añadir amigos.</span>'
       : { none: '<button class="ps-btn" data-a="request">Añadir amigo</button>', 'pending-out': '<button class="ps-btn alt" data-a="cancel">Cancelar solicitud</button>', 'pending-in': '<button class="ps-btn" data-a="accept">Aceptar solicitud</button><button class="ps-btn alt" data-a="decline">Rechazar</button>',
           friend: '<button class="ps-btn" data-a="trade">Proponer intercambio</button><button class="ps-btn alt" data-a="remove">Eliminar amigo</button>', blocked: '<button class="ps-btn alt" data-a="unblock">Desbloquear</button>' }[p.relation] + (p.relation !== 'blocked' ? '<button class="ps-btn ghost" data-a="block">Bloquear</button>' : '') + '<button class="ps-btn ghost" data-a="report">Denunciar</button>';
@@ -107,6 +107,7 @@
     if (!cur) return; const name = cur.username;
     if (a === 'editphoto') return editPhoto(); if (a === 'editstatus') return editStatus();
     if (a === 'rename') { const rb = $('#renameBtn'); if (rb) { closeProfile(); rb.click(); } return; }
+    if (a === 'account') { closeProfile(); return P.openAccount && P.openAccount(); }
     if (a === 'report') return reportPlayer(name);
     if (a === 'trade') { closeProfile(); await openMarket(); toggleTrades(true); return proposeTrade(name); }
     if (a === 'block' && !window.confirm('¿Bloquear a ' + name + '? Se romperá la amistad y no podrá enviarte solicitudes.')) return;

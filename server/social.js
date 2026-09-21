@@ -194,7 +194,7 @@ function createSocial({ S, accounts, admin, bp, db, dataDir, log, presence, rank
     },
     'POST /verify': ({ b, s }) => { const u = accounts.find(String(b.username || '')); if (!u) return err(404, 'No existe esa cuenta.'); u.verified = b.verified !== false; accounts.touch(); admin.audit(s.user, u.verified ? 'verificar' : 'quitar-verificado', u.username); return { ok: true, username: u.username, verified: u.verified }; }
   });
-  return { handles, handleHttp, profileOf };
+  return { handles, handleHttp, profileOf, removeAvatar: u => avatars.del(u.id) };
 }
 
 module.exports = { createSocial, sniffImage };

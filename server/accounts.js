@@ -8,6 +8,7 @@
 const crypto = require('crypto');
 const path = require('path');
 const { Store } = require('./admin.js');
+const { createAccountSecurity, mask } = require('./accountsec.js');
 
 const scrypt = (pw, salt) => new Promise((res, rej) => crypto.scrypt(pw, salt, 64, { N: 16384, r: 8, p: 1 }, (e, k) => (e ? rej(e) : res(k))));
 const hex = n => crypto.randomBytes(n).toString('hex');
@@ -44,6 +45,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
   })();
   const hooks = { onRename: null };   // server.js lo usa para mantener la clasificación al día cuando alguien cambia de nombre
   const NAME_CHANGE_MS = (+env.NAME_CHANGE_DAYS >= 0 ? +env.NAME_CHANGE_DAYS : 7) * 86400000;   // espera entre cambios de nombre (el primero es libre)
+  const REQUIRE_TERMS = env.REQUIRE_TERMS !== '0';   // [NUEVO] para crear una cuenta hay que aceptar los términos y la privacidad (REQUIRE_TERMS=0 lo desactiva, solo para pruebas)
   const REG_MAX = +env.ACCOUNTS_REG_MAX || 5;                 // registros por IP y hora
   const PX_DAILY_CAP = +env.PX_DAILY_CAP || 5000;
   const CR_DAILY_CAP = +env.CR_DAILY_CAP || 4000;             // [NUEVO] Créditos máximos por cuenta y día que se pueden ganar jugando             // PX máximos por cuenta y día que se pueden ganar jugando
@@ -68,7 +70,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
 
   /* ---------- Cuentas y sesiones ---------- */
   const fails = new Map(), regHits = new Map();
-  const pub = u => ({ id: u.id, username: u.username, px: u.px, credits: u.credits | 0, stats: u.stats, unlocked: u.unlocked, colorTs: u.colorTs || {}, claimed: u.claimed, createdAt: u.createdAt });
+  const pub = u => ({ id: u.id, username: u.username, px: u.px, credits: u.credits | 0, stats: u.stats, unlocked: u.unlocked, colorTs: u.colorTs || {}, claimed: u.claimed, createdAt: u.createdAt, email: mask(u.email), emailVerified: !!u.emailVerified, deleteAt: u.deleteAt || 0, echange: u.echange ? mask(u.echange.email) : '' });   // [NUEVO] correo (enmascarado), si está verificado y si la cuenta está en plazo de eliminación
   function newSession(u) {
     const token = hex(32), t = now();
     D.sessions[sha(token)] = { uid: u.id, exp: t + SESSION_MS };
@@ -108,6 +110,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     const t = now(), hits = (regHits.get(ip) || []).filter(x => t - x < 3600000);
     if (hits.length >= REG_MAX) return err(429, 'Demasiados registros desde tu conexión. Inténtalo más tarde.');
     const username = String(b.username || '').trim(), email = normEmail(b.email), pw = String(b.password || '');
+    if (REQUIRE_TERMS && b.terms !== true) return err(400, 'Debes aceptar los Términos de uso y la Política de privacidad para crear la cuenta.');   // [NUEVO]
     const e = checkUsername(username); if (e) return err(400, e);
     if (!validEmail(email)) return err(400, 'El correo no parece válido.');
     if (pw.length < 8 || pw.length > 128 || !/\p{L}/u.test(pw) || !/\p{N}/u.test(pw)) return err(400, 'La contraseña necesita 8 caracteres o más, con letras y números.');
@@ -120,7 +123,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     const salt = hex(16), hash = (await scrypt(pw, salt)).toString('hex');
     if (byKey.has(key)) return err(409, 'Ese nombre de usuario ya está en uso. Elige otro.', { suggestions: suggest(username) });   // otra petición pudo ganarle mientras se calculaba el hash
     const u = { id: crypto.randomUUID(), username, key, email, salt, hash, createdAt: t, lastLogin: t, px: 0, credits: 0, act: [new Date().toISOString().slice(0, 10)], friends: [], reqIn: [], reqOut: [], blocked: [], avatar: null, status: '', verified: false, stats: EMPTY_STATS(), unlocked: [0, 1, 2, 3], claimed: [], day: { d: '', px: 0 } };
-    D.users[u.id] = u; byId.set(u.id, u); byKey.set(key, u); db.flush(); if (Store.db) await Store.db.drain(2000);   // [NUEVO] la cuenta se guarda por su ID y al momento (no a los 1,5 s)
+    D.users[u.id] = u; byId.set(u.id, u); byKey.set(key, u); if (b.terms === true) u.terms = { v: 1, at: t }; u.emailVerified = false; db.flush(); if (Store.db) await Store.db.drain(2000); if (sec.mailOn()) sec.sendVerification(u).catch(() => {});   // [NUEVO] la cuenta se guarda por su ID y al momento (no a los 1,5 s)
     log('Cuenta nueva: ' + username + ' (' + u.id + ')');
     return { ok: true, token: newSession(u), profile: pub(u) };
   }
@@ -265,6 +268,8 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     const origin = req.headers.origin; if (origin && (ALLOWED_ORIGINS.includes(origin) || (env.ALLOW_FILE_ORIGIN !== '0' && origin === 'null'))) { h['Access-Control-Allow-Origin'] = origin; h.Vary = 'Origin'; h['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'; h['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'; }
     res.writeHead(code, h); res.end(obj == null ? '' : JSON.stringify(obj));
   }
+  /* [NUEVO] Correo vinculado, recuperación y eliminación de la cuenta */
+  const sec = createAccountSecurity({ D, byKey, byId, db, err, sha, scrypt, hex, now, ukey, normEmail, validEmail, admin, log, env, S, Store });
   async function handleHttp(req, res, url, ip) {
     if (!handles(url.pathname)) return false;
     if (req.method === 'OPTIONS') { send(req, res, 204, null); return true; }
@@ -278,10 +283,12 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
       if (key === 'POST /api/auth/register') out = await register(b, ip);
       else if (key === 'POST /api/auth/login') out = await login(b, ip);
       else if (key === 'GET /api/store') out = storeInfo();
+      else if (sec.publicRoutes[key]) out = await sec.publicRoutes[key](b, ip);
       else {
         const h = String(req.headers.authorization || ''), token = h.startsWith('Bearer ') ? h.slice(7) : '', u = fromToken(token);
         if (!u) { send(req, res, 401, { error: 'Sesión no válida o caducada.' }); return true; }
-        if (key === 'GET /api/me') out = { ok: true, profile: pub(u) };
+        if (key === 'GET /api/me') out = { ok: true, profile: pub(u), mail: sec.mailOn(), deleteDays: sec.deleteDays };
+        else if (sec.authRoutes[key]) out = await sec.authRoutes[key](u, b, ip, token);
         else if (key === 'POST /api/auth/logout') { delete D.sessions[sha(token)]; db.save(); out = { ok: true }; }
         else if (key === 'POST /api/me/unlock') out = unlockColor(u, b.i);
         else if (key === 'POST /api/me/claim') out = claimRank(u, b.i);
@@ -320,7 +327,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
   function takeColor(u, i) { const k = u.unlocked.indexOf(i); if (k < 0) return false; u.unlocked.splice(k, 1); if (u.colorTs) delete u.colorTs[i]; db.save(); return true; }
   function giveColor(u, i, ts) { if (u.unlocked.includes(i)) return false; u.unlocked.push(i); (u.colorTs = u.colorTs || {})[i] = ts || now(); db.save(); return true; }
   const touch = () => db.save(), allUsers = () => Object.values(D.users);   // [NUEVO] para el módulo social
-  return { eco: () => Object.assign({}, D.eco || {}), markActive, takeColor, giveColor, touch, allUsers, handleHttp, handles, fromToken, nameTaken, awardMatch, profile: pub, flush: () => db.flush(), adjust, register, storeInfo, spend, grant, spendCr, grantCr, find, findById, rename, suggest, hooks, legacyPending, legacyDone, http: { send, readJson } };
+  return { mailOn: sec.mailOn, onRemove: sec.onRemove, removeUser: sec.removeUser, purgeDue: sec.purgeDue, eco: () => Object.assign({}, D.eco || {}), markActive, takeColor, giveColor, touch, allUsers, handleHttp, handles, fromToken, nameTaken, awardMatch, profile: pub, flush: () => db.flush(), adjust, register, storeInfo, spend, grant, spendCr, grantCr, find, findById, rename, suggest, hooks, legacyPending, legacyDone, http: { send, readJson } };
 }
 
 module.exports = { createAccounts, ukey };

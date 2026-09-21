@@ -1606,6 +1606,7 @@ function initEnd() {
 }
 function onNetEnd(m) {
   if (net.spec) { net.endAt = performance.now() + m.next * 1000; if (window.PPR_BP.onSpecEnd) window.PPR_BP.onSpecEnd(m); return; }
+  if (m.nb > 0 && m.rw === false) toast('Sala con bots: esta ronda no da premios (hacen falta 2 jugadores reales).');   // [NUEVO]
   { const ex = $('#endXp'); if (ex) ex.hidden = true; }   // (la línea de Créditos y la de clasificatorio llegan ANTES del fin de ronda: se ocultan al empezar la siguiente)   // la XP del pase llega poco después (mensaje bpxp)
   if (!player) return;
   state = 'ended'; document.body.classList.remove('playing');
@@ -1631,6 +1632,7 @@ function onNetEnd(m) {
 function onNetRound(m) {
   if (net.spec) { net.remotes.forEach(f => { f.alive = false; resetPose(f); f.mesh.visible = false; f.label.visible = false; }); timeLeft = m.tl; teamLimit = m.lim || teamLimit; net.zone = m.zone || null; return; }
   if (!player) return;
+  if (m.nb > 0) toast('Sala con bots de relleno: no se dan premios ni estadísticas hasta que haya 2 jugadores reales.');   // [NUEVO]
   net.gl = 0; teamLimit = m.lim || teamLimit; net.zone = m.zone || null; { const ec = $('#endCr'), er = $('#endRank'); if (ec) ec.hidden = true; if (er) er.hidden = true; } if (window.PPR_BP.onMode) window.PPR_BP.onMode(net);
   teamBanner(player.team, 'Nueva ronda · sin fuego amigo');
   $('#end').hidden = true; hud.hidden = false; el.feed.innerHTML = '';

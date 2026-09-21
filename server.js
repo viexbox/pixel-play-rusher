@@ -28,6 +28,7 @@ const { createMarket } = require('./server/market.js');
 const { createSocial } = require('./server/social.js');
 const { createRanked } = require('./server/ranked.js');
 const { createEvents } = require('./server/events.js');
+const legal = require('./server/legal.js');
 const { createBackup } = require('./server/backup.js');
 
 const PORT = +process.env.PORT || 3000;
@@ -45,6 +46,11 @@ const LADDER = S.GUN_LADDER.slice(0, +process.env.LADDER_LEVELS || S.GUN_LADDER.
 /* [NUEVO] Colisiones con paredes: el servidor rechaza posiciones dentro de un muro o que lo atraviesan (WALL_CHECK=0 lo desactiva; solo para pruebas con bots que caminan en línea recta) */
 const WALL_CHECK = process.env.WALL_CHECK !== '0';
 /* [NUEVO] Emparejamiento clasificatorio con poca gente: una sala con menos de 2 jugadores acepta ligas cada vez más lejanas cuanto más tiempo lleva esperando (+1 liga cada RANKED_WIDEN_SECS, tope 6) */
+/* [NUEVO] Bots de relleno: una sala NO clasificatoria con al menos 1 jugador real se completa con bots hasta FILL_BOTS jugadores en total (0 = sin bots). Se van según entran personas reales.
+   Los bots juegan con las mismas reglas (armas, daño, muros), pero una ronda con menos de 2 jugadores reales NO da PX, Créditos, XP del pase, estadísticas ni entrada en la clasificación (así no se pueden «granjear»). BOT_SKILL 0–1 (0,5 por defecto) sube su puntería. */
+const FILL_BOTS = process.env.FILL_BOTS !== undefined && process.env.FILL_BOTS !== '' ? Math.max(0, +process.env.FILL_BOTS | 0) : 4, BOT_SKILL = Math.min(1, Math.max(0, process.env.BOT_SKILL !== undefined && process.env.BOT_SKILL !== '' ? +process.env.BOT_SKILL : 0.5));
+const BOT_NAMES = ['Nova', 'Kraken', 'Pixel', 'Rayo', 'Ciclón', 'Sombra', 'Turbo', 'Cobra', 'Bruno', 'Volt', 'Zeta', 'Titán', 'Brasa', 'Cobalto'];
+const BOT_CLASSES = [0, 1, 2, 4, 5, 6, 7, 8, 9, 10];   // sin francotirador: frustra a quien juega solo
 const WIDEN_MS = (+process.env.RANKED_WIDEN_SECS || 30) * 1000;
 const LEAVE_MIN_MS = +process.env.RANKED_LEAVE_MS || 60000;   // tiempo mínimo jugado para que abandonar un clasificatorio penalice
 const MAX_CONN_PER_IP = +process.env.MAX_CONN_PER_IP || 8;
@@ -166,16 +172,51 @@ class Room {
   limit() { return this.mode === 'zona' ? ZONE_LIMIT : this.mode === 'cuchillos' ? KNIFE_LIMIT : this.mode === 'carrera' ? LADDER.length + 1 : TEAM_LIMIT; }
   classFor(p) { return this.mode === 'carrera' ? LADDER[Math.min(p.gl, LADDER.length - 1)] : p.nextCls; }
   gunsAllowed(p) { return this.mode === 'cuchillos' ? false : this.mode === 'carrera' ? p.gl < LADDER.length : true; }
+  /* ---- [NUEVO] Bots de relleno ---- */
+  humanCount() { let n = 0; for (const p of this.players.values()) if (!p.isBot) n++; return n; }
+  botCount() { return this.players.size - this.humanCount(); }
+  fillBots(now) {
+    if (this.ranked || !FILL_BOTS) return; const humans = this.humanCount(); if (!humans) return;
+    const want = Math.max(0, FILL_BOTS - humans), have = this.botCount();
+    if (have < want && now - (this.lastFill || 0) > 700) { this.lastFill = now; this.add(makeBot(this)); }
+    else if (have > want) { const b = [...this.players.values()].filter(x => x.isBot).sort((a, c) => (a.alive ? 1 : 0) - (c.alive ? 1 : 0))[0]; if (b) this.remove(b); }   // sobra alguno: se va antes el que está muerto
+  }
+  los(a, b) { const o = { x: a.x, y: a.y + 1.6, z: a.z }, dx = b.x - o.x, dy = b.y + 1.1 - o.y, dz = b.z - o.z, l = Math.hypot(dx, dy, dz) || 1; return S.rayWorld(this.world.colliders, o, { x: dx / l, y: dy / l, z: dz / l }, l) >= l - 0.25; }
+  botThink(b, now, dt) {
+    if (this.phase !== 'play' || this.wait) return;
+    const e = b.ent, half = this.world.half - 0.35, R = Math.random;
+    if (b.epSeen !== b.ep) { b.epSeen = b.ep; e.pos.x = b.x; e.pos.y = b.y; e.pos.z = b.z; e.vel.x = e.vel.y = e.vel.z = 0; b.tgt = null; b.wp = null; b.reactAt = now + 600 + R() * 600; }   // acaba de reaparecer
+    if (now >= (b.scanAt || 0)) {   // cada 0,3 s: el rival vivo más cercano al que ve
+      b.scanAt = now + 300; let best = null, bd = 55;
+      for (const o of this.players.values()) if (o !== b && o.alive && o.team !== b.team && o.protectUntil <= now) { const d = Math.hypot(o.x - b.x, o.z - b.z); if (d < bd && this.los(b, o)) { best = o; bd = d; } }
+      if (best !== b.tgt) { b.tgt = best; b.reactAt = now + 350 + R() * 450 * (1.3 - BOT_SKILL); }   // tarda un poco en reaccionar al ver a alguien
+    }
+    const t = b.tgt && b.tgt.alive ? b.tgt : null, w = S.WEAPONS[b.cls], knife = !this.gunsAllowed(b);
+    let gx = e.pos.x, gz = e.pos.z, speed = S.CONST.WALK * (knife ? 0.95 : 0.8), strafe = false;
+    if (t) { const d = Math.hypot(t.x - e.pos.x, t.z - e.pos.z); gx = t.x; gz = t.z; if (!knife && d < 11) strafe = true; else if (!knife && d < 18 && now >= b.reactAt) speed *= 0.6; }
+    else if (this.mode === 'zona' && this.zone) { gx = this.zone.x + Math.cos(b.id * 1.7) * 2; gz = this.zone.z + Math.sin(b.id * 1.7) * 2; if (Math.hypot(gx - e.pos.x, gz - e.pos.z) < 1.5) speed = 0; }
+    else { if (!b.wp || Math.hypot(b.wp[0] - e.pos.x, b.wp[1] - e.pos.z) < 2 || now > b.wpT) { b.wp = this.world.waypoints[Math.floor(R() * this.world.waypoints.length)]; b.wpT = now + 6000 + R() * 5000; } gx = b.wp[0]; gz = b.wp[1]; }
+    let dx = gx - e.pos.x, dz = gz - e.pos.z; const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
+    if (strafe) { if (now >= (b.strafeT || 0)) { b.strafeDir = R() < 0.5 ? 1 : -1; b.strafeT = now + 700 + R() * 900; } const px = -dz * b.strafeDir, pz = dx * b.strafeDir; dx = px * 0.9 + dx * 0.15; dz = pz * 0.9 + dz * 0.15; }
+    e.vel.x = dx * speed; e.vel.z = dz * speed;
+    if (S.moveEntity(this.world.colliders, e, dt)) { b.wp = null; b.strafeDir = -(b.strafeDir || 1); if (e.onGround && R() < 0.6) e.vel.y = S.CONST.JUMP * 0.9; }   // chocó con una pared: cambia de camino y a veces salta
+    b.x = clamp(e.pos.x, -half, half); b.y = e.pos.y; b.z = clamp(e.pos.z, -half, half); e.pos.x = b.x; e.pos.z = b.z;
+    const fx = t ? t.x - b.x : e.vel.x, fz = t ? t.z - b.z : e.vel.z; if (Math.hypot(fx, fz) > 0.01) b.yaw = Math.atan2(-fx, -fz);
+    b.pitch = t ? Math.atan2(t.y + 1.1 - (b.y + 1.6), Math.hypot(t.x - b.x, t.z - b.z)) : 0; b.h = 1.8;
+    b.hist.push({ t: now, x: b.x, y: b.y, z: b.z, h: b.h }); while (b.hist.length && now - b.hist[0].t > 1500) b.hist.shift();
+    if (!t || now < b.reactAt) return;
+    const d3 = { x: t.x - b.x, y: t.y + 1.1 - (b.y + 1.6), z: t.z - b.z }, dist = Math.hypot(d3.x, d3.y, d3.z) || 1;
+    if (knife) { if (dist < 2.3 && now >= b.nextMelee) this.onMelee(b, { d: [d3.x / dist, d3.y / dist, d3.z / dist] }, now); return; }
+    if (b.ammo <= 0) { if (now >= b.reloadUntil) { b.reloadUntil = now + w.reload * 900; b.ammo = w.mag; } return; }
+    if (now < b.reloadUntil || now < b.nextFire - 20 || R() > 0.55 + 0.35 * BOT_SKILL) return;
+    const err = (1 - BOT_SKILL) * 0.05 + w.spread * (1 - 0.4 * BOT_SKILL), dirs = [];
+    for (let k = 0; k < w.pellets; k++) { const ex = (R() - 0.5) * 2 * err, ey = (R() - 0.5) * 2 * err, dd = { x: d3.x / dist + ex, y: d3.y / dist + ey, z: d3.z / dist + (R() - 0.5) * 2 * err }, l = Math.hypot(dd.x, dd.y, dd.z); dirs.push([dd.x / l, dd.y / l, dd.z / l]); }
+    this.onShoot(b, { d: dirs }, now);
+  }
   noteLone() { if (this.players.size < 2) { if (!this.loneSince) this.loneSince = Date.now(); } else this.loneSince = 0; }   // desde cuándo espera rival
   tierSpan() { return this.players.size < 2 && this.loneSince ? Math.min(6, 1 + Math.floor((Date.now() - this.loneSince) / WIDEN_MS)) : 1; }
   /* [NUEVO] ¿Este movimiento es imposible por las paredes? 'dentro' = acaba dentro de un muro · 'muro' = lo atraviesa en un solo paso */
-  wallViolation(p, x, y, z, h, dt) {
-    const cols = this.world.colliders;
-    if (S.overlapAt(cols, x, y, z, 0.28, Math.max(1, h - 0.15))) return 'dentro';   // el cliente usa 0,35 de ancho: aquí 0,28 para no dar falsos positivos por redondeos
-    const dx = x - p.x, dy = y - p.y, dz = z - p.z, len = Math.hypot(dx, dy, dz);
-    if (len > 0.3) { const o = { x: p.x, y: p.y + 0.9, z: p.z }; if (S.rayWorld(cols, o, { x: dx / len, y: dy / len, z: dz / len }, len) < len - 0.3) return 'muro'; }
-    return null;
-  }
+  wallViolation(p, x, y, z, h, dt) { const w = this.world; return S.wallViolation(w.colliders, w.inset || (w.inset = S.insetColliders(w.colliders, 0.3)), p, x, y, z, h); }
   tierAvg() { let n = 0, s = 0; for (const p of this.players.values()) { n++; s += S.leagueIdx(p.mmr); } return n ? s / n : 0; }
   gunLevel(p) { p.cls = p.nextCls = this.classFor(p); p.ammo = S.WEAPONS[p.cls].mag; p.reloadUntil = 0; p.send(JSON.stringify({ t: 'gg', lv: p.gl, c: p.cls })); }
   ladderScore() { this.tk = [0, 1].map(t => { let m = 0; for (const p of this.players.values()) if (p.team === t) m = Math.max(m, p.gl); return m; }); }
@@ -238,14 +279,16 @@ class Room {
     if (this.phase === 'play') { if (p.kills + p.deaths > 0 && Date.now() - p.joinedAt > 60000) this.record(p, Date.now()); this.history(p, Date.now()); }
     this.broadcast({ t: 'leave', id: p.id });
     if (this.ranked && this.phase === 'play' && this.players.size >= 2 && p.acctUser && Date.now() - p.roundStart > LEAVE_MIN_MS && this.tl > 20) { const m = ranked.onLeave(p); log('Clasificatorio: ' + p.name + ' abandona y pierde ' + S.RANKED.LEAVE_PENALTY + ' puntos (' + m + ')'); }
-    if (this.players.size === 0 && this.specs.size === 0) rooms.delete(this.id);
+    if (this.humanCount() === 0 && this.specs.size === 0) rooms.delete(this.id);   // una sala solo con bots no tiene sentido
     else this.sendBoard();
   }
   record(p, now) {
+    if (p.isBot) return;   // los bots no entran en la clasificación
     lbRecord({ n: p.name, p: p.points, k: p.kills, d: p.deaths, h: p.hs, c: S.WEAPONS[p.cls].name, m: this.map, t: now, r: p.role || 0, a: p.acctUser ? p.acctUser.id : undefined });
   }
   /* Historial de partidas para analizar el comportamiento (un registro por jugador y ronda) */
   history(p, now) {
+    if (p.isBot) return;
     const dur = Math.round((now - p.roundStart) / 1000);
     if (dur < HIST_MIN || (p.shots === 0 && p.kills + p.deaths === 0 && p.fixes === 0 && p.rlv === 0)) return; // sin actividad: no se registra
     admin.recordMatch({ ts: now, room: this.id, map: this.map, name: p.name, nameKey: p.nameKey, ipKey: p.ipKey, cls: p.cls, cn: S.WEAPONS[p.cls].name, dur, k: p.kills, d: p.deaths, hs: p.hs, shots: p.shots, hits: p.hits, pts: p.points, fixes: p.fixes, rlv: p.rlv, role: p.role || 0 });
@@ -272,12 +315,14 @@ class Room {
     this.broadcast({ t: 'spawn', id: p.id, x: r3(p.x), y: 0, z: r3(p.z), yaw: r3(p.yaw), ep: p.ep, c: p.cls, hp: 100 });
   }
   tick(now, dt) {
+    this.fillBots(now);
     if (this.phase === 'play') {
       this.wait = this.players.size < 2;
       if (!this.wait) { this.tl -= dt; this.zoneTick(now, dt); }
       for (const p of this.players.values()) {
         if (!p.alive) { if (now >= p.respawnAt) this.spawn(p, now, 1500); }
         else if (now - p.lastHit > 4000 && p.hp < 100) p.hp = Math.min(100, p.hp + 18 * dt);
+        if (p.isBot && p.alive) this.botThink(p, now, dt);
       }
       if (this.tl <= 0) this.endRound(now);
     } else {
@@ -301,16 +346,17 @@ class Room {
     this.phase = 'break'; this.breakLeft = BREAK_SECS;
     const tk = this.tk.slice(), winner = tk[0] === tk[1] ? -1 : (tk[0] > tk[1] ? 0 : 1);
     const rows = [...this.players.values()].sort((a, b) => b.points - a.points || b.kills - a.kills || a.deaths - b.deaths);
-    for (const p of rows) { if (p.kills + p.deaths > 0) this.record(p, now); this.history(p, now); }
+    const real = rows.filter(p => !p.isBot).length, nb = rows.length - real, rewarded = real >= 2;   // con menos de 2 jugadores reales no hay premios ni estadísticas
+    for (const p of rows) { if (!rewarded) break; if (p.kills + p.deaths > 0) this.record(p, now); this.history(p, now); }
     if (this.ranked) for (const [p, r] of ranked.onRoundEnd(rows, winner)) p.send(JSON.stringify(Object.assign({ t: 'rank' }, r)));   // [NUEVO] puntuación clasificatoria
     rows.forEach((p, i) => { // progreso y PX de las cuentas online (mínimo 2 jugadores y algo de actividad)
-      if (!p.acctUser || rows.length < 2 || p.kills + p.deaths + p.points === 0) return;
+      if (!p.acctUser || !rewarded || p.kills + p.deaths + p.points === 0) return;
       const r = accounts.awardMatch(p.acctUser, { points: p.points, kills: p.kills, deaths: p.deaths, won: winner >= 0 && p.team === winner, cls: p.cls, bestStreak: p.bestStreak, ev: events.multFor({ mode: this.mode, cls: p.cls }) });
       p.send(JSON.stringify({ t: 'award', px: r.px, balance: r.balance, prevBest: r.prevBest, stats: r.stats, mult: r.mult, cr: r.cr, crBalance: r.crBalance, ev: r.ev }));
       bp.awardMatch(p.acctUser, { points: p.points, won: winner >= 0 && p.team === winner }).then(x => { if (x) p.send(JSON.stringify({ t: 'bpxp', xp: x.added, total: x.xp, level: x.level, up: x.leveledUp })); }).catch(e => log('XP del pase: ' + e.message));
     });
     this.votes = new Map();
-    this.broadcast({ t: 'end', maps: S.MAPS.map(m => m.name), cur: this.map, next: BREAK_SECS, tw: winner, tk, res: rows.map(p => [p.id, p.name, p.kills, p.deaths, p.points, p.hs, p.cls, p.role || 0, p.team]) });
+    this.broadcast({ t: 'end', maps: S.MAPS.map(m => m.name), cur: this.map, nb, rw: rewarded, next: BREAK_SECS, tw: winner, tk, res: rows.map(p => [p.id, p.name, p.kills, p.deaths, p.points, p.hs, p.cls, p.role || 0, p.team]) });
   }
   tally() { const v = S.MAPS.map(() => 0); for (const x of (this.votes || new Map()).values()) v[x]++; return v; }
   startRound(now) {
@@ -318,7 +364,7 @@ class Room {
     if (top > 0) { const win = votes.map((n, i) => (n === top ? i : -1)).filter(i => i >= 0), pick = win[Math.floor(Math.random() * win.length)]; if (pick !== this.map) { this.map = pick; this.world = worlds[pick]; this.broadcast({ t: 'map', map: pick }); } }
     this.phase = 'play'; this.tl = MATCH_TIME; this.tk = [0, 0]; this.zs = [0, 0]; this.newZone(now, true); this.rebalance();
     for (const p of this.players.values()) { p.kills = p.deaths = p.points = p.hs = p.streak = p.bestStreak = 0; p.gl = 0; p.zt = 0; p.alive = false; p.roundStart = now; }
-    this.broadcast({ t: 'round', tl: MATCH_TIME, lim: this.limit(), zone: this.zoneMsg() });
+    this.broadcast({ t: 'round', tl: MATCH_TIME, lim: this.limit(), zone: this.zoneMsg(), nb: this.botCount() });
     for (const p of this.players.values()) this.spawn(p, now, 4000);
     this.sendBoard();
   }
@@ -411,15 +457,22 @@ class Room {
     while (p.hist.length && now - p.hist[0].t > 1500) p.hist.shift();
   }
 }
+/* [NUEVO] Un bot de relleno: es un Player sin conexión (send no hace nada) al que la sala mueve y hace disparar */
+function makeBot(room) {
+  const used = new Set([...room.players.values()].map(p => p.name)), name = BOT_NAMES.find(n => !used.has(n)) || 'Bot' + (10 + Math.floor(Math.random() * 90));
+  const b = new Player({ readyState: 3 }, name, room.map, BOT_CLASSES[Math.floor(Math.random() * BOT_CLASSES.length)], '0.0.0.0', [Math.floor(Math.random() * 4), Math.floor(Math.random() * 3)], { role: 0, nameKey: 'bot:' + name, ipKey: '' });
+  b.isBot = true; b.ping = 0; b.epSeen = -1; b.strafeDir = 1; b.ent = { pos: { x: 0, y: 0, z: 0 }, vel: { x: 0, y: 0, z: 0 }, hw: 0.35, h: 1.8, onGround: true };
+  return b;
+}
 function findRoom(map, mode, isRanked, tier) {
   let best = null, bestD = 0; mode = mode || 'duelo'; isRanked = !!isRanked; const max = admin.settings.maxPerRoom || MAX_PER_ROOM;
   /* [NUEVO] Emparejamiento: mismo modo y, en clasificatorio, una liga media parecida (diferencia máxima de 1, que sube con la espera de una sala con menos de 2 jugadores).
      Entre las salas válidas se elige la de liga más cercana y, a igualdad, la más llena. */
   for (const r of rooms.values()) {
-    if (r.map !== map || r.mode !== mode || r.ranked !== isRanked || r.players.size >= max) continue;
+    if (r.map !== map || r.mode !== mode || r.ranked !== isRanked || r.humanCount() >= max) continue;   // los bots no ocupan sitio: se van si hace falta
     const d = isRanked && r.players.size ? Math.abs(r.tierAvg() - tier) : 0;
     if (isRanked && r.players.size && d > r.tierSpan()) continue;
-    if (!best || d < bestD - 1e-9 || (Math.abs(d - bestD) < 1e-9 && r.players.size > best.players.size)) { best = r; bestD = d; }
+    if (!best || d < bestD - 1e-9 || (Math.abs(d - bestD) < 1e-9 && r.humanCount() > best.humanCount())) { best = r; bestD = d; }
   }
   return best || new Room(map, mode, isRanked);
 }
@@ -460,7 +513,7 @@ function json(res, obj, code, origin) {
 const EPHEMERAL_HOST = !PGDB && !process.env.DATA_DIR ? ['RENDER', 'DYNO', 'FLY_APP_NAME', 'RAILWAY_ENVIRONMENT', 'K_SERVICE', 'VERCEL', 'NETLIFY'].find(k => process.env[k]) || '' : '';
 if (EPHEMERAL_HOST) console.log(new Date().toISOString(), '¡ATENCIÓN! Detectada la plataforma (' + EPHEMERAL_HOST + ') sin DATABASE_URL ni DATA_DIR: las cuentas se guardan en el disco del servidor, que allí se BORRA al reiniciar o redesplegar. Configura DATABASE_URL (PostgreSQL) o un disco persistente con DATA_DIR.');
 function status() {
-  return { storage: { mode: PGDB ? 'postgres' : 'archivos', warn: !!EPHEMERAL_HOST, platform: EPHEMERAL_HOST }, protocol: PROTOCOL, admin: admin.adminUser, accounts: true, store: accounts.storeInfo().enabled, bp: true, market: true, social: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
+  return { mail: accounts.mailOn(), terms: process.env.REQUIRE_TERMS !== '0', storage: { mode: PGDB ? 'postgres' : 'archivos', warn: !!EPHEMERAL_HOST, platform: EPHEMERAL_HOST }, protocol: PROTOCOL, admin: admin.adminUser, accounts: true, store: accounts.storeInfo().enabled, bp: true, market: true, social: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
 }
 
 const server = http.createServer((req, res) => {
@@ -475,11 +528,16 @@ const server = http.createServer((req, res) => {
   if (social.handles(url.pathname)) { social.handleHttp(req, res, url, clientIp(req)); return; }           // [NUEVO] perfiles y amigos
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
   const p = url.pathname;
+  if (p === '/healthz') { res.writeHead(200, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' }); return res.end('ok'); }   // [NUEVO] para el control de salud del hosting
+  if (p === '/privacidad' || p === '/terminos') {   // [NUEVO] páginas legales (con los datos del titular de LEGAL_OWNER / LEGAL_EMAIL)
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'" });
+    return res.end(p === '/privacidad' ? legal.privacy(process.env) : legal.terms(process.env));
+  }
   if (p.startsWith('/api/')) {
     const ip = clientIp(req), n = (apiHits.get(ip) || 0) + 1; apiHits.set(ip, n);
     const origin = req.headers.origin;
     if (n > 120) return json(res, { error: 'demasiadas peticiones' }, 429, origin);
-    if (p === '/api/status') return json(res, status(), 200, origin);
+  if (p === '/api/status') return json(res, status(), 200, origin);
     if (p === '/api/leaderboard') {
       const map = url.searchParams.get('map'); const m = map === null ? -1 : parseInt(map, 10);
       // el tic de verificado se calcula al servir la lista: así lo ven todos, también en partidas antiguas
@@ -557,6 +615,8 @@ function presence(uid) { let best = 'off'; for (const w of connections) if (w.ac
 social = createSocial({ S, accounts, admin, bp, db: PGDB, dataDir: DATA_DIR, log, presence, rankedOf: u => (ranked ? ranked.publicOf(u) : null) });
 ranked = createRanked({ S, accounts, admin, dataDir: DATA_DIR, log });   // [NUEVO] clasificatorio y temporadas
 events = createEvents({ S, accounts, admin, dataDir: DATA_DIR, log });   // [NUEVO] eventos temporales
+/* [NUEVO] Al eliminar una cuenta (pasado su plazo) se limpia todo lo suyo en los demás módulos */
+accounts.onRemove(async u => { await bp.store.deleteUser(u.id); await social.removeAvatar(u); market.removeUser(u); lb.entries = lb.entries.filter(e => e.a !== u.id); lbSaveSoon(); });
 backup = createBackup({ db: PGDB, dataDir: DATA_DIR, admin, log, flush: async () => { lbSave(); admin.flushAll(); await accounts.flush(); await bp.flush(); } });   // [NUEVO] copias de seguridad automáticas
 /* [NUEVO] Si una cuenta cambia de nombre, sus entradas de la clasificación cambian con ella (siguen a su ID; las antiguas, sin ID, se reconocen por el nombre viejo) */
 accounts.hooks.onRename = (u, old) => { const ok = old.toLowerCase(); let n = 0; for (const e of lb.entries) if (e.a === u.id || (!e.a && e.n.toLowerCase() === ok)) { e.a = u.id; e.n = u.username; n++; } if (n) lbSaveSoon(); };
