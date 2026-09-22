@@ -499,7 +499,7 @@ body.playing .chatrow:focus-within{opacity:1}
 #board .tbl tr.me td{background:rgba(255,220,58,.16);color:var(--volt)}
 #board .tbl tr.first td.pos{color:var(--volt)}
 /* ---------- Pantalla de muerte: cabecera + tienda de armas (Cash) ---------- */
-#death{position:absolute;left:50%;top:8%;transform:translateX(-50%);width:min(900px,94vw);max-height:86vh;overflow:auto;text-align:left;padding:0 0 14px;pointer-events:auto}   /* [CORREGIDO] #death cuelga de #hud, que tiene pointer-events:none: sin esto, los clics en «Purchase» atravesaban el panel y llegaban al canvas, no al botón */
+#death{position:absolute;left:50%;top:8%;transform:translateX(-50%);width:min(900px,94vw);max-height:86vh;overflow:auto;text-align:left;padding:0 0 14px}
 #deathHead{text-align:center;padding:14px 20px 10px}
 #deathHead h2{font-size:clamp(24px,3vw,34px);font-style:italic;font-weight:900;letter-spacing:.1em;color:var(--red);text-transform:uppercase;margin:0}
 #deathHead p{font-size:15px;margin-top:4px;letter-spacing:.04em}
@@ -1182,6 +1182,5 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
 <script type="module" src="src/main.js"></script>
 <div id="notice" role="status" aria-live="polite"></div>
 <div id="goldflash"></div>
-<script src="https://pl31453575.profitableratecpmnetwork.com/1a/d8/93/1ad893f1e051ab75f347b71ed620a547.js"></script>
 </body>
 </html>
