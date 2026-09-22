@@ -7,8 +7,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, ms = 8000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (fn()) return true; } catch (e) { /* aún no */ } await sleep(25); } return false; }
 
 console.log('=== 1. La tienda en shared.js ===');
-ok(S.SHOP.length === 8 && S.SHOP.every(x => S.WEAPONS[x.wi] && x.price > 0), 'ocho armas con precio, todas apuntando a un arma real del juego');
-ok(new Set(S.SHOP.map(x => x.wi)).size === 8, 'ninguna arma se repite en la tienda');
+ok(S.SHOP.length === 11 && S.SHOP.every(x => S.WEAPONS[x.wi] && x.price > 0), 'las 11 armas del juego están en la tienda, todas con precio (antes solo 8: faltaban Torrente, Dúo y AK)');
+ok(new Set(S.SHOP.map(x => x.wi)).size === 11, 'ninguna arma se repite en la tienda');
 {
   const asalto = S.WEAPONS[S.SHOP[0].wi], st = S.shopStats(asalto);
   ok(st.rpm === Math.round(60 / asalto.interval) && st.dmg === asalto.dmg, 'las estadísticas de la tarjeta (DMG, RPM) salen de los números reales del arma (' + asalto.name + ': ' + JSON.stringify(st) + ')');
@@ -57,7 +57,7 @@ async function killOnce(att, vic) {
 
     const A = new Bot('Comprador'), Bbot = new Bot('Rival'); const wA = await A.connect(), wBw = await Bbot.connect();
     ok(wA.cash === S.CONST.SHOP_START_CASH && wBw.cash === S.CONST.SHOP_START_CASH, 'cada jugador empieza con ' + S.CONST.SHOP_START_CASH + ' de Cash (mensaje de bienvenida)');
-    ok(Array.isArray(wA.shop) && wA.shop.length === 8 && wA.shop[0].price === S.SHOP[0].price, 'el servidor manda la lista de la tienda al conectar');
+    ok(Array.isArray(wA.shop) && wA.shop.length === 11 && wA.shop[0].price === S.SHOP[0].price, 'el servidor manda la lista completa de la tienda al conectar');
     await until(() => A.pos && Bbot.pos, 4000);
     ok(wA.tm !== wBw.tm, 'los dos jugadores han quedado en equipos distintos (necesario para poder eliminarse)');
 
@@ -115,7 +115,7 @@ async function killOnce(att, vic) {
   ok(!$('#death').hidden, 'al morir aparece la pantalla de reaparición');
   ok(!$('#shop').classList.contains('off'), 'la tienda se ve de entrada, sin tener que abrirla');
   ok($('#deathPick') === null, 'ya no existe la lista de elegir arma gratis con el teclado');
-  const cards = $$('#shopGrid .wcard'); ok(cards.length === 8, 'la tienda pinta las 8 tarjetas (' + cards.length + ')');
+  const cards = $$('#shopGrid .wcard'); ok(cards.length === 11, 'la tienda pinta las 11 tarjetas (' + cards.length + ')');
 
   const priceOf = card => +card.querySelector('em').textContent.replace(/\D/g, '');
   const insuficiente = cards.find(cd => priceOf(cd) > T.botCash && !cd.classList.contains('owned'));

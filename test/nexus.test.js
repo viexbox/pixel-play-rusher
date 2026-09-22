@@ -97,26 +97,41 @@ const traps = R.q.filter(([i, j, k]) => !back.has(id(i, j, k)));
 ok(traps.length === 0, R.q.length + ' superficies alcanzables y de todas se puede VOLVER a la base: ' + traps.length + ' trampas' + (traps.length ? ' (p. ej. x ' + ctr(traps[0][0]) + ', z ' + ctr(traps[0][1]) + ')' : ''));
 let stuckOk = 0; for (const [n, [x, y, z]] of Object.entries(targets)) if (reach(Bl, x, y, z) !== null && reach(R, x, y, z) !== null) stuckOk++; ok(stuckOk === Object.keys(targets).length, 'ambos equipos alcanzan exactamente los mismos destinos');
 
-/* ---------- 4b. Navegación de los bots ---------- */
-console.log('\n=== 4b. Navegación de los bots (rejilla de 1 m + campo de distancias) ===');
+/* ---------- 4b. Navegación de los bots (con altura: sube escaleras) ---------- */
+console.log('\n=== 4b. Navegación de los bots (rejilla de 1 m, campo de distancias con capas por altura) ===');
 {
-  const nav = world.nav, C = S.CONST, cells = nav.free.reduce((a, b) => a + b, 0);
-  ok(nav && nav.n === 100 && cells > 4000 && cells < 8000, 'el mundo trae su rejilla de navegación: ' + cells + ' de ' + nav.n * nav.n + ' celdas libres para un cuerpo');
+  const nav = world.nav, C = S.CONST, columnsWithSurface = nav.layers.filter(l => l.length).length, totalLayers = nav.layers.reduce((a, l) => a + l.length, 0);
+  ok(nav && nav.n === 100 && columnsWithSurface > 4000 && columnsWithSurface < 10000, 'el mundo trae su rejilla de navegación: ' + columnsWithSurface + ' columnas con alguna superficie pisable, de ' + nav.n * nav.n);
+  ok(totalLayers >= columnsWithSurface, 'y ' + (totalLayers - columnsWithSurface) + ' columnas tienen más de una altura pisable (suelo y, encima, una cubierta o una azotea)');
   const f = S.navField(nav, 43, 6); ok(S.navField(nav, 43.3, 6.2) === f, 'el campo hacia un destino se calcula una sola vez y queda en caché');
-  const reachable = [...f].filter(v => v >= 0).length; ok(reachable === cells, 'desde cualquier celda libre se puede llegar a Spawn Blue caminando por el suelo (' + reachable + ' de ' + cells + ')');
-  const cellAt = (i, j) => (i < 0 || j < 0 || i >= nav.n || j >= nav.n ? -1 : f[i * nav.n + j]);   // un punto de paso cae en el borde de 4 celdas: basta con que una sea alcanzable
+  let reachableGround = 0, groundColumns = 0; for (let c = 0; c < nav.n * nav.n; c++) { if (nav.layers[c].length && nav.layers[c][0] < 3) { groundColumns++; if (f.dist[c] && f.dist[c][0] >= 0) reachableGround++; } }
+  ok(reachableGround / groundColumns > 0.9, 'desde casi cualquier columna a ras de suelo se puede llegar a Spawn Blue caminando (' + reachableGround + ' de ' + groundColumns + ', ' + (reachableGround / groundColumns * 100).toFixed(0) + ' %; el resto son huecos sueltos junto a cajas y bordes, ya cubiertos uno a uno en la sección 4)');
+  const cellAt = (i, j) => (i < 0 || j < 0 || i >= nav.n || j >= nav.n || !f.dist[i * nav.n + j]) ? -1 : Math.max(...f.dist[i * nav.n + j]);   // un punto de paso cae en el borde de 4 celdas: basta con que una capa sea alcanzable
   const wpOk = world.waypoints.filter(([x, z]) => [0, -1].some(di => [0, -1].some(dj => cellAt(Math.floor(x + nav.half) + di, Math.floor(z + nav.half) + dj) >= 0))).length; ok(wpOk === world.waypoints.length, 'y desde todos los ' + world.waypoints.length + ' puntos de paso de los bots');
-  ok(S.navDir(nav, f, 43, 6) === null && S.navDir(nav, f, -40, 8) !== null && Math.abs(Math.hypot(...S.navDir(nav, f, -40, 8)) - 1) < 1e-9, 'navDir da una dirección unitaria fuera del destino y null al llegar');
-  const inWall = S.navField(nav, 0, 0); ok(inWall.some(v => v >= 0), 'un destino ocupado (dentro de una caja) se desplaza a la celda libre más cercana');
-  /* física real: bot que sigue el campo frente a bot en línea recta, de la base roja a la azul */
-  const walk = (from, to, useNav) => { const e = { pos: { x: from[0], y: 0, z: from[1] }, vel: { x: 0, y: 0, z: 0 }, hw: 0.35, h: 1.8, onGround: true }, field = S.navField(nav, to[0], to[1]), dt = 1 / 20, sp = C.WALK * 0.8;
-    for (let t = 0; t < 120; t += dt) { let dx = to[0] - e.pos.x, dz = to[1] - e.pos.z; if (Math.hypot(dx, dz) < 3) return t; if (useNav) { const d = S.navDir(nav, field, e.pos.x, e.pos.z); if (d) { dx = d[0]; dz = d[1]; } } const l = Math.hypot(dx, dz) || 1; e.vel.x = dx / l * sp; e.vel.z = dz / l * sp; S.moveEntity(cols, e, dt); }
+  ok(S.navDir(nav, f, 43, 6) === null && S.navDir(nav, f, -40, 8) !== null && Math.abs(Math.hypot(...S.navDir(nav, f, -40, 8)) - 1) < 1e-9, 'navDir da una dirección unitaria hacia el siguiente escalón, y null al llegar');
+  const inWall = S.navField(nav, 0, 0); ok(inWall && Object.values(inWall.dist).some(cell => cell.some(v => v >= 0)), 'un destino ocupado (dentro de una caja) se desplaza a la columna con superficie más cercana');
+  /* física real: bot que sigue el campo frente a bot en línea recta, de la base roja a la azul, y también hacia las 5 zonas del modo Capturar Zona (algunas en altura) */
+  const walk = (from, to, useNav) => { const e = { pos: { x: from[0], y: 0, z: from[1] }, vel: { x: 0, y: 0, z: 0 }, hw: 0.35, h: 1.8, onGround: true }, field = S.navField(nav, to[0], to[1], to[2]), dt = 1 / 20, sp = C.WALK * 0.8;
+    let stuckD = null, stuckT = 0;   // [PR3] misma salida de emergencia que botThink en server.js: si no se acerca en 1,2 s, salta y desvía un poco (rompe la oscilación en el borde de una escalera)
+    for (let t = 0; t < 120; t += dt) {
+      let dx = to[0] - e.pos.x, dz = to[1] - e.pos.z; if (Math.hypot(dx, dz) < 3 && Math.abs(e.pos.y - (to[2] || 0)) < 1) return t;
+      if (useNav) {
+        const d = S.navDir(nav, field, e.pos.x, e.pos.z, e.pos.y); if (d) { dx = d[0]; dz = d[1]; }
+        const d2 = Math.hypot(to[0] - e.pos.x, to[1] - e.pos.z) + Math.abs((to[2] || 0) - e.pos.y) * 2;
+        if (stuckD == null || d2 < stuckD - 0.3) { stuckD = d2; stuckT = t; }
+        else if (t - stuckT > 1.2) { stuckT = t; stuckD = d2; if (e.onGround) e.vel.y = C.JUMP * 0.9; const a = (Math.random() - 0.5) * 2.4, ca = Math.cos(a), sa = Math.sin(a); const ndx = dx * ca - dz * sa, ndz = dx * sa + dz * ca; dx = ndx; dz = ndz; }
+      }
+      const l = Math.hypot(dx, dz) || 1; e.vel.x = dx / l * sp; e.vel.z = dz / l * sp; S.moveEntity(cols, e, dt);
+    }
     return null; };
   const trips = []; for (const a of sp[1]) for (const b of sp[0].slice(0, 3)) trips.push([a, b]);
   const withNav = trips.map(([a, b]) => walk(a, b, true)), straight = trips.map(([a, b]) => walk(a, b, false));
   ok(withNav.every(t => t !== null && t < 30), 'un bot que sigue la navegación llega de Spawn Red a Spawn Blue en ' + Math.min(...withNav).toFixed(0) + '–' + Math.max(...withNav).toFixed(0) + ' s en los ' + trips.length + ' trayectos');
   ok(straight.filter(t => t !== null).length <= 2, 'mientras que en línea recta llegan ' + straight.filter(t => t !== null).length + ' de ' + trips.length + ' (se atascan contra las paredes): por eso los bots necesitan navegación');
   const back = trips.map(([a, b]) => walk(b, a, true)); ok(back.every(t => t !== null && t < 30), 'y también de Spawn Blue a Spawn Red (' + Math.min(...back).toFixed(0) + '–' + Math.max(...back).toFixed(0) + ' s)');
+  /* [PR3] las 5 zonas del modo Capturar Zona, algunas en altura (Main Plaza, Reactor Complex, Capture Point): antes los bots se quedaban abajo, empujando la pared de la escalera */
+  const toZones = m.zones.map(z => walk([-40, 8], [z.x, z.z, z.y], true));
+  ok(toZones.every(t => t !== null && t < 90), 'y un bot llega a las 5 zonas de Capturar Zona, incluidas las que están en una azotea (la salida de emergencia usa un desvío al azar, así que el tiempo varía de una vez a otra) (' + m.zones.map((z, i) => z.n + ' ' + (toZones[i] === null ? 'NO LLEGÓ' : toZones[i].toFixed(0) + 's')).join(', ') + ')');
 }
 
 /* ---------- 5. Servidor real ---------- */

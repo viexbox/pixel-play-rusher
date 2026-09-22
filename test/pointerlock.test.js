@@ -52,6 +52,9 @@ const world = S.buildWorld(0);
   ok($('#pause').hidden, 'pulsar Escape con la tienda abierta tampoco abre la pausa');
 
   /* reaparecer (en el modo entrenamiento no hay comprador con dinero suficiente garantizado, así que reaparece con lo que tenga) */
+  const antes2 = exitCalls;
+  T.kill(T.player, T.bots[0], false, 'Prueba 2');
+  ok(w.getComputedStyle($('#death')).pointerEvents !== 'none', 'la tienda no hereda «pointer-events:none» de #hud (si no, los clics en Purchase atraviesan el panel y llegan al canvas, sin que el botón los reciba)');
   T.player.respawnAt = 0; for (let f = 0; f < 6; f++) T.step(1 / 60);
   ok($('#death').hidden, 'al reaparecer se cierra la tienda');
   ok(w.document.pointerLockElement !== null && reqCalls > reqAntes, 'y se recupera el bloqueo del puntero automáticamente (sin que el jugador tenga que hacer clic)');

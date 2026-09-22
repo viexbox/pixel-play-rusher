@@ -303,44 +303,71 @@ function areaAt(mapIdx, x, y, z) {
   return '';
 }
 
-/* ---------- Navegación de los bots (solo por el suelo) ----------
-   Rejilla de 1 m con las celdas por las que cabe un cuerpo (radio 0,5) y campo de distancias hacia un destino (búsqueda en anchura, en caché por celda de destino).
+/* ---------- Navegación de los bots (sube escaleras: cada columna guarda TODAS sus alturas pisables) ----------
+   [PR3] Antes la rejilla solo sabía si una columna (x, z) era pisable a ras de suelo (y = 0): un bot que iba a una
+   zona en una azotea se quedaba empujando la pared de la escalera, sin poder subir. Ahora cada columna guarda la
+   lista de alturas por las que se puede pisar ahí (igual que ya calcula S.overlapAt para el jugador), y el camino
+   solo pasa de una altura a la vecina si la diferencia es ≤ CONST.STEP (0,55 m): el mismo límite que ya usa la
+   física para subir un escalón sin saltar. Con un solo nivel por columna, el comportamiento es idéntico al de antes.
    Antes los bots caminaban en línea recta hacia un punto y, si chocaban, elegían otro: en un recinto con calles, puertas y túneles se quedaban pegados a las paredes. */
 const NAV8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 function buildNav(cols, half) {
-  const n = Math.floor(half * 2), free = new Uint8Array(n * n);
-  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) free[i * n + j] = overlapAt(cols, -half + i + 0.5, 0, -half + j + 0.5, 0.5, 1.8) ? 0 : 1;
-  return { n, half, free, cache: new Map() };
+  const n = Math.floor(half * 2), layers = new Array(n * n);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const x = -half + i + 0.5, z = -half + j + 0.5, hs = new Set([0]);
+    for (const c of cols) if (x + 0.5 > c.minX && x - 0.5 < c.maxX && z + 0.5 > c.minZ && z - 0.5 < c.maxZ) hs.add(c.maxY);   // techos y bordes que tocan esta columna
+    layers[i * n + j] = [...hs].filter(h => h < 8 && !overlapAt(cols, x, h, z, 0.5, 1.8)).sort((a, b) => a - b);   // solo las alturas donde de verdad cabe un cuerpo
+  }
+  return { n, half, layers, cache: new Map() };
 }
-function navField(nav, tx, tz) {
-  const n = nav.n, ci = Math.max(0, Math.min(n - 1, Math.floor(tx + nav.half))), cj = Math.max(0, Math.min(n - 1, Math.floor(tz + nav.half))), key = ci * n + cj;
-  const hit = nav.cache.get(key); if (hit) return hit;
-  const dist = new Int16Array(n * n).fill(-1); let s = -1;
-  for (let r = 0; r <= 3 && s < 0; r++) for (let di = -r; di <= r && s < 0; di++) for (let dj = -r; dj <= r; dj++) { const i = ci + di, j = cj + dj; if (i >= 0 && j >= 0 && i < n && j < n && nav.free[i * n + j]) { s = i * n + j; break; } }   // si el destino está ocupado, la celda libre más cercana
-  if (s >= 0) {
-    const q = new Int32Array(n * n); let qh = 0, qt = 0; dist[s] = 0; q[qt++] = s;
-    while (qh < qt) {
-      const c = q[qh++], i = (c / n) | 0, j = c % n, d = dist[c] + 1;
-      for (const [di, dj] of NAV8) {
-        const ni = i + di, nj = j + dj; if (ni < 0 || nj < 0 || ni >= n || nj >= n) continue; const nc = ni * n + nj; if (!nav.free[nc] || dist[nc] >= 0) continue;
-        if (di && dj && (!nav.free[(i + di) * n + j] || !nav.free[i * n + j + dj])) continue;   // sin cortar esquinas
-        dist[nc] = d; q[qt++] = nc;
-      }
+/* Índice (dentro de nav.layers[i*n+j]) de la altura pisable más cercana a y; -1 si esa columna no tiene ninguna. y == null → la más baja (suelo). */
+function navLayer(nav, i, j, y) {
+  const hs = nav.layers[i * nav.n + j]; if (!hs || !hs.length) return -1;
+  if (y == null) return 0;
+  let best = 0, bd = Infinity; for (let k = 0; k < hs.length; k++) { const d = Math.abs(hs[k] - y); if (d < bd) { bd = d; best = k; } }
+  return best;
+}
+/* Campo de distancias hasta (tx, tz, ty) por todas las alturas conectadas subiendo escaleras (≤ CONST.STEP entre vecinas). ty = null → el suelo, como antes.
+   [PR3 v2] Además del campo de distancias, guarda el PADRE real de cada celda visitada durante el propio BFS (qué vecino la descubrió): así navDir no tiene
+   que adivinar cuál es «el mejor vecino» cada vez que pregunta —con distancias empatadas entre una salida buena y una que lleva a un callejón sin salida,
+   esa suposición fallaba— sino que sigue la cadena exacta de pasos que el BFS ya demostró que es subible, escalón a escalón. */
+function navField(nav, tx, tz, ty) {
+  const n = nav.n, ci = Math.max(0, Math.min(n - 1, Math.floor(tx + nav.half))), cj = Math.max(0, Math.min(n - 1, Math.floor(tz + nav.half)));
+  let i0 = ci, j0 = cj, k0 = navLayer(nav, ci, cj, ty);
+  if (k0 < 0) {   // destino ocupado (o columna vacía): la celda con alguna superficie más cercana
+    search: for (let r = 0; r <= 3; r++) for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) {
+      const i = ci + di, j = cj + dj; if (i < 0 || j < 0 || i >= n || j >= n) continue;
+      const k = navLayer(nav, i, j, ty); if (k >= 0) { i0 = i; j0 = j; k0 = k; break search; }
+    }
+    if (k0 < 0) return null;
+  }
+  const key = (i0 * n + j0) + ':' + k0, hit = nav.cache.get(key); if (hit) return hit;
+  const dist = new Array(n * n), parent = new Array(n * n);
+  const layerArr = (arr, i, j) => arr[i * n + j] || (arr[i * n + j] = new Array(nav.layers[i * n + j].length).fill(-1));
+  layerArr(dist, i0, j0)[k0] = 0;
+  const q = [[i0, j0, k0]];
+  for (let qi = 0; qi < q.length; qi++) {
+    const [i, j, k] = q[qi], h = nav.layers[i * n + j][k], d = layerArr(dist, i, j)[k];
+    for (const [di, dj] of NAV8) {
+      const ni = i + di, nj = j + dj; if (ni < 0 || nj < 0 || ni >= n || nj >= n) continue;
+      if (di && dj && (!nav.layers[(i + di) * n + j].length || !nav.layers[i * n + (j + dj)].length)) continue;   // sin cortar esquinas
+      const hs = nav.layers[ni * n + nj], nd = layerArr(dist, ni, nj), np = layerArr(parent, ni, nj);
+      for (let nk = 0; nk < hs.length; nk++) { if (Math.abs(hs[nk] - h) > CONST.STEP || nd[nk] >= 0) continue; nd[nk] = d + (di && dj ? 1.4142 : 1); np[nk] = [i, j, k]; q.push([ni, nj, nk]); }
     }
   }
-  nav.cache.set(key, dist); return dist;
+  const result = { dist, parent };
+  nav.cache.set(key, result); return result;
 }
-/* Dirección unitaria [dx, dz] hacia el destino siguiendo el campo (mira 2 celdas por delante para no ir a saltos); null si no hay camino desde aquí. */
-function navDir(nav, dist, x, z) {
-  const n = nav.n; let ci = Math.max(0, Math.min(n - 1, Math.floor(x + nav.half))), cj = Math.max(0, Math.min(n - 1, Math.floor(z + nav.half))); const i0 = ci, j0 = cj;
-  let cur = dist[ci * n + cj]; if (cur === 0) return null;
-  for (let step = 0; step < 2; step++) {
-    let bi = -1, bj = -1, bd = cur < 0 ? Infinity : cur;
-    for (const [di, dj] of NAV8) { const ni = ci + di, nj = cj + dj; if (ni < 0 || nj < 0 || ni >= n || nj >= n) continue; const d = dist[ni * n + nj]; if (d >= 0 && d < bd) { bd = d; bi = ni; bj = nj; } }
-    if (bi < 0) break; ci = bi; cj = bj; cur = bd;
-  }
-  if (ci === i0 && cj === j0) return null;
-  const dx = -nav.half + ci + 0.5 - x, dz = -nav.half + cj + 0.5 - z, l = Math.hypot(dx, dz) || 1; return [dx / l, dz / l];
+/* Dirección unitaria [dx, dz] hacia el destino: un solo paso, el mismo que usó el BFS para llegar hasta aquí, así siempre es un escalón subible de verdad
+   (en vez de adivinar «el vecino con menor distancia», que a veces apuntaba a un sitio inalcanzable en un solo paso desde donde se estaba).
+   y = altura actual del que pregunta (null → la más baja de su columna), para saber en qué planta está parado. */
+function navDir(nav, field, x, z, y) {
+  if (!field) return null;
+  const n = nav.n, ci = Math.max(0, Math.min(n - 1, Math.floor(x + nav.half))), cj = Math.max(0, Math.min(n - 1, Math.floor(z + nav.half)));
+  const ck = navLayer(nav, ci, cj, y); if (ck < 0) return null;
+  const cell = field.dist[ci * n + cj]; if (!cell || cell[ck] === undefined || cell[ck] < 0 || cell[ck] === 0) return null;
+  const pcell = field.parent[ci * n + cj], p = pcell && pcell[ck]; if (!p) return null;
+  const px = -nav.half + p[0] + 0.5, pz = -nav.half + p[1] + 0.5, dx = px - x, dz = pz - z, l = Math.hypot(dx, dz) || 1; return [dx / l, dz / l];
 }
 
 /* Construye el mundo de un mapa: colisiones y puntos de paso/aparición. */
@@ -446,8 +473,11 @@ const MARKET = { FEE: 0.10, MAX_LISTINGS: 8, MAX_PRICE: 1000000, MIN_PRICE: { co
    Todos los modos son por equipos (azul / rojo, sin fuego amigo). «duelo» es el modo de siempre. */
 /* [NUEVO] Tienda de armas de la pantalla de reaparición: 8 armas con precio en Cash (dinero de partida que se reinicia cada ronda; se gana matando).
    wi = índice en WEAPONS; price = precio en Cash. Se usan armas ya existentes del juego (no se añaden modelos nuevos). */
-const SHOP = ['asalto', 'centinela', 'lince', 'trueno', 'rafaga', 'vortice', 'precision', 'sheriff'].map((id, i) => ({
-  wi: WEAPONS.findIndex(w => w.id === id), price: [1200, 1450, 2100, 950, 1100, 1300, 400, 650][i]
+const SHOP = ['asalto', 'centinela', 'lince', 'trueno', 'rafaga', 'vortice', 'precision', 'sheriff', 'torrente', 'duo', 'ak'].map((id, i) => ({
+  wi: WEAPONS.findIndex(w => w.id === id), price: [1200, 1450, 2100, 950, 1100, 1300, 400, 650, 1350, 350, 1250][i]
+  // [PR2] torrente 1350 (cargador de 100, ametralladora): justo por encima de Vórtice (1300) y por debajo de Centinela (1450)
+  // [PR2] duo 350 (pistolas dobles, alcance corto): la más barata, un peldaño por debajo de Precisión (400)
+  // [PR2] ak 1250 (más daño que Asalto): justo por encima de Asalto (1200) y por debajo de Vórtice (1300)
 }));
 /* Estadísticas de la tarjeta de la tienda (DMG · RPM · RNG · ACC), derivadas de los números reales del arma. */
 function shopStats(w) {

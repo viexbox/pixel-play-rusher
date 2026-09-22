@@ -497,7 +497,7 @@ const teamKills = t => fighters.reduce((n, f) => n + (f.team === t ? f.kills : 0
 const tkNow = () => (online && net.tk ? net.tk : [teamKills(0), teamKills(1)]);
 let state = 'menu';        // menu | playing | paused | ended
 let simTime = 0, timeLeft = MATCH_TIME, locked = false, fallback = false, lockTimer = 0;
-const keys = {}; let mouseL = false, mouseR = false;
+const keys = {}; let mouseL = false, mouseR = false, jumpQueued = false;   // [CONTROLES] jumpQueued: el salto se arma UNA vez por pulsación, no mientras se mantenga Espacio
 
 const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
 function spreadDir(base, spread) {
@@ -810,9 +810,10 @@ function applyShake(dt) {
    - FOV DINÁMICO: por encima de FOV_SPEED_MIN m/s el campo de visión se abre (hasta «FOV dinámico» grados, 5–10 recomendados) y llega al máximo a FOV_SPEED_FULL m/s;
      sumado al del deslizamiento nunca pasa de FOV_EXTRA_MAX grados de más, y no actúa al apuntar. Ajustes → «FOV dinámico» (0 = desactivado).
    ===================================================================== */
-const GF = { RECOIL_RISE: 38, RECOIL_RETURN: 9, RECOIL_MAX: 0.14, BACK_MAX: 0.07, FOV_SPEED_MIN: 9, FOV_SPEED_FULL: 12.5, FOV_EXTRA_MAX: 10, FOV_SMOOTH: 5 };
+const GF = { RECOIL_RISE: 38, RECOIL_RETURN: 9, RECOIL_MAX: 0.14, BACK_MAX: 0.07, FOV_SPEED_MIN: 9, FOV_SPEED_FULL: 12.5, FOV_EXTRA_MAX: 10, FOV_SMOOTH: 5, FIX_HARD_DIST: 3, FIX_SMOOTH: 22 };   // [PR1] FIX_HARD_DIST: a partir de aquí, snap duro. FIX_SMOOTH: cuanto más alto, más rápido se disuelve la corrección suave (con 22, baja de ~100 % a ~7 % en 120 ms)
 const recoilQ = new THREE.Quaternion(), recoilT = new THREE.Quaternion(), _qId = new THREE.Quaternion(), _rQ = new THREE.Quaternion(), _rE = new THREE.Euler(0, 0, 0, 'YXZ');
 let recoilBack = 0, recoilBackT = 0, fovBoost = 0;
+const fixOffset = new THREE.Vector3();   // [PR1] desfase SOLO visual entre la posición real (player.pos, ya corregida) y lo último que se veía; se disuelve solo
 const recoilAngle = q => 2 * Math.acos(Math.min(1, Math.abs(q.w)));
 const aimDirOf = p => { const cp = Math.cos(p.pitch); return new THREE.Vector3(-Math.sin(p.yaw) * cp, Math.sin(p.pitch), -Math.cos(p.yaw) * cp); };   // hacia donde APUNTA el jugador (sin retroceso ni sacudida)
 function addCameraRecoil(w, p) {
@@ -822,7 +823,7 @@ function addCameraRecoil(w, p) {
   const ang = recoilAngle(recoilT); if (ang > GF.RECOIL_MAX) recoilT.slerp(_qId, 1 - GF.RECOIL_MAX / ang);   // tope al acumular ráfagas
   recoilBackT = Math.min(GF.BACK_MAX, recoilBackT + (0.012 + w.kick * 2.4) * k);
 }
-function resetGameFeel() { recoilQ.identity(); recoilT.identity(); recoilBack = recoilBackT = 0; fovBoost = 0; }
+function resetGameFeel() { recoilQ.identity(); recoilT.identity(); recoilBack = recoilBackT = 0; fovBoost = 0; fixOffset.set(0, 0, 0); }
 const dynFovTarget = spd => { const t = clamp((spd - GF.FOV_SPEED_MIN) / (GF.FOV_SPEED_FULL - GF.FOV_SPEED_MIN), 0, 1); return reduce ? 0 : clamp(+cfg.fovSpeed || 0, 0, 10) * t * t * (3 - 2 * t); };
 /* Un paso de suavizado (recoil + FOV) y aplicación a la cámara. Va al FINAL de updatePlayer: lo anterior (rayo de la mira, etc.) ve la cámara sin retroceso. */
 function cameraFeel(dt) {
@@ -1164,7 +1165,7 @@ function respawn(f) {
   if (f.mesh) { resetPose(f); f.mesh.visible = true; f.label.visible = true; }
   if (f.isPlayer) {
     f.wi = cfg.cls; const w = WEAPONS[f.wi]; f.ammo = w.mag; f.reload = 0; f.fireCd = 0.3; f.slide = 0; f.aim = 0; f.eye = 1.6;
-    buildGun(w); resetSlot(); el.death.hidden = true; deathLook = null; sfx.spawn(); if (f.isPlayer) { document.body.classList.remove('dead'); if (state === 'playing') requestLock(); }   // [NUEVO] se reaparece con el arma principal en mano, se recupera el bloqueo del puntero y el cursor vuelve a ocultarse
+    buildGun(w); resetSlot(); el.death.hidden = true; deathLook = null; sfx.spawn(); if (f.isPlayer) { document.body.classList.remove('dead'); fixOffset.set(0, 0, 0); if (state === 'playing') requestLock(); }   // [NUEVO] se reaparece con el arma principal en mano, se recupera el bloqueo del puntero y el cursor vuelve a ocultarse; [PR1] sin desfase de la vida anterior
   } else {
     f.wi = BOT_WEAPONS[irand(0, BOT_WEAPONS.length - 1)]; setOutfit(f, f.wi);
     f.ai = { wp: null, repath: 0, stuck: 0, last: new THREE.Vector3(s[0], 0, s[1]), stuckT: 0, strafe: 1, strafeT: 0, scan: rand(0, 0.3), target: null, seen: false, react: 0, burst: 0, pause: rand(0.2, 0.6), cd: 0, walk: 0 };
@@ -1241,13 +1242,12 @@ function updatePlayer(dt) {
   let wx = -sinY * fwd + cosY * str, wz = -cosY * fwd - sinY * str;
   const wl = Math.hypot(wx, wz); if (wl > 0) { wx /= wl; wz /= wl; }
   p.aim = clamp(p.aim + ((mouseR && slot === 0 ? 1 : 0) - p.aim) * Math.min(1, dt * 22), 0, 1);   // [AJUSTE] apuntado más rápido (antes 14)   // [NUEVO] sin apuntar con el cuchillo
-  const sprint = (keys.ShiftLeft || keys.ShiftRight) && fwd > 0 && !mouseR;
-  const crouching = !!keys.KeyC;
-  let speed = crouching ? CROUCH : sprint ? SPRINT : WALK;
+  const crouching = !!keys.ShiftLeft || !!keys.ShiftRight;   // [CONTROLES] Mayús = agacharse/deslizar (antes era «correr»; ya no hay una tecla de correr aparte, como en Krunker)
+  let speed = crouching ? CROUCH : SPRINT;   // se corre siempre a lo que antes era la velocidad de «sprint»: sin un paso intermedio de «caminar»
   if (p.aim > 0.3) speed *= 0.85;   // [AJUSTE] apuntar frena menos (antes 0,72)
   speed *= w.speed * (crouching ? 1 : p.hop || 1) * (online && net.mode === 'cuchillos' ? 1.12 : 1);   // [NUEVO] a cuchillo, un poco más rápido;    // [NUEVO] p.hop = impulso acumulado del bunny hop (1 a 1,25)
   /* [NUEVO] Velocidad, deslizamiento, slide hop, coyote time y salto: la lógica está en shared.js (S.moveStep y los parámetros de S.MOVE) para que cliente, pruebas y servidor usen las mismas reglas */
-  S.moveStep(p, { wx, wz, fwd, str, speed, jump: !!keys.Space }, dt);
+  S.moveStep(p, { wx, wz, fwd, str, speed, jump: jumpQueued }, dt); jumpQueued = false;   // [CONTROLES] una sola pulsación = un solo intento de salto; hay que soltar y volver a pulsar Espacio
   // altura (agachado / deslizamiento)
   const wantH = (crouching || p.slide > 0) ? 1.2 : 1.8;
   if (wantH > p.h) { if (!overlapAt(p.pos.x, p.pos.y, p.pos.z, p.hw, wantH)) p.h = wantH; }
@@ -1259,7 +1259,8 @@ function updatePlayer(dt) {
   if (mouseL) { if (slot === 1) playerMelee(); else playerShoot(); }   // [NUEVO] con el cuchillo en mano, el clic golpea
   // cámara
   p.pitch = clamp(p.pitch, -1.5, 1.5);
-  camera.position.set(p.pos.x, p.pos.y + p.eye, p.pos.z);
+  fixOffset.multiplyScalar(Math.exp(-GF.FIX_SMOOTH * dt)); if (fixOffset.lengthSq() < 1e-6) fixOffset.set(0, 0, 0);   // [PR1] se va disolviendo solo; el jugador sigue moviéndose con normalidad mientras tanto
+  camera.position.set(p.pos.x + fixOffset.x, p.pos.y + p.eye + fixOffset.y, p.pos.z + fixOffset.z);
   camera.rotation.set(p.pitch, p.yaw, 0);
   applyShake(dt);   // [NUEVO]
   fovBoost += (dynFovTarget(Math.hypot(p.vel.x, p.vel.z)) - fovBoost) * (1 - Math.exp(-GF.FOV_SMOOTH * dt));   // [NUEVO] FOV dinámico: se abre al superar cierta velocidad
@@ -1558,7 +1559,15 @@ function netHandle(m) {
     case 'melee': { const f = net.remotes.get(m.id); if (f && f.alive) f.knifeT = 0.5; return; }
     case 'end': return onNetEnd(m);
     case 'round': return onNetRound(m);
-    case 'fix': if (player) { net.ep = m.ep; player.pos.set(m.x, m.y, m.z); player.vel.set(0, 0, 0); } return;
+    case 'fix': {   // [PR1] el antitrampas del servidor corrige la posición: suave si es un desajuste pequeño, snap duro si es grande
+      if (!player) return;
+      net.ep = m.ep;
+      const dx = player.pos.x - m.x, dy = player.pos.y - m.y, dz = player.pos.z - m.z, dist = Math.hypot(dx, dy, dz);
+      player.pos.set(m.x, m.y, m.z);   // la posición REAL (física, disparos, mensajes al servidor) se corrige siempre al instante: nunca se retrasa
+      if (dist > GF.FIX_HARD_DIST) { player.vel.set(0, 0, 0); fixOffset.set(0, 0, 0); }   // desajuste grande: parada en seco, sin desfase que disolver
+      else fixOffset.add(new THREE.Vector3(dx, dy, dz));   // desajuste pequeño: la CÁMARA se queda un instante donde estaba y se desliza hasta el sitio correcto
+      return;
+    }
     case 'pong': net.ping = Math.round(performance.now() - m.ts); return;
     case 'chat': return chatAdd(m.id === net.id ? 'me' : '', m.n, m.m, m.rl, m.i);
     case 'chatdel': return chatDel(m.i);
@@ -1631,7 +1640,7 @@ function applySpawnLocal(m) {
   p.pos.set(m.x, m.y, m.z); p.vel.set(0, 0, 0); p.hp = 100; p.alive = true; p.protect = 1.5; p.h = 1.8; p.yaw = m.yaw; p.pitch = 0; net.ep = m.ep;
   p.wi = m.c; const w = WEAPONS[p.wi];
   p.ammo = w.mag; p.reload = 0; p.fireCd = 0.3; p.slide = 0; p.aim = 0; p.eye = 1.6; p.meleeCd = 0;
-  buildGun(w); resetSlot(); gun.visible = true; el.death.hidden = true; deathLook = null; sfx.spawn(); document.body.classList.remove('dead'); if (state === 'playing') requestLock();   // [NUEVO] se recupera el bloqueo del puntero al reaparecer y el cursor vuelve a ocultarse
+  buildGun(w); resetSlot(); gun.visible = true; el.death.hidden = true; deathLook = null; sfx.spawn(); document.body.classList.remove('dead'); fixOffset.set(0, 0, 0); if (state === 'playing') requestLock();   // [NUEVO] se recupera el bloqueo del puntero al reaparecer y el cursor vuelve a ocultarse; [PR1] sin desfase de la vida anterior
 }
 function onNetSpawn(m) {
   if (!player) return;
@@ -2400,8 +2409,10 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Tab') { el.board.hidden = false; updateHudSlow(); }
   if (e.code === 'Escape' && !locked && el.death.hidden) pauseGame();   // [NUEVO] con la tienda abierta el cursor ya está libre: Escape no debe abrir la pausa encima
   if (e.code === 'KeyR' && player.alive && slot === 0) startReload();   // con el cuchillo en mano no se recarga
-  if (e.code === 'Digit1') setSlot(0); else if (e.code === 'Digit2' || e.code === 'Digit3') setSlot(1); else if (e.code === 'KeyQ') setSlot(1 - slot);   // [NUEVO] 1 = arma, 2 = cuchillo, Q = alternar
-  if (e.code === 'KeyC' && player.alive && S.startSlide(player)) sfx.slide();   // [NUEVO] agacharse en marcha = deslizarse (reglas en S.MOVE)
+  if (e.code === 'Digit1') setSlot(0); else if (e.code === 'Digit2' || e.code === 'Digit3') setSlot(1); else if (e.code === 'KeyE') setSlot(0);   // [CONTROLES] 1/E = arma principal, 2/3 = cuchillo
+  if (e.code === 'KeyQ') { if (slot !== 1) setSlot(1); else playerMelee(); }   // [CONTROLES] Q: si no tienes el cuchillo en la mano, lo saca; si ya lo tienes, golpea
+  if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && player.alive && S.startSlide(player)) sfx.slide();   // [CONTROLES] agacharse en marcha (ahora con Mayús) = deslizarse (reglas en S.MOVE)
+  if (e.code === 'Space' && player.alive) jumpQueued = true;   // [CONTROLES] salto de pulsación única: se arma aquí (una vez) y se consume en el siguiente paso de física
   if (e.code === 'KeyB' && player.alive) cycleOptic();
   // [NUEVO] el arma para el próximo respawn se elige y se paga en la tienda (#shop); ya no se cambia gratis con 1-9 al morir.
   if (e.code === 'KeyV') playerMelee();

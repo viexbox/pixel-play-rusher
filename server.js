@@ -187,16 +187,16 @@ class Room {
   botThink(b, now, dt) {
     if (this.phase !== 'play' || this.wait) return;
     const e = b.ent, half = this.world.half - 0.35, R = Math.random;
-    if (b.epSeen !== b.ep) { b.epSeen = b.ep; e.pos.x = b.x; e.pos.y = b.y; e.pos.z = b.z; e.vel.x = e.vel.y = e.vel.z = 0; b.tgt = null; b.wp = null; b.reactAt = now + 600 + R() * 600; }   // acaba de reaparecer
+    if (b.epSeen !== b.ep) { b.epSeen = b.ep; e.pos.x = b.x; e.pos.y = b.y; e.pos.z = b.z; e.vel.x = e.vel.y = e.vel.z = 0; b.tgt = null; b.wp = null; b.stuckD = null; b.reactAt = now + 600 + R() * 600; }   // acaba de reaparecer
     if (now >= (b.scanAt || 0)) {   // cada 0,3 s: el rival vivo más cercano al que ve
       b.scanAt = now + 300; let best = null, bd = 55;
       for (const o of this.players.values()) if (o !== b && o.alive && o.team !== b.team && o.protectUntil <= now) { const d = Math.hypot(o.x - b.x, o.z - b.z); if (d < bd && this.los(b, o)) { best = o; bd = d; } }
       if (best !== b.tgt) { b.tgt = best; b.reactAt = now + 350 + R() * 450 * (1.3 - BOT_SKILL); }   // tarda un poco en reaccionar al ver a alguien
     }
     const t = b.tgt && b.tgt.alive ? b.tgt : null, w = S.WEAPONS[b.cls], knife = !this.gunsAllowed(b);
-    let gx = e.pos.x, gz = e.pos.z, speed = S.CONST.WALK * (knife ? 0.95 : 0.8), strafe = false;
-    if (t) { const d = Math.hypot(t.x - e.pos.x, t.z - e.pos.z); gx = t.x; gz = t.z; if (!knife && d < 11) strafe = true; else if (!knife && d < 18 && now >= b.reactAt) speed *= 0.6; }
-    else if (this.mode === 'zona' && this.zone) { gx = this.zone.x + Math.cos(b.id * 1.7) * 2; gz = this.zone.z + Math.sin(b.id * 1.7) * 2; if (Math.hypot(gx - e.pos.x, gz - e.pos.z) < 1.5) speed = 0; }
+    let gx = e.pos.x, gz = e.pos.z, gy = null, speed = S.CONST.WALK * (knife ? 0.95 : 0.8), strafe = false;   // [PR3] gy: altura del objetivo (null = suelo, como antes)
+    if (t) { const d = Math.hypot(t.x - e.pos.x, t.z - e.pos.z); gx = t.x; gz = t.z; gy = t.y; if (!knife && d < 11) strafe = true; else if (!knife && d < 18 && now >= b.reactAt) speed *= 0.6; }
+    else if (this.mode === 'zona' && this.zone) { gx = this.zone.x + Math.cos(b.id * 1.7) * 2; gz = this.zone.z + Math.sin(b.id * 1.7) * 2; gy = this.zone.y || null; if (Math.hypot(gx - e.pos.x, gz - e.pos.z) < 1.5 && Math.abs((this.zone.y || 0) - e.pos.y) < 1) speed = 0; }   // [PR3] la zona puede estar en una azotea: gy guía la subida por la escalera, y solo se para si además ya está a esa altura
     else {
       if (!b.wp || Math.hypot(b.wp[0] - e.pos.x, b.wp[1] - e.pos.z) < 2 || now > b.wpT) {
         const wps = this.world.waypoints; let pool = wps;
@@ -209,7 +209,13 @@ class Room {
       gx = b.wp[0]; gz = b.wp[1];
     }
     let dx = gx - e.pos.x, dz = gz - e.pos.z;
-    if (!t && this.world.nav) { const dir = S.navDir(this.world.nav, S.navField(this.world.nav, gx, gz), e.pos.x, e.pos.z); if (dir) { dx = dir[0]; dz = dir[1]; } }   // [NUEVO] rodea paredes y cruza puertas siguiendo la rejilla de navegación
+    if (!t && this.world.nav) {
+      const dir = S.navDir(this.world.nav, S.navField(this.world.nav, gx, gz, gy), e.pos.x, e.pos.z, e.pos.y); if (dir) { dx = dir[0]; dz = dir[1]; }
+      /* [PR3] a veces, en el borde de una escalera, la ruta oscila entre dos celdas sin avanzar de verdad: si no se acerca en 1,2 s, se rompe el bucle saltando y desviando un poco */
+      const d2 = Math.hypot(gx - e.pos.x, gz - e.pos.z) + Math.abs((gy || 0) - e.pos.y) * 2;
+      if (b.stuckD == null || d2 < b.stuckD - 0.3) { b.stuckD = d2; b.stuckAt = now; }
+      else if (now - (b.stuckAt || now) > 1200) { b.stuckAt = now; b.stuckD = d2; if (e.onGround) e.vel.y = S.CONST.JUMP * 0.9; const a = (R() - 0.5) * 2.4, ca = Math.cos(a), sa = Math.sin(a); const ndx = dx * ca - dz * sa, ndz = dx * sa + dz * ca; dx = ndx; dz = ndz; }
+    }
     const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
     if (strafe) { if (now >= (b.strafeT || 0)) { b.strafeDir = R() < 0.5 ? 1 : -1; b.strafeT = now + 700 + R() * 900; } const px = -dz * b.strafeDir, pz = dx * b.strafeDir; dx = px * 0.9 + dx * 0.15; dz = pz * 0.9 + dz * 0.15; }
     e.vel.x = dx * speed; e.vel.z = dz * speed;

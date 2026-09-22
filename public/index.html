@@ -499,7 +499,7 @@ body.playing .chatrow:focus-within{opacity:1}
 #board .tbl tr.me td{background:rgba(255,220,58,.16);color:var(--volt)}
 #board .tbl tr.first td.pos{color:var(--volt)}
 /* ---------- Pantalla de muerte: cabecera + tienda de armas (Cash) ---------- */
-#death{position:absolute;left:50%;top:8%;transform:translateX(-50%);width:min(900px,94vw);max-height:86vh;overflow:auto;text-align:left;padding:0 0 14px}
+#death{position:absolute;left:50%;top:8%;transform:translateX(-50%);width:min(900px,94vw);max-height:86vh;overflow:auto;text-align:left;padding:0 0 14px;pointer-events:auto}   /* [CORREGIDO] #death cuelga de #hud, que tiene pointer-events:none: sin esto, los clics en «Purchase» atravesaban el panel y llegaban al canvas, no al botón */
 #deathHead{text-align:center;padding:14px 20px 10px}
 #deathHead h2{font-size:clamp(24px,3vw,34px);font-style:italic;font-weight:900;letter-spacing:.1em;color:var(--red);text-transform:uppercase;margin:0}
 #deathHead p{font-size:15px;margin-top:4px;letter-spacing:.04em}
@@ -1012,12 +1012,12 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
         <span><kbd>Ratón</kbd></span><span>Apuntar</span>
         <span><kbd>Clic izq.</kbd></span><span>Disparar</span>
         <span><kbd>Clic der.</kbd></span><span>Apuntar (con el Lince: mira telescópica ×3 con retícula y medidor de metros)</span>
-        <span><kbd>Espacio</kbd></span><span>Saltar</span>
-        <span><kbd>Mayús</kbd></span><span>Correr</span>
-        <span><kbd>C</kbd></span><span>Agacharte; corriendo, te deslizas</span>
+        <span><kbd>Espacio</kbd></span><span>Saltar (una pulsación = un salto; suelta y vuelve a pulsar para el siguiente)</span>
+        <span><kbd>Mayús</kbd></span><span>Agacharte; corriendo, te deslizas (siempre corres: no hay una tecla aparte para correr)</span>
         <span><kbd>V</kbd></span><span>Golpe rápido de cuchillo (sin cambiar de arma)</span>
         <span><kbd>Rueda</kbd></span><span>Cambiar entre arma y cuchillo (con el cuchillo en mano, el clic golpea)</span>
-        <span><kbd>1</kbd> <kbd>2</kbd> <kbd>Q</kbd></span><span>Arma · cuchillo · alternar</span>
+        <span><kbd>1</kbd> <kbd>E</kbd></span><span>Arma principal</span>
+        <span><kbd>2</kbd> <kbd>3</kbd> <kbd>Q</kbd></span><span>Cuchillo (Q: lo saca; si ya lo tienes, golpea)</span>
         <span><kbd>R</kbd></span><span>Recargar</span>
         <span><kbd>Tab</kbd></span><span>Ver la clasificación de la partida</span>
         <span><kbd>Enter</kbd></span><span>Escribir en el chat</span>
