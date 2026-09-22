@@ -380,6 +380,10 @@ npm run build:single     # genera pixel-play-rusher.html, todo el juego en un so
 Incluyen: HUD y mira del francotirador con el cliente real, API y archivos estáticos, protocolo, combate con compensación de latencia, límite de cadencia, anti-teletransporte, fin de ronda y clasificación persistente, el cliente real conectado al servidor real, orígenes y límites por IP. Con `node test/load.js 40 15` simulas carga.
 
 
+## Bloqueo del puntero: libre en la tienda, recuperado al reaparecer
+
+Al morir se libera el cursor (`document.exitPointerLock()`), para poder usar la tienda con el ratón; al reaparecer se vuelve a pedir el bloqueo automáticamente, sin que el jugador tenga que hacer clic. Mientras se ve la tienda, ni un clic ni la tecla Escape vuelven a capturar el ratón o abren la pausa por accidente; estando vivo, perder el bloqueo (p. ej. Alt+Tab) sigue abriendo la pausa, como antes. Prueba: `test/pointerlock.test.js` (11 comprobaciones, con una simulación fiel de la API del navegador, no solo de que se llame a una función).
+
 ## Tienda de armas en la pantalla de reaparición
 
 Al morir aparece la tienda (`#shop` en `public/index.html`): 8 tarjetas con icono, precio en **Cash**, estadísticas (DMG, RPM, RNG, ACC) y botón de compra. Es la única forma de cambiar de arma tras morir — ya no se puede con las teclas 1-9.

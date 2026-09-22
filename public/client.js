@@ -1113,7 +1113,8 @@ function kill(victim, attacker, head, weaponName) {
   const c = new THREE.Vector3(victim.pos.x, victim.pos.y + 1, victim.pos.z);
   burst(c, victim.isPlayer ? '#ff5a5f' : victim.color, 16, 5);
   if (victim === player) {
-    el.death.hidden = false; el.deathBy.textContent = attacker && attacker !== victim ? 'Te eliminó ' + attacker.name + ' con ' + weaponName : 'Has caído';
+    el.death.hidden = false; if (document.exitPointerLock) document.exitPointerLock();   // [NUEVO] se libera el cursor: la tienda se usa con el ratón
+    el.deathBy.textContent = attacker && attacker !== victim ? 'Te eliminó ' + attacker.name + ' con ' + weaponName : 'Has caído';
     deathLook = attacker && attacker !== victim ? attacker : null; renderDeathPick();
     mouseL = false; mouseR = false; gun.visible = false; el.cross.style.opacity = 0; el.scope.hidden = true; el.optic.hidden = true;
   }
@@ -1163,7 +1164,7 @@ function respawn(f) {
   if (f.mesh) { resetPose(f); f.mesh.visible = true; f.label.visible = true; }
   if (f.isPlayer) {
     f.wi = cfg.cls; const w = WEAPONS[f.wi]; f.ammo = w.mag; f.reload = 0; f.fireCd = 0.3; f.slide = 0; f.aim = 0; f.eye = 1.6;
-    buildGun(w); resetSlot(); el.death.hidden = true; deathLook = null; sfx.spawn();   // [NUEVO] se reaparece con el arma principal en mano
+    buildGun(w); resetSlot(); el.death.hidden = true; deathLook = null; sfx.spawn(); if (f.isPlayer && state === 'playing') requestLock();   // [NUEVO] se reaparece con el arma principal en mano y se recupera el bloqueo del puntero
   } else {
     f.wi = BOT_WEAPONS[irand(0, BOT_WEAPONS.length - 1)]; setOutfit(f, f.wi);
     f.ai = { wp: null, repath: 0, stuck: 0, last: new THREE.Vector3(s[0], 0, s[1]), stuckT: 0, strafe: 1, strafeT: 0, scan: rand(0, 0.3), target: null, seen: false, react: 0, burst: 0, pause: rand(0.2, 0.6), cd: 0, walk: 0 };
@@ -1630,7 +1631,7 @@ function applySpawnLocal(m) {
   p.pos.set(m.x, m.y, m.z); p.vel.set(0, 0, 0); p.hp = 100; p.alive = true; p.protect = 1.5; p.h = 1.8; p.yaw = m.yaw; p.pitch = 0; net.ep = m.ep;
   p.wi = m.c; const w = WEAPONS[p.wi];
   p.ammo = w.mag; p.reload = 0; p.fireCd = 0.3; p.slide = 0; p.aim = 0; p.eye = 1.6; p.meleeCd = 0;
-  buildGun(w); resetSlot(); gun.visible = true; el.death.hidden = true; deathLook = null; sfx.spawn();
+  buildGun(w); resetSlot(); gun.visible = true; el.death.hidden = true; deathLook = null; sfx.spawn(); if (state === 'playing') requestLock();   // [NUEVO] se recupera el bloqueo del puntero al reaparecer
 }
 function onNetSpawn(m) {
   if (!player) return;
@@ -1685,7 +1686,7 @@ function onNetKill(m) {
   }
   if (v === player) {
     player.streak = 0; player.hp = 0;
-    el.death.hidden = false;
+    el.death.hidden = false; if (document.exitPointerLock) document.exitPointerLock();   // [NUEVO] se libera el cursor: la tienda se usa con el ratón
     el.deathBy.textContent = k && k !== v ? 'Te eliminó ' + k.name + ' con ' + m.w + (m.h ? ' (cabeza)' : '') + (m.ds != null ? ' · a ' + m.ds + ' m' : '') + (m.ah != null ? ' · le quedan ' + m.ah + ' de vida' : '') : 'Has caído';
     deathLook = k && k !== v ? k : null; net.respawnAt = performance.now() + (m.rs || 3) * 1000;
     renderDeathPick(); mouseL = mouseR = false; el.scope.hidden = true; el.optic.hidden = true; gun.visible = false; el.cross.style.opacity = 0;
@@ -2374,7 +2375,7 @@ async function renderLeaderboard() {
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   if (locked) { fallback = false; clearTimeout(lockTimer); }
-  else if (state === 'playing' && !fallback) pauseGame();
+  else if (state === 'playing' && !fallback && el.death.hidden) pauseGame();   // [NUEVO] perder el bloqueo por la tienda no debe abrir la pausa
 });
 document.addEventListener('pointerlockerror', () => { fallback = true; });
 document.addEventListener('mousemove', e => {
@@ -2385,7 +2386,7 @@ document.addEventListener('mousemove', e => {
 document.addEventListener('mousedown', e => {
   if (state !== 'playing') return;
   if (e.button === 0) mouseL = true; if (e.button === 2) mouseR = true;
-  if (!locked && !fallback) requestLock();
+  if (!locked && !fallback && el.death.hidden) requestLock();   // [NUEVO] mientras se ve la tienda, un clic no vuelve a capturar el ratón
 });
 document.addEventListener('mouseup', e => { if (e.button === 0) mouseL = false; if (e.button === 2) mouseR = false; });
 document.addEventListener('contextmenu', e => { if (state === 'playing' || state === 'paused') e.preventDefault(); });
@@ -2397,7 +2398,7 @@ document.addEventListener('keydown', e => {
   if (e.repeat) return;
   keys[e.code] = true;
   if (e.code === 'Tab') { el.board.hidden = false; updateHudSlow(); }
-  if (e.code === 'Escape' && !locked) pauseGame();
+  if (e.code === 'Escape' && !locked && el.death.hidden) pauseGame();   // [NUEVO] con la tienda abierta el cursor ya está libre: Escape no debe abrir la pausa encima
   if (e.code === 'KeyR' && player.alive && slot === 0) startReload();   // con el cuchillo en mano no se recarga
   if (e.code === 'Digit1') setSlot(0); else if (e.code === 'Digit2' || e.code === 'Digit3') setSlot(1); else if (e.code === 'KeyQ') setSlot(1 - slot);   // [NUEVO] 1 = arma, 2 = cuchillo, Q = alternar
   if (e.code === 'KeyC' && player.alive && S.startSlide(player)) sfx.slide();   // [NUEVO] agacharse en marcha = deslizarse (reglas en S.MOVE)
