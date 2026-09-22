@@ -22,6 +22,7 @@
 [hidden]{display:none!important}
 html,body{height:100%;overflow:hidden;background:#0b1020;font-family:var(--hudf);font-weight:600;color:#fff;-webkit-user-select:none;user-select:none}
 body.playing{cursor:none}
+body.playing.dead{cursor:auto}   /* [CORREGIDO] con «cursor:none» global, liberar el bloqueo del puntero no basta: el cursor seguía invisible y no se podía apuntar a los botones de la tienda */
 canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
 button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 :focus-visible{outline:3px solid var(--volt);outline-offset:2px}

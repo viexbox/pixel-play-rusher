@@ -40,7 +40,8 @@ const world = S.buildWorld(0);
   const antes = exitCalls;
   T.kill(T.player, T.bots[0], false, 'Prueba');
   ok(!$('#death').hidden, 'el jugador muere: aparece la tienda');
-  ok(exitCalls === antes + 1 && w.document.pointerLockElement === null, 'al morir se libera el cursor (exitPointerLock llamado, sin elemento bloqueado)');
+  ok(exitCalls === antes + 1 && w.document.pointerLockElement === null, 'al morir se libera el bloqueo del puntero (exitPointerLock llamado, sin elemento bloqueado)');
+  ok(w.getComputedStyle(w.document.body).cursor !== 'none', 'y el CURSOR se ve de verdad (antes quedaba invisible con «cursor:none» aunque se soltara el bloqueo, y no se podía apuntar a «Purchase»)');
   ok($('#pause').hidden, 'y NO se abre el menú de pausa solo por perder el bloqueo estando muerto');
 
   /* mientras se ve la tienda: ni un clic ni Escape deben volver a capturar el ratón o abrir la pausa */
@@ -54,6 +55,7 @@ const world = S.buildWorld(0);
   T.player.respawnAt = 0; for (let f = 0; f < 6; f++) T.step(1 / 60);
   ok($('#death').hidden, 'al reaparecer se cierra la tienda');
   ok(w.document.pointerLockElement !== null && reqCalls > reqAntes, 'y se recupera el bloqueo del puntero automáticamente (sin que el jugador tenga que hacer clic)');
+  ok(w.getComputedStyle(w.document.body).cursor === 'none', 'y el cursor vuelve a ocultarse, como en cualquier partida normal');
 
   /* control: una vez vivo, perder el bloqueo (p. ej. Alt+Tab) SÍ debe abrir la pausa, como antes */
   w.document.exitPointerLock();
