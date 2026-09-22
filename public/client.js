@@ -613,6 +613,23 @@ function headMat(skin, seed) {
   return (headMats[key] = [s, s, s, s, s, new THREE.MeshLambertMaterial({ map: faceTex(skin, seed) })]);
 }
 
+/* [NUEVO] Modelos 3D reales (Blender, public/models/weapons/*.glb), generados con scripts/generate_weapons.py.
+   Solo para las 9 armas «normales» (no AK ni Lince, que tienen geometría propia hecha a mano: culata de madera
+   y mira telescópica con zoom, respectivamente — cambiarlas de golpe es más delicado y se deja para más adelante).
+   Si el modelo no ha cargado todavía (o falla la carga), el arma se sigue dibujando con cajas, como siempre. */
+const GUN_GLTF = {}, GUN_GLB_IDS = ['asalto', 'rafaga', 'torrente', 'trueno', 'sheriff', 'precision', 'duo', 'vortice', 'centinela'];
+function preloadGunModels() {
+  if (typeof THREE.GLTFLoader !== 'function') return;   // el HTML de un solo archivo sin servidor no puede llegar a los .glb: se queda con las cajas
+  const loader = new THREE.GLTFLoader();
+  GUN_GLB_IDS.forEach(id => loader.load('models/weapons/' + id + '.glb', gltf => { GUN_GLTF[id] = gltf.scene.children[0]; if (player && WEAPONS[player.wi] && WEAPONS[player.wi].id === id) buildGun(WEAPONS[player.wi]); }, undefined, () => { /* sin conexión a los modelos: se queda con las cajas, sin más */ }));
+}
+/* Cada pieza del modelo (por su nombre, puesto en Blender) recibe el color que le tocaría en el sistema de cajas:
+   «body_rail» es la franja del cajón (antes iba en `acc`); todo lo demás son piezas oscuras, como antes. */
+function gunPartColor(partName, wcol, acc, dark) {
+  if (partName === 'body') return wcol;
+  if (partName === 'body_rail') return acc;
+  return dark;
+}
 /* Modelo de arma (se usa en primera persona y en las manos de los personajes) */
 const gunMatCache = {};
 function gunMat(col, sk, wcol, acc, dark) {
@@ -670,6 +687,12 @@ function gunModel(w, ox, oid, skinId) {
     const m1 = box(0.05, 0.13, 0.08, 0, -top - 0.075, -0.25, steel); m1.rotation.x = 0.12; g.add(m1); // cargador curvo
     const m2 = box(0.05, 0.11, 0.08, 0, -top - 0.19, -0.27, steel); m2.rotation.x = 0.35; g.add(m2);
     sights(zc, -0.06, -s[2] - bl + 0.02);
+  } else if (w.id !== 'lince' && GUN_GLTF[w.id]) {   // [NUEVO] modelo .glb real, ya cargado (nunca para Lince: su mira telescópica con zoom es geometría propia, no se toca esta sesión)
+    const model = GUN_GLTF[w.id].clone(true);
+    model.children.slice().forEach(part => { if (part.name.startsWith('sight_')) model.remove(part); });
+    model.traverse(part => { if (part.isMesh) part.material = gunMat(gunPartColor(part.name, wcol, acc, dark), sk, wcol, acc, dark); });
+    g.add(model);
+    if (L.scope) g.add(box(0.05, 0.05, L.scope, 0, s[1] / 2 + 0.045, -s[2] * 0.5, dark)); else if (opt) sights(-s[2] * 0.3, -s[2] * 0.12, -s[2] - bl + 0.02); else g.add(box(0.03, 0.04, 0.05, 0, s[1] / 2 + 0.02, -s[2] * 0.6, dark));
   } else {
     g.add(box(s[0], s[1], s[2], 0, 0, -s[2] / 2, wcol));
     g.add(box(s[0] * 0.5, 0.012, s[2] * 0.9, 0, s[1] / 2 + 0.006, -s[2] / 2, acc)); // franja clara en el cajón
@@ -686,8 +709,8 @@ function gunModel(w, ox, oid, skinId) {
       g.add(box(0.05, 0.05, 0.09, 0, 0.012, -s[2] - bl + 0.03, dark));
     } else if (L.scope) g.add(box(0.05, 0.05, L.scope, 0, s[1] / 2 + 0.045, -s[2] * 0.5, dark)); else if (opt) sights(-s[2] * 0.3, -s[2] * 0.12, -s[2] - bl + 0.02); else g.add(box(0.03, 0.04, 0.05, 0, s[1] / 2 + 0.02, -s[2] * 0.6, dark));
   }
-  if (L.drum) g.add(box(0.075, 0.075, 0.09, 0, 0, -s[2] * 0.55, dark));
-  if (L.pump) g.add(box(0.1, 0.06, 0.16, 0, -0.06, -s[2] - 0.05, dark));
+  if (!GUN_GLTF[w.id] && L.drum) g.add(box(0.075, 0.075, 0.09, 0, 0, -s[2] * 0.55, dark));
+  if (!GUN_GLTF[w.id] && L.pump) g.add(box(0.1, 0.06, 0.16, 0, -0.06, -s[2] - 0.05, dark));
   const fl = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.95, side: THREE.DoubleSide, fog: false }));
   fl.position.set(0, 0.012, -s[2] - bl - 0.08); fl.visible = false; g.add(fl); g.userData.flash = fl;
   g.position.x = ox || 0; return g;
@@ -2566,6 +2589,7 @@ function frame(now) {
 
 if (!cfg.shadowsSet && renderer && isSoftwareGL()) cfg.shadows = false;
 buildMap(cfg.map); applyShadows(); initMenu(); resize(); setInterval(() => { if (state === 'menu') checkServer(); }, 15000); buildGun(WEAPONS[cfg.cls]); gun.visible = false;
+preloadGunModels();   // [NUEVO] modelos .glb reales: mientras cargan (o si fallan) el arma sigue viéndose con las cajas de siempre
 /* Puente para la pantalla del pase de batalla (bp.js) */
 Object.assign(window.PPR_BP, { limit: () => teamLimit, cfg, saveCfg, net: () => net, player: () => player, camera: () => camera, scene: () => scene, THREE, startSpectate, stopSpectate, specCycle, setSpecView: v => { net.specView = v; }, gunsOK, setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
   rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
