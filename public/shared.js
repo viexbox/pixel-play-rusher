@@ -411,23 +411,33 @@ const RARITY = {
   comun: { n: 'Común', c: '#9aa4b8', ord: 0 }, poco: { n: 'Poco común', c: '#4ade80', ord: 1 }, raro: { n: 'Raro', c: '#4aa8ff', ord: 2 },
   epico: { n: 'Épico', c: '#b56cff', ord: 3 }, leyenda: { n: 'Legendario', c: '#ffb020', ord: 4 }
 };
-/* Skins de armas: body = color del cajón, acc = franja y detalles, dark = cargador y piezas oscuras */
+/* Skins de armas: body = color del cajón, acc = franja y detalles, dark = cargador y piezas oscuras.
+   [NUEVO] rough/metal: acabado del material (0-1; solo tienen efecto donde el renderizador use un material con PBR
+   — ver nota de integración). glow: color de brillo emisivo en los detalles (null = sin brillo). pattern: nombre de
+   un patrón de TEX en client.js (null = liso). Las skins antiguas se dejan sin estos campos: la falta de rough/metal/
+   glow/pattern se trata como "acabado normal, sin patrón ni brillo", así que sus armas se ven exactamente igual que antes. */
 const WEAPON_SKINS = [
-  { id: 'asalto_carbono', w: 'asalto', n: 'Carbono', r: 'comun', body: '#3a3f4b', acc: '#8b93a6', dark: '#1a1d24' },
-  { id: 'rafaga_menta', w: 'rafaga', n: 'Menta', r: 'poco', body: '#5ee6b8', acc: '#eafff7', dark: '#1d5a49' },
-  { id: 'torrente_bronce', w: 'torrente', n: 'Bronce', r: 'poco', body: '#b8763a', acc: '#ffd9a8', dark: '#4a2a12' },
-  { id: 'sheriff_cobre', w: 'sheriff', n: 'Cobre viejo', r: 'raro', body: '#c8683c', acc: '#5ad1b0', dark: '#3a2418' },
-  { id: 'lince_glaciar', w: 'lince', n: 'Glaciar', r: 'epico', body: '#9fe8ff', acc: '#ffffff', dark: '#1f4e66' },
-  { id: 'rafaga_lava', w: 'rafaga', n: 'Lava', r: 'raro', body: '#2b1a1a', acc: '#ff5a1f', dark: '#5a1d0a' },
-  { id: 'ak_jade', w: 'ak', n: 'Jade', r: 'raro', body: '#3fbf7f', acc: '#e9fff2', dark: '#134a30' },
-  { id: 'torrente_hielo', w: 'torrente', n: 'Escarcha', r: 'raro', body: '#7fc8ff', acc: '#ffffff', dark: '#1c3f66' },
-  { id: 'sheriff_bandido', w: 'sheriff', n: 'Bandido', r: 'poco', body: '#5a3b26', acc: '#e0c07a', dark: '#26170d' },
-  { id: 'asalto_neon', w: 'asalto', n: 'Neón', r: 'epico', body: '#1a1030', acc: '#ff2bd6', dark: '#0d0820' },
-  { id: 'trueno_tormenta', w: 'trueno', n: 'Tormenta', r: 'epico', body: '#39457a', acc: '#ffe14a', dark: '#161c3a' },
-  { id: 'precision_eclipse', w: 'precision', n: 'Eclipse', r: 'epico', body: '#15121f', acc: '#ffb43a', dark: '#07060c' },
-  { id: 'lince_fantasma', w: 'lince', n: 'Fantasma', r: 'leyenda', body: '#e9edf5', acc: '#7dffea', dark: '#5b6a80' },
-  { id: 'duo_oro', w: 'duo', n: 'Oro macizo', r: 'leyenda', body: '#ffcf3a', acc: '#fff4b8', dark: '#8a5f00' },
-  { id: 'ak_dragon', w: 'ak', n: 'Dragón', r: 'leyenda', body: '#c4161f', acc: '#ffd23a', dark: '#3a0a0e' }
+  { id: 'asalto_carbono', w: 'asalto', n: 'Carbono', r: 'comun', body: '#3a3f4b', acc: '#8b93a6', dark: '#1a1d24', rough: 0.35, metal: 0.1, pattern: 'carbono' },
+  { id: 'rafaga_menta', w: 'rafaga', n: 'Menta', r: 'poco', body: '#5ee6b8', acc: '#eafff7', dark: '#1d5a49', rough: 0.5, metal: 0.05 },
+  { id: 'torrente_bronce', w: 'torrente', n: 'Bronce', r: 'poco', body: '#b8763a', acc: '#ffd9a8', dark: '#4a2a12', rough: 0.3, metal: 0.75 },
+  { id: 'sheriff_cobre', w: 'sheriff', n: 'Cobre viejo', r: 'raro', body: '#c8683c', acc: '#5ad1b0', dark: '#3a2418', rough: 0.55, metal: 0.6 },
+  { id: 'lince_glaciar', w: 'lince', n: 'Glaciar', r: 'epico', body: '#9fe8ff', acc: '#ffffff', dark: '#1f4e66', rough: 0.15, metal: 0.2, glow: '#bdf4ff' },
+  { id: 'rafaga_lava', w: 'rafaga', n: 'Lava', r: 'raro', body: '#2b1a1a', acc: '#ff5a1f', dark: '#5a1d0a', rough: 0.6, metal: 0.1, glow: '#ff5a1f', pattern: 'camuflaje' },
+  { id: 'ak_jade', w: 'ak', n: 'Jade', r: 'raro', body: '#3fbf7f', acc: '#e9fff2', dark: '#134a30', rough: 0.25, metal: 0.35 },
+  { id: 'torrente_hielo', w: 'torrente', n: 'Escarcha', r: 'raro', body: '#7fc8ff', acc: '#ffffff', dark: '#1c3f66', rough: 0.2, metal: 0.15, glow: '#bdeeff' },
+  { id: 'sheriff_bandido', w: 'sheriff', n: 'Bandido', r: 'poco', body: '#5a3b26', acc: '#e0c07a', dark: '#26170d', rough: 0.65, metal: 0.2 },
+  { id: 'asalto_neon', w: 'asalto', n: 'Neón', r: 'epico', body: '#1a1030', acc: '#ff2bd6', dark: '#0d0820', rough: 0.3, metal: 0.4, glow: '#ff2bd6' },
+  { id: 'trueno_tormenta', w: 'trueno', n: 'Tormenta', r: 'epico', body: '#39457a', acc: '#ffe14a', dark: '#161c3a', rough: 0.4, metal: 0.3, glow: '#ffe14a', pattern: 'rayas' },
+  { id: 'precision_eclipse', w: 'precision', n: 'Eclipse', r: 'epico', body: '#15121f', acc: '#ffb43a', dark: '#07060c', rough: 0.25, metal: 0.5, glow: '#ffb43a' },
+  { id: 'lince_fantasma', w: 'lince', n: 'Fantasma', r: 'leyenda', body: '#e9edf5', acc: '#7dffea', dark: '#5b6a80', rough: 0.1, metal: 0.25, glow: '#7dffea', pattern: 'carbono' },
+  { id: 'duo_oro', w: 'duo', n: 'Oro macizo', r: 'leyenda', body: '#ffcf3a', acc: '#fff4b8', dark: '#8a5f00', rough: 0.15, metal: 0.9, glow: '#fff4b8' },
+  { id: 'ak_dragon', w: 'ak', n: 'Dragón', r: 'leyenda', body: '#c4161f', acc: '#ffd23a', dark: '#3a0a0e', rough: 0.3, metal: 0.35, glow: '#ff8a1f', pattern: 'camuflaje' },
+  /* [NUEVO] Centinela y Vórtice no tenían ninguna skin hasta ahora */
+  { id: 'centinela_acero', w: 'centinela', n: 'Acero pulido', r: 'comun', body: '#3d4452', acc: '#a7b0c2', dark: '#181c24', rough: 0.3, metal: 0.55 },
+  { id: 'centinela_ocaso', w: 'centinela', n: 'Ocaso', r: 'raro', body: '#7a3a2a', acc: '#ffb066', dark: '#2a1410', rough: 0.4, metal: 0.2, glow: '#ff8c4a', pattern: 'rayas' },
+  { id: 'centinela_imperial', w: 'centinela', n: 'Imperial', r: 'leyenda', body: '#1c1028', acc: '#d4af37', dark: '#0a0714', rough: 0.2, metal: 0.7, glow: '#d4af37', pattern: 'carbono' },
+  { id: 'vortice_onix', w: 'vortice', n: 'Ónix', r: 'comun', body: '#232733', acc: '#6c7486', dark: '#101319', rough: 0.35, metal: 0.15 },
+  { id: 'vortice_toxico', w: 'vortice', n: 'Tóxico', r: 'epico', body: '#1c2b1a', acc: '#8dff5a', dark: '#0a120a', rough: 0.45, metal: 0.1, glow: '#8dff5a', pattern: 'camuflaje' }
 ];
 /* Skins de cuchillo: hoja, filo, guarda y mango */
 const KNIFE_SKINS = [

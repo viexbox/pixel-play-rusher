@@ -276,6 +276,26 @@ const TEX = {
     g.fillStyle = '#6f7787'; g.fillRect(0, 0, S, S); g.fillStyle = '#7a8293'; for (let i = 0; i < 16; i++) g.fillRect((i * 53) % S, (i * 37) % S, 30, 5);
     g.strokeStyle = '#ffd23f'; g.lineWidth = 12; g.strokeRect(9, 9, S - 18, S - 18); g.beginPath(); g.arc(S / 2, S / 2, S * 0.36, 0, Math.PI * 2); g.stroke();
     g.fillStyle = '#ffffff'; const h = S * 0.27, w = 20; g.fillRect(S / 2 - h * 0.7, S / 2 - h, w, h * 2); g.fillRect(S / 2 + h * 0.7 - w, S / 2 - h, w, h * 2); g.fillRect(S / 2 - h * 0.7, S / 2 - w / 2, h * 1.4, w);
+  } },
+  /* [NUEVO] patrones de skins de armas: en blanco y negro, como el resto de TEX — el color de la skin los tiñe al aplicarse (mismo mecanismo que ya usa el mapa) */
+  carbono: { tile: 1, draw(g, S, R) {   // trenzado de fibra de carbono: cuadros a cuadros con un brillo diagonal
+    white(g, S); const cell = S / 10;
+    for (let r = 0; r < 10; r++) for (let c = 0; c < 10; c++) { const x = c * cell, y = r * cell, dark = (r + c) % 2 === 0;
+      DK(g, dark ? 0.22 : 0.08, x, y, cell, cell); LT(g, dark ? 0.05 : 0.16, x + 1, y + 1, cell - 2, cell - 2); }
+    for (let i = -10; i < 20; i++) LT(g, 0.05, i * cell * 1.4, 0, 3, S);
+    speckle(g, S, R, 300, 0.08);
+  } },
+  camuflaje: { tile: 1, draw(g, S, R) {   // manchas irregulares de camuflaje, 3 tonos
+    white(g, S); LT(g, 0.06, 0, 0, S, S);
+    for (let i = 0; i < 26; i++) { const x = R() * S, y = R() * S, s = 18 + R() * 34; g.beginPath();
+      for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2, rr = s * (0.6 + R() * 0.5); const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr; k === 0 ? g.moveTo(px, py) : g.lineTo(px, py); }
+      g.closePath(); g.fillStyle = rgba('0,0,0', 0.1 + R() * 0.22); g.fill(); }
+    speckle(g, S, R, 500, 0.1);
+  } },
+  rayas: { tile: 1, draw(g, S, R) {   // dos franjas diagonales gruesas, estilo carreras
+    white(g, S); g.save(); g.translate(S / 2, S / 2); g.rotate(-0.5); g.translate(-S / 2, -S / 2);
+    DK(g, 0.5, S * 0.18, -S * 0.5, S * 0.16, S * 2); DK(g, 0.28, S * 0.42, -S * 0.5, S * 0.09, S * 2);
+    g.restore(); speckle(g, S, R, 250, 0.07);
   } }
 };
 const texCache = {};
@@ -594,12 +614,27 @@ function headMat(skin, seed) {
 }
 
 /* Modelo de arma (se usa en primera persona y en las manos de los personajes) */
+const gunMatCache = {};
+function gunMat(col, sk, wcol, acc, dark) {
+  /* [NUEVO] solo las piezas que de verdad llevan el color de la skin (cuerpo, franja, piezas oscuras) reciben su acabado
+     (rugosidad/metal/patrón/brillo); el resto de piezas (rieles, miras, detalles fijos) se quedan con el material de
+     siempre, aunque el arma lleve puesta una skin — así el brillo de una skin «Neón» no se cuela en la mira de hierro. */
+  if (!sk || (sk.rough == null && sk.metal == null && !sk.glow && !sk.pattern)) return mat(col);
+  const isBody = col === wcol, isAcc = col === acc, isDark = col === dark;
+  if (!isBody && !isAcc && !isDark) return mat(col);
+  const key = col + '|' + (sk.rough != null ? sk.rough : '') + '|' + (sk.metal != null ? sk.metal : '') + '|' + (isAcc && sk.glow ? sk.glow : '') + '|' + (isBody && sk.pattern ? sk.pattern : '');
+  if (gunMatCache[key]) return gunMatCache[key];
+  const params = { color: col, roughness: sk.rough != null ? sk.rough : 0.55, metalness: sk.metal != null ? sk.metal : 0.1 };
+  if (isAcc && sk.glow) { params.emissive = new THREE.Color(sk.glow); params.emissiveIntensity = 0.55; }
+  if (isBody && sk.pattern) params.map = getTex(sk.pattern);
+  return (gunMatCache[key] = new THREE.MeshStandardMaterial(params));
+}
 function gunModel(w, ox, oid, skinId) {
   const sk = skinId ? S.WEAPON_SKINS.find(k => k.id === skinId && k.w === w.id) : null, wcol = sk ? sk.body : w.col, acc = sk ? sk.acc : '#ffffff';   // skin del pase de batalla (solo en tu arma en primera persona)
   const g = new THREE.Group(), s = w.size, L = w.look || {}, bl = (L.barrel || 0.4) * 0.6, dark = sk ? sk.dark : '#2a1b3d';
   const opt = w.optics ? OPTICS[oid && w.optics.includes(oid) ? oid : w.optics[0]] : null;
-  const box = (x, y, z, px, py, pz, col) => { const m = new THREE.Mesh(BG(x, y, z), mat(col)); m.position.set(px, py, pz); return m; };
-  const cyl = (r1, r2, len, px, py, pz, col) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, len, 10), mat(col)); m.rotation.x = Math.PI / 2; m.position.set(px, py, pz); return m; };
+  const box = (x, y, z, px, py, pz, col) => { const m = new THREE.Mesh(BG(x, y, z), gunMat(col, sk, wcol, acc, dark)); m.position.set(px, py, pz); return m; };
+  const cyl = (r1, r2, len, px, py, pz, col) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, len, 10), gunMat(col, sk, wcol, acc, dark)); m.rotation.x = Math.PI / 2; m.position.set(px, py, pz); return m; };
   const top0 = s[1] / 2, ty0 = top0 + 0.012, rail = '#20242f';
   /* Dibuja la mira elegida (hierro, punto rojo, holográfica o ACOG) sobre el cajón: zc = centro de la mira, zRear = alza, zf = punto de mira */
   const sights = (zc, zRear, zf) => {
