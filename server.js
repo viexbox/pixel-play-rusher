@@ -508,8 +508,8 @@ setInterval(() => {
    ===================================================================== */
 const MIME = { '.webmanifest': 'application/manifest+json; charset=utf-8', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8' };
 let CDN_ORIGIN = ''; try { if (process.env.AVATAR_CDN_URL) CDN_ORIGIN = ' ' + new URL(process.env.AVATAR_CDN_URL).origin; } catch (e) { /* dirección no válida: se ignora */ }   // [NUEVO] el CDN de las fotos de perfil también puede servir imágenes
-const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:" + CDN_ORIGIN + "; connect-src 'self' ws: wss:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
-
+// server.js — después:
+const CSP = "default-src 'self'; script-src 'self' https://www.highperformanceformat.com https://a.magsrv.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:" + CDN_ORIGIN + "; connect-src 'self' ws: wss: https:; frame-src https:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 function isPrivateAddr(a) {
   a = String(a || '').replace(/^::ffff:/, '');
   return a === '::1' || /^127\./.test(a) || /^10\./.test(a) || /^192\.168\./.test(a) || /^172\.(1[6-9]|2\d|3[01])\./.test(a) || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(a) || /^f[cd]/i.test(a);
