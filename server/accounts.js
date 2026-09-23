@@ -145,8 +145,17 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
 
   /* ---------- Progreso y monedero ---------- */
   const today = () => new Date().toISOString().slice(0, 10);
+  /* [NUEVO] Beneficios de las cuentas verificadas (los edita el administrador en el panel → Verificados) */
+  const VDEF = { chat: true, bonusPx: 20, bonusCr: 20, giftPx: 0, giftCr: 0 };
+  const vcfg = () => Object.assign({}, VDEF, D.vcfg || {});
+  function setVcfg(b) {
+    const n = (v, max) => Math.max(0, Math.min(max, Math.trunc(+v) || 0)), c = { chat: b.chat !== false, bonusPx: n(b.bonusPx, 200), bonusCr: n(b.bonusCr, 200), giftPx: n(b.giftPx, 100000), giftCr: n(b.giftCr, 100000) };
+    D.vcfg = c; db.flush(); return vcfg();
+  }
   function awardMatch(u, r) {
-    const st = u.stats, prevBest = st.best, ev = r.ev || { px: 1, cr: 1, names: [] }; let px = Math.round(S.pxFor(r.points, r.won, r.cls) * ev.px);   // ev: eventos temporales (modo destacado y eventos del administrador)
+    const st = u.stats, prevBest = st.best, ev0 = r.ev || { px: 1, cr: 1, names: [] }, vb = u.verified ? vcfg() : null;
+    const ev = vb ? { px: ev0.px * (1 + vb.bonusPx / 100), cr: ev0.cr * (1 + vb.bonusCr / 100), names: (ev0.names || []).concat((vb.bonusPx || vb.bonusCr) ? ['Verificado +' + Math.max(vb.bonusPx, vb.bonusCr) + ' %'] : []) } : ev0;   // [NUEVO] beneficio de las cuentas verificadas (configurable en el panel; los topes diarios siguen valiendo)
+    let px = Math.round(S.pxFor(r.points, r.won, r.cls) * ev.px);   // ev: eventos temporales (modo destacado y eventos del administrador)
     st.games++; st.kills += r.kills; st.deaths += r.deaths; st.wins += r.won ? 1 : 0; st.streak = Math.max(st.streak, r.bestStreak || 0); st.points += r.points; st.best = Math.max(st.best, r.points);
     if (u.day.d !== today()) u.day = { d: today(), px: 0 };
     px = Math.max(0, Math.min(px, PX_DAILY_CAP - u.day.px)); u.day.px += px; u.px += px;    // tope diario contra el granjeo entre cuentas
@@ -305,7 +314,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
   admin.addRoutes({
     'GET /accounts': ({ q }) => {
       const s = ukey(q.get('q')), list = Object.values(D.users).filter(u => !s || u.key.includes(s) || u.email.includes(String(q.get('q')).toLowerCase())).sort((a, b) => b.createdAt - a.createdAt);
-      return { total: Object.keys(D.users).length, accounts: list.slice(0, 100).map(u => ({ id: u.id, username: u.username, email: maskEmail(u.email), px: u.px, points: u.stats.points, games: u.stats.games, createdAt: u.createdAt, lastLogin: u.lastLogin })) };
+      return { total: Object.keys(D.users).length, accounts: list.slice(0, 100).map(u => ({ id: u.id, username: u.username, email: maskEmail(u.email), px: u.px, points: u.stats.points, games: u.stats.games, createdAt: u.createdAt, lastLogin: u.lastLogin, credits: u.credits | 0, verified: !!u.verified, emailOk: !!u.emailVerified, deleteAt: u.deleteAt || 0, email2: u.email })) };
     },
     /* [NUEVO] Ajuste manual de Créditos (soporte): suma o resta, sin dejar saldos negativos */
     'POST /credits': ({ b, s }) => {
@@ -327,7 +336,15 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
   function takeColor(u, i) { const k = u.unlocked.indexOf(i); if (k < 0) return false; u.unlocked.splice(k, 1); if (u.colorTs) delete u.colorTs[i]; db.save(); return true; }
   function giveColor(u, i, ts) { if (u.unlocked.includes(i)) return false; u.unlocked.push(i); (u.colorTs = u.colorTs || {})[i] = ts || now(); db.save(); return true; }
   const touch = () => db.save(), allUsers = () => Object.values(D.users);   // [NUEVO] para el módulo social
-  return { mailOn: sec.mailOn, onRemove: sec.onRemove, removeUser: sec.removeUser, purgeDue: sec.purgeDue, eco: () => Object.assign({}, D.eco || {}), markActive, takeColor, giveColor, touch, allUsers, handleHttp, handles, fromToken, nameTaken, awardMatch, profile: pub, flush: () => db.flush(), adjust, register, storeInfo, spend, grant, spendCr, grantCr, find, findById, rename, suggest, hooks, legacyPending, legacyDone, http: { send, readJson } };
+  admin.setVerifiedProvider({ has: name => { const u = byKey.get(ukey(name)); return !!(u && u.verified); }, cfg: vcfg });   // [NUEVO] el panel verifica por nombre de cuenta
+  /* Ajuste de Créditos (misma lógica que POST /credits) para otros módulos del panel */
+  function adjustCr(username, delta, reason, by) {
+    const u = find(username); if (!u) return err(404, 'No existe ninguna cuenta con ese nombre.');
+    const d = Math.trunc(+delta); if (!Number.isFinite(d) || d === 0 || Math.abs(d) > 1000000) return err(400, 'La cantidad debe ser un entero distinto de 0 (máximo 1.000.000).');
+    const applied = d > 0 ? d : -Math.min(u.credits, -d); if (applied > 0) grantCr(u, applied, 'ajuste admin: ' + clean(reason, 80)); else if (applied < 0) spendCr(u, -applied, 'ajuste admin: ' + clean(reason, 80));
+    return { ok: true, username: u.username, applied, credits: u.credits };
+  }
+  return { deleteDays: sec.deleteDays, doc: D, adjustPx: adjust, adjustCr, vcfg, setVcfg, flush: () => db.flush(), storeOn, mailOn: sec.mailOn, onRemove: sec.onRemove, removeUser: sec.removeUser, purgeDue: sec.purgeDue, eco: () => Object.assign({}, D.eco || {}), markActive, takeColor, giveColor, touch, allUsers, handleHttp, handles, fromToken, nameTaken, awardMatch, profile: pub, flush: () => db.flush(), adjust, register, storeInfo, spend, grant, spendCr, grantCr, find, findById, rename, suggest, hooks, legacyPending, legacyDone, http: { send, readJson } };
 }
 
 module.exports = { createAccounts, ukey };

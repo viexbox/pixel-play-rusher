@@ -72,7 +72,7 @@ function createSocial({ S, accounts, admin, bp, db, dataDir, log, presence, rank
   const doc = new Store(path.join(dataDir, 'social.json'), { seq: 0, reports: [] }, log);   // denuncias de perfil (las ve el panel)
   const clean = (t, n) => String(t == null ? '' : t).replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, n);
   const rankOf = pts => { let i = 0; S.RANKS.forEach((r, k) => { if (pts >= r.pts) i = k; }); return { i, n: S.RANKS[i].n, col: S.RANKS[i].col }; };
-  const verifiedOf = u => { const r = admin.roleOf(u.username); return r || (u.verified ? 'acc' : 0); };   // 'admin' | 'inf' | 'acc' | 0
+  const verifiedOf = u => { const r = admin.roleOf(u.username); return r === 'admin' ? r : (u.verified ? 'acc' : r || 0); };   // administrador → 'admin' · verificado por cuenta → 'acc' («Cuenta verificada») · influencer con clave → 'inf'   // 'admin' | 'inf' | 'acc' | 0
 
   const modOf = u => (u.avatar && u.avatar.kind === 'custom' ? u.avatar.mod || 'ok' : 'ok');   // las fotos anteriores a la moderación cuentan como aprobadas
   const fallback = u => ({ kind: 'preset', id: Math.abs(hash(u.id)) % PRESETS });

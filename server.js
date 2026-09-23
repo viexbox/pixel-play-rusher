@@ -29,6 +29,7 @@ const { createSocial } = require('./server/social.js');
 const { createRanked } = require('./server/ranked.js');
 const { createEvents } = require('./server/events.js');
 const legal = require('./server/legal.js');
+const { createAdminPlus } = require('./server/adminplus.js');
 const { createBackup } = require('./server/backup.js');
 
 const PORT = +process.env.PORT || 3000;
@@ -642,6 +643,8 @@ social = createSocial({ S, accounts, admin, bp, db: PGDB, dataDir: DATA_DIR, log
 ranked = createRanked({ S, accounts, admin, dataDir: DATA_DIR, log });   // [NUEVO] clasificatorio y temporadas
 events = createEvents({ S, accounts, admin, dataDir: DATA_DIR, log });   // [NUEVO] eventos temporales
 /* [NUEVO] Al eliminar una cuenta (pasado su plazo) se limpia todo lo suyo en los demás módulos */
+/* [NUEVO] Panel: verificados por nombre, monedas, ventas, cuentas y «antes de lanzar». Al verificar (o quitar) a alguien conectado, su rol cambia al instante. */
+createAdminPlus({ admin, accounts, S, log, env: process.env, getStatus: () => status(), onVerified: u => { for (const w of connections) if (w.acctId === u.id) { const nm = w.player ? w.player.name : w.lobbyName, r = w.role === 'admin' ? 'admin' : admin.roleOf(nm) || 0; w.role = r; if (w.player) w.player.role = r; } } });
 accounts.onRemove(async u => { await bp.store.deleteUser(u.id); await social.removeAvatar(u); market.removeUser(u); lb.entries = lb.entries.filter(e => e.a !== u.id); lbSaveSoon(); });
 backup = createBackup({ db: PGDB, dataDir: DATA_DIR, admin, log, flush: async () => { lbSave(); admin.flushAll(); await accounts.flush(); await bp.flush(); } });   // [NUEVO] copias de seguridad automáticas
 /* [NUEVO] Si una cuenta cambia de nombre, sus entradas de la clasificación cambian con ella (siguen a su ID; las antiguas, sin ID, se reconocen por el nombre viejo) */
@@ -718,6 +721,7 @@ function onMessage(ws, m, now) {
     const map = Number.isInteger(m.map) && m.map >= 0 && m.map < S.MAPS.length ? m.map : 0;
     const cls = Number.isInteger(m.c) && m.c >= 0 && m.c < S.WEAPONS.length ? m.c : 0;
     const lk = Array.isArray(m.lk) && m.lk.length === 2 && m.lk.every(Number.isInteger) ? [clamp(m.lk[0], 0, 15), clamp(m.lk[1], 0, 4)] : null;
+    if (acct && acct.verified && !idt.role) idt = Object.assign({}, idt, { role: 'inf' });   // [NUEVO] cuenta verificada por el administrador: tic azul y beneficios sin clave
     const p = new Player(ws, idt.name, map, cls, ws.ip, lk, idt);
     p.acctUser = acct || null;   // [CORREGIDO] antes era `acct && !idt.role`: un influencer o administrador con cuenta jugaba desvinculado y no recibía PX, estadísticas, XP del pase ni clasificación por ID
     admin.count('join'); admin.count('class', cls); admin.count('map', map);
@@ -737,6 +741,7 @@ function onMessage(ws, m, now) {
     let idt = admin.resolveIdentity(Object.assign({ name: acct ? acct.username : (sanitizeName(m.n) || 'Anónimo') }, who));
     if (!idt.ok) { ws.send(JSON.stringify({ t: 'err', m: idt.error })); return ws.close(); }
     if (!acct && !idt.role && accounts.nameTaken(idt.name)) { idt = admin.resolveIdentity(Object.assign({ name: freeGuestName(idt.name) }, who)); if (!idt.ok) return ws.close(); }   // [MEJORA] nombre libre en vez de expulsar
+    if (acct && acct.verified && !idt.role) idt = Object.assign({}, idt, { role: 'inf' });
     ws.acctId = acct ? acct.id : null;   // [NUEVO] para saber quién está en línea
     ws.lobbyName = idt.name; ws.role = idt.role; ws.nameKey = idt.nameKey; ws.ipKey = idt.ipKey; lobby.add(ws);
     return ws.send(JSON.stringify({ t: 'lobbyok', n: lobby.size, rl: idt.role || 0 }));

@@ -233,6 +233,8 @@ function createAdmin(opts) {
   }
 
   /* ---------- Identidad al entrar (juego y lobby) ---------- */
+  /* [NUEVO] Cuentas verificadas por el administrador (por nombre, sin clave): las aporta el módulo de cuentas */
+  let vProv = null; const isVerifiedName = name => !!(vProv && name && vProv.has(name)), verifiedChat = () => !vProv || vProv.cfg().chat !== false;
   function resolveIdentity({ name, adm, inf: infKey, ip }) {
     const ik = ipKey(ip); let role = 0, finalName = name;
     if (adm && fullToken(adm)) { role = 'admin'; finalName = cred.data.user; }
@@ -258,7 +260,7 @@ function createAdmin(opts) {
     if (sender.role !== 'admin') {
       const m = muteInfo([sender.nameKey, sender.ipKey]);
       if (m) return { ok: false, notice: 'Estás silenciado' + (m.reason ? ' (' + m.reason + ')' : '') + ' hasta las ' + new Date(m.until).toLocaleTimeString('es-ES') + '.' };
-      if (S_.chatLocked && sender.role !== 'inf') return { ok: false, notice: 'El chat está desactivado temporalmente por la moderación.' };
+      if (S_.chatLocked && !(sender.role === 'inf' && verifiedChat())) return { ok: false, notice: 'El chat está desactivado temporalmente por la moderación.' };
       if (t - (sender.chatT || 0) < S_.slowMs) return { ok: false, notice: null };
       if (sender.lastText === text && t - (sender.lastTextT || 0) < 10000) return { ok: false, notice: 'No repitas el mismo mensaje.' };
     }
@@ -537,7 +539,8 @@ function createAdmin(opts) {
     ready, get credentialsNotice() { return credentialsNotice; }, adminUser: ADMIN_USER, nameKey, ipKey,
     /* extensiones para otros módulos (cuentas, tienda): rutas del panel, auditoría y comprobaciones de nombre/baneo */
     addRoutes(extra) { Object.assign(routes, extra); }, audit,
-    roleOf(name) { const nk = nameKey(name); if (!nk) return 0; if (nk === ADMIN_KEY) return 'admin'; return infS.data.list.some(i => i.active && i.nameKey === nk) ? 'inf' : 0; },
+    setVerifiedProvider: p => { vProv = p; },
+    roleOf(name) { const nk = nameKey(name); if (!nk) return 0; if (nk === ADMIN_KEY) return 'admin'; if (isVerifiedName(name)) return 'inf'; return infS.data.list.some(i => i.active && i.nameKey === nk) ? 'inf' : 0; },
     isReserved(name) { const nk = nameKey(name); return !!nk && (nk.includes(ADMIN_KEY) || infS.data.list.some(i => i.active && i.nameKey === nk)); },
     banFor(name, ip) { return bans.check({ nameKey: nameKey(name), ipKey: ipKey(ip) }); }, banMessage: b => bans.message(b),
     sendMail, smtpOn, stats: () => ST, resolveIdentity, checkChat, onChat, onLog, recordMatch, makeReport, count, handleHttp, handleUpgrade, flushAll,
