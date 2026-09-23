@@ -33,7 +33,7 @@ const settle = (T, n) => { for (let f = 0; f < n; f++) T.step(1 / 60); T.fast();
     ok(T.cfg.optics.ak === 'holo' && $$('#optics .opt')[2].getAttribute('aria-pressed') === 'true', 'lobby: elegir «Holográfica» se guarda');
     $$('#classes .cls')[7].click(); ok($('#opticSect').hidden, 'lobby: las clases sin miras opcionales (Dúo) ocultan el selector'); $$('#classes .cls')[0].click(); ok(!$('#opticSect').hidden && $$('#optics .opt').length === 2 && /Punto rojo/.test($('#optics .opt').textContent), 'y las armas con punto rojo ofrecen elegir entre punto rojo y mira de hierro');
     $$('#classes .cls')[ak].click(); $$('#optics .opt')[0].click();
-    $('#play').click(); ok(T.state === 'playing', 'partida con la AK'); settle(T, 90);
+    $('#play').click(); $('#eqPlay').click(); ok(T.state === 'playing', 'partida con la AK'); settle(T, 90);
     ok($('#wname').textContent === 'AK' && $$('#pips i').length === 30 && $('#mag').textContent === '30', 'HUD: AK con cargador de 30');
     ok(/Mira de hierro/.test($('#wtype').textContent) && !$('#optHint').hidden, 'el HUD indica la mira activa y la tecla B');
     const seen = {};
@@ -58,7 +58,7 @@ const settle = (T, n) => { for (let f = 0; f < n; f++) T.step(1 / 60); T.fast();
 
   /* ---------- Francotirador ---------- */
   { const { T, $, key, errors } = boot(); await sleep(250);
-    T.cfg.cls = lince; $('#play').click(); settle(T, 90);
+    T.cfg.cls = lince; $('#play').click(); $('#eqPlay').click(); settle(T, 90);
     ok(/Mira ×3/.test($('#wtype').textContent), 'Lince: mira ×3 por defecto');
     T.setMouseR(true); settle(T, 60);
     const a = { scope: $('#scope').dataset.k, hidden: $('#scope').hidden, zoom: $('#scZoom').textContent, vis: T.gun.visible, cross: $('#crosshair').style.opacity, fov: T.camera.fov };
@@ -76,7 +76,7 @@ const settle = (T, n) => { for (let f = 0; f < n; f++) T.step(1 / 60); T.fast();
     ok(!$('#chat').classList.contains('off') && $('#chatTab').hidden, 'el chat empieza visible');
     $('#chatX').click();
     ok($('#chat').classList.contains('off') && !$('#chatTab').hidden && T.cfg.chatHidden === true, '«Ocultar ✕» retira el chat y deja solo una pestaña pequeña');
-    $('#play').click(); settle(T, 30);
+    $('#play').click(); $('#eqPlay').click(); settle(T, 30);
     key('Enter'); ok(w.document.body.classList.contains('chat-peek'), 'en partida, Enter muestra el chat un momento aunque esté oculto');
     $('#chatIn').value = 'hola'; $('#chatIn').dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     ok(!w.document.body.classList.contains('chat-peek') && $('#chat').classList.contains('off'), 'al enviar, el chat vuelve a ocultarse solo');

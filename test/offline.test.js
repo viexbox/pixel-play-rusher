@@ -22,7 +22,7 @@ w.eval(c);
   ok(/no está disponible/.test($('#onlineInfo').textContent), 'se explica que el modo online no está disponible');
   ok($('#lbScope').value === 'local', 'la clasificación cae a «Mis partidas»');
   ok(!$('#play').disabled, '«Entrenar con bots» sigue disponible');
-  $('#play').click(); ok(T.state === 'playing', 'el entrenamiento contra bots arranca');
+  $('#play').click(); $('#eqPlay').click(); ok(T.state === 'playing', 'el entrenamiento contra bots arranca');
   let kills = 0;
   for (let f = 0; f < 60 * 200 && T.state === 'playing'; f++) { if (f % 50 === 0) { T.keys.KeyW = true; T.player.yaw += 0.4; } T.setMouse(f % 200 < 100); T.step(1 / 60); }
   kills = T.fighters.reduce((a, x) => a + x.kills, 0);

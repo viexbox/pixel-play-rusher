@@ -22,7 +22,7 @@ function boot(reduceMotion) {
 const openSpot = T => { const world = S.buildWorld(T.curMap); let spot = null, best = 0;
   for (let x = -30; x <= 30; x += 5) for (let z = -30; z <= 30; z += 5) for (let k = 0; k < 8; k++) { const yaw = k * Math.PI / 4, d = { x: -Math.sin(yaw), y: 0, z: -Math.cos(yaw) }; if (S.overlapAt(world.colliders, x, 0, z, 0.4, 1.8)) continue; const t = Math.min(S.rayWorld(world.colliders, { x, y: 0.9, z }, d, 60), 60); if (t > best) { best = t; spot = { x, z, yaw, best }; } } return spot; };
 async function start(reduceMotion) {
-  const B = boot(reduceMotion); await sleep(250); B.$$('#classes .cls')[0].click(); B.$('#play').click(); const T = B.T; for (let f = 0; f < 90; f++) T.step(1 / 60);
+  const B = boot(reduceMotion); await sleep(250); B.$$('#classes .cls')[0].click(); B.$('#play').click(); B.$('#eqPlay').click(); const T = B.T; for (let f = 0; f < 90; f++) T.step(1 / 60);
   const p = T.player; p.protect = 1e9; T.cfg.shake = 0; T.cfg.recoilCam = 100; T.cfg.fovSpeed = 8; const spot = openSpot(T);
   for (const f of T.fighters) if (!f.isPlayer) { f.ai.react = 99; f.protect = 1e9; f.pos.set(f.pos.x + 200, 0, f.pos.z + 200); }   // los bots lejos y quietos: aquí se prueba la cámara
   B.reset = () => { T.setMouse(false); T.setMouseR(false); for (const k of Object.keys(T.keys)) T.keys[k] = false; p.pos.set(spot.x, 0, spot.z); p.yaw = spot.yaw; p.pitch = 0; p.vel.set(0, 0, 0); p.slide = 0; p.slideCd = 0; p.slideGrace = 0; p.slideHop = false; p.hop = 1; p.onGround = true; p.aim = 0; p.ammo = 30; p.fireCd = 0; p.reload = 0; p.hp = 100; p.alive = true; for (let f = 0; f < 240; f++) T.step(1 / 60); };

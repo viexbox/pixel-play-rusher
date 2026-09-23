@@ -34,7 +34,7 @@ const frames = (n, dt = 0.05) => { for (let k = 0; k < n; k++) T.step(dt); };
     ok($('#renameBtn') && $('#renameBtn').hidden && $('#renameRow').hidden, 'el botón «Cambiar nombre» solo aparece con una cuenta online');
 
     /* ---------- Empezar una partida (AK) ---------- */
-    $$('#classes .cls')[8].click(); $('#play').click(); ok(await until(() => T.state === 'playing'), 'empieza el entrenamiento con la AK');
+    $$('#classes .cls')[8].click(); $('#play').click(); $('#eqPlay').click(); ok(await until(() => T.state === 'playing'), 'empieza el entrenamiento con la AK');
     Object.defineProperty(w.document, 'pointerLockElement', { configurable: true, get: () => w.document.querySelector('canvas') }); w.document.dispatchEvent(new w.Event('pointerlockchange'));
     await until(() => T.player && T.player.alive); frames(4);
     ok(T.slot === 0 && $('#slot0').classList.contains('on') && !$('#slot1').classList.contains('on') && !$('#ammobox').classList.contains('knife'), 'HUD: la ranura 1 (arma) está activa al empezar');

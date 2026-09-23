@@ -107,7 +107,7 @@ async function killOnce(att, vic) {
   await sleep(200);
   const T = w.__T, $ = s => w.document.querySelector(s), $$ = s => [...w.document.querySelectorAll(s)];
 
-  $('#play').click(); ok(T.state === 'playing', 'arranca una partida de entrenamiento');
+  $('#play').click(); $('#eqPlay').click(); ok(T.state === 'playing', 'arranca una partida de entrenamiento');
   for (let f = 0; f < 60; f++) T.step(1 / 60);
 
   const clsAntes = T.cfg.cls;

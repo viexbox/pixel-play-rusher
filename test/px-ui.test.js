@@ -72,7 +72,7 @@ async function register(U, name, email, pw) { U.$('#tabRegister').click(); U.$('
     const wr = await wf('/api/store/webhook', { method: 'POST', headers: { 'Stripe-Signature': sign(evt), 'Content-Type': 'application/json' }, body: evt }); ok(wr.status === 200, 'Stripe avisa del pago con firma válida');
     await A.T.syncRemote(); ok(A.T.krTotal() === 1700 && A.$('#krTotal').textContent === '1700', 'al volver al juego aparecen los 1.300 PX (saldo 1.700)');
     /* ---------- Partida online con cuenta + voto de mapa ---------- */
-    ok(await until(() => !A.$('#playOnline').disabled), 'el cliente detecta el servidor'); A.$('#playOnline').click(); ok(await until(() => A.T.state === 'playing' && A.T.net.id != null), 'la cuenta entra a jugar online');
+    ok(await until(() => !A.$('#playOnline').disabled), 'el cliente detecta el servidor'); A.$('#playOnline').click(); A.$('#eqPlay').click(); ok(await until(() => A.T.state === 'playing' && A.T.net.id != null), 'la cuenta entra a jugar online');
     const pl = (await adm('GET', '/players')).j.players.find(p => p.name === 'Zoe_7'); ok(!!pl, 'y en la sala aparece con el nombre de la cuenta (Zoe_7)');
     await adm('POST', '/rooms/action', { id: pl.room, action: 'end' });
     ok(await until(() => !A.$('#end').hidden && A.$('#endMaps').hidden), 'al acabar la ronda aparece la pantalla final y, con un solo mapa, no hay selector para votar');

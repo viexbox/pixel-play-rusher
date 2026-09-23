@@ -124,7 +124,7 @@ function sanitizeName(s) { return String(s || '').replace(/[^\p{L}\p{N}_ \-]/gu,
 class Player {
   constructor(ws, name, map, cls, ip, lk, ident) {
     this.role = ident.role; this.nameKey = ident.nameKey; this.ipKey = ident.ipKey; this.shots = 0; this.hits = 0; this.fixes = 0; this.rlv = 0; this.roundStart = Date.now();
-    this.lk = lk; this.ws = ws; this.ip = ip; this.id = playerSeq++; this.name = name; this.cls = cls; this.nextCls = cls; this.map = map;
+    this.lk = lk; this.ws = ws; this.ip = ip; this.id = playerSeq++; this.name = name; this.cls = cls; this.nextCls = cls; this.map = map; this.wantTeam = null;   // [NUEVO] bando elegido al entrar a partida (null = automático)
     this.x = 0; this.y = 0; this.z = 0; this.yaw = 0; this.pitch = 0; this.h = 1.8;
     this.hp = 100; this.alive = false; this.ep = 0;
     this.kills = 0; this.deaths = 0; this.points = 0; this.hs = 0; this.streak = 0; this.bestStreak = 0; this.acctUser = null; this.team = 0;
@@ -282,6 +282,8 @@ class Room {
   }
   assignTeam(p) {
     let c0 = 0, c1 = 0; for (const o of this.players.values()) { if (o === p) continue; if (o.team === 0) c0++; else c1++; }
+    if (p.wantTeam === 0 || p.wantTeam === 1) { const want = p.wantTeam, other = 1 - want, wc = want === 0 ? c0 : c1, oc = want === 0 ? c1 : c0;
+      if (wc <= oc + 1) { p.team = want; return; } }   // [NUEVO] se respeta el bando elegido, salvo que ya le saque más de un jugador de ventaja al otro
     p.team = c0 < c1 ? 0 : c1 < c0 ? 1 : (Math.random() < 0.5 ? 0 : 1);
   }
   /* Entre rondas se compensan los equipos si alguien se ha marchado (diferencia máxima de 1 jugador) */
@@ -723,6 +725,7 @@ function onMessage(ws, m, now) {
     const lk = Array.isArray(m.lk) && m.lk.length === 2 && m.lk.every(Number.isInteger) ? [clamp(m.lk[0], 0, 15), clamp(m.lk[1], 0, 4)] : null;
     if (acct && acct.verified && !idt.role) idt = Object.assign({}, idt, { role: 'inf' });   // [NUEVO] cuenta verificada por el administrador: tic azul y beneficios sin clave
     const p = new Player(ws, idt.name, map, cls, ws.ip, lk, idt);
+    p.wantTeam = m.tm === 0 || m.tm === 1 ? m.tm : null;   // [NUEVO] bando elegido al entrar a partida
     p.acctUser = acct || null;   // [CORREGIDO] antes era `acct && !idt.role`: un influencer o administrador con cuenta jugaba desvinculado y no recibía PX, estadísticas, XP del pase ni clasificación por ID
     admin.count('join'); admin.count('class', cls); admin.count('map', map);
     const mode = S.MODES[m.mode] ? m.mode : 'duelo', wantRanked = m.rk === 1 && mode === 'duelo'; admin.count('mode', wantRanked ? 'clasificatorio' : mode);

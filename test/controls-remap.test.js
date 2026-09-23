@@ -25,7 +25,7 @@ const press = code => { key(code, 'keydown'); key(code, 'keyup'); };
 (async () => {
   await sleep(200);
   const T = w.__T, $ = s => w.document.querySelector(s);
-  $('#play').click(); ok(T.state === 'playing', 'arranca una partida de entrenamiento');
+  $('#play').click(); $('#eqPlay').click(); ok(T.state === 'playing', 'arranca una partida de entrenamiento');
   for (let f = 0; f < 20; f++) T.step(1 / 60);
 
   /* ---------- Salto de pulsación única ---------- */

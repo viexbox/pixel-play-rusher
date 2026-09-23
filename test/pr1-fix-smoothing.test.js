@@ -25,7 +25,7 @@ w.eval(c);
   const T = w.__T;
   T.__proto__ && 0; // (nada)
   const $ = s => w.document.querySelector(s);
-  $('#play').click(); ok(T.state === 'playing', 'arranca una partida de entrenamiento');
+  $('#play').click(); $('#eqPlay').click(); ok(T.state === 'playing', 'arranca una partida de entrenamiento');
   for (let f = 0; f < 30; f++) T.step(1 / 60);   // asienta la cámara antes de medir
 
   /* ---------- A) desajuste PEQUEÑO (1,2 unidades): corrección suave, sin salto ---------- */

@@ -47,7 +47,7 @@ function boot(url, withServer) {
     const A = boot(ORIGIN + '/', true); const { T, $, $$, w } = A;
     ok(await until(() => !$('#playOnline').disabled), 'el cliente detecta el servidor');
     w.localStorage.setItem('ppr.admtoken', T0);
-    $('#name').value = 'Cualquiera'; $('#playOnline').click();
+    $('#name').value = 'Cualquiera'; $('#playOnline').click(); $('#eqPlay').click();
     ok(await until(() => T.state === 'playing' && T.player && T.player.alive), 'entra en la partida online con la sesión del administrador');
     ok(T.player.name === 'Viexbox' && T.player.rl === 'admin', 'el servidor le pone el nombre «Viexbox» y el rol de administrador (aunque escribiera otro nombre)');
     T.step(0.05); await sleep(700);
@@ -105,9 +105,9 @@ function boot(url, withServer) {
     const B = boot(ORIGIN + '/', true); await until(() => !B.$('#playOnline').disabled);
     B.$('#infKey').value = KEY.toLowerCase(); B.$('#infKey').dispatchEvent(new B.w.Event('change'));
     ok(B.T.cfg.infKey === KEY && B.w.localStorage.getItem('voltarena.v1.cfg').includes(KEY), 'el código de influencer se guarda (en mayúsculas) en los ajustes');
-    B.$('#name').value = 'Cualquiera2'; B.$('#playOnline').click(); ok(await until(() => B.T.state === 'playing' && B.T.player), 'entra en partida');
+    B.$('#name').value = 'Cualquiera2'; B.$('#playOnline').click(); B.$('#eqPlay').click(); ok(await until(() => B.T.state === 'playing' && B.T.player), 'entra en partida');
     ok(B.T.player.rl === 'inf' && B.T.player.name === 'ProGamer', 'con su código, el influencer entra verificado y con su nombre reservado');
-    const C = boot(ORIGIN + '/', true); await until(() => !C.$('#playOnline').disabled); C.$('#name').value = 'ProGamer'; C.$('#playOnline').click();
+    const C = boot(ORIGIN + '/', true); await until(() => !C.$('#playOnline').disabled); C.$('#name').value = 'ProGamer'; C.$('#playOnline').click(); C.$('#eqPlay').click();
     ok(await until(() => /reservado/.test(C.$('#netMsg') ? C.$('#netMsg').textContent : '') || C.T.state !== 'playing' && /reservado/.test(C.w.document.body.textContent)), 'sin código, nadie puede entrar con el nombre de un influencer (el juego muestra el motivo)');
 
     ok(A.errors.length + B.errors.length + C.errors.length === 0, 'sin errores de JavaScript ' + JSON.stringify([...A.errors, ...B.errors, ...C.errors]));

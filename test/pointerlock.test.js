@@ -34,7 +34,7 @@ const world = S.buildWorld(0);
   await sleep(200);
   const T = w.__T, $ = s => w.document.querySelector(s);
 
-  $('#play').click(); ok(T.state === 'playing', 'arranca una partida de entrenamiento');
+  $('#play').click(); $('#eqPlay').click(); ok(T.state === 'playing', 'arranca una partida de entrenamiento');
   ok(w.document.pointerLockElement !== null && reqCalls >= 1, 'al empezar a jugar se pide el bloqueo del puntero (' + reqCalls + ' veces)');
 
   const antes = exitCalls;

@@ -25,7 +25,7 @@ const hasRedGlass = g => { let f = false; g.traverse(o => { if (o.material && o.
 const openSpot = T => { const world = S.buildWorld(T.curMap); let spot = null, best = 0;
   for (let x = -30; x <= 30; x += 5) for (let z = -30; z <= 30; z += 5) for (let k = 0; k < 8; k++) { const yaw = k * Math.PI / 4, d = { x: -Math.sin(yaw), y: 0, z: -Math.cos(yaw) }; if (S.overlapAt(world.colliders, x, 0, z, 0.4, 1.8)) continue; const t = Math.min(S.rayWorld(world.colliders, { x, y: 0.9, z }, d, 60), 60); if (t > best) { best = t; spot = { x, z, yaw, best }; } }
   return spot; };
-const start = async cls => { const B = boot(); await sleep(250); B.$$('#classes .cls')[cls].click(); B.$('#play').click(); settle(B.T, 90); return B; };
+const start = async cls => { const B = boot(); await sleep(250); B.$$('#classes .cls')[cls].click(); B.$('#play').click(); B.$('#eqPlay').click(); settle(B.T, 90); return B; };
 (async () => {
   /* ---------- Punto rojo en las armas ---------- */
   const dotIds = ['asalto', 'rafaga', 'torrente', 'trueno', 'sheriff'];

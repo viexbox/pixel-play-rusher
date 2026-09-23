@@ -27,7 +27,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } }
 };
 
-const cfg = Object.assign({ name: '', cls: 0, map: 0, diff: 1, sens: 1, fov: 90, vol: 0.6, shadows: true, wheelSwap: true, shake: 100, recoilCam: 100, fovSpeed: 8, hudScale: 100, hudCompact: false, mode: 'duelo', ranked: false, look: { col: 0, skin: 0 }, infKey: '', rankClaimed: [] }, store.get(K.cfg, {}));
+const cfg = Object.assign({ name: '', cls: 0, map: 0, diff: 1, wantTeam: null, sens: 1, fov: 90, vol: 0.6, shadows: true, wheelSwap: true, shake: 100, recoilCam: 100, fovSpeed: 8, hudScale: 100, hudCompact: false, mode: 'duelo', ranked: false, look: { col: 0, skin: 0 }, infKey: '', rankClaimed: [] }, store.get(K.cfg, {}));
 cfg.look = { col: clamp((cfg.look && cfg.look.col) | 0, 0, 9), skin: clamp((cfg.look && cfg.look.skin) | 0, 0, 4) };
 cfg.cls = clamp(cfg.cls | 0, 0, window.VoltShared.WEAPONS.length - 1); if (!cfg.optics || typeof cfg.optics !== 'object') cfg.optics = {}; if (!Array.isArray(cfg.rankClaimed)) cfg.rankClaimed = []; cfg.infKey = String(cfg.infKey || '').slice(0, 40); cfg.map = clamp(cfg.map | 0, 0, window.VoltShared.MAPS.length - 1); cfg.diff = clamp(cfg.diff | 0, 0, 2);
 if (!cfg.name) cfg.name = 'Jugador' + irand(100, 999);
@@ -516,6 +516,7 @@ let fighters = [], player = null, bots = [];
 const teamKills = t => fighters.reduce((n, f) => n + (f.team === t ? f.kills : 0), 0);
 const tkNow = () => (online && net.tk ? net.tk : [teamKills(0), teamKills(1)]);
 let state = 'menu';        // menu | playing | paused | ended
+let spawnAt = 0, quickSwapMode = false, quickSwapTimer = null;   // [NUEVO] tecla C: cambiar de arma los primeros segundos tras reaparecer
 let simTime = 0, timeLeft = MATCH_TIME, locked = false, fallback = false, lockTimer = 0;
 const keys = {}; let mouseL = false, mouseR = false, jumpQueued = false;   // [CONTROLES] jumpQueued: el salto se arma UNA vez por pulsación, no mientras se mantenga Espacio
 
@@ -1539,7 +1540,7 @@ function startOnline() {
   try { ws = new WebSocket(wsUrl()); }
   catch (e) { return netFail('No se pudo abrir la conexión.'); }
   net.ws = ws; net.joined = false;
-  ws.onopen = () => netSend({ t: 'hello', v: 1, n: cfg.name, map: cfg.map, c: cfg.cls, lk: [cfg.look.col, cfg.look.skin], adm: admToken(), inf: cfg.infKey || '', acct: acctToken(), mode: S.MODES[cfg.mode] ? cfg.mode : 'duelo', rk: cfg.ranked && cfg.mode === 'duelo' ? 1 : 0 });
+  ws.onopen = () => netSend({ t: 'hello', v: 1, n: cfg.name, map: cfg.map, c: cfg.cls, lk: [cfg.look.col, cfg.look.skin], adm: admToken(), inf: cfg.infKey || '', acct: acctToken(), mode: S.MODES[cfg.mode] ? cfg.mode : 'duelo', rk: cfg.ranked && cfg.mode === 'duelo' ? 1 : 0, tm: cfg.wantTeam });
   ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } try { netHandle(m); } catch (e) { console.error(e); } };
   ws.onclose = ev => {
     if (net.ws !== ws) return;
@@ -1695,7 +1696,7 @@ function removeRemote(id) {
 }
 function applySpawnLocal(m) {
   const p = player;
-  p.pos.set(m.x, m.y, m.z); p.vel.set(0, 0, 0); p.hp = 100; p.alive = true; p.protect = 1.5; p.h = 1.8; p.yaw = m.yaw; p.pitch = 0; net.ep = m.ep;
+  p.pos.set(m.x, m.y, m.z); p.vel.set(0, 0, 0); p.hp = 100; p.alive = true; p.protect = 1.5; p.h = 1.8; p.yaw = m.yaw; p.pitch = 0; net.ep = m.ep; spawnAt = performance.now();
   p.wi = m.c; const w = WEAPONS[p.wi];
   p.ammo = w.mag; p.reload = 0; p.fireCd = 0.3; p.slide = 0; p.aim = 0; p.eye = 1.6; p.meleeCd = 0;
   buildGun(w); resetSlot(); gun.visible = true; el.death.hidden = true; deathLook = null; sfx.spawn(); document.body.classList.remove('dead'); fixOffset.set(0, 0, 0); if (state === 'playing') requestLock();   // [NUEVO] se recupera el bloqueo del puntero al reaparecer y el cursor vuelve a ocultarse; [PR1] sin desfase de la vida anterior
@@ -2144,6 +2145,42 @@ function selectClass(i) {
   cfg.cls = i; saveCfg(); $$('.cls').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.i === i)));
   updateLobby(); updatePreview(); renderEvent(); renderOptics();
 }
+/* [NUEVO] Bando y arma se eligen al entrar a partida, no en la lobby: Online/Entrenar abren este cajón primero */
+let pendingPlay = null;
+function pickTeam(v) {
+  cfg.wantTeam = v === '0' ? 0 : v === '1' ? 1 : null; saveCfg();
+  $$('#teamPick .tm').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tm === v)));
+}
+function openLoadout(mode) {
+  pendingPlay = mode;
+  $('#drawTitle').textContent = 'Antes de jugar'; $('#teamSect').hidden = false; $('#custSect').hidden = false; $('#eqPlay').hidden = false;
+  $('#eqPlay').textContent = mode === 'online' ? 'Jugar online' : 'Entrenar';
+  const tmv = cfg.wantTeam === 0 ? '0' : cfg.wantTeam === 1 ? '1' : 'auto';
+  $$('#teamPick .tm').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tm === tmv)));
+  buildClassButtons(); renderOptics(); buildCustom(); updatePreview();
+  document.body.classList.add('eqopen');
+}
+/* [NUEVO] Tecla C, solo los primeros segundos tras reaparecer: cambia de arma para la próxima vida (como la tienda de
+   la pantalla de muerte, pero gratis y sin esperar a morir). No es instantáneo: el arma que llevas en la mano no
+   cambia hasta la siguiente reaparición, igual que el resto del juego ya hace con la tienda. */
+const QUICK_SWAP_MS = 6000;
+function openQuickSwap() {
+  quickSwapMode = true;
+  $('#teamSect').hidden = true; $('#custSect').hidden = true; $('#eqPlay').hidden = true;
+  buildClassButtons(); renderOptics();
+  document.body.classList.add('eqopen');
+  const tick = () => { const left = Math.max(0, QUICK_SWAP_MS - (performance.now() - swapOpenedAt)); $('#drawTitle').textContent = 'Cambiar de arma (' + Math.ceil(left / 1000) + 's)'; if (left <= 0) closeQuickSwap(); };
+  var swapOpenedAt = performance.now(); tick();
+  clearInterval(quickSwapTimer); quickSwapTimer = setInterval(tick, 250);
+}
+function closeQuickSwap() {
+  quickSwapMode = false; clearInterval(quickSwapTimer); quickSwapTimer = null;
+  document.body.classList.remove('eqopen'); $('#drawTitle').textContent = 'Personaje';
+}
+function quickSwapPick(i) {
+  if (online) netSend({ t: 'cls', c: i }); else selectClass(i);   // entrenamiento: como la tienda de la pantalla de muerte, se aplica en la próxima reaparición
+  closeQuickSwap();
+}
 function selectMap(i) {
   cfg.map = i; saveCfg(); $$('.mapc').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.i === i)));
   if (state === 'menu' && curMap !== i) buildMap(i);
@@ -2336,16 +2373,15 @@ function initMenu() {
   ik.addEventListener('change', () => { cfg.infKey = ik.value.trim().toUpperCase().slice(0, 24); ik.value = cfg.infKey; saveCfg(); $('#infO').textContent = cfg.infKey ? 'guardado' : ''; lobbyClose(); lobbyConnect(); });
   $('#name').value = cfg.name;
   buildClassButtons(); buildMapButtons(); buildCustom(); updateLobby();
-  $('#classes').addEventListener('click', e => { const b = e.target.closest('.cls'); if (b) selectClass(+b.dataset.i); });
+  $('#classes').addEventListener('click', e => { const b = e.target.closest('.cls'); if (!b) return; if (quickSwapMode) quickSwapPick(+b.dataset.i); else selectClass(+b.dataset.i); });
   $('#optics').addEventListener('click', e => { const b = e.target.closest('.opt'); if (!b) return; cfg.optics[WEAPONS[cfg.cls].id] = b.dataset.k; saveCfg(); renderOptics(); updatePreview(); });
   renderOptics();
   $('#maps').addEventListener('click', e => { const b = e.target.closest('.mapc'); if (b) selectMap(+b.dataset.i); });
   $('#swColors').addEventListener('click', e => { const b = e.target.closest('.cs'); if (b) pickColor(+b.dataset.i); });
   $('#swSkins').addEventListener('click', e => { const b = e.target.closest('.cs'); if (b) pickSkin(+b.dataset.i); });
   $('#mapBtn').addEventListener('click', () => showTab('maps'));
-  /* Inicio: cajón de equipamiento, noticia del mapa y acceso al Pase */
-  const closeEq = () => document.body.classList.remove('eqopen');
-  $('#eqOpen').addEventListener('click', () => document.body.classList.add('eqopen'));
+  /* Inicio: cajón de bando y equipamiento antes de jugar, noticia del mapa y acceso al Pase */
+  const closeEq = () => { if (quickSwapMode) { closeQuickSwap(); return; } document.body.classList.remove('eqopen'); };
   /* [NUEVO] Tienda de armas de la pantalla de reaparición */
   $('#shopToggle').addEventListener('click', () => $('#shop').classList.toggle('off'));
   $('#shopBack').addEventListener('click', () => $('#shop').classList.add('off'));
@@ -2353,7 +2389,6 @@ function initMenu() {
   $('#shopGo').addEventListener('click', () => { if (!online && player && !player.alive) player.respawnAt = simTime; });   // entrenamiento: reaparece ya; online: el servidor manda el tiempo
   $('#eqClose').addEventListener('click', closeEq);
   window.addEventListener('keydown', e => { if (e.key === 'Escape') closeEq(); });
-  ['#play', '#playOnline'].forEach(id => $(id).addEventListener('click', closeEq, true));
   $('#newsMap').addEventListener('click', () => showTab('maps'));
   $('#newsThumb').style.backgroundImage = 'url(' + mapImg(0) + ')';
   $('#passRow').addEventListener('click', () => { const b = document.querySelector('.nav button[data-tab=pass]'); if (b) b.click(); });
@@ -2397,8 +2432,10 @@ function initMenu() {
     if (b.dataset.armed) { store.set(K.scores, []); store.set(K.stats, { games: 0, kills: 0, wins: 0, streak: 0, points: 0, best: 0 }); delete b.dataset.armed; b.textContent = 'Borrar clasificación'; b.classList.remove('danger'); renderLeaderboard(); renderMenuStats(); clearTimeout(clearT); }
     else { b.dataset.armed = '1'; b.textContent = 'Pulsa otra vez para confirmar'; b.classList.add('danger'); clearT = setTimeout(() => { delete b.dataset.armed; b.textContent = 'Borrar clasificación'; b.classList.remove('danger'); }, 3000); }
   });
-  $('#play').addEventListener('click', startMatch);
-  $('#playOnline').addEventListener('click', startOnline);
+  $('#play').addEventListener('click', () => openLoadout('train'));
+  $('#playOnline').addEventListener('click', () => openLoadout('online'));
+  $('#eqPlay').addEventListener('click', () => { closeEq(); if (pendingPlay === 'online') startOnline(); else startMatch(); });
+  $('#teamPick').addEventListener('click', e => { const b = e.target.closest('.tm'); if (b) pickTeam(b.dataset.tm); });
   $('#lbScope').addEventListener('change', renderLeaderboard);
   $('#lbScope').value = 'local';
   $('#resume').addEventListener('click', resumeGame);
@@ -2472,6 +2509,7 @@ document.addEventListener('keydown', e => {
   if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && player.alive && S.startSlide(player)) sfx.slide();   // [CONTROLES] agacharse en marcha (ahora con Mayús) = deslizarse (reglas en S.MOVE)
   if (e.code === 'Space' && player.alive) jumpQueued = true;   // [CONTROLES] salto de pulsación única: se arma aquí (una vez) y se consume en el siguiente paso de física
   if (e.code === 'KeyB' && player.alive) cycleOptic();
+  if (e.code === 'KeyC' && player.alive && performance.now() - spawnAt < QUICK_SWAP_MS && !quickSwapMode) openQuickSwap();   // [NUEVO] cambio rápido de arma, solo los primeros segundos tras reaparecer
   // [NUEVO] el arma para el próximo respawn se elige y se paga en la tienda (#shop); ya no se cambia gratis con 1-9 al morir.
   if (e.code === 'KeyV') playerMelee();
 });

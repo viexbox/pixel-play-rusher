@@ -159,11 +159,12 @@ body.eqopen:not(.playing) #chat,body.eqopen:not(.playing) #chatTab{display:none}
 #eqClose:hover{background:var(--red);border-color:var(--red)}
 
 /* Abajo, en el centro */
-#lobbyBar{position:absolute;left:50%;bottom:var(--edge);transform:translateX(-50%);display:flex;align-items:center;gap:8px;width:min(404px,calc(100vw - 2*var(--col) - 60px))}
+#lobbyBar{position:absolute;left:50%;bottom:var(--edge);transform:translateX(-50%);display:flex;align-items:center;gap:8px;width:min(456px,calc(100vw - 2*var(--col) - 60px))}   /* [NUEVO] +52px: sitio para el icono de Discord */
 #lobbyBar ul{list-style:none;flex:none}
 .iconbtn{position:relative;isolation:isolate;width:44px;height:44px;display:grid;place-items:center}
 .iconbtn::before{transform:none;inset:0}
 .iconbtn[aria-selected="true"]::before,.iconbtn:hover::before{border-color:var(--hot)}
+.discordbtn:hover::before{border-color:#5865F2}
 .legal{flex:1;min-width:0;height:44px;margin:0;display:flex;align-items:center;justify-content:center;gap:4px;background:rgba(5,6,14,.85);border:2px solid rgba(255,255,255,.2);font-size:12px;font-weight:700;color:#c4cfe6}
 .legal a{color:#ff9a4d}
 .legal a:hover{color:var(--volt)}
@@ -255,6 +256,13 @@ label.f{display:inline-block;margin-right:6px;font-size:12px;letter-spacing:.14e
 .opt[aria-pressed="true"]{background:var(--volt);color:#141a33;border-color:var(--volt)}
 #charTitle{text-align:center;font-family:var(--pix);font-size:12px;letter-spacing:.06em;margin-bottom:10px;color:var(--volt)}
 #lobbyR .sect{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.teampick{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.tm{padding:8px 4px;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;background:rgba(255,255,255,.06);border:2px solid transparent;color:#c4cfe6}
+.tm.t-0{border-color:rgba(47,123,255,.35)}.tm.t-1{border-color:rgba(255,59,72,.35)}
+.tm[aria-pressed="true"]{color:#fff}
+.tm.t-auto[aria-pressed="true"]{background:rgba(255,255,255,.18);border-color:#fff}
+.tm.t-0[aria-pressed="true"]{background:rgba(47,123,255,.35);border-color:#2f7bff}
+.tm.t-1[aria-pressed="true"]{background:rgba(255,59,72,.35);border-color:#ff3b48}
 .cls{display:grid;grid-template-columns:60px 1fr 42px;gap:10px;align-items:center;text-align:left;padding:3px 8px;background:rgba(255,255,255,.06);border-left:3px solid transparent;transition:background .1s}
 .cls:hover{background:rgba(255,255,255,.12)}
 .cls[aria-pressed="true"]{background:linear-gradient(90deg,rgba(255,220,58,.26),rgba(255,255,255,.05));border-left-color:var(--volt)}
@@ -937,30 +945,6 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
       <button class="mapbtn" id="modeBtn" type="button">Duelo por equipos</button>
     </section>
 
-    <section id="lobbyEq" class="lp" aria-label="Equipamiento del personaje">
-      <h2 class="tabh"><span>Equipamiento</span></h2>
-      <div class="eqbody">
-        <svg id="eqBust" class="bust" viewBox="0 8 108 152" shape-rendering="crispEdges" aria-hidden="true">
-          <rect x="0" y="140" width="108" height="26" fill="#1a1630" /><rect x="0" y="140" width="108" height="3" fill="#ff8a3a" />
-          <g stroke="#000" stroke-width="2">
-            <rect x="34" y="112" width="18" height="44" fill="#2b3552" /><rect x="56" y="112" width="18" height="44" fill="#232c46" />
-            <rect x="26" y="62" width="56" height="54" style="fill:var(--shirt,#2a55cf)" /><rect x="26" y="104" width="56" height="8" fill="#39435a" />
-            <rect x="12" y="66" width="14" height="44" style="fill:var(--shirt,#2a55cf)" /><rect x="82" y="66" width="14" height="44" style="fill:var(--shirt,#2a55cf)" />
-            <rect x="12" y="108" width="14" height="10" style="fill:var(--skin,#f0b28a)" /><rect x="82" y="108" width="14" height="10" style="fill:var(--skin,#f0b28a)" />
-            <rect x="46" y="54" width="16" height="10" style="fill:var(--skin,#f0b28a)" />
-            <rect x="36" y="14" width="36" height="42" style="fill:var(--skin,#f0b28a)" /><rect x="32" y="6" width="44" height="14" fill="#39435a" /><rect x="14" y="20" width="24" height="6" fill="#39435a" />
-            <rect x="44" y="32" width="5" height="5" fill="#131829" /><rect x="58" y="32" width="5" height="5" fill="#131829" /><rect x="48" y="46" width="12" height="3" fill="#a56a4b" />
-          </g>
-        </svg>
-        <div class="eqslots">
-          <div class="slot"><span class="lab">Principal</span><b id="eqPrimary">Asalto</b></div>
-          <div class="slot"><span class="lab">Mira</span><b id="eqOptic">Mira de hierro</b></div>
-          <div class="slot"><span class="lab">Color</span><b id="eqColor">Naranja</b></div>
-          <div class="slot"><span class="lab">Piel</span><b id="eqSkin">Tono 1</b></div>
-        </div>
-      </div>
-      <button type="button" class="bigbtn" id="eqOpen">Personalizar equipo</button>
-    </section>
   </div>
 
   <!-- Derecha: perfil del jugador -->
@@ -1045,23 +1029,30 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
 
   <!-- Cajón de equipamiento: personaje, arma, mira y colores (se abre con «Personalizar equipo») -->
   <aside id="lobbyR" class="lp" aria-label="Personaje">
-    <div class="drawhead"><h3>Personaje</h3><button type="button" id="eqClose" aria-label="Cerrar el equipamiento">✕</button></div>
+    <div class="drawhead"><h3 id="drawTitle">Personaje</h3><button type="button" id="eqClose" aria-label="Cerrar el equipamiento">✕</button></div>
     <div id="charView" aria-label="Vista previa del personaje (arrastra para girarlo)"></div>
+    <div class="sect" id="teamSect"><h3>Bando</h3><div class="teampick" id="teamPick" role="group" aria-label="Elegir bando">
+      <button type="button" class="tm t-auto" data-tm="auto" aria-pressed="true">Automático</button>
+      <button type="button" class="tm t-0" data-tm="0" aria-pressed="false">Azul</button>
+      <button type="button" class="tm t-1" data-tm="1" aria-pressed="false">Rojo</button>
+    </div></div>
     <div id="charTitle"></div>
     <div class="sect"><h3>Equipamiento</h3><div class="classes" id="classes" role="group" aria-label="Clase"></div></div>
     <div class="sect" id="opticSect" hidden><h3>Mira</h3><div class="optics" id="optics" role="group" aria-label="Mira"></div></div>
-    <div class="sect"><h3>Personalizar</h3>
+    <div class="sect" id="custSect"><h3>Personalizar</h3>
       <div class="cust">
         <div class="lab">Color del equipo</div><div class="swrow" id="swColors"></div>
         <div class="lab">Tono de piel</div><div class="swrow" id="swSkins"></div>
         <div id="custMsg" role="status"></div>
       </div>
     </div>
+    <button type="button" class="bigbtn" id="eqPlay">Jugar</button>
   </aside>
 
   <!-- Abajo, en el centro: controles, ajustes y enlaces legales -->
   <div id="lobbyBar">
     <ul class="nav tabs" role="tablist" aria-label="Controles"><li><button class="iconbtn" role="tab" aria-selected="false" data-tab="controls" aria-label="Controles y ayuda"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8.5"/><path d="M8.5 8.5C8.5 5.5 13.5 5.5 13.5 8.5C13.5 10.5 11 10.5 11 13"/><path d="M11 16L11 16.5"/></svg></button></li></ul>
+    <a id="discordBtn" class="iconbtn discordbtn" href="https://discord.gg/UbfC5bBcp" target="_blank" rel="noopener" aria-label="Únete a nuestro Discord"><svg width="22" height="22" viewBox="0 0 24 24" fill="#5865F2" aria-hidden="true"><path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.07.07 0 0 0-.075.035c-.211.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.07.07 0 0 0-.075-.035A19.74 19.74 0 0 0 3.68 4.37a.064.064 0 0 0-.03.027C.533 9.046-.32 13.58.099 18.058a.08.08 0 0 0 .031.055 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.073.073 0 0 1 .078.01c.12.099.246.197.373.291a.077.077 0 0 1-.006.128 12.3 12.3 0 0 1-1.873.892.076.076 0 0 0-.04.106c.36.699.772 1.364 1.225 1.994a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.055c.5-5.177-.838-9.674-3.548-13.66a.061.061 0 0 0-.03-.028ZM8.02 15.33c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.211 0 2.176 1.096 2.157 2.42 0 1.332-.955 2.418-2.157 2.418Zm7.975 0c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.332-.946 2.418-2.157 2.418Z"/></svg></a>
     <p class="legal"><a href="terminos" target="_blank" rel="noopener">Términos</a> · <a href="privacidad" target="_blank" rel="noopener">Privacidad</a></p>
     <ul class="nav tabs" role="tablist" aria-label="Ajustes"><li><button class="iconbtn" role="tab" aria-selected="false" data-tab="settings" aria-label="Ajustes"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="3.2"/><path d="M11 1.5V4.5M11 17.5V20.5M1.5 11H4.5M17.5 11H20.5M4.3 4.3L6.4 6.4M15.6 15.6L17.7 17.7M17.7 4.3L15.6 6.4M6.4 15.6L4.3 17.7"/></svg></button></li></ul>
   </div>

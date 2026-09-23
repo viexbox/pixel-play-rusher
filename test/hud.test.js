@@ -22,7 +22,7 @@ const world = S.buildWorld(0);
   const T = w.__T, $ = s => w.document.querySelector(s), $$ = s => [...w.document.querySelectorAll(s)];
   await sleep(300);
   const lince = S.WEAPONS.findIndex(x => x.id === 'lince'); T.cfg.cls = lince;
-  $('#play').click(); ok(T.state === 'playing', 'partida de entrenamiento con el francotirador (Lince)');
+  $('#play').click(); $('#eqPlay').click(); ok(T.state === 'playing', 'partida de entrenamiento con el francotirador (Lince)');
   for (let f = 0; f < 90; f++) T.step(1 / 60); T.fast(); T.slow();
 
   // --- HUD ---

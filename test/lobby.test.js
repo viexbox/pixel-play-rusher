@@ -63,13 +63,15 @@ const has = (b, f) => b.msgs.some(f);
     ok($('#lobbyNews #eventBox') && $('#lobbyNews #daily') && $('#lobbyNews #newsMap'), 'arriba a la izquierda: noticias (el mapa nuevo), evento de hoy y desafíos diarios');
     ok($('#lobbyPlay #serverBtn') && $('#lobbyPlay #onlineInfo') && $('#lobbyPlay #modeCards') && $('#lobbyPlay #modeBtn'), 'a la izquierda: servidor y modo de juego');
     ok($('#lobbyCenter .modebar #mapBtn') && $$('#lobbyCenter .modebar #diff button').length === 3, 'bajo los botones de jugar: mapa y dificultad de los bots');
-    ok($('#lobbyEq #eqPrimary') && $('#lobbyEq #eqOptic') && $('#lobbyEq #eqColor') && $('#lobbyEq #eqSkin') && $('#lobbyEq #eqOpen'), 'abajo a la izquierda: equipamiento (arma, mira, color y piel) y botón «Personalizar equipo»');
+    ok(!$('#lobbyEq'), 'ya no hay resumen de equipamiento en la lobby: el bando y el arma se eligen al entrar a partida');
     ok($('#lobbyCenter #playOnline') && $('#lobbyCenter #play') && $$('#lobbyCenter .mode').length === 2 && /ONLINE/.test($('#playOnline').textContent) && /ENTRENAR/.test($('#play').textContent), 'en el centro, bajo el título: botones ONLINE y ENTRENAR');
-    ok($('#lobbyR #charView') && $('#lobbyR #classes') && $('#lobbyR #swColors') && $('#lobbyR #swSkins'), 'cajón de equipamiento: personaje, armas y personalización');
-    /* el cajón y el resumen del equipamiento */
-    ok(!w.document.body.classList.contains('eqopen') && ($('#eqOpen').click(), w.document.body.classList.contains('eqopen')) && ($('#eqClose').click(), !w.document.body.classList.contains('eqopen')), '«Personalizar equipo» abre el cajón y ✕ lo cierra');
-    { const c0 = T.cfg.cls; $$('#classes .cls')[(c0 + 1) % S.WEAPONS.length].click(); ok($('#eqPrimary').textContent === S.WEAPONS[T.cfg.cls].name && T.cfg.cls !== c0, 'al elegir otra arma el resumen del equipamiento cambia (' + $('#eqPrimary').textContent + ')'); $$('#classes .cls')[c0].click(); }
-    ok($('#eqColor').textContent === T.COLORS[T.cfg.look.col].n, 'el resumen dice el color elegido (' + $('#eqColor').textContent + ')');
+    ok($('#lobbyR #charView') && $('#lobbyR #classes') && $('#lobbyR #teamPick') && $('#lobbyR #swColors') && $('#lobbyR #swSkins'), 'cajón de antes de jugar: personaje, bando, armas y personalización');
+    /* el cajón de antes de jugar */
+    ok(!w.document.body.classList.contains('eqopen') && ($('#play').click(), w.document.body.classList.contains('eqopen')) && ($('#eqClose').click(), !w.document.body.classList.contains('eqopen')), '«Entrenar» abre el cajón de bando y arma, y ✕ lo cierra sin jugar');
+    $('#play').click();
+    { const c0 = T.cfg.cls, next = (c0 + 1) % S.WEAPONS.length; $$('#classes .cls')[next].click(); ok(T.cfg.cls === next && T.cfg.cls !== c0 && $$('#classes .cls')[next].getAttribute('aria-pressed') === 'true', 'al elegir otra arma en el cajón, queda guardada y marcada (' + S.WEAPONS[next].name + ')'); }
+    ok($('#swColors .cs[aria-pressed="true"]').dataset.i == T.cfg.look.col, 'el color elegido queda marcado en el cajón');
+    $('#eqClose').click();
     $('#newsMap').click(); ok(!$('#lobbyC').hidden && !$('#tab-maps').hidden && w.document.body.classList.contains('tabopen'), 'la noticia del mapa abre la sección Mapas'); $('#topNav button[data-tab=home]').click(); ok($('#lobbyC').hidden && !w.document.body.classList.contains('tabopen'), 'y «Inicio» la cierra');
     ok($('#chat #chatIn') && $('#chatIn').getAttribute('placeholder').length > 5, 'entrada de texto (chat)');
     ok($$('#classes .cls').length === S.WEAPONS.length && S.WEAPONS.length === 11 && $$('#classes .cls').some(e => /Vórtice/.test(e.textContent)) && $$('#classes .cls').some(e => /Centinela/.test(e.textContent)) && $$('#swColors .cs').length === COLORS_N(T) , 'equipamiento (11 clases, con la AK, el Vórtice y el Centinela) y colores listados');
@@ -100,7 +102,7 @@ const has = (b, f) => b.msgs.some(f);
     ok(JSON.parse(w.localStorage.getItem('voltarena.v1.cfg')).look.col === idx, 'la personalización se guarda');
 
     // partida contra bots hasta el final → KR y desafíos
-    $('#play').click(); ok(T.state === 'playing', 'entrenamiento con el Lince y el aspecto elegido');
+    $('#play').click(); $('#eqPlay').click(); ok(T.state === 'playing', 'entrenamiento con el Lince y el aspecto elegido');
     ok(/PIXEL PLAY/i.test($('#brandHud').textContent) && $('#hsName').textContent.length > 0, 'el HUD de la partida muestra nombre del juego, jugador y KR (' + $('#hsKr').textContent + ')');
     for (let f = 0; f < 200; f++) T.step(1 / 60);
     const victims = T.fighters.filter(x => !x.isPlayer && x.team !== T.player.team);   // los equipos de los bots son aleatorios: solo se puede eliminar a los ENEMIGOS (no hay fuego amigo)
@@ -117,7 +119,7 @@ const has = (b, f) => b.msgs.some(f);
 
     // aspecto de un jugador remoto en línea (color y piel llegan al cliente)
     ok(await until(() => !$('#playOnline').disabled), 'servidor disponible de nuevo');
-    $('#playOnline').click(); ok(await until(() => T.state === 'playing'), 'entra en partida online');
+    $('#playOnline').click(); $('#eqPlay').click(); ok(await until(() => T.state === 'playing'), 'entra en partida online');
     ok(await until(() => T.fighters.some(f => !f.isPlayer && f.name === 'Ana')), 'el cliente ve a Ana');
     const ana = T.fighters.find(f => f.name === 'Ana'); ok(ana.color === ['#2f7bff', '#ff3b48'][ana.team] && ana.skin === 2, 'Ana se ve con el color de su equipo (' + ana.color + ') y la piel elegida');
     p2.ws.send(JSON.stringify({ t: 'chat', m: 'mensaje de sala' })); await sleep(50);

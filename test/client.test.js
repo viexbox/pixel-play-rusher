@@ -72,7 +72,7 @@ async function approach(bot, tgt) {
     ok(await until(() => !$('#playOnline').disabled), 'el botón «Jugar online» se activa al detectar el servidor');
     ok(/0 jugadores conectados/.test($('#onlineInfo').textContent), 'el menú muestra el estado del servidor: «' + $('#onlineInfo').textContent + '»');
     $('#name').value = 'Clienta';
-    $('#playOnline').click();
+    $('#playOnline').click(); $('#eqPlay').click();
     ok(await until(() => T.state === 'playing'), 'el cliente entra en la partida online');
     ok(await until(() => T.player && T.player.alive), 'el servidor hace aparecer al jugador');
     ok($('#hud').hidden === false && $('#menu').hidden === true, 'se muestra el HUD y se oculta el menú');

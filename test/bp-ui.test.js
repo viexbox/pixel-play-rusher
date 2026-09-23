@@ -87,7 +87,7 @@ const findColor = (g, hex) => { let f = false; g.traverse(o => { if (o.material 
     dragon().querySelector('[data-equip]').click(); ok(await until(() => dragon().querySelector('.equip.on')), 'equipar la skin Dragón (botón «Equipado ✓»)');
     const oro = () => A.$$('#psScroll .rcard').find(c => /Oro real/.test(c.textContent)); oro().querySelector('[data-equip]').click(); ok(await until(() => oro().querySelector('.equip.on')), 'y el cuchillo Oro real');
     ok(A.w.PPR_BP.equipped['weapon:ak'] === 'ak_dragon' && A.w.PPR_BP.equipped.knife === 'k_oro', 'el juego sabe lo equipado');
-    A.$('#psClose').click(); A.$$('#classes .cls')[8].click(); A.$('#play').click(); ok(await until(() => A.T.state === 'playing'), 'empieza una partida con la AK');
+    A.$('#psClose').click(); A.$$('#classes .cls')[8].click(); A.$('#play').click(); A.$('#eqPlay').click(); ok(await until(() => A.T.state === 'playing'), 'empieza una partida con la AK');
     ok(findColor(A.T.gun, S.WEAPON_SKINS.find(k => k.id === 'ak_dragon').body) && findColor(A.T.gun, S.WEAPON_SKINS.find(k => k.id === 'ak_dragon').acc), 'el arma en primera persona lleva los colores de la skin Dragón');
     ok(findColor(A.T.knifeG, '#ffd23a') && findColor(A.T.knifeG, '#c4161f'), 'y el cuchillo lleva los colores del Oro real (hoja dorada, guarda roja)');
     ok(findColor(A.T.gun, '#c4161f') && !findColor(A.T.gun, S.WEAPONS[8].col.replace('#', '')), 'sin rastro del color original del arma');

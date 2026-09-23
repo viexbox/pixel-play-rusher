@@ -28,7 +28,7 @@ function boot(opts) {
 }
 const setMode = async (C, id) => { C.$('#modeBtn').click(); await until(() => !C.$('#modeModal').hidden && C.$$('#modeBox .mdl-card').length === 4); C.$(`#modeBox [data-m="${id}"]`).click(); await until(() => C.$(`#modeBox [data-m="${id}"].on`)); };
 const closeModal = C => { C.$('#mdlOk').click(); };
-async function play(C) { await until(() => !C.$('#playOnline').disabled); C.$('#playOnline').click(); return until(() => C.T.state === 'playing', 8000); }
+async function play(C) { await until(() => !C.$('#playOnline').disabled); C.$('#playOnline').click(); C.$('#eqPlay').click(); return until(() => C.T.state === 'playing', 8000); }
 function bot(mode, extra) { return new Promise(res => { const ws = new WebSocket('ws://127.0.0.1:' + PORT + '/ws'); const b = { ws, msgs: [] }; ws.on('open', () => ws.send(JSON.stringify(Object.assign({ t: 'hello', v: 1, n: 'Bot' + Math.floor(Math.random() * 900), map: 0, c: 0, mode }, extra)))); ws.on('message', d => { const m = JSON.parse(d); b.msgs.push(m); if (m.t === 'welcome') { b.id = m.id; b.welcome = m; res(b); } }); ws.on('error', () => {}); }); }
 
 (async () => {
