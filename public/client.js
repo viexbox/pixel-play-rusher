@@ -1621,8 +1621,8 @@ function netClosed() {
 function setPauseTexts(kind) {
   const on = kind !== 'offline';
   $('#pauseTitle').textContent = kind === 'round' ? 'Nueva partida' : on ? 'Pausa' : 'Partida en pausa';
-  $('#pauseSub').textContent = kind === 'round' ? 'Haz clic en Entrar para saltar a la arena.' : on ? 'En el modo online la partida no se detiene. Haz clic en Reanudar para seguir.' : 'Haz clic en Reanudar para volver a la arena.';
-  $('#resume').textContent = kind === 'round' ? 'Entrar' : 'Reanudar';
+  $('#pauseSub').textContent = kind === 'round' ? 'Haz clic en «Ir a la arena» para empezar.' : on ? 'En el modo online la partida no se detiene. Haz clic en Reanudar para seguir.' : 'Haz clic en Reanudar para volver a la arena.';
+  $('#resume').textContent = kind === 'round' ? 'Ir a la arena' : 'Reanudar';   // [IDIOMAS] antes «Entrar», que en inglés choca con «Entrar» (iniciar sesión)
   $('#quit').textContent = on ? 'Salir al menú' : 'Abandonar'; $('#reportBtn').hidden = !on;
 }
 function updateEndCountdown() {
