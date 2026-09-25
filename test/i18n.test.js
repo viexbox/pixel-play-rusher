@@ -13,6 +13,7 @@ function boot(languages, saved) {
   Object.defineProperty(w.navigator, 'languages', { value: languages });
   Object.defineProperty(w.navigator, 'language', { value: languages[0] });
   if (saved) w.localStorage.setItem('ppr.lang', saved);
+  w.confirm = m => { w.__lastConfirm = m; return true; };   // para comprobar que las ventanas del navegador también se traducen
   w.eval(I18N);
   return w;
 }
@@ -60,6 +61,30 @@ function boot(languages, saved) {
   }
   const missing = [...statics].filter(s => !dict.includes("'" + s.replace(/'/g, "\\'") + "'"));
   ok(missing.length === 0, 'todos los textos fijos de la página tienen traducción al inglés' + (missing.length ? ' (faltan: ' + missing.slice(0, 5).join(' | ') + ')' : ''));
+
+  console.log('\n=== 5. [Paso 2] Lo que el juego escribe mientras funciona ===');
+  const T = en.PPR_I18N.t;
+  const cases = [
+    ['1500 puntos · +150 PX', '1500 points · +150 PX', 'los números cambian pero la frase se traduce igual'],
+    ['12.000 puntos · +800 PX · color «Cian»', '12,000 points · +800 PX · colour “Cyan”', 'millares con coma en inglés y el color entre comillas también traducido'],
+    ['NIVEL 7 · BRONCE', 'LEVEL 7 · BRONZE', 'trozos separados por «·», en mayúsculas'],
+    ['Asalto · Fusil de asalto', 'Assault · Assault rifle', 'nombre y tipo del arma'],
+    ['0 puntos · faltan 1500 para Plata', '0 points · need 1500 more for Silver', 'frase con un rango en medio'],
+    ['Violeta, cuesta 150 PX', 'Violet, costs 150 PX', 'color con precio'],
+    ['Reapareces en 3 s.', 'Respawning in 3 s.', 'cuenta atrás de la pantalla de muerte'],
+    ['Quedaste en el puesto 2 de 8 con 250 puntos.', 'You placed 2 of 8 with 250 points.', 'resultado de la partida'],
+    ['¡Victoria del equipo AZUL!', 'Team BLUE wins!', 'ganador de la partida'],
+    ['Desafío completado: Juega 3 partidas', 'Challenge complete: Play 3 matches', 'desafío completado con su nombre también traducido'],
+    ['Termina en 2 d 9 h · solo en Solo cuchillos', 'Ends in 2 d 9 h · only in Knives only', 'duración del evento con el modo'],
+    ['No hay ningún jugador llamado «Zoe_7» en tu sala.', 'There’s no player called “Zoe_7” in your room.', 'el nombre del jugador se deja tal cual'],
+    ['Usuario o contraseña incorrectos.', 'Wrong username or password.', 'mensajes de error del servidor'],
+    ['No te alcanza el dinero.', 'Not enough money.', 'aviso de la tienda de armas'],
+    ['Kraken', 'Kraken', 'los nombres de los bots no se tocan']
+  ];
+  for (const [es, want, why] of cases) { const got = T(es); ok(got === want, why + ': «' + es + '» → «' + got + '»'); }
+  en.confirm('¿Bloquear a Zoe_7? Se romperá la amistad y no podrá enviarte solicitudes.');
+  ok(en.__lastConfirm === 'Block Zoe_7? Your friendship will end and they won’t be able to send you requests.', 'las ventanas de confirmación del navegador también salen en inglés');
+  ok(es.PPR_I18N.t('1500 puntos · +150 PX') === '1500 puntos · +150 PX', 'y en español no se toca nada');
 
   console.log(failed ? '\n' + failed + ' FALLOS' : '\nTODO CORRECTO'); process.exit(failed ? 1 : 0);
 })();
