@@ -466,7 +466,17 @@ const BP_VIP = { 1: bpItem('banner', 's1'), 3: bpItem('wskin', 'rafaga_lava'), 6
   19: bpItem('kskin', 'k_neon'), 22: bpItem('wskin', 'asalto_neon'), 25: bpPx(250), 28: bpItem('wskin', 'trueno_tormenta'), 33: bpItem('kskin', 'k_oro'), 38: bpItem('wskin', 'precision_eclipse'),
   42: bpItem('wskin', 'lince_fantasma'), 46: bpItem('kskin', 'k_vacio'), 48: bpItem('wskin', 'duo_oro'), 50: bpItem('wskin', 'ak_dragon') };
 const BP_TIERS = Array.from({ length: BP_LEVELS }, (_, i) => { const l = i + 1; return { level: l, free: BP_FREE[l] || bpPx(8 + Math.floor(l / 16) * 4), vip: BP_VIP[l] || bpPx(10 + Math.floor(l / 12) * 5) }; });
-const bpFind = r => (r.t === 'wskin' ? WEAPON_SKINS : r.t === 'kskin' ? KNIFE_SKINS : r.t === 'banner' ? BANNERS : []).find(x => x.id === r.id) || null;
+/* [NUEVO] Mascotas: te siguen en la partida y los demás jugadores las ven. Solo se consiguen comprándolas con PX en la
+   tienda (el servidor cobra y comprueba que la tienes antes de dejarte equiparla). kind = forma del modelo en client.js. */
+const PETS = [
+  { id: 'pet_cubi', n: 'Cubi', r: 'comun', px: 600, kind: 'cube', body: '#ffd23a', acc: '#ffffff', eye: '#1b2038' },
+  { id: 'pet_rayito', n: 'Rayito', r: 'poco', px: 900, kind: 'cube', body: '#5ad1ff', acc: '#e9fbff', eye: '#0b1c33' },
+  { id: 'pet_dron', n: 'Dron Z-3', r: 'raro', px: 1500, kind: 'drone', body: '#39414f', acc: '#ff5a1f', eye: '#8dff5a' },
+  { id: 'pet_fantasmin', n: 'Fantasmín', r: 'epico', px: 2500, kind: 'ghost', body: '#e9edf5', acc: '#7dffea', eye: '#1b2038' },
+  { id: 'pet_zorro', n: 'Zorro Píxel', r: 'epico', px: 2800, kind: 'fox', body: '#ff8a1f', acc: '#ffffff', eye: '#1b2038' },
+  { id: 'pet_dragon', n: 'Dragoncito', r: 'leyenda', px: 5000, kind: 'dragon', body: '#c4161f', acc: '#ffd23a', eye: '#fff4b8' }
+];
+const bpFind = r => (r.t === 'wskin' ? WEAPON_SKINS : r.t === 'kskin' ? KNIFE_SKINS : r.t === 'banner' ? BANNERS : r.t === 'pet' ? PETS : r.t === 'avatar' ? (typeof AVATARS !== 'undefined' ? AVATARS : []) : []).find(x => x.id === r.id) || null;
 /* Nombre y rareza de cualquier recompensa (los PX se clasifican por cantidad) */
 const bpInfo = r => {
   if (r.t === 'px') return { n: r.n + ' PX', r: r.n >= 400 ? 'epico' : r.n >= 200 ? 'raro' : r.n >= 100 ? 'poco' : 'comun' };
@@ -642,7 +652,7 @@ function viewmodelSight(pose, sight) {
   return { x: x + pose.px, y: y + pose.py, z: z + pose.pz };
 }
 
-const api = { areaAt, buildNav, navField, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
+const api = { PETS, areaAt, buildNav, navField, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -773,6 +773,15 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
 /* Tienda de PX y selector de mapa al terminar */
 .storehead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-size:18px;letter-spacing:.05em}
 .storehead em{font-style:normal;color:var(--volt);font-weight:900}
+.pets{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:10px 0 14px}
+.petcard{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:22px 8px 10px;background:linear-gradient(160deg,color-mix(in srgb,var(--rc) 18%,transparent),rgba(8,11,24,.8));border:1px solid color-mix(in srgb,var(--rc) 55%,transparent);text-align:center}
+.petcard.on{box-shadow:0 0 0 2px var(--rc),0 0 16px color-mix(in srgb,var(--rc) 45%,transparent)}
+.petcard .prar{position:absolute;top:0;left:0;right:0;padding:2px;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#0a0a12;background:var(--rc)}
+.petcard svg{image-rendering:pixelated;filter:drop-shadow(0 3px 0 rgba(0,0,0,.5))}
+.petcard b{font-size:14px}
+.petcard button{width:100%;padding:6px 4px;font-size:12px;font-weight:800;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff}
+.petcard button.on{background:var(--rc);color:#0a0a12;border-color:#000}
+.petcard button:disabled{opacity:.45;cursor:not-allowed}
 .packs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:10px 0}
 .pack{position:relative;padding:12px 10px 10px;background:linear-gradient(160deg,rgba(255,220,58,.14),rgba(8,11,24,.75));border:1px solid rgba(255,220,58,.35);text-align:center}
 .pack .pxn{font-size:26px;font-weight:900;font-style:italic;color:#fff}.pack .pxn small{display:block;font-size:12px;letter-spacing:.2em;color:var(--volt);font-style:normal}
