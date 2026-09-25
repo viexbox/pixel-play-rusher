@@ -7,7 +7,7 @@ if (process.env.DATABASE_URL && !global.__PPR_DB) {
     .catch(e => { console.error('No se pudo iniciar PostgreSQL:', e.message); process.exit(1); });
   return;
 }
-/* Pixel Play Rusher · servidor online
+/* PixelPlayRusher · servidor online
    - Sirve la carpeta /public
    - WebSocket en /ws (salas por mapa, combate validado por el servidor)
    - API: /api/status y /api/leaderboard
@@ -788,7 +788,7 @@ function onMessage(ws, m, now) {
 }
 
 admin.ready.then(() => { if (admin.credentialsNotice) console.log(admin.credentialsNotice); }); // la contraseña generada solo va a la consola (no al registro del panel)
-server.listen(PORT, HOST, () => log('Pixel Play Rusher escuchando en http://' + HOST + ':' + PORT + ' (partidas de ' + MATCH_TIME + ' s, ' + MAX_PER_ROOM + ' jugadores por sala)'));
+server.listen(PORT, HOST, () => log('PixelPlayRusher escuchando en http://' + HOST + ':' + PORT + ' (partidas de ' + MATCH_TIME + ' s, ' + MAX_PER_ROOM + ' jugadores por sala)'));
 
 function finish(code) { if (PGDB) PGDB.close().finally(() => process.exit(code)); else process.exit(code); }   // con PostgreSQL se espera a que terminen los guardados
 function shutdown() { log('Cerrando…'); lbSave(); admin.flushAll(); accounts.flush(); bp.flush(); finish(0); }
