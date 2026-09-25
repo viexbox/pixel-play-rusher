@@ -1,5 +1,5 @@
 'use strict';
-/* Pixel Play Rusher · Perfiles y opciones sociales.
+/* PixelPlayRusher · Perfiles y opciones sociales.
    - Perfil público de cada jugador: foto, estado, rango, estadísticas, banner equipado del pase e insignia de verificado.
    - Foto de perfil: una de 16 predefinidas o una imagen propia (JPEG/PNG, máx. 60 KB y 512×512; el navegador la reduce antes de subirla). Se valida por
      contenido (no por lo que diga el navegador), se guarda en PostgreSQL (tabla user_avatars) o en DATA_DIR/avatars y se sirve con nosniff.

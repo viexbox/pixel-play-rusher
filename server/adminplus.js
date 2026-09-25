@@ -1,5 +1,5 @@
 'use strict';
-/* Pixel Play Rusher · Panel de administración: cuentas, verificados, monedas, ventas y «antes de lanzar».
+/* PixelPlayRusher · Panel de administración: cuentas, verificados, monedas, ventas y «antes de lanzar».
    - VERIFICADOS: se escribe el nombre de la cuenta y al instante tiene el tic azul y los beneficios (los mismos que un influencer con clave: efecto dorado en las bajas,
      chat aunque esté bloqueado) más los que se configuren aquí (bono de PX y Créditos por partida, regalo al verificar). No hay ningún código que pegar.
    - MONEDAS: dar, quitar o fijar PX y Créditos, con motivo y en la auditoría.

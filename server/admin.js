@@ -1,5 +1,5 @@
 'use strict';
-/* Pixel Play Rusher · administración del servidor (dueño de la web).
+/* PixelPlayRusher · administración del servidor (dueño de la web).
    - Cuenta de administrador con contraseña guardada como hash scrypt (nunca en claro)
    - Sesiones con token, bloqueo por intentos fallidos y registro de auditoría
    - Baneos (por nombre o por IP «anonimizada»), silencios, avisos y expulsiones
@@ -156,13 +156,13 @@ function createAdmin(opts) {
     let nm; try { nm = require('nodemailer'); } catch (e) { log('Falta el módulo nodemailer: ejecuta npm install.'); return false; }
     const secure = env.SMTP_SECURE === '1' || +env.SMTP_PORT === 465;
     const tr = nm.createTransport({ host: env.SMTP_HOST, port: +env.SMTP_PORT || (secure ? 465 : 587), secure, ignoreTLS: env.SMTP_INSECURE === '1', auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS || '' } : undefined, connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 });
-    await tr.sendMail({ from: env.SMTP_FROM || env.SMTP_USER || 'Pixel Play Rusher <no-reply@localhost>', to, subject, text });
+    await tr.sendMail({ from: env.SMTP_FROM || env.SMTP_USER || 'PixelPlayRusher <no-reply@localhost>', to, subject, text });
     return true;
   }
   async function deliverReset(token) {
     const link = PUBLIC_URL ? PUBLIC_URL + '/admin#reset=' + token : '';
     const mins = Math.round(RESET_TTL / 60000);
-    const text = 'Has pedido restablecer la contraseña del administrador de Pixel Play Rusher.\n\n' + (link ? 'Abre este enlace (válido ' + mins + ' minutos y de un solo uso):\n' + link + '\n\n' : '') + 'Código de restablecimiento (pégalo en «Ya tengo un código» de la pantalla de acceso del panel):\n' + token + '\n\nSi no has sido tú, ignora este mensaje: tu contraseña no cambia.';
+    const text = 'Has pedido restablecer la contraseña del administrador de PixelPlayRusher.\n\n' + (link ? 'Abre este enlace (válido ' + mins + ' minutos y de un solo uso):\n' + link + '\n\n' : '') + 'Código de restablecimiento (pégalo en «Ya tengo un código» de la pantalla de acceso del panel):\n' + token + '\n\nSi no has sido tú, ignora este mensaje: tu contraseña no cambia.';
     let sent = false;
     try { sent = await sendMail(cred.data.email, 'Restablecer la contraseña del administrador', text); } catch (e) { log('No se pudo enviar el correo de restablecimiento: ' + e.message); }
     if (!sent) console.log('\n[RESTABLECER CONTRASEÑA] ' + (smtpOn() ? 'El correo no se pudo enviar. ' : 'No hay correo SMTP configurado. ') + 'Válido ' + mins + ' min.\n' + (link ? '  Enlace: ' + link + '\n' : '') + '  Código: ' + token + '\n'); // solo a la consola (no al registro del panel)
@@ -185,7 +185,7 @@ function createAdmin(opts) {
     if (!okPassword(password)) return { code: 400, error: PASS_RULE }; // no gasta el enlace
     await setPassword(password); resetTok = null; sessions.clear(); fails.clear(); resetFails.delete(ip);
     audit('admin', 'contraseña-restablecida', ipKey(ip));
-    sendMail(cred.data.email, 'Tu contraseña de administrador ha cambiado', 'La contraseña del administrador de Pixel Play Rusher se acaba de restablecer. Si no has sido tú, entra al servidor y ejecuta «node scripts/admin-password.js» para recuperar el control.').catch(() => {});
+    sendMail(cred.data.email, 'Tu contraseña de administrador ha cambiado', 'La contraseña del administrador de PixelPlayRusher se acaba de restablecer. Si no has sido tú, entra al servidor y ejecuta «node scripts/admin-password.js» para recuperar el control.').catch(() => {});
     return { ok: true };
   }
 

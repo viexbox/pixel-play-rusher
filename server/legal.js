@@ -1,11 +1,11 @@
 'use strict';
-/* Pixel Play Rusher · páginas legales (/privacidad y /terminos), con los datos del titular tomados de las variables LEGAL_OWNER, LEGAL_EMAIL y LEGAL_COUNTRY.
+/* PixelPlayRusher · páginas legales (/privacidad y /terminos), con los datos del titular tomados de las variables LEGAL_OWNER, LEGAL_EMAIL y LEGAL_COUNTRY.
    AVISO: son textos base pensados para un juego pequeño. No son asesoramiento legal: revísalos con un profesional antes de abrir el juego al público (sobre todo si cobras o si hay menores). */
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const VERSION = '1', DATE = '21 de septiembre de 2026';
 
 function page(title, body) {
-  return '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(title) + ' · Pixel Play Rusher</title>' +
+  return '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(title) + ' · PixelPlayRusher</title>' +
     '<style>body{margin:0;background:#0a0e1c;color:#e8ecff;font:16px/1.65 system-ui,Segoe UI,Roboto,sans-serif}main{max-width:780px;margin:0 auto;padding:28px 18px 60px}h1{font-size:28px;margin:.2em 0}h2{font-size:19px;margin:1.6em 0 .3em;color:#ffdc3a}a{color:#38e4ff}small,.aviso{opacity:.75}.aviso{border:1px solid #3a4470;border-radius:10px;padding:10px 14px;background:#111733}li{margin:.25em 0}</style></head><body><main><p><a href="./">← Volver al juego</a></p>' + body + '</main></body></html>';
 }
 function data(env) {
@@ -36,7 +36,7 @@ function terms(env) {
   const d = data(env);
   return page('Términos de uso', `<h1>Términos de uso</h1><p><small>Versión ${VERSION} · ${DATE}</small></p>
 <p class="aviso">Texto base para un juego pequeño. Revísalo con un profesional antes de abrir el juego al público.</p>
-<h2>1. El servicio</h2><p>Pixel Play Rusher es un juego gratuito de disparos en línea ofrecido por ${d.owner}. Al crear una cuenta aceptas estos términos y la <a href="privacidad">política de privacidad</a>.</p>
+<h2>1. El servicio</h2><p>PixelPlayRusher es un juego gratuito de disparos en línea ofrecido por ${d.owner}. Al crear una cuenta aceptas estos términos y la <a href="privacidad">política de privacidad</a>.</p>
 <h2>2. Tu cuenta</h2><p>Eres responsable de tu contraseña y de lo que se haga con tu cuenta. Vincula un correo verificado para poder recuperarla. Una cuenta por persona.</p>
 <h2>3. Juego limpio</h2><ul><li>No se permiten trampas, programas que alteren el juego, explotar fallos ni abusar de otros sistemas (por ejemplo, crear cuentas para vender objetos).</li><li>No se permiten nombres, fotos, estados ni mensajes ofensivos, discriminatorios, sexuales o que suplanten a otras personas.</li><li>El administrador puede avisar, silenciar, expulsar o cerrar cuentas que incumplan estas normas.</li></ul>
 <h2>4. Objetos y monedas</h2><p>PX, Créditos, skins, colores y demás objetos son elementos virtuales del juego, sin valor real ni derecho a reembolso ni a cambiarlos por dinero. Los Créditos solo se ganan jugando. Las compras de PX se rigen por las condiciones que se muestren al comprar y por la ley de consumidores aplicable. El mercado y los intercambios son entre jugadores y se pueden limitar o revertir si se detecta abuso.</p>

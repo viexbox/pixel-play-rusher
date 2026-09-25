@@ -87,7 +87,7 @@ function aimAt(a, b) {
     let r = await fetch(HTTP + '/api/status'); let j = await r.json();
     ok(r.status === 200 && j.players === 0, 'API /api/status responde (0 jugadores)');
     r = await fetch(HTTP + '/'); const html = await r.text();
-    ok(r.status === 200 && html.includes('Pixel Play Rusher') && r.headers.get('content-security-policy'), 'la página principal se sirve con cabecera CSP');
+    ok(r.status === 200 && html.includes('PixelPlayRusher') && r.headers.get('content-security-policy'), 'la página principal se sirve con cabecera CSP');
     r = await fetch(HTTP + '/shared.js'); ok(r.status === 200, 'shared.js se sirve');
     r = await fetch(HTTP + '/vendor/three.min.js'); ok(r.status === 200, 'three.min.js local se sirve');
     r = await fetch(HTTP + '/../server.js'); ok(r.status === 404, 'no se puede salir de /public (server.js → 404)');

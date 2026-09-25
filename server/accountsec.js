@@ -1,5 +1,5 @@
 'use strict';
-/* Pixel Play Rusher · Seguridad de las cuentas: correo vinculado, recuperación y eliminación.
+/* PixelPlayRusher · Seguridad de las cuentas: correo vinculado, recuperación y eliminación.
    - Verificación de correo: código de 6 cifras por correo (15 min, 5 intentos, un envío por minuto). Solo un correo VERIFICADO sirve para recuperar la cuenta:
      así nadie puede quedarse con una cuenta registrada con un correo que no es suyo.
    - Cambiar de correo: pide la contraseña, manda el código al correo NUEVO y avisa al antiguo.
@@ -35,7 +35,7 @@ function createAccountSecurity(ctx) {
     if (!/^\d{6}$/.test(String(code || '').trim()) || !crypto.timingSafeEqual(Buffer.from(sha(rec.salt + ':' + String(code).trim())), Buffer.from(rec.h))) { rec.tries++; db.flush(); return 'Código incorrecto.' + (rec.tries >= MAX_TRIES ? ' Pide un código nuevo.' : ' Te quedan ' + (MAX_TRIES - rec.tries) + ' intentos.'); }
     return null;
   }
-  async function mail(to, subject, text) { try { return await admin.sendMail(to, subject, text + '\n\n—\nPixel Play Rusher. Si no has sido tú, puedes ignorar este correo.'); } catch (e) { log('No se pudo enviar el correo a ' + mask(to) + ': ' + e.message); return false; } }
+  async function mail(to, subject, text) { try { return await admin.sendMail(to, subject, text + '\n\n—\nPixelPlayRusher. Si no has sido tú, puedes ignorar este correo.'); } catch (e) { log('No se pudo enviar el correo a ' + mask(to) + ': ' + e.message); return false; } }
   const pwOk = pw => pw.length >= 8 && pw.length <= 128 && /\p{L}/u.test(pw) && /\p{N}/u.test(pw);
   async function checkPw(u, pw) { try { const h = await scrypt(String(pw || ''), u.salt), st = Buffer.from(u.hash, 'hex'); return h.length === st.length && crypto.timingSafeEqual(h, st); } catch (e) { return false; } }
   async function setPw(u, pw) { u.salt = hex(16); u.hash = (await scrypt(pw, u.salt)).toString('hex'); }

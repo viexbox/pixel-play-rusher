@@ -1,5 +1,5 @@
 'use strict';
-/* Pixel Play Rusher · Copias de seguridad automáticas.
+/* PixelPlayRusher · Copias de seguridad automáticas.
    - Cada BACKUP_EVERY_HOURS horas (24 por defecto; 0 = desactivadas) se guarda una copia completa en BACKUP_DIR (por defecto DATA_DIR/backups) y se conservan las últimas BACKUP_KEEP (7).
    - Con archivos: todo lo que hay en DATA_DIR (cuentas, pase, panel, clasificación, fotos…). Con PostgreSQL: todas las tablas del esquema public (incluido app_docs).
    - Formato: JSON comprimido (.json.gz). Con BACKUP_PASSPHRASE se cifra con AES-256-GCM (clave derivada con scrypt) y el archivo acaba en .enc.
@@ -32,7 +32,7 @@ function decrypt(buf, pass) {
 /* Lee una copia (con o sin cifrado) y devuelve el paquete JSON */
 function openBundle(buf, pass) {
   if (buf.slice(0, 5).equals(MAGIC)) buf = decrypt(buf, pass);
-  const b = JSON.parse(zlib.gunzipSync(buf).toString('utf8')); if (!b || b.app !== 'pixel-play-rusher' || !b.meta) throw new Error('No es una copia de Pixel Play Rusher.'); return b;
+  const b = JSON.parse(zlib.gunzipSync(buf).toString('utf8')); if (!b || b.app !== 'pixel-play-rusher' || !b.meta) throw new Error('No es una copia de PixelPlayRusher.'); return b;
 }
 
 /* ---- serialización de filas de PostgreSQL (bytea y fechas incluidos) ---- */

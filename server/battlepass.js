@@ -1,5 +1,5 @@
 'use strict';
-/* Pixel Play Rusher · Pase de batalla (Temporada 1).
+/* PixelPlayRusher · Pase de batalla (Temporada 1).
    - Niveles 1–50 con XP, dos filas de recompensas (gratis y VIP), skins de armas y cuchillos y el banner S1.
    - Se paga con PX (los PX ya se pueden comprar con dinero real en la tienda). El servidor decide todo: nivel, XP, quién es VIP y qué está reclamado.
    - Persistencia: PostgreSQL (tablas bp_*, ver migrations/) si hay DATABASE_URL; si no, un archivo JSON en DATA_DIR.

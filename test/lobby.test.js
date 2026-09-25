@@ -55,8 +55,8 @@ const has = (b, f) => b.msgs.some(f);
     const errors = []; w.addEventListener('error', e => errors.push(e.message)); w.eval(c);
     const T = w.__T, $ = s => w.document.querySelector(s), $$ = s => [...w.document.querySelectorAll(s)];
 
-    ok(/Pixel Play Rusher/.test(w.document.title) && /PIXEL PLAY\s*RUSHER/i.test($('#brandTop .logo').textContent), 'la pantalla de inicio muestra el nombre «Pixel Play Rusher»');
-    ok(/PIXEL PLAY\s*RUSHER/i.test($('#brandHud').textContent), 'el HUD de la partida incluye el nombre del juego');
+    ok(/PixelPlayRusher/.test(w.document.title) && /^PixelPlayRusher$/.test($('#brandTop .logo').textContent.trim()), 'la pantalla de inicio muestra el nombre «PixelPlayRusher», todo junto');
+    ok(/PixelPlayRusher/.test($('#brandHud').textContent), 'el HUD de la partida incluye el nombre del juego');
     ok($('#lobbyTL #name') && $('#lobbyTL #krTotal') && $('#lobbyTL #stK'), 'arriba a la derecha: perfil, estadísticas del jugador y contador de PX');
     const tabs = $$('.nav button').map(b => b.dataset.tab).sort().join();
     ok($$('.nav button').length === 10 && tabs === 'controls,home,maps,market,pass,profile,rank,ranks,settings,store' && $$('#topNav button').length === 6 && $('#topNav button[data-tab=pass]') && $('#topNav button[data-tab=profile]') && $('#topNav button[data-tab=market]'), 'las 10 secciones siguen accesibles: 6 arriba en el centro y el resto en el perfil (Rangos, Mapas) y en la barra de abajo (Controles, Ajustes)');
@@ -65,13 +65,15 @@ const has = (b, f) => b.msgs.some(f);
     ok($('#lobbyCenter .modebar #mapBtn') && $$('#lobbyCenter .modebar #diff button').length === 3, 'bajo los botones de jugar: mapa y dificultad de los bots');
     ok(!$('#lobbyEq'), 'ya no hay resumen de equipamiento en la lobby: el bando y el arma se eligen al entrar a partida');
     ok($('#lobbyCenter #playOnline') && $('#lobbyCenter #play') && $$('#lobbyCenter .mode').length === 2 && /ONLINE/.test($('#playOnline').textContent) && /ENTRENAR/.test($('#play').textContent), 'en el centro, bajo el título: botones ONLINE y ENTRENAR');
-    ok($('#lobbyR #charView') && $('#lobbyR #classes') && $('#lobbyR #teamPick') && $('#lobbyR #swColors') && $('#lobbyR #swSkins'), 'cajón de antes de jugar: personaje, bando, armas y personalización');
+    ok($('#lkChar #charView') && $('#lkChar #lkClass').textContent === S.WEAPONS[T.cfg.cls].name && $('#lkChar #lkCustom'), 'abajo a la derecha: tu personaje, el nombre de su arma (' + $('#lkClass').textContent + ') y el botón Personalizar');
+    ok($('#lobbyR #classes') && $('#lobbyR #teamPick') && $('#lobbyR #swColors') && $('#lobbyR #swSkins'), 'cajón de antes de jugar: bando, armas y personalización');
+    ok($('#lkMenu #passRow') && $('#lkMenu #topNav') && $('#lkMenu #subNav'), 'a la izquierda, un menú en lista con el pase de batalla y todas las secciones');
     /* el cajón de antes de jugar */
     ok(!w.document.body.classList.contains('eqopen') && ($('#play').click(), w.document.body.classList.contains('eqopen')) && ($('#eqClose').click(), !w.document.body.classList.contains('eqopen')), '«Entrenar» abre el cajón de bando y arma, y ✕ lo cierra sin jugar');
-    $('#play').click();
+    $('#play').click(); ok($('#lobbyR #charView') && !$('#lkChar #charView'), 'al abrir el cajón, el personaje se muda dentro del cajón');
     { const c0 = T.cfg.cls, next = (c0 + 1) % S.WEAPONS.length; $$('#classes .cls')[next].click(); ok(T.cfg.cls === next && T.cfg.cls !== c0 && $$('#classes .cls')[next].getAttribute('aria-pressed') === 'true', 'al elegir otra arma en el cajón, queda guardada y marcada (' + S.WEAPONS[next].name + ')'); }
     ok($('#swColors .cs[aria-pressed="true"]').dataset.i == T.cfg.look.col, 'el color elegido queda marcado en el cajón');
-    $('#eqClose').click();
+    $('#eqClose').click(); ok($('#lkChar #charView'), 'y al cerrarlo vuelve abajo a la derecha');
     $('#newsMap').click(); ok(!$('#lobbyC').hidden && !$('#tab-maps').hidden && w.document.body.classList.contains('tabopen'), 'la noticia del mapa abre la sección Mapas'); $('#topNav button[data-tab=home]').click(); ok($('#lobbyC').hidden && !w.document.body.classList.contains('tabopen'), 'y «Inicio» la cierra');
     ok($('#chat #chatIn') && $('#chatIn').getAttribute('placeholder').length > 5, 'entrada de texto (chat)');
     ok($$('#classes .cls').length === S.WEAPONS.length && S.WEAPONS.length === 11 && $$('#classes .cls').some(e => /Vórtice/.test(e.textContent)) && $$('#classes .cls').some(e => /Centinela/.test(e.textContent)) && $$('#swColors .cs').length === COLORS_N(T) , 'equipamiento (11 clases, con la AK, el Vórtice y el Centinela) y colores listados');
@@ -103,7 +105,7 @@ const has = (b, f) => b.msgs.some(f);
 
     // partida contra bots hasta el final → KR y desafíos
     $('#play').click(); $('#eqPlay').click(); ok(T.state === 'playing', 'entrenamiento con el Lince y el aspecto elegido');
-    ok(/PIXEL PLAY/i.test($('#brandHud').textContent) && $('#hsName').textContent.length > 0, 'el HUD de la partida muestra nombre del juego, jugador y KR (' + $('#hsKr').textContent + ')');
+    ok(/PixelPlayRusher/.test($('#brandHud').textContent) && $('#hsName').textContent.length > 0, 'el HUD de la partida muestra nombre del juego, jugador y KR (' + $('#hsKr').textContent + ')');
     for (let f = 0; f < 200; f++) T.step(1 / 60);
     const victims = T.fighters.filter(x => !x.isPlayer && x.team !== T.player.team);   // los equipos de los bots son aleatorios: solo se puede eliminar a los ENEMIGOS (no hay fuego amigo)
     T.damage(victims[0], 500, T.player, true, 'Lince'); T.damage(victims[1], 500, T.player, false, 'Lince');
