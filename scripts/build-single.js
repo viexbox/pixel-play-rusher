@@ -39,6 +39,7 @@ function build(opts = {}) {
   const three = opts.inlineThree ? '<script>\n' + guard('three', read('vendor/three.min.js')) + '\n</script>' : '<script src="' + (opts.three || 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js') + '"></script>';
   html = replaceOnce(html, '<script src="vendor/three.min.js"></script>', three);
   html = replaceOnce(html, '<script src="vendor/GLTFLoader.js"></script>', '<script>\n' + guard('gltf', read('vendor/GLTFLoader.js')) + '\n</script>');
+  html = replaceOnce(html, '<script src="i18n.js"></script>', '<script>\n' + guard('idiomas', read('i18n.js')) + '\n</script>');
   html = replaceOnce(html, '<script src="config.js"></script>', '<script>\n' + guard('config', read('config.js')) + '\n</script>');
   html = replaceOnce(html, '<script src="shared.js"></script>', '<script>\n' + guard('shared', read('shared.js')) + '\n</script>');
   html = replaceOnce(html, '<script src="client.js"></script>', '<script>\n' + guard('client', read('client.js')) + '\n</script>');

@@ -1,4 +1,4 @@
-/* Pixel Play Rusher · Mi cuenta: correo vinculado, recuperar la contraseña, cambiar contraseña o correo y eliminar la cuenta.
+/* PixelPlayRusher · Mi cuenta: correo vinculado, recuperar la contraseña, cambiar contraseña o correo y eliminar la cuenta.
    El servidor decide todo (códigos, plazos, límites); aquí solo se piden los datos y se enseñan los mensajes. */
 (function () {
   'use strict';

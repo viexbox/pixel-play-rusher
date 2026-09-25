@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="src/ui/auth.css">
-<title>Pixel Play Rusher · Arena de disparos por bloques</title>
+<title>PixelPlayRusher · Arena de disparos por bloques</title>
 <link rel="icon" href="favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="description" content="Pixel Play Rusher: shooter en primera persona por bloques con partidas online, mapas, clases y clasificación global.">
+<meta name="description" content="PixelPlayRusher: shooter en primera persona por bloques con partidas online, mapas, clases y clasificación global.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Bungee&family=Exo+2:ital,wght@0,600;0,700;0,800;1,700;1,800;1,900&display=swap" rel="stylesheet">
@@ -239,6 +239,7 @@ table.tbl{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 kbd{display:inline-block;min-width:30px;text-align:center;padding:1px 7px;margin-right:3px;border:1px solid rgba(255,255,255,.5);border-radius:3px;background:rgba(255,255,255,.08);font:800 13px var(--hudf)}
 .set{display:grid;grid-template-columns:130px 1fr 56px;gap:10px;align-items:center;margin-bottom:12px;font-size:15px}
 .set output{text-align:right;font-variant-numeric:tabular-nums}
+.set select{width:100%;font-size:14px;padding:6px 8px;background:#0a0e1f;color:#fff;border:1px solid rgba(255,255,255,.25)}
 input[type=range]{width:100%;accent-color:var(--volt)}
 input[type=checkbox]{width:20px;height:20px;accent-color:var(--volt)}
 .sel{padding:6px 10px;margin:0 8px 10px 0;background:rgba(255,255,255,.1);border:1px solid var(--line);color:#fff;font-weight:700;font-size:14px}
@@ -795,6 +796,82 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
 #board tr.t1 td:first-child,#endRows tr.t1 td:first-child{box-shadow:inset 4px 0 #ff3b48}
 #board tr.t0,#endRows tr.t0{background:rgba(47,123,255,.10)}#board tr.t1,#endRows tr.t1{background:rgba(255,59,72,.10)}
 #liveRows li.t0{border-left:3px solid #2f7bff}#liveRows li.t1{border-left:3px solid #ff3b48}
+
+/* ===== [LOBBY] Distribución tipo Krunker: perfil arriba a la izquierda, menú en lista a la izquierda, logo arriba en el
+   centro, jugar en el centro, modos abajo en el centro, noticias arriba a la derecha, personaje abajo a la derecha, chat
+   abajo a la izquierda. Fondo oscuro ligero en vez de paneles pesados. Todo este bloque se puede quitar de una vez. ===== */
+body:not(.playing) #menu::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 45%,rgba(5,6,14,.15),rgba(5,6,14,.62) 75%);pointer-events:none}
+.lkt{font-family:'Bungee',var(--hudf);font-weight:400;text-transform:uppercase;color:#fff;text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 3px 0 #000}
+/* perfil: tira compacta arriba a la izquierda */
+#lobbyRight{top:12px;left:16px;right:auto;width:min(420px,calc(50vw - clamp(190px,17vw,300px)));max-height:none;overflow:visible}
+#lobbyTL{background:none;border:0;box-shadow:none;padding:0;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px 12px}
+#lobbyTL .pcard{gap:8px}
+#lobbyTL #avatar{width:42px;height:42px;font-size:15px;border-width:2px}
+#lobbyTL .pinfo{min-width:150px}
+#lobbyTL #name{font-size:17px;padding:0 4px;background:none;text-shadow:0 2px 0 #000}
+#lobbyTL .lvl{font-size:11px}
+#lobbyTL .lvl .bar{height:7px}
+#lobbyTL .krrow{flex:none}
+#lobbyTL .kr{flex:none;height:30px;min-width:74px;padding:0 8px;background:rgba(0,0,0,.45)}
+#lobbyTL .pstats{display:flex;gap:10px;flex:none}
+#lobbyTL .pstats div{background:none;border:0;padding:0;display:flex;align-items:baseline;gap:4px}
+#lobbyTL .pstats strong{font-size:15px}
+#lobbyTL .pstats span{font-size:10px}
+#lobbyTL .sessrow{flex-basis:100%;font-size:11px;background:none;padding:0}
+/* menú izquierdo en lista */
+#lkMenu{position:absolute;left:18px;top:clamp(178px,21vh,200px);z-index:6;display:flex;flex-direction:column;align-items:flex-start;gap:clamp(2px,.6vh,6px);max-height:calc(100vh - 400px);overflow:auto;scrollbar-width:none}
+#lkMenu .passrow{background:none;border:0;padding:0 0 8px;font-family:'Bungee',var(--hudf);font-style:normal;font-size:clamp(17px,1.7vw,24px);letter-spacing:.02em;color:#fff;text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000}
+#lkMenu .passrow em{font-family:var(--hudf);font-size:12px;color:var(--volt);margin-left:10px;text-shadow:0 1px 0 #000}
+#lkMenu .passrow:hover span{color:var(--volt)}
+#lkMenu #topNav,#lkMenu #subNav{position:static;display:flex;flex-direction:column;align-items:flex-start;gap:clamp(1px,.4vh,4px);left:auto;right:auto;top:auto}
+#lkMenu #topNav button,#lkMenu #subNav button{height:auto;padding:1px 0;background:none;border:0;font-family:'Bungee',var(--hudf);font-style:normal;font-weight:400;font-size:clamp(14px,1.25vw,18px);letter-spacing:.02em;color:#fff;text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000}
+#lkMenu #topNav button::before,#lkMenu #subNav button::before{display:none}
+#lkMenu #topNav button:hover,#lkMenu #subNav button:hover{color:var(--volt)}
+#lkMenu #topNav button[aria-selected="true"],#lkMenu #subNav button[aria-selected="true"]{color:var(--hot)}
+#lkMenu #topNav button::after,#lkMenu #subNav button::after{content:'›';margin-left:8px;opacity:0;transition:opacity .12s}
+#lkMenu #topNav button:hover::after,#lkMenu #subNav button:hover::after{opacity:1}
+#lkMenu #subNav{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.18)}
+/* centro: logo arriba, jugar en el medio */
+#lobbyCenter{inset:0;left:0;top:0;transform:none;width:auto;max-width:none;display:block}
+#brandTop{position:absolute;top:12px;left:50%;transform:translateX(-50%);white-space:nowrap}
+#brandTop .logo{flex-direction:row;align-items:baseline;transform:skewX(-6deg)}
+#brandTop .logo .l1,#brandTop .logo b{font-size:clamp(34px,4.6vw,72px);letter-spacing:.01em;margin:0}
+#brandTop .tag{margin-top:6px}
+#lobbyCenter .modes{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 760px));min-width:380px;margin:0}
+#lobbyCenter .modebar{position:absolute;left:50%;top:calc(44% + clamp(60px,8vh,80px));transform:translateX(-50%);margin:0;white-space:nowrap}
+#lobbyCenter .warn,#lobbyCenter .mail-banner{position:absolute;left:50%;top:calc(44% + clamp(112px,14vh,140px));transform:translateX(-50%);width:min(560px,calc(100vw - 760px));min-width:380px}
+/* noticias, evento y desafíos: arriba a la derecha */
+#lobbyLeft{top:12px;right:18px;left:auto;bottom:auto;width:min(360px,27vw);max-height:46vh}
+#lobbyNews{min-height:0;max-height:46vh;background:rgba(5,6,14,.62)}
+/* modos de juego: fila abajo en el centro */
+#lobbyPlay{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);width:min(760px,calc(100vw - 2*max(340px,24vw)));min-width:480px;z-index:6;display:flex;flex-direction:column;gap:6px;background:rgba(5,6,14,.55);padding:8px 12px}
+#lobbyPlay .tabh{display:none}
+#lobbyPlay .srvrow{display:flex;align-items:center;gap:10px;min-height:0}
+#lobbyPlay #onlineInfo{-webkit-line-clamp:1;font-size:11px}
+#lobbyPlay .modegrid{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+#lobbyPlay .mcard.wide{grid-column:auto}
+#lobbyPlay .mcard{height:34px;font-size:clamp(9px,.78vw,11px);padding:0 5px;gap:5px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden}
+#lobbyPlay .mcard i{width:16px;height:16px}
+#lobbyPlay #serverBtn{height:30px}
+#lobbyPlay #modeDesc{margin:0;padding:0;min-height:0;background:none;border:0;font-size:11px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lobbyPlay #modeBtn{align-self:center}
+/* personaje abajo a la derecha */
+#lkChar{position:absolute;right:18px;bottom:64px;width:min(300px,23vw);z-index:6;display:flex;flex-direction:column;align-items:stretch;gap:6px}
+#lkChar #charView{height:clamp(170px,30vh,300px)}
+#lkChar .lkinfo{text-align:right;line-height:1.05}
+#lkChar .lkinfo small{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#c4cfe6;text-shadow:0 1px 0 #000}
+#lkChar .lkinfo b{font-family:'Bungee',var(--hudf);font-weight:400;font-size:clamp(18px,1.8vw,26px);color:#fff;text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000}
+.lkbtn{height:38px;font-family:'Bungee',var(--hudf);font-size:15px;color:#fff;background:rgba(5,6,14,.55);border:2px solid #3ad8ff;box-shadow:0 0 12px rgba(58,216,255,.25);text-shadow:0 2px 0 #000}
+.lkbtn:hover{background:rgba(58,216,255,.18)}
+body.eqopen #lkChar,body.eqopen #lobbyLeft{visibility:hidden}   /* el personaje del cajón se dibuja detrás de la página: nada puede taparlo */
+/* iconos y enlaces legales: abajo a la derecha, bajo el personaje */
+#lobbyBar{left:auto;right:18px;transform:none;bottom:12px;width:min(300px,23vw)}
+/* chat: abajo a la izquierda */
+body:not(.playing) #chat{left:var(--edge);right:auto;width:min(320px,calc(24vw - 10px))}
+body:not(.playing) #chatTab{left:8px;right:auto}
+/* pantallas medianas: se quitan las noticias y el personaje antes de que se amontone todo */
+@media (max-width:1180px){#lobbyLeft,#lkChar{display:none}#lobbyPlay,#lobbyCenter .modes,#lobbyCenter .warn{width:min(620px,calc(100vw - 420px));min-width:0}#lobbyBar{width:auto}}
+@media (max-width:820px){#lkMenu{position:static;padding:8px}#lobbyPlay{width:calc(100vw - 20px)}#lobbyPlay .modegrid{grid-template-columns:repeat(3,minmax(0,1fr))}#lobbyCenter .modes{width:calc(100vw - 20px)}}
 </style>
 </head>
 <body>
@@ -852,7 +929,7 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
   <div id="banner" hidden>ESPERANDO RIVALES…</div>
   <aside id="lb"><header><span>CLASIFICACIÓN</span><span id="lbPlace">1/1</span></header><ol id="liveRows"></ol></aside>
 
-  <div id="brandHud">PIXEL PLAY <b>RUSHER</b></div>
+  <div id="brandHud">PixelPlay<b>Rusher</b></div>
   <div id="killcard"></div>
   <div id="teamBanner"></div>
   <div id="toast"></div>
@@ -878,10 +955,10 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
   <div id="death" hidden>
     <div id="deathHead"><h2>Eliminado</h2><p id="deathBy"></p><p id="deathCount"></p><button type="button" id="shopToggle">Tienda de armas</button></div>
     <div id="shop">
-      <div id="shopBar"><b>WEAPON SHOP</b><div id="shopCash"><span aria-hidden="true">$</span><span id="shopCashN">0</span></div></div>
+      <div id="shopBar"><b>TIENDA DE ARMAS</b><div id="shopCash"><span aria-hidden="true">$</span><span id="shopCashN">0</span></div></div>
       <div id="shopGrid" role="list" aria-label="Armas en venta"></div>
       <div id="shopFoot">
-        <button type="button" id="shopBack">Back</button>
+        <button type="button" id="shopBack">Volver</button>
         <button type="button" id="shopGo">Reaparecer</button>
       </div>
     </div>
@@ -892,20 +969,28 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
 <main id="menu">
   <div id="menuShade" aria-hidden="true"></div>
 
-  <!-- Arriba, en el centro: secciones principales -->
-  <ul class="nav tabs" id="topNav" role="tablist" aria-label="Secciones">
-    <li><button role="tab" aria-selected="true" data-tab="home">Inicio</button></li>
-    <li><button role="tab" aria-selected="false" data-tab="store">Tienda</button></li>
-    <li><button role="tab" aria-selected="false" data-tab="market">Mercado</button></li>
-    <li><button role="tab" aria-selected="false" data-tab="pass">Pase <em class="newtag">S1</em></button></li>
-    <li><button role="tab" aria-selected="false" data-tab="rank">Clasificación</button></li>
-    <li><button role="tab" aria-selected="false" data-tab="profile">Perfil</button></li>
-  </ul>
+
+  <!-- [LOBBY] Menú izquierdo en lista, estilo Krunker: pase de batalla y secciones -->
+  <nav id="lkMenu" aria-label="Secciones">
+    <button type="button" class="passrow" id="passRow"><span>Pase de Batalla · Temporada 1</span><em>Ver</em></button>
+    <ul class="nav tabs" id="topNav" role="tablist" aria-label="Secciones">
+      <li><button role="tab" aria-selected="true" data-tab="home">Inicio</button></li>
+      <li><button role="tab" aria-selected="false" data-tab="store">Tienda</button></li>
+      <li><button role="tab" aria-selected="false" data-tab="market">Mercado</button></li>
+      <li><button role="tab" aria-selected="false" data-tab="pass">Pase <em class="newtag">S1</em></button></li>
+      <li><button role="tab" aria-selected="false" data-tab="rank">Clasificación</button></li>
+      <li><button role="tab" aria-selected="false" data-tab="profile">Perfil</button></li>
+    </ul>
+    <ul class="nav tabs" id="subNav" role="tablist" aria-label="Más secciones">
+      <li><button role="tab" aria-selected="false" data-tab="ranks">Rangos</button></li>
+      <li><button role="tab" aria-selected="false" data-tab="maps">Mapas</button></li>
+    </ul>
+  </nav>
 
   <!-- Centro: título y botones para jugar -->
   <div id="lobbyCenter">
     <header id="brandTop">
-      <h1 class="logo"><span class="l1">PIXEL PLAY</span> <b>RUSHER</b></h1>
+      <h1 class="logo"><span class="l1">PixelPlay</span><b>Rusher</b></h1>
       <p class="tag"><span>Arena de disparos por bloques</span></p>
     </header>
     <div class="modes" id="lobbyBC" aria-label="Modos de juego">
@@ -918,7 +1003,7 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
     </div>
     <p id="mailBanner" class="mail-banner" hidden></p>
     <p class="warn" id="netMsg" hidden></p>
-    <p class="warn" id="touchWarn" hidden>Pixel Play Rusher se juega con teclado y ratón. Ábrelo desde un ordenador.</p>
+    <p class="warn" id="touchWarn" hidden>PixelPlayRusher se juega con teclado y ratón. Ábrelo desde un ordenador.</p>
     <p class="warn" id="glWarn" hidden>Tu navegador no puede mostrar gráficos 3D (WebGL). Prueba con otro navegador o activa la aceleración por hardware.</p>
   </div>
 
@@ -935,7 +1020,11 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
       </div>
     </section>
 
-    <section id="lobbyPlay" class="lp" aria-label="Servidor y modo de juego">
+
+  </div>
+
+  <!-- [LOBBY] Abajo, en el centro: servidor y fila de modos de juego -->
+  <section id="lobbyPlay" class="lp" aria-label="Servidor y modo de juego">
       <h2 class="tabh"><span>Servidor</span></h2>
       <div class="srvrow">
         <button class="mapbtn" id="serverBtn" type="button" title="Dirección del servidor online">Este equipo</button>
@@ -945,9 +1034,7 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
       <div class="modegrid" id="modeCards" role="group" aria-label="Modo de juego"></div>
       <p id="modeDesc"></p>
       <button class="mapbtn" id="modeBtn" type="button">Duelo por equipos</button>
-    </section>
-
-  </div>
+  </section>
 
   <!-- Derecha: perfil del jugador -->
   <div id="lobbyRight">
@@ -970,12 +1057,14 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
         <div><strong id="stW">0</strong><span>Victorias</span></div>
         <div><strong id="stS">0</strong><span>Racha</span></div>
       </div>
-      <button type="button" class="passrow" id="passRow"><span>Pase de Batalla · Temporada 1</span><em>Ver</em></button>
-      <ul class="nav tabs" id="subNav" role="tablist" aria-label="Más secciones">
-        <li><button role="tab" aria-selected="false" data-tab="ranks">Rangos</button></li>
-        <li><button role="tab" aria-selected="false" data-tab="maps">Mapas</button></li>
-      </ul>
     </section>
+  </div>
+
+  <!-- [LOBBY] Abajo a la derecha: tu personaje con su arma -->
+  <div id="lkChar">
+    <div id="charView" aria-label="Vista previa del personaje (arrastra para girarlo)"></div>
+    <div class="lkinfo"><small id="lkType"></small><b id="lkClass"></b></div>
+    <button type="button" class="lkbtn" id="lkCustom">Personalizar ✎</button>
   </div>
 
   <!-- Centro: sección elegida en el menú -->
@@ -1015,6 +1104,7 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
     <div class="tabpane" id="tab-settings" hidden>
       <div class="set"><label for="sens">Sensibilidad</label><input type="range" id="sens" min="0.2" max="3" step="0.05"><output id="sensO"></output></div>
       <div class="set"><label for="fov">Campo de visión</label><input type="range" id="fov" min="70" max="110" step="1"><output id="fovO"></output></div>
+      <div class="set"><label for="lang">Idioma</label><select id="lang" data-noi18n aria-label="Idioma"></select><output></output></div>   <!-- [NUEVO] idioma: por defecto el del dispositivo -->
       <div class="set"><label for="vol">Volumen</label><input type="range" id="vol" min="0" max="1" step="0.05"><output id="volO"></output></div>
       <div class="set"><label for="shadows">Sombras</label><input type="checkbox" id="shadows"><output id="shadowsO"></output></div>
       <div class="set"><label for="wheelSwap">Cambiar arma con la rueda</label><input type="checkbox" id="wheelSwap"><output id="wheelSwapO"></output></div>   <!-- [NUEVO] -->
@@ -1032,7 +1122,6 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
   <!-- Cajón de equipamiento: personaje, arma, mira y colores (se abre con «Personalizar equipo») -->
   <aside id="lobbyR" class="lp" aria-label="Personaje">
     <div class="drawhead"><h3 id="drawTitle">Personaje</h3><button type="button" id="eqClose" aria-label="Cerrar el equipamiento">✕</button></div>
-    <div id="charView" aria-label="Vista previa del personaje (arrastra para girarlo)"></div>
     <div class="sect" id="teamSect"><h3>Bando</h3><div class="teampick" id="teamPick" role="group" aria-label="Elegir bando">
       <button type="button" class="tm t-auto" data-tm="auto" aria-pressed="true">Automático</button>
       <button type="button" class="tm t-0" data-tm="0" aria-pressed="false">Azul</button>
@@ -1109,6 +1198,7 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
 </div>
 
 <script src="diag.js"></script>
+<script src="i18n.js"></script>
 <script src="vendor/three.min.js"></script>
 <script src="vendor/GLTFLoader.js"></script>
 <script src="config.js"></script>

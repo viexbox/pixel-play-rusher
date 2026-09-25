@@ -1,4 +1,4 @@
-/* Pixel Play Rusher · Perfil de jugador, amigos y Mercado de cosméticos.
+/* PixelPlayRusher · Perfil de jugador, amigos y Mercado de cosméticos.
    Usa window.PPR_BP (catálogo compartido y utilidades de client.js/bp.js). El servidor decide todo; aquí solo se dibuja y se piden las acciones.
    Cuentas online: perfil propio y ajeno, foto (16 predefinidas o imagen propia reducida a 128×128), estado, amigos, bloqueos, denuncias y mercado con Créditos. */
 (function () {

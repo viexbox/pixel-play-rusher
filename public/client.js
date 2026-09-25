@@ -594,7 +594,7 @@ function chestTex(color, style) {
   } else if (style === 6) { // jersey a rayas
     g.fillStyle = 'rgba(0,0,0,.18)'; for (let y = 6; y < 58; y += 12) g.fillRect(0, y, 64, 6);
   }
-  if (style === 5 || style === 7 || style === 1 || style === 0) { // rayo de Pixel Play Rusher
+  if (style === 5 || style === 7 || style === 1 || style === 0) { // rayo de PixelPlayRusher
     g.fillStyle = '#ffdc3a'; g.strokeStyle = 'rgba(0,0,0,.5)'; g.lineWidth = 2; g.beginPath(); g.moveTo(34, 8); g.lineTo(22, 30); g.lineTo(31, 30); g.lineTo(26, 52); g.lineTo(44, 24); g.lineTo(34, 24); g.lineTo(40, 8); g.closePath();
     if (style !== 0) { g.fill(); g.stroke(); }
   }
@@ -2153,6 +2153,7 @@ function updateEquip() {
   const b = $('#eqBust'); if (b) { b.style.setProperty('--shirt', COLORS[cfg.look.col].c); b.style.setProperty('--skin', SKINS[cfg.look.skin]); }
 }
 function updateLobby() {
+  updateLkChar();
   const w = WEAPONS[cfg.cls];
   $('#charTitle').textContent = w.name + ' · ' + w.type;
   $('#mapBtn').textContent = MAPS[cfg.map].name;
@@ -2180,8 +2181,21 @@ function pickTeam(v) {
   cfg.wantTeam = v === '0' ? 0 : v === '1' ? 1 : null; saveCfg();
   $$('#teamPick .tm').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tm === v)));
 }
+/* [LOBBY] El personaje vive abajo a la derecha en la lobby y se muda al cajón cuando se abre (un solo personaje de vista previa) */
+function placeCharView(inDrawer) {
+  const cv = $('#charView'), dr = $('#lobbyR'), slot = $('#lkChar'); if (!cv || !dr || !slot) return;
+  if (inDrawer) dr.insertBefore(cv, $('#teamSect')); else slot.insertBefore(cv, slot.firstChild);
+  if (pv.back) pv.back.visible = !!inDrawer;   // en la lobby, sin recuadro oscuro detrás del personaje
+}
+function updateLkChar() { const w = WEAPONS[cfg.cls]; if (!w || !$('#lkClass')) return; $('#lkClass').textContent = w.name; $('#lkType').textContent = w.type; }
+function openCustomize() {
+  pendingPlay = null;
+  $('#drawTitle').textContent = 'Personaje'; $('#teamSect').hidden = true; $('#custSect').hidden = false; $('#eqPlay').hidden = true;
+  placeCharView(true); buildClassButtons(); renderOptics(); buildCustom(); updatePreview();
+  document.body.classList.add('eqopen');
+}
 function openLoadout(mode) {
-  pendingPlay = mode;
+  pendingPlay = mode; placeCharView(true);
   $('#drawTitle').textContent = 'Antes de jugar'; $('#teamSect').hidden = false; $('#custSect').hidden = false; $('#eqPlay').hidden = false;
   $('#eqPlay').textContent = mode === 'online' ? 'Jugar online' : 'Entrenar';
   const tmv = cfg.wantTeam === 0 ? '0' : cfg.wantTeam === 1 ? '1' : 'auto';
@@ -2285,7 +2299,7 @@ function initPreview() {
   pv.cam.position.set(0, 1.05, 4.5); pv.cam.lookAt(0, 0.9, 0);
   pv.scene.add(new THREE.HemisphereLight(0xffffff, 0xa9b6ff, 1.35));
   const d = new THREE.DirectionalLight(0xfff1c9, 1.2); d.position.set(3, 5, 4); pv.scene.add(d);
-  const back = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), new THREE.MeshBasicMaterial({ color: 0x070a16, transparent: true, opacity: 0.66, depthWrite: false }));
+  const back = pv.back = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), new THREE.MeshBasicMaterial({ color: 0x070a16, transparent: true, opacity: 0.66, depthWrite: false }));
   back.position.set(0, 1, -2.4); pv.scene.add(back);
   const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.98, 0.06, 28), new THREE.MeshLambertMaterial({ color: 0x1a2350 })); disc.position.y = -0.03; pv.scene.add(disc);
   const ring = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.05, 28), new THREE.MeshBasicMaterial({ color: 0xffdc3a })); ring.position.y = -0.06; pv.scene.add(ring);
@@ -2294,7 +2308,7 @@ function initPreview() {
   view.addEventListener('mousedown', e => { pv.drag = true; pv.lastX = e.clientX; e.preventDefault(); });
   window.addEventListener('mousemove', e => { if (pv.drag) { pv.ang += (e.clientX - pv.lastX) * 0.012; pv.lastX = e.clientX; } });
   window.addEventListener('mouseup', () => { pv.drag = false; });
-  pv.on = true;
+  pv.on = true; placeCharView(false);   // [LOBBY] al arrancar, el personaje ya está abajo a la derecha, sin recuadro
 }
 function renderPreview(dt) {
   if (!pv.on) return;
@@ -2392,7 +2406,7 @@ function initChat() {
     else if (e.key === 'Escape') { chatEl.input.value = ''; chatEl.input.blur(); }
   });
   chatEl.input.addEventListener('focus', () => { if (state === 'playing') { Object.keys(keys).forEach(k => { keys[k] = false; }); mouseL = mouseR = false; } });
-  chatAdd('sys', '', 'Bienvenido a PIXEL PLAY RUSHER. Durante la partida, pulsa Enter para escribir.');
+  chatAdd('sys', '', 'Bienvenido a PixelPlayRusher. Durante la partida, pulsa Enter para escribir.');
   setInterval(updateChatCh, 600); updateChatCh();
 }
 
@@ -2410,7 +2424,8 @@ function initMenu() {
   $('#swSkins').addEventListener('click', e => { const b = e.target.closest('.cs'); if (b) pickSkin(+b.dataset.i); });
   $('#mapBtn').addEventListener('click', () => showTab('maps'));
   /* Inicio: cajón de bando y equipamiento antes de jugar, noticia del mapa y acceso al Pase */
-  const closeEq = () => { if (quickSwapMode) { closeQuickSwap(); return; } document.body.classList.remove('eqopen'); };
+  const closeEq = () => { if (quickSwapMode) { closeQuickSwap(); return; } document.body.classList.remove('eqopen'); placeCharView(false); updateLkChar(); };
+  $('#lkCustom').addEventListener('click', openCustomize);
   /* [NUEVO] Tienda de armas de la pantalla de reaparición */
   $('#shopToggle').addEventListener('click', () => $('#shop').classList.toggle('off'));
   $('#shopBack').addEventListener('click', () => $('#shop').classList.add('off'));

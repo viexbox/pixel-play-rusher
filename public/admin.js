@@ -1,4 +1,4 @@
-/* Panel de administración de Pixel Play Rusher (script clásico, sin dependencias). Todo el texto se inserta con textContent. */
+/* Panel de administración de PixelPlayRusher (script clásico, sin dependencias). Todo el texto se inserta con textContent. */
 (function () {
 'use strict';
 const $ = s => document.querySelector(s);
