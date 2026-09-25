@@ -68,6 +68,7 @@
     P.equipped = eq; if (JSON.stringify(eq) !== before) P.rebuild();
     P.state = s; if (s) P.setPx(s.px); applyBanner();
   }
+  P.applyState = s => apply(s);   // [MASCOTAS] la tienda aplica el estado que devuelve el servidor tras comprar o equipar
   async function load() {
     if (!P.acctToken()) { apply(null); return null; }
     if (loading) return loading;

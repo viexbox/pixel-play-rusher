@@ -140,7 +140,7 @@ class Player {
     ws.send(str);
   }
   pub() {
-    return { id: this.id, n: this.name, c: this.cls, lk: this.lk, k: this.kills, d: this.deaths, p: this.points, alive: this.alive, rl: this.role || 0, tm: this.team, x: r3(this.x), y: r3(this.y), z: r3(this.z), yaw: r3(this.yaw), pitch: r3(this.pitch), h: this.h };
+    return { pt: this.pet || '', id: this.id, n: this.name, c: this.cls, lk: this.lk, k: this.kills, d: this.deaths, p: this.points, alive: this.alive, rl: this.role || 0, tm: this.team, x: r3(this.x), y: r3(this.y), z: r3(this.z), yaw: r3(this.yaw), pitch: r3(this.pitch), h: this.h };
   }
 }
 
@@ -733,7 +733,8 @@ function onMessage(ws, m, now) {
     if (wantRanked && !acct) { ws.send(JSON.stringify({ t: 'err', m: 'Para jugar el clasificatorio necesitas una cuenta online.' })); return ws.close(); }
     p.mmr = acct ? ranked.mmrOf(acct) : 0;
     ws.player = p; lobby.delete(ws);
-    findRoom(map, mode, wantRanked, S.leagueIdx(p.mmr)).add(p);
+    const joinedRoom = findRoom(map, mode, wantRanked, S.leagueIdx(p.mmr)); joinedRoom.add(p);
+    if (acct && bp && bp.equippedPet) bp.equippedPet(acct.id).then(pet => { if (!pet || !p.room) return; p.pet = pet; p.room.broadcast({ t: 'pet', id: p.id, pt: pet }); }).catch(() => {});   // [NUEVO] mascota: la decide el inventario de la cuenta, no el cliente
     if (renamedNote) ws.send(JSON.stringify({ t: 'notice', kind: 'sys', m: renamedNote }));
     return;
   }

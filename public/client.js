@@ -1635,6 +1635,7 @@ function netHandle(m) {
   switch (m.t) {
     case 'welcome': return onWelcome(m);
     case 'join': return addRemote(m.p);
+    case 'pet': { const pf = net.remotes.get(m.id); if (pf) setPet(pf, m.pt); return; }   // [MASCOTAS] alguien equipó su mascota al entrar
     case 'leave': return removeRemote(m.id);
     case 'spawn': return onNetSpawn(m);
     case 'snap': return onSnap(m);
@@ -1714,12 +1715,66 @@ function addRemote(p) {
     f.buf.push({ t: performance.now(), x: p.x, y: p.y, z: p.z, yaw: f.yaw, pitch: p.pitch || 0, h: f.h });
     f.mesh.visible = true; f.label.visible = true; f.mesh.position.copy(f.pos); f.mesh.rotation.y = f.yaw;
   }
-  net.remotes.set(p.id, f); fighters.push(f);
+  net.remotes.set(p.id, f); fighters.push(f); setPet(f, p.pt);   // [MASCOTAS]
   updateHudSlow();
+}
+/* ===== [MASCOTAS] Te siguen flotando junto al hombro y los demás las ven. Son objetos aparte (no hijos del muñeco),
+   porque fillCharacter borra todo lo que cuelga del personaje al cambiar de ropa o de arma. La mascota de cada jugador
+   la decide el servidor según su inventario (mensajes «join» y «pet»), nunca el propio cliente. ===== */
+const PET_OFF = new THREE.Vector3(0.62, 1.55, 0.05), PET_UP = new THREE.Vector3(0, 1, 0), _petV = new THREE.Vector3();
+function petMesh(def) {
+  const g = new THREE.Group(), b = def.body, a = def.acc, e = def.eye;
+  const B = (w, h, d, c, x, y, z, rz) => { const m = new THREE.Mesh(BG(w, h, d), mat(c)); m.position.set(x, y, z); if (rz) m.rotation.z = rz; g.add(m); return m; };
+  const eyes = (y, z, gap) => { B(0.055, 0.07, 0.02, e, -gap, y, z); B(0.055, 0.07, 0.02, e, gap, y, z); };
+  if (def.kind === 'drone') {
+    B(0.32, 0.09, 0.32, b, 0, 0, 0); B(0.14, 0.07, 0.14, a, 0, 0.08, 0);
+    for (const [x, z] of [[0.21, 0.21], [-0.21, 0.21], [0.21, -0.21], [-0.21, -0.21]]) { B(0.05, 0.05, 0.05, a, x, 0.04, z); B(0.18, 0.015, 0.04, '#e9edf5', x, 0.08, z); }
+    B(0.12, 0.06, 0.02, e, 0, 0, -0.17);
+  } else if (def.kind === 'ghost') {
+    B(0.3, 0.32, 0.28, b, 0, 0, 0); B(0.3, 0.04, 0.28, a, 0, 0.18, 0);
+    for (const x of [-0.1, 0, 0.1]) B(0.08, 0.08, 0.28, b, x, -0.19, 0);
+    eyes(0.04, -0.145, 0.07);
+  } else if (def.kind === 'fox') {
+    B(0.22, 0.2, 0.32, b, 0, -0.06, 0.02); B(0.24, 0.22, 0.22, b, 0, 0.1, -0.18);
+    B(0.06, 0.1, 0.05, b, -0.08, 0.26, -0.18); B(0.06, 0.1, 0.05, b, 0.08, 0.26, -0.18);
+    B(0.1, 0.08, 0.07, a, 0, 0.05, -0.31); B(0.09, 0.09, 0.22, b, 0, 0.0, 0.26); B(0.09, 0.09, 0.07, a, 0, 0.0, 0.39);
+    eyes(0.14, -0.295, 0.06);
+  } else if (def.kind === 'dragon') {
+    B(0.26, 0.22, 0.34, b, 0, -0.02, 0.02); B(0.22, 0.2, 0.22, b, 0, 0.11, -0.22);
+    B(0.04, 0.08, 0.04, a, -0.07, 0.25, -0.2); B(0.04, 0.08, 0.04, a, 0.07, 0.25, -0.2);
+    B(0.3, 0.03, 0.18, a, -0.26, 0.08, 0.02, 0.35); B(0.3, 0.03, 0.18, a, 0.26, 0.08, 0.02, -0.35);
+    B(0.08, 0.08, 0.24, b, 0, -0.04, 0.3); eyes(0.14, -0.335, 0.06);
+  } else {   // cube
+    B(0.3, 0.3, 0.3, b, 0, 0, 0); B(0.31, 0.06, 0.31, a, 0, 0.08, 0); eyes(0.0, -0.155, 0.07);
+  }
+  g.userData.kind = def.kind; return g;
+}
+const petDef = id => (id ? S.PETS.find(p => p.id === id) : null) || null;
+function setPet(f, id) {   // mascota de un jugador de la partida (la manda el servidor)
+  if (f.petObj) { scene.remove(f.petObj); f.petObj = null; }
+  f.pt = id || ''; const def = petDef(f.pt); if (!def) return;
+  f.petObj = petMesh(def); f.petObj.visible = false; f.petObj.userData.phase = (f.seed || 0) * 1.7; scene.add(f.petObj);
+}
+function setPreviewPet() {   // la tuya, junto a tu personaje en la lobby
+  if (!pv.scene) return;
+  if (pv.pet) { pv.scene.remove(pv.pet); pv.pet = null; }
+  const def = petDef((window.PPR_BP.equipped || {}).pet); if (!def) return;
+  pv.pet = petMesh(def); pv.pet.scale.setScalar(1.35); pv.scene.add(pv.pet);
+}
+function animPets(dt) {
+  const tt = performance.now() / 1000;
+  for (const f of fighters) {
+    const o = f.petObj; if (!o) continue;
+    const vis = !!(f.alive && f.mesh && f.mesh.visible); o.visible = vis; if (!vis) continue;
+    _petV.copy(PET_OFF).applyAxisAngle(PET_UP, f.yaw).add(f.pos);
+    if (!o.userData.placed) { o.position.copy(_petV); o.userData.placed = true; } else o.position.lerp(_petV, Math.min(1, dt * 8));
+    o.position.y += Math.sin(tt * 3 + o.userData.phase) * 0.05; o.rotation.y = f.yaw + Math.sin(tt * 1.3 + o.userData.phase) * 0.25;
+  }
+  if (pv.pet) { pv.pet.position.set(0.8, 1.74 + Math.sin(tt * 3) * 0.05, 0.25); pv.pet.rotation.y = tt * 0.9; }   // en la vista previa: fija a la derecha del personaje (si girase con él, taparía la cabeza), girando sobre sí misma
 }
 function removeRemote(id) {
   const f = net.remotes.get(id); if (!f) return;
-  scene.remove(f.mesh); scene.remove(f.label); net.remotes.delete(id);
+  scene.remove(f.mesh); scene.remove(f.label); if (f.petObj) scene.remove(f.petObj); net.remotes.delete(id);
   fighters = fighters.filter(x => x !== f); if (deathLook === f) deathLook = null;
   updateHudSlow();
 }
@@ -1913,7 +1968,7 @@ function stepOnline(dt) {
    Flujo de la partida
    ===================================================================== */
 function clearFighters() {
-  for (const f of fighters) { if (f.mesh) { scene.remove(f.mesh); scene.remove(f.label); } }
+  for (const f of fighters) { if (f.mesh) { scene.remove(f.mesh); scene.remove(f.label); } if (f.petObj) scene.remove(f.petObj); }
   fighters = []; bots = []; player = null; net.remotes.clear();
 }
 function startMatch() {
@@ -2253,13 +2308,51 @@ async function renderStore() {
   if (!info) { box.innerHTML = '<p class="note">La tienda necesita el servidor del juego. No está disponible en esta versión.</p>'; return; }
   const fmt = new Intl.NumberFormat('es-ES', { style: 'currency', currency: info.currency || 'eur' });
   const can = info.enabled && !!remote, why = !remote ? 'Inicia sesión con una cuenta online (Registro) para comprar PX.' : (!info.enabled ? info.reason : '');
-  box.innerHTML = '<div class="storehead"><b>Tienda de PX</b><span>Saldo: <em>' + fmtKr(krTotal()) + ' PX</em></span></div>' + (why ? '<p class="note warn">' + esc(why) + '</p>' : '') +
+  box.innerHTML = '<div class="storehead"><b>Tienda de PX</b><span>Saldo: <em id="storeBal">' + fmtKr(krTotal()) + ' PX</em></span></div>' + (why ? '<p class="note warn">' + esc(why) + '</p>' : '') +
     '<div class="packs">' + info.packs.map(p => '<div class="pack"><div class="pxn">' + fmtKr(p.px) + '<small>PX</small></div>' + (p.tag ? '<span class="ptag">' + esc(p.tag) + '</span>' : '') + '<button type="button" data-pack="' + esc(p.id) + '"' + (can ? '' : ' disabled') + '>' + fmt.format(p.price / 100) + '</button></div>').join('') + '</div>' +
+    '<div id="petsBox"></div>' +
     '<p class="note small">El pago se hace en la página segura de Stripe (tarjeta o PayPal); nunca guardamos tus datos de pago. Los PX solo sirven dentro del juego (colores y recompensas).</p><p id="storeMsg" class="note" role="status"></p>';
   for (const b of box.querySelectorAll('[data-pack]')) b.addEventListener('click', async () => {
     b.disabled = true; $('#storeMsg').textContent = 'Abriendo el pago seguro…';
     try { const j = await acctPost('api/store/checkout', { pack: b.dataset.pack }); (window.__pprNav || (u => { location.href = u; }))(j.url); } catch (e) { $('#storeMsg').textContent = e.message; b.disabled = false; }
   });
+  renderPets();   // [MASCOTAS]
+}
+/* [MASCOTAS] Tienda de mascotas: se compran con PX (los cobra el servidor, que además comprueba que no la tengas ya) */
+function petSvg(def) {
+  const b = def.body, a = def.acc, e = def.eye, k = def.kind;
+  let x = '<rect x="18" y="22" width="28" height="26" fill="' + b + '"/><rect x="18" y="28" width="28" height="5" fill="' + a + '"/>';
+  if (k === 'drone') x = '<rect x="12" y="30" width="40" height="10" fill="' + b + '"/><rect x="24" y="24" width="16" height="7" fill="' + a + '"/><rect x="6" y="26" width="16" height="3" fill="#e9edf5"/><rect x="42" y="26" width="16" height="3" fill="#e9edf5"/>';
+  else if (k === 'ghost') x = '<rect x="18" y="18" width="28" height="30" fill="' + b + '"/><rect x="18" y="18" width="28" height="4" fill="' + a + '"/><rect x="18" y="48" width="7" height="6" fill="' + b + '"/><rect x="29" y="48" width="7" height="6" fill="' + b + '"/><rect x="40" y="48" width="6" height="6" fill="' + b + '"/>';
+  else if (k === 'fox') x = '<rect x="20" y="22" width="24" height="22" fill="' + b + '"/><rect x="21" y="14" width="6" height="9" fill="' + b + '"/><rect x="37" y="14" width="6" height="9" fill="' + b + '"/><rect x="27" y="34" width="10" height="7" fill="' + a + '"/><rect x="44" y="38" width="12" height="6" fill="' + a + '"/>';
+  else if (k === 'dragon') x = '<rect x="20" y="22" width="24" height="24" fill="' + b + '"/><rect x="6" y="24" width="14" height="4" fill="' + a + '" transform="rotate(-20 13 26)"/><rect x="44" y="24" width="14" height="4" fill="' + a + '" transform="rotate(20 51 26)"/><rect x="24" y="16" width="4" height="7" fill="' + a + '"/><rect x="36" y="16" width="4" height="7" fill="' + a + '"/>';
+  const ey = k === 'drone' ? 33 : k === 'fox' || k === 'dragon' ? 27 : 32;
+  return '<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">' + x + '<rect x="' + (k === 'drone' ? 29 : 25) + '" y="' + ey + '" width="' + (k === 'drone' ? 6 : 4) + '" height="5" fill="' + e + '"/>' + (k === 'drone' ? '' : '<rect x="35" y="' + ey + '" width="4" height="5" fill="' + e + '"/>') + '</svg>';
+}
+function renderPets() {
+  const box = $('#petsBox'); if (!box) return;
+  const P = window.PPR_BP, st = P.state, eq = (P.equipped || {}).pet || '', px = krTotal();
+  const own = new Set(st && st.inventory ? st.inventory.filter(i => i.t === 'pet').map(i => i.id) : []);
+  box.innerHTML = '<div class="storehead"><b>Mascotas</b><span>Te siguen en la partida y todos las ven.</span></div>' +
+    (!remote ? '<p class="note warn">Inicia sesión con una cuenta online para tener mascotas.</p>' : '') +
+    '<div class="pets">' + S.PETS.map(p => {
+      const rar = S.RARITY[p.r] || { n: '', c: '#9aa4b8' }, has = own.has(p.id), on = eq === p.id;
+      const btn = !remote ? '<button type="button" disabled>' + fmtKr(p.px) + ' PX</button>'
+        : on ? '<button type="button" class="on" data-pq="' + p.id + '">Equipada ✓</button>'
+        : has ? '<button type="button" data-pe="' + p.id + '">Equipar</button>'
+        : '<button type="button" data-pb="' + p.id + '"' + (px < p.px ? ' disabled title="Te faltan ' + (p.px - px) + ' PX"' : '') + '>Comprar · ' + fmtKr(p.px) + ' PX</button>';
+      return '<div class="petcard' + (on ? ' on' : '') + '" style="--rc:' + rar.c + '"><span class="prar">' + esc(rar.n) + '</span>' + petSvg(p) + '<b>' + esc(p.n) + '</b>' + btn + '</div>';
+    }).join('') + '</div><p id="petMsg" class="note" role="status"></p>';
+  const run = async (path, body, okMsg) => {
+    try { const j = await acctPost(path, body); if (j.state && P.applyState) P.applyState(j.state); renderPets(); const bal = $('#storeBal'); if (bal) bal.textContent = fmtKr(krTotal()) + ' PX'; if (okMsg) toast(okMsg); }
+    catch (e) { const m = $('#petMsg'); if (m) m.textContent = e.message; }
+  };
+  for (const b of box.querySelectorAll('[data-pb]')) b.addEventListener('click', () => {
+    const d = petDef(b.dataset.pb); if (!d || !window.confirm('¿Comprar ' + d.n + ' por ' + fmtKr(d.px) + ' PX?')) return;
+    b.disabled = true; run('api/bp/pet-buy', { id: d.id }, '¡' + d.n + ' ya es tuya! Pulsa «Equipar» para llevarla.');
+  });
+  for (const b of box.querySelectorAll('[data-pe]')) b.addEventListener('click', () => run('api/bp/equip', { slot: 'pet', item: b.dataset.pe }, 'Mascota equipada'));
+  for (const b of box.querySelectorAll('[data-pq]')) b.addEventListener('click', () => run('api/bp/equip', { slot: 'pet', item: null }, 'Mascota quitada'));
 }
 function checkPaymentReturn() { // al volver de Stripe (?px=ok) se espera a que el servidor acredite el pago
   const q = new URLSearchParams(location.search), st = q.get('px'); if (!st) return;
@@ -2308,7 +2401,7 @@ function initPreview() {
   view.addEventListener('mousedown', e => { pv.drag = true; pv.lastX = e.clientX; e.preventDefault(); });
   window.addEventListener('mousemove', e => { if (pv.drag) { pv.ang += (e.clientX - pv.lastX) * 0.012; pv.lastX = e.clientX; } });
   window.addEventListener('mouseup', () => { pv.drag = false; });
-  pv.on = true; placeCharView(false);   // [LOBBY] al arrancar, el personaje ya está abajo a la derecha, sin recuadro
+  pv.on = true; placeCharView(false); setPreviewPet();   // [LOBBY] al arrancar, el personaje ya está abajo a la derecha, sin recuadro
 }
 function renderPreview(dt) {
   if (!pv.on) return;
@@ -2666,6 +2759,7 @@ function frame(now) {
   }
   sky.position.copy(camera.position); cloudRoot.rotation.y += dt * 0.004;
   if (renderer) renderer.render(scene, camera);
+  animPets(dt);   // [MASCOTAS]
   if (state === 'menu') renderPreview(dt);
 }
 
@@ -2674,6 +2768,6 @@ buildMap(cfg.map); applyShadows(); initMenu(); resize(); setInterval(() => { if 
 preloadGunModels();   // [NUEVO] modelos .glb reales: mientras cargan (o si fallan) el arma sigue viéndose con las cajas de siempre
 /* Puente para la pantalla del pase de batalla (bp.js) */
 Object.assign(window.PPR_BP, { limit: () => teamLimit, cfg, saveCfg, net: () => net, player: () => player, camera: () => camera, scene: () => scene, THREE, startSpectate, stopSpectate, specCycle, setSpecView: v => { net.specView = v; }, gunsOK, setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
-  rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
+  rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); setPreviewPet(); if ($('#petsBox')) renderPets(); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
 requestAnimationFrame(frame);
 })();

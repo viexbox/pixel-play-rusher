@@ -9,7 +9,7 @@ const path = require('path');
 const { Store } = require('./admin.js');
 
 const SEASON = 1;
-const SLOT_RE = /^(weapon:[a-z0-9_]{2,20}|knife|banner)$/;
+const SLOT_RE = /^(weapon:[a-z0-9_]{2,20}|knife|banner|pet|avatar)$/;
 
 /* ================= Almacén PostgreSQL ================= */
 function pgStore(pool, S) {
@@ -114,6 +114,10 @@ function pgStore(pool, S) {
         return { ok: true };
       });
     },
+    async grantItem(uid, t, id, source) {   // [NUEVO] mascotas y canjes del evento: false si ya lo tenía
+      const r = await pool.query('INSERT INTO bp_inventory (user_id, item_type, item_id, source) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING', [uid, t, id, source]);
+      return r.rowCount > 0;
+    },
     async equip(uid, slot, itemId, itemType) {
       if (!itemId) { await pool.query('DELETE FROM bp_equipped WHERE user_id = $1 AND slot = $2', [uid, slot]); return true; }
       const has = await pool.query('SELECT 1 FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3', [uid, itemType, itemId]);
@@ -194,6 +198,10 @@ function fileStore(dataDir, log, S) {
       for (const [X, t, i] of [[A, t1, i1], [B, t2, i2]]) { delete X.inventory[t + ':' + i]; for (const [k, v] of Object.entries(X.equipped)) if (v === i) delete X.equipped[k]; }
       A.inventory[t2 + ':' + i2] = { t: t2, id: i2, source: 'intercambio', ts: Date.now() }; B.inventory[t1 + ':' + i1] = { t: t1, id: i1, source: 'intercambio', ts: Date.now() }; st.save(); return { ok: true };
     },
+    async grantItem(uid, t, id, source) {   // [NUEVO] mascotas y canjes del evento: false si ya lo tenía
+      const u = U(uid), k = t + ':' + id; if (u.inventory[k]) return false;
+      u.inventory[k] = { t, id, source, ts: Date.now() }; st.save(); return true;
+    },
     async equip(uid, slot, itemId, itemType) {
       const u = U(uid); if (!itemId) { delete u.equipped[slot]; st.save(); return true; }
       if (!u.inventory[itemType + ':' + itemId]) return false; u.equipped[slot] = itemId; st.save(); return true;
@@ -273,9 +281,17 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
       try { await store.addXp(u.id, S.bpTotalXp(st.level + n) - st.xp); } catch (e) { accounts.grant(u, cost, 'reembolso saltar niveles'); log('Saltar niveles: ' + e.message); return err(500, 'No se pudo completar. No se ha cobrado nada.'); }
       return { ok: true, skipped: n, cost, state: await view(u) };
     },
+    async petBuy(u, b) {   // [NUEVO] comprar una mascota con PX: se cobra en el servidor y se reembolsa si algo falla
+      const def = S.PETS.find(p => p.id === String(b.id || '')); if (!def) return err(400, 'Esa mascota no existe.');
+      const st = await store.state(u.id); if (st.inventory.some(i => i.t === 'pet' && i.id === def.id)) return err(409, 'Ya tienes esa mascota.');
+      if (!accounts.spend(u, def.px, 'Mascota ' + def.n)) return err(402, 'Te faltan ' + (def.px - u.px) + ' PX.');
+      try { if (!(await store.grantItem(u.id, 'pet', def.id, 'tienda'))) { accounts.grant(u, def.px, 'reembolso mascota'); return err(409, 'Ya tienes esa mascota.'); } }
+      catch (e) { accounts.grant(u, def.px, 'reembolso mascota'); log('Mascota: ' + e.message); return err(500, 'No se pudo completar la compra. No se ha cobrado nada.'); }
+      return { ok: true, pet: def.id, state: await view(u) };
+    },
     async equip(u, b) {
       const slot = String(b.slot || ''), item = b.item ? String(b.item) : null; if (!SLOT_RE.test(slot)) return err(400, 'Ranura no válida.');
-      const type = slot === 'knife' ? 'kskin' : slot === 'banner' ? 'banner' : 'wskin';
+      const type = slot === 'knife' ? 'kskin' : slot === 'banner' ? 'banner' : slot === 'pet' ? 'pet' : slot === 'avatar' ? 'avatar' : 'wskin';
       if (item) {
         const def = S.bpFind({ t: type, id: item }); if (!def) return err(400, 'Objeto no válido.');
         if (type === 'wskin' && slot !== 'weapon:' + def.w) return err(400, 'Esa skin es de otra arma.');
@@ -299,7 +315,7 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
       let out;
       if (key === 'GET /api/bp') out = { ok: true, state: await view(u) };
       else if (req.method === 'POST' && url.pathname.startsWith('/api/bp/')) {
-        const op = { '/api/bp/claim': ops.claim, '/api/bp/claim-all': ops.claimAll, '/api/bp/buy': ops.buy, '/api/bp/gift': ops.gift, '/api/bp/skip': ops.skip, '/api/bp/equip': ops.equip }[url.pathname];
+        const op = { '/api/bp/claim': ops.claim, '/api/bp/claim-all': ops.claimAll, '/api/bp/buy': ops.buy, '/api/bp/gift': ops.gift, '/api/bp/skip': ops.skip, '/api/bp/equip': ops.equip, '/api/bp/pet-buy': ops.petBuy }[url.pathname];
         out = op ? await lock(u.id, () => op(u, b)) : err(404, 'No encontrado.');
       } else out = err(404, 'No encontrado.');
       send(req, res, out.code || 200, out.error ? { error: out.error } : out);
@@ -319,7 +335,7 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
     }
   });
 
-  return { handles, handleHttp, awardMatch, view, store, lock, S, prices: { vip: VIP_PX, skip: SKIP_PX }, flush: () => (store.flush ? store.flush() : undefined) };
+  return { equippedPet: async uid => { try { const st = await store.state(uid), id = st.equipped.pet; return id && S.PETS.some(p => p.id === id) && st.inventory.some(i => i.t === 'pet' && i.id === id) ? id : ''; } catch (e) { return ''; } }, handles, handleHttp, awardMatch, view, store, lock, S, prices: { vip: VIP_PX, skip: SKIP_PX }, flush: () => (store.flush ? store.flush() : undefined) };
 }
 
 module.exports = { createBattlePass };

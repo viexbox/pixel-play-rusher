@@ -132,7 +132,7 @@ async function scenario(label, port, dir, dbUrl) {
     let bad = ''; try { await c.query("INSERT INTO bp_progress (user_id, season, xp, level) VALUES (999, 1, -5, 1)"); } catch (e) { bad = e.code; }
     let bad2 = ''; try { await c.query("INSERT INTO bp_claims (user_id, season, level, track, item_type, item_id) VALUES (999, 1, 1, 'oro', 'px', '1')"); } catch (e) { bad2 = e.code; }
     ok(bad === '23514' && bad2 === '23514', 'y rechaza XP negativa y filas de pase inventadas (restricciones CHECK)');
-    ok((await q("SELECT id FROM schema_migrations ORDER BY id")).map(x => x.id).join() === '001_init.sql,002_uuid_users.sql,003_market.sql,004_avatars.sql,005_market_v2.sql', 'las migraciones quedan registradas en orden (001 a 005: base, UUID, mercado, fotos y mercado v2)');
+    ok((await q("SELECT id FROM schema_migrations ORDER BY id")).map(x => x.id).join() === '001_init.sql,002_uuid_users.sql,003_market.sql,004_avatars.sql,005_market_v2.sql,006_pets_event.sql', 'las migraciones quedan registradas en orden (001 a 006: base, UUID, mercado, fotos, mercado v2 y mascotas)');
     await c.end();
   } else { const f = JSON.parse(fs.readFileSync(path.join(dir, 'battlepass.json'), 'utf8')); ok(Object.keys(f.users).length >= 3 && f.gifts.length === 1, 'en archivo: battlepass.json guarda los usuarios y el regalo'); }
   srv.kill('SIGTERM'); await sleep(600);

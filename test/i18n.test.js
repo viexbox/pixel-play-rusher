@@ -79,7 +79,10 @@ function boot(languages, saved) {
     ['No hay ningún jugador llamado «Zoe_7» en tu sala.', 'There’s no player called “Zoe_7” in your room.', 'el nombre del jugador se deja tal cual'],
     ['Usuario o contraseña incorrectos.', 'Wrong username or password.', 'mensajes de error del servidor'],
     ['No te alcanza el dinero.', 'Not enough money.', 'aviso de la tienda de armas'],
-    ['Kraken', 'Kraken', 'los nombres de los bots no se tocan']
+    ['Kraken', 'Kraken', 'los nombres de los bots no se tocan'],
+    ['¿Comprar Dron Z-3 por 1500 PX?', 'Buy Drone Z-3 for 1500 PX?', 'confirmación de compra de una mascota'],
+    ['Comprar · 5000 PX', 'Buy · 5000 PX', 'botón de comprar mascota'],
+    ['Te faltan 4350 PX.', 'You need 4350 more PX.', 'aviso de saldo insuficiente']
   ];
   for (const [es, want, why] of cases) { const got = T(es); ok(got === want, why + ': «' + es + '» → «' + got + '»'); }
   en.confirm('¿Bloquear a Zoe_7? Se romperá la amistad y no podrá enviarte solicitudes.');
