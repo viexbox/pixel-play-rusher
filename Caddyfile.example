@@ -1,6 +1,0 @@
-# Copia este archivo a /etc/caddy/Caddyfile y cambia el dominio.
-# Caddy obtiene y renueva el certificado HTTPS automáticamente y reenvía los WebSocket sin configuración extra.
-midominio.com {
-	encode gzip
-	reverse_proxy 127.0.0.1:3000
-}
