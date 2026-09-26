@@ -1,5 +1,5 @@
 """
-generate_weapons.py — genera los modelos 3D de las armas de Pixel Play Rusher, en bloques low-poly
+generate_weapons.py — genera los modelos 3D de las armas de Krunxa, en bloques low-poly
 estilizados (cel-shaded, como Krunker.io), con las partes separadas (cuerpo, cargador, cañón, mira),
 y los exporta a .glb en public/models/weapons/.
 

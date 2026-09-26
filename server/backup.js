@@ -1,5 +1,5 @@
 'use strict';
-/* PixelPlayRusher · Copias de seguridad automáticas.
+/* Krunxa · Copias de seguridad automáticas.
    - Cada BACKUP_EVERY_HOURS horas (24 por defecto; 0 = desactivadas) se guarda una copia completa en BACKUP_DIR (por defecto DATA_DIR/backups) y se conservan las últimas BACKUP_KEEP (7).
    - Con archivos: todo lo que hay en DATA_DIR (cuentas, pase, panel, clasificación, fotos…). Con PostgreSQL: todas las tablas del esquema public (incluido app_docs).
    - Formato: JSON comprimido (.json.gz). Con BACKUP_PASSPHRASE se cifra con AES-256-GCM (clave derivada con scrypt) y el archivo acaba en .enc.
@@ -32,7 +32,7 @@ function decrypt(buf, pass) {
 /* Lee una copia (con o sin cifrado) y devuelve el paquete JSON */
 function openBundle(buf, pass) {
   if (buf.slice(0, 5).equals(MAGIC)) buf = decrypt(buf, pass);
-  const b = JSON.parse(zlib.gunzipSync(buf).toString('utf8')); if (!b || b.app !== 'pixel-play-rusher' || !b.meta) throw new Error('No es una copia de PixelPlayRusher.'); return b;
+  const b = JSON.parse(zlib.gunzipSync(buf).toString('utf8')); if (!b || !['krunxa', 'pixel-play-rusher'].includes(b.app) || !b.meta)   /* [NOMBRE] se aceptan también las copias hechas antes del cambio de nombre */ throw new Error('No es una copia de Krunxa.'); return b;
 }
 
 /* ---- serialización de filas de PostgreSQL (bytea y fechas incluidos) ---- */
@@ -60,7 +60,7 @@ function createBackup({ db, dataDir, admin, flush, log, env }) {
     if (!db) {
       await flush();   // lo que aún está en memoria se escribe a disco antes de copiar
       const files = {}; for (const rel of walk(dataDir, '', [])) { try { files[rel] = fs.readFileSync(path.join(dataDir, rel)).toString('base64'); } catch (e) { /* desapareció mientras se copiaba */ } }
-      return { app: 'pixel-play-rusher', meta, files };
+      return { app: 'krunxa', meta, files };
     }
     await flush(); await db.drain();
     const tables = {};
@@ -71,7 +71,7 @@ function createBackup({ db, dataDir, admin, flush, log, env }) {
     }
     /* Valor actual de cada contador automático (id): al restaurar se reponen desde aquí, así no se reutilizan ids de filas que ya no existen (p. ej. anuncios vendidos) */
     const sequences = Object.fromEntries((await db.pool.query("SELECT sequencename, last_value::text AS v FROM pg_sequences WHERE schemaname = 'public' AND last_value IS NOT NULL")).rows.map(r => [r.sequencename, r.v]));
-    return { app: 'pixel-play-rusher', meta, tables, sequences };
+    return { app: 'krunxa', meta, tables, sequences };
   }
 
   function prune() {

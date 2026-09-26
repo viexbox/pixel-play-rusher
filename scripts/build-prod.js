@@ -1,7 +1,7 @@
 'use strict';
 /* Genera la carpeta lista para producción, sin pruebas ni herramientas de desarrollo.
-     npm run build:prod                 → dist/pixel-play-rusher/
-     npm run build:prod -- --zip        → además dist/pixel-play-rusher.zip (necesita el comando «zip»)
+     npm run build:prod                 → dist/krunxa/
+     npm run build:prod -- --zip        → además dist/krunxa.zip (necesita el comando «zip»)
      node scripts/build-prod.js ./salida
    No hay paso de compilación: el servidor es Node sin transpilar y el juego son archivos estáticos. */
 const fs = require('fs');
@@ -10,7 +10,7 @@ const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const args = process.argv.slice(2), zip = args.includes('--zip');
-const out = path.resolve(args.find(a => !a.startsWith('--')) || path.join(ROOT, 'dist', 'pixel-play-rusher'));
+const out = path.resolve(args.find(a => !a.startsWith('--')) || path.join(ROOT, 'dist', 'krunxa'));
 if (out === ROOT || ROOT.startsWith(out + path.sep)) { console.error('La carpeta de salida no puede ser el propio proyecto ni una carpeta que lo contenga.'); process.exit(1); }
 
 const KEEP_FILES = ['server.js', 'package-lock.json', 'README.md', 'Dockerfile', '.dockerignore', 'Caddyfile.example', 'nginx.conf.example'];
@@ -39,4 +39,4 @@ if (zip) {
   try { fs.rmSync(file, { force: true }); execFileSync('zip', ['-rq', file, path.basename(out)], { cwd: path.dirname(out) }); console.log('Zip creado: ' + file); }
   catch (e) { console.error('No se pudo crear el zip (¿está instalado el comando «zip»?). Comprime la carpeta a mano.'); }
 }
-console.log('\nEn el servidor:\n  cd ' + path.basename(out) + '\n  npm ci --omit=dev\n  node server.js        (o: docker build -t pixel-play-rusher .)');
+console.log('\nEn el servidor:\n  cd ' + path.basename(out) + '\n  npm ci --omit=dev\n  node server.js        (o: docker build -t krunxa .)');

@@ -1,5 +1,5 @@
 'use strict';
-/* PixelPlayRusher · Modo clasificatorio y temporadas.
+/* Krunxa · Modo clasificatorio y temporadas.
    - Solo cuentas online. Cada cuenta tiene una puntuación (MMR, tipo Elo) que sube al ganar y baja al perder según la fuerza de los dos equipos.
    - Las primeras 10 partidas (colocación) mueven más la puntuación. Abandonar una partida clasificatoria en marcha resta puntos.
    - Emparejamiento: una sala clasificatoria solo acepta jugadores de ligas cercanas (la diferencia con la liga media de la sala no puede pasar de 1).

@@ -55,8 +55,8 @@ const has = (b, f) => b.msgs.some(f);
     const errors = []; w.addEventListener('error', e => errors.push(e.message)); w.eval(c);
     const T = w.__T, $ = s => w.document.querySelector(s), $$ = s => [...w.document.querySelectorAll(s)];
 
-    ok(/PixelPlayRusher/.test(w.document.title) && /^PixelPlayRusher$/.test($('#brandTop .logo').textContent.trim()), 'la pantalla de inicio muestra el nombre «PixelPlayRusher», todo junto');
-    ok(/PixelPlayRusher/.test($('#brandHud').textContent), 'el HUD de la partida incluye el nombre del juego');
+    ok(/Krunxa/.test(w.document.title) && /^Krunxa$/.test($('#brandTop .logo').textContent.trim()), 'la pantalla de inicio muestra el nombre «Krunxa», todo junto');
+    ok(/Krunxa/.test($('#brandHud').textContent), 'el HUD de la partida incluye el nombre del juego');
     ok($('#lobbyTL #name') && $('#lobbyTL #krTotal') && $('#lobbyTL #stK'), 'arriba a la derecha: perfil, estadísticas del jugador y contador de PX');
     const tabs = $$('.nav button').map(b => b.dataset.tab).sort().join();
     ok($$('.nav button').length === 11 && tabs === 'controls,home,inv,maps,market,pass,profile,rank,ranks,settings,store' && $$('#topNav button').length === 7 && $('#topNav button[data-tab=inv]') && $('#topNav button[data-tab=pass]') && $('#topNav button[data-tab=profile]') && $('#topNav button[data-tab=market]'), 'las 11 secciones siguen accesibles (con Inventario): 7 en el menú y el resto en el perfil (Rangos, Mapas) y en la barra de abajo (Controles, Ajustes)');
@@ -105,7 +105,7 @@ const has = (b, f) => b.msgs.some(f);
 
     // partida contra bots hasta el final → KR y desafíos
     $('#play').click(); $('#eqPlay').click(); ok(T.state === 'playing', 'entrenamiento con el Lince y el aspecto elegido');
-    ok(/PixelPlayRusher/.test($('#brandHud').textContent) && $('#hsName').textContent.length > 0, 'el HUD de la partida muestra nombre del juego, jugador y KR (' + $('#hsKr').textContent + ')');
+    ok(/Krunxa/.test($('#brandHud').textContent) && $('#hsName').textContent.length > 0, 'el HUD de la partida muestra nombre del juego, jugador y KR (' + $('#hsKr').textContent + ')');
     for (let f = 0; f < 200; f++) T.step(1 / 60);
     const victims = T.fighters.filter(x => !x.isPlayer && x.team !== T.player.team);   // los equipos de los bots son aleatorios: solo se puede eliminar a los ENEMIGOS (no hay fuego amigo)
     T.damage(victims[0], 500, T.player, true, 'Lince'); T.damage(victims[1], 500, T.player, false, 'Lince');

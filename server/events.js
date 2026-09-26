@@ -1,5 +1,5 @@
 'use strict';
-/* PixelPlayRusher · Eventos temporales.
+/* Krunxa · Eventos temporales.
    - El evento diario de siempre (PX por día de la semana y arma) sigue funcionando igual dentro de las reglas de PX.
    - NUEVO · Modo destacado de la semana: cada lunes (00:00 UTC) rota Capturar zona → Solo cuchillos → Carrera de armas → Duelo por equipos. Jugarlo da +50 % de PX y Créditos
      (EVENT_FEATURED_MULT; 1 lo desactiva).

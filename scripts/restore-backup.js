@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-/* Restaura una copia de seguridad de Pixel Play Rusher.
+/* Restaura una copia de seguridad de Krunxa.
    Uso:   node scripts/restore-backup.js <archivo.json.gz[.enc]> --yes
    Antes: PARA el servidor. Con DATABASE_URL restaura en PostgreSQL (sustituye el contenido de las tablas); sin ella, restaura los archivos en DATA_DIR.
    Variables: DATABASE_URL, DATA_DIR, BACKUP_PASSPHRASE (si la copia está cifrada). */

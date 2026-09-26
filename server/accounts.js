@@ -1,5 +1,5 @@
 'use strict';
-/* PixelPlayRusher · cuentas online.
+/* Krunxa · cuentas online.
    - Registro con nombre de usuario ÚNICO (sin distinguir mayúsculas ni tildes) y contraseña guardada como hash scrypt.
    - El servidor es quien manda en el progreso y en la moneda PX: reparte tras cada partida, cobra colores y recompensas de rango,
      y acredita las compras de la tienda (Stripe Checkout + webhook firmado). El panel de administración puede sumar o restar PX.
@@ -233,7 +233,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
       f.set('mode', 'payment'); f.set('success_url', PUBLIC_URL + '/?px=ok'); f.set('cancel_url', PUBLIC_URL + '/?px=cancel');
       f.set('client_reference_id', String(u.id)); f.set('metadata[pack]', pack.id); f.set('metadata[uid]', String(u.id));
       f.set('line_items[0][quantity]', '1'); f.set('line_items[0][price_data][currency]', CURRENCY); f.set('line_items[0][price_data][unit_amount]', String(pack.price));
-      f.set('line_items[0][price_data][product_data][name]', pack.px + ' PX · PixelPlayRusher');
+      f.set('line_items[0][price_data][product_data][name]', pack.px + ' PX · Krunxa');
       methods.forEach((m, i) => f.set('payment_method_types[' + i + ']', m));   // [NUEVO] solo estos métodos (vacío = los del panel de Stripe)
       const r = await fetch(STRIPE_BASE + '/v1/checkout/sessions', { method: 'POST', headers: { Authorization: 'Bearer ' + STRIPE_KEY, 'Content-Type': 'application/x-www-form-urlencoded' }, body: f, signal: AbortSignal.timeout(15000) });
       const j = await r.json(); if (r.ok && j.url && j.id) return { j };
