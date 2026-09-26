@@ -4,10 +4,36 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="src/ui/auth.css">
-<title>Krunxa · Arena de disparos por bloques</title>
+<title>Krunxa · Shooter FPS online gratis en el navegador</title>
+<meta name="description" content="Juega gratis a Krunxa, un shooter FPS de bloques en el navegador: partidas online rápidas, 11 armas, modos por equipos, clasificatorio, pase de batalla y ranking global. Sin descargas.">
 <link rel="icon" href="favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="description" content="Krunxa: shooter en primera persona por bloques con partidas online, mapas, clases y clasificación global.">
+<!-- SEO: el servidor cambia __SITE_URL__ por PUBLIC_URL (o por el dominio de la petición). El archivo único (build:single) quita este bloque. -->
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="__SITE_URL__/">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0a0e1e">
+<meta name="application-name" content="Krunxa">
+<meta name="apple-mobile-web-app-title" content="Krunxa">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Krunxa">
+<meta property="og:url" content="__SITE_URL__/">
+<meta property="og:title" content="Krunxa · Shooter FPS online gratis en el navegador">
+<meta property="og:description" content="Juega gratis a Krunxa, un shooter FPS de bloques en el navegador: partidas online rápidas, 11 armas, modos por equipos, clasificatorio, pase de batalla y ranking global. Sin descargas.">
+<meta property="og:image" content="__SITE_URL__/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Krunxa: shooter FPS de bloques en el navegador">
+<meta property="og:locale" content="es_ES">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Krunxa · Shooter FPS online gratis en el navegador">
+<meta name="twitter:description" content="Juega gratis a Krunxa, un shooter FPS de bloques en el navegador: partidas online rápidas, 11 armas, modos por equipos, clasificatorio, pase de batalla y ranking global. Sin descargas.">
+<meta name="twitter:image" content="__SITE_URL__/og-image.jpg">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"VideoGame","name":"Krunxa","url":"__SITE_URL__/","image":"__SITE_URL__/og-image.jpg","description":"Juega gratis a Krunxa, un shooter FPS de bloques en el navegador: partidas online rápidas, 11 armas, modos por equipos, clasificatorio, pase de batalla y ranking global. Sin descargas.","genre":["Shooter en primera persona","Acción","Multijugador"],"gamePlatform":"Navegador web","applicationCategory":"Game","operatingSystem":"Windows, macOS, Linux, ChromeOS","playMode":["MultiPlayer","SinglePlayer"],"inLanguage":["es","en"],"isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"}}
+</script>
+<!-- /SEO -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Bungee&family=Exo+2:ital,wght@0,600;0,700;0,800;1,700;1,800;1,900&display=swap" rel="stylesheet">
@@ -960,6 +986,7 @@ body:not(.playing):not(.tabopen):not(.eqopen) #partyBox{display:block}
 </style>
 </head>
 <body>
+<noscript><div style="max-width:720px;margin:40px auto;padding:0 16px;line-height:1.6"><h1>Krunxa: shooter FPS online gratis en el navegador</h1><p>Shooter en primera persona de bloques con partidas online rápidas, 11 armas, modos por equipos (Duelo, Capturar zona, Solo cuchillos, Carrera de armas), clasificatorio con ligas, pase de batalla y ranking global. Se juega gratis en el navegador del ordenador, sin descargas.</p><p>Para jugar necesitas activar JavaScript. <a href="/privacidad">Privacidad</a> · <a href="/terminos">Términos</a></p></div></noscript>
 <canvas id="c"></canvas>
 
 <!-- HUD de partida -->

@@ -129,7 +129,7 @@ const call = async (m, p, b, tk) => { const r = await fetch(B + p, { method: m, 
     const sp = new Bot('x', { spec: 1, room: pw.room, adm: AT }); const sw = await sp.connect(2);
     ok(sw.spec === 1 && sw.players.length === 2 && sw.room === pw.room, 'el administrador entra como espectador y ve a los 2 jugadores');
     ok(await until(() => sp.has('snap')) && await until(() => sp.has('sstats'), 3000), 'recibe las posiciones y, cada segundo, las estadísticas de cada jugador');
-    const ss = sp.last('sstats'); ok(ss.p.length === 2 && ss.p[0].length === 9, 'con disparos, aciertos, cabezas, correcciones, cadencia sospechosa y ping por jugador');
+    const ss = sp.last('sstats'); ok(ss.p.length === 2 && ss.p[0].length === 10, 'con disparos, aciertos, cabezas, correcciones, cadencia sospechosa, ping y disparos fuera de la mira por jugador');
     ok(((await adm('GET', '/players')).j.players || []).length === 2, 'el espectador no cuenta como jugador');
     p1.send({ t: 'chat', m: 'hola' }); sp.send({ t: 'chat', m: 'no deberia' }); await sleep(300); ok(!p1.has('chat', m => m.n === 'Espectador'), 'y no puede escribir en el chat');
     const nope = new Bot('x', { spec: 1, room: 9999, adm: AT }); ok((await nope.connect(2)).t === 'err', 'una sala que no existe se rechaza'); [p1, p2, sp].forEach(b => b.close());

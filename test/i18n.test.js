@@ -24,7 +24,7 @@ function boot(languages, saved) {
   ok(en.PPR_I18N.lang === 'en' && d.documentElement.lang === 'en', 'navegador en inglés → el juego sale en inglés');
   ok(d.querySelector('#shopBar b').textContent === 'WEAPON SHOP' && d.getElementById('shopBack').textContent === 'Back', 'la tienda de reaparición sale en inglés');
   ok(d.querySelector('#play b').textContent === 'TRAINING', 'el botón Entrenar sale como TRAINING');
-  ok(/Blocky shooting arena/.test(d.title), 'y el título de la pestaña también (' + d.title + ')');
+  ok(/Free online FPS shooter in your browser/.test(d.title), 'y el título de la pestaña también (' + d.title + ')');
   ok(/^Type a message/.test(d.querySelector('[placeholder^="Type a message"]').placeholder), 'los textos de ayuda de los campos (placeholder) también se traducen');
 
   const es = boot(['es-ES']), e = es.document;

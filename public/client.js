@@ -1333,6 +1333,7 @@ function playerShoot() {
     } else if (r.t < w.range) burst(r.point, '#ffe9b0', 3, 2);
     if (i < 3 || w.pellets === 1) tracer(muzzle, r.point, online && player.rl ? '#ffd23f' : '#fff1b8');
   }
+  if (online) netSend({ t: 'st', ep: net.ep, x: r3(p.pos.x), y: r3(p.pos.y), z: r3(p.pos.z), yaw: r3(p.yaw), pitch: r3(p.pitch), h: r3(p.h) });   // [ANTITRAMPAS] el servidor comprueba el disparo con la mira de este mismo instante
   if (online) netSend({ t: 'shoot', o: [r3(origin.x), r3(origin.y), r3(origin.z)], d: dirs });
   sfx.shot(w, 1);
   if (scoped) { el.scope.classList.add('kick'); setTimeout(() => el.scope.classList.remove('kick'), 120); }
@@ -2019,7 +2020,7 @@ function stepOnline(dt) {
     if (player.alive) netSend({ t: 'st', ep: net.ep, x: r3(player.pos.x), y: r3(player.pos.y), z: r3(player.pos.z), yaw: r3(player.yaw), pitch: r3(player.pitch), h: r3(player.h) });
   }
   net.pingAcc += dt;
-  if (net.pingAcc > 2) { net.pingAcc = 0; netSend({ t: 'ping', ts: performance.now(), rtt: net.ping }); }
+  if (net.pingAcc > 2) { net.pingAcc = 0; netSend({ t: 'ping', ts: performance.now() }); }
 }
 
 /* =====================================================================
@@ -2916,7 +2917,7 @@ function frame(now) {
     }
   } else if (state === 'spectate') {   // [NUEVO] espectador
     simTime += dt; updateRemotes(dt); updateFx(dt); specCam(dt);
-    net.pingAcc += dt; if (net.pingAcc > 2) { net.pingAcc = 0; netSend({ t: 'ping', ts: performance.now(), rtt: net.ping }); }
+    net.pingAcc += dt; if (net.pingAcc > 2) { net.pingAcc = 0; netSend({ t: 'ping', ts: performance.now() }); }
   } else if (state === 'menu' || state === 'ended') {
     orbitA += dt * (reduce ? 0.02 : 0.09);
     camera.position.set(Math.cos(orbitA) * mapHalf, 17, Math.sin(orbitA) * mapHalf);
