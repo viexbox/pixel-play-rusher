@@ -506,7 +506,7 @@ function decorate(L, m) {
     decoBox(45.2, 11.4, -46.8, 0.5, 0.5, 0.5, '#ff3b48', true); decoBox(46.8, 11.4, -46.8, 0.5, 0.5, 0.5, '#ff3b48', true);
     [[-44, -47.5], [-35.3, -47.5], [-44, -38.8], [-35.3, -38.8], [-9, -47.5], [-0.3, -47.5], [-9, -38.8], [-0.3, -38.8]].forEach(([x, z]) => decoBox(x, 5.46, z, 0.35, 0.3, 0.35, '#ffd23f', true));
     const flag = (x, z, c) => { decoBox(x, 0, z, 0.2, 5, 0.2, '#39435a'); decoBox(x + 0.9, 3.4, z, 1.6, 1.1, 0.06, c, true); };
-    flag(-47.4, 1.5, '#ff3b48'); flag(-47.4, 18.5, '#ff3b48'); flag(47.4, 3.5, '#2f7bff'); flag(47.4, 10.5, '#2f7bff');
+    flag(-49.4, -15.5, '#ff3b48'); flag(-49.4, 10.5, '#ff3b48'); flag(47.6, -15.5, '#2f7bff'); flag(47.6, 10.5, '#2f7bff');   // [MAPA] junto a las bases nuevas, en el borde que mira al centro
     for (let i = 0; i < 8; i++) { decoBox(-7.4 + i * 1.9, 0, 41.5, 0.9, 0.05, 1.2, i % 2 ? '#ffd23f' : '#39435a', true); }   // franjas de peligro a la entrada del túnel
   }
 }
@@ -844,7 +844,8 @@ function fillCharacter(g, color, wi, seed, skinIdx, opticId, accent) {
   arm(0.38, 0.35, 0.56);
   if (!w.dual) arm(-0.38, -0.5, 0.66); else arm(-0.38, -0.2, 0.56);
   const guns = [];
-  if (w.dual) { guns.push(gunModel(w, 0.32)); guns.push(gunModel(w, -0.14)); } else guns.push(gunModel(w, 0.12, opticId));
+  const skn = (g.userData.skins || {})[w.id];   // [SKINS VISIBLES] la skin que lleva este jugador en esta arma (la manda el servidor)
+  if (w.dual) { guns.push(gunModel(w, 0.32, undefined, skn)); guns.push(gunModel(w, -0.14, undefined, skn)); } else guns.push(gunModel(w, 0.12, opticId, skn));
   guns.forEach(gm => { gm.position.y = -0.04; gm.position.z = -0.3; gm.traverse(o => { if (o.isMesh && o.material.color && o !== gm.userData.flash) o.castShadow = true; }); aim.add(gm); });
   const kn = new THREE.Group(); kn.visible = false; kn.position.set(0.1, -0.02, -0.34);
   { const kb = (x, y, z, px, py, pz, col) => { const m = new THREE.Mesh(BG(x, y, z), mat(col)); m.position.set(px, py, pz); kn.add(m); }; kb(0.03, 0.09, 0.42, 0, 0, -0.24, '#dfe8f7'); kb(0.11, 0.06, 0.04, 0, 0, 0, '#c9973a'); kb(0.05, 0.06, 0.16, 0, 0, 0.1, '#4a2f18'); }
@@ -855,6 +856,8 @@ function buildBot(color, wi, seed, skinIdx, accent) {
   const g = new THREE.Group(); g.rotation.order = 'YXZ';
   fillCharacter(g, color, wi || 0, seed || 0, skinIdx, undefined, accent); return g;
 }
+/* [SKINS VISIBLES] aplica las skins de otro jugador y redibuja su arma */
+function applyLook(f, sk) { if (!f || !f.mesh) return; f.mesh.userData.skins = sk || {}; const wi = f.mesh.userData.wi; if (wi == null) return; f.mesh.userData.wi = -1; setOutfit(f, wi); }
 const setOutfit = (f, wi) => { if (f.mesh && f.mesh.userData.wi !== wi) fillCharacter(f.mesh, f.color, wi, f.seed || 0, f.skin, undefined, f.accent); };
 function poseChar(f, sp, dt) {
   const u = f.mesh.userData; if (!u.legL) return;
@@ -1170,7 +1173,7 @@ function updateHudSlow() {
   el.live.innerHTML = rows.map(f => '<li class="' + (f.isPlayer ? 'me' : '') + ' t' + f.team + '"><span>' + (s.indexOf(f) + 1) + '</span><span class="nm">' + tdot(f.team) + nameHtml(f.name, f.rl) + '</span><i>' + f.kills + '</i><b>' + f.points + '</b></li>').join('');
   el.lbPlace.textContent = (mi + 1) + '/' + s.length;
   setTxt(el.myPts, 'pts', me.points); setTxt(el.myKD, 'kd', me.kills + ' K · ' + me.deaths + ' M');
-  { const tk = tkNow(), tx = 'AZUL ' + tk[0] + ' – ' + tk[1] + ' ROJO'; if (hudCache.tk !== tx) { hudCache.tk = tx; el.leadName.innerHTML = '<span class="tsb t0">' + tk[0] + '</span><span class="tsep">–</span><span class="tsb t1">' + tk[1] + '</span>'; } setTxt(el.leadPts, 'lp', 'Tu equipo: ' + TEAMS[me.team].n + ' · meta ' + teamLimit); }
+  { const tk = tkNow(), tx = 'AZUL ' + tk[0] + ' – ' + tk[1] + ' ROJO'; if (hudCache.tk !== tx) { hudCache.tk = tx; el.leadName.innerHTML = '<span class="tsb t0">' + tk[0] + '</span><span class="tsep">–</span><span class="tsb t1">' + tk[1] + '</span>'; } setTxt(el.leadPts, 'lp', 'Tu equipo: ' + TEAMS[me.team].n + (teamLimit > 0 ? ' · meta ' + teamLimit : ' · 🎁 regalos')); }   // [NAVIDAD] sin límite de bajas: cuentan los regalos
   el.goal.style.width = clamp(Math.max(...tkNow()) / teamLimit * 100, 0, 100) + '%';
   { const tp = $('#hsTeam'); if (tp) { tp.textContent = 'EQUIPO ' + TEAMS[me.team].n; tp.className = 'teampill t' + me.team; } }
   setTxt(el.area, 'area', (() => { const a = S.areaAt(curMap, me.pos.x, me.pos.y, me.pos.z); return a ? '▸ ' + a : ''; })());   // [NUEVO] rótulo «estás en…»
@@ -1578,7 +1581,7 @@ function setServer(ok, j) {
 /* [NUEVO] Botón «Servidor»: elegir a qué servidor online conectarse (se recuerda en este navegador) */
 function initServerBtn() {
   const b = $('#serverBtn'); if (!b) return;
-  b.textContent = CFG_SERVER ? CFG_SERVER.replace(/^https?:\/\//, '') : location.protocol === 'file:' ? 'Sin servidor' : 'Este equipo'; b.title = CFG_SERVER || 'Dirección del servidor online';
+  b.textContent = CFG_SERVER ? CFG_SERVER.replace(/^https?:\/\//, '') : location.protocol === 'file:' ? 'Sin servidor' : 'Esta web'; b.title = CFG_SERVER || 'Juegas online en el servidor de esta web. Pulsa para usar otro servidor.';   // [LOBBY] antes «Este equipo», que parecía hablar de tu ordenador o de tu equipo de juego
   b.addEventListener('click', () => {
     const v = window.prompt('Dirección del servidor online (por ejemplo https://mi-juego.onrender.com).\nDéjalo vacío para usar el servidor de esta misma página.', CFG_SERVER || '');
     if (v === null) return; const s = v.trim().replace(/\/+$/, '');
@@ -1679,10 +1682,17 @@ function netHandle(m) {
   switch (m.t) {
     case 'welcome': return onWelcome(m);
     case 'join': return addRemote(m.p);
-    case 'pet': { const pf = net.remotes.get(m.id); if (pf) setPet(pf, m.pt); return; }   // [MASCOTAS] alguien equipó su mascota al entrar
+    case 'pet': { const pf = net.remotes.get(m.id); if (pf) setPet(pf, m.pt); return; }
+    case 'look': return applyLook(net.remotes.get(m.id), m.sk);   // [SKINS VISIBLES] alguien entra con skins equipadas   // [MASCOTAS] alguien equipó su mascota al entrar
     case 'leave': return removeRemote(m.id);
     case 'spawn': return onNetSpawn(m);
-    case 'snap': return onSnap(m);
+    case 'snap': xmasSnap(m.e); return onSnap(m);
+    case 'elves': if (xmas.on) { for (const e of xmas.elves.values()) scene.remove(e.mesh); xmas.elves.clear(); for (const id of m.e) xmasElf(id); } return;   // [NAVIDAD]
+    case 'gadd': return xmasAddGifts(m.g);
+    case 'gdel': return xmasDelGift(m.id);
+    case 'gclr': for (const g of [...xmas.gifts.keys()]) xmasDelGift(g); xmas.mine = 0; return updateXmasHud();
+    case 'gpick': { xmasDelGift(m.id); if (Array.isArray(m.tk)) net.tk = m.tk; if (m.p === net.id) { xmas.mine = m.n; updateXmasHud(); popGift(); } updateHudSlow(); return; }
+    case 'ekill': { const e = xmas.elves.get(m.id); if (e) { e.alive = false; e.mesh.visible = false; } return; }
     case 'shot': return onNetShot(m);
     case 'hit': return onNetHit(m);
     case 'hurt': return onNetHurt(m);
@@ -1727,11 +1737,11 @@ function onWelcome(m) {
   if (curMap !== m.map) buildMap(m.map);
   clearFighters();
   if (m.spec) {   // espectador: sin jugador propio; la cámara sigue a los demás
-    player = newFighter('Espectador', true, '#ffffff'); player.alive = false; player.id = 0; fighters = [player]; bots = []; net.tk = m.tk || [0, 0]; teamLimit = m.lim || 60; m.players.forEach(addRemote);
+    player = newFighter('Espectador', true, '#ffffff'); player.alive = false; player.id = 0; fighters = [player]; bots = []; net.tk = m.tk || [0, 0]; teamLimit = m.lim != null ? m.lim : 60; m.players.forEach(addRemote);
     document.body.classList.remove('dead'); simTime = 0; timeLeft = m.tl; $('#menu').hidden = true; $('#end').hidden = true; $('#pause').hidden = true; hud.hidden = true; el.board.hidden = true; el.death.hidden = true; gun.visible = false; document.body.classList.remove('playing'); document.body.classList.add('spectating');
     state = 'spectate'; if (window.PPR_BP.onSpectate) window.PPR_BP.onSpectate(true); return;
   }
-  player = newFighter(m.n || cfg.name, true, '#ffc857'); player.rl = m.rl || 0; player.team = m.tm === 1 ? 1 : 0; net.tk = m.tk || [0, 0]; teamLimit = m.lim || 60;
+  player = newFighter(m.n || cfg.name, true, '#ffc857'); player.rl = m.rl || 0; player.team = m.tm === 1 ? 1 : 0; net.tk = m.tk || [0, 0]; teamLimit = m.lim != null ? m.lim : 60;
   player.id = m.id; player.wi = cfg.cls; player.alive = false; player.ammo = 0; player.reload = 0; player.fireCd = 0; player.slide = 0; player.aim = 0; player.eye = 1.6; player.meleeCd = 0;
   fighters = [player]; bots = [];
   m.players.forEach(addRemote);
@@ -1745,6 +1755,7 @@ function onWelcome(m) {
   updateHudSlow(); updateHudFast();
   toast('Sala ' + m.room + ' · ' + MAPS[m.map].name + ' · ' + S.MODES[net.mode].name + (net.ranked ? ' (clasificatorio)' : '') + ' · Equipo ' + TEAMS[player.team].n); teamBanner(player.team, S.MODES[net.mode].short + ' · sin fuego amigo');
   if (window.PPR_BP.onMode) window.PPR_BP.onMode(net);
+  xmasWelcome(m);   // [NAVIDAD] al final: más arriba se llama a clearFighters, que borraría los duendes
 }
 function addRemote(p) {
   if (!player || p.id === net.id || net.remotes.has(p.id)) return;
@@ -1760,6 +1771,7 @@ function addRemote(p) {
     f.mesh.visible = true; f.label.visible = true; f.mesh.position.copy(f.pos); f.mesh.rotation.y = f.yaw;
   }
   net.remotes.set(p.id, f); fighters.push(f); setPet(f, p.pt);   // [MASCOTAS]
+  if (p.sk) applyLook(f, p.sk);   // [SKINS VISIBLES]
   updateHudSlow();
 }
 /* ===== [MASCOTAS] Te siguen flotando junto al hombro y los demás las ven. Son objetos aparte (no hijos del muñeco),
@@ -1960,10 +1972,10 @@ function onNetEnd(m) {
   $('#end').hidden = false;
 }
 function onNetRound(m) {
-  if (net.spec) { net.remotes.forEach(f => { f.alive = false; resetPose(f); f.mesh.visible = false; f.label.visible = false; }); timeLeft = m.tl; teamLimit = m.lim || teamLimit; net.zone = m.zone || null; return; }
+  if (net.spec) { net.remotes.forEach(f => { f.alive = false; resetPose(f); f.mesh.visible = false; f.label.visible = false; }); timeLeft = m.tl; teamLimit = m.lim != null ? m.lim : teamLimit; net.zone = m.zone || null; return; }
   if (!player) return;
   if (m.nb > 0) toast('Sala con bots de relleno: no se dan premios ni estadísticas hasta que haya 2 jugadores reales.');   // [NUEVO]
-  net.gl = 0; teamLimit = m.lim || teamLimit; net.zone = m.zone || null; { const ec = $('#endCr'), er = $('#endRank'); if (ec) ec.hidden = true; if (er) er.hidden = true; } if (window.PPR_BP.onMode) window.PPR_BP.onMode(net);
+  net.gl = 0; teamLimit = m.lim != null ? m.lim : teamLimit; net.zone = m.zone || null; { const ec = $('#endCr'), er = $('#endRank'); if (ec) ec.hidden = true; if (er) er.hidden = true; } if (window.PPR_BP.onMode) window.PPR_BP.onMode(net);
   teamBanner(player.team, 'Nueva ronda · sin fuego amigo');
   $('#end').hidden = true; hud.hidden = false; el.feed.innerHTML = '';
   fighters.forEach(f => { f.kills = f.deaths = f.points = f.hs = f.streak = 0; });
@@ -2011,7 +2023,59 @@ function stepOnline(dt) {
 /* =====================================================================
    Flujo de la partida
    ===================================================================== */
+/* ===== [NAVIDAD] Duendes y regalos: el servidor manda dónde están y quién coge qué; aquí solo se dibujan ===== */
+const xmas = { on: false, elves: new Map(), gifts: new Map(), mine: 0 };
+function elfMesh() {
+  const g = new THREE.Group(), B = (w, h, d, c, x, y, z) => { const m = new THREE.Mesh(BG(w, h, d), mat(c)); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+  const legL = B(0.13, 0.32, 0.14, '#1f5e2e', -0.08, 0.16, 0), legR = B(0.13, 0.32, 0.14, '#1f5e2e', 0.08, 0.16, 0);
+  B(0.15, 0.08, 0.2, '#3a2412', -0.08, 0.04, 0.03); B(0.15, 0.08, 0.2, '#3a2412', 0.08, 0.04, 0.03);   // botas
+  B(0.36, 0.34, 0.24, '#2fa84f', 0, 0.49, 0); B(0.37, 0.06, 0.25, '#3a2412', 0, 0.4, 0); B(0.07, 0.07, 0.02, '#ffd23f', 0, 0.4, 0.13);   // túnica, cinturón y hebilla
+  B(0.09, 0.28, 0.11, '#2fa84f', -0.23, 0.5, 0); B(0.09, 0.28, 0.11, '#2fa84f', 0.23, 0.5, 0);   // brazos
+  B(0.28, 0.26, 0.26, '#f2c9a0', 0, 0.8, 0);   // cabeza
+  B(0.05, 0.1, 0.1, '#f2c9a0', -0.16, 0.84, 0).rotation.z = 0.5; B(0.05, 0.1, 0.1, '#f2c9a0', 0.16, 0.84, 0).rotation.z = -0.5;   // orejas puntiagudas
+  B(0.05, 0.05, 0.02, '#1b2038', -0.06, 0.82, 0.135); B(0.05, 0.05, 0.02, '#1b2038', 0.06, 0.82, 0.135);   // ojos
+  B(0.32, 0.06, 0.3, '#ffffff', 0, 0.95, 0); B(0.24, 0.12, 0.22, '#e03a3a', 0, 1.04, -0.02); B(0.14, 0.1, 0.13, '#e03a3a', 0, 1.14, -0.07); B(0.09, 0.09, 0.09, '#ffffff', 0, 1.2, -0.13);   // gorro y pompón
+  g.userData.legs = [legL, legR]; return g;
+}
+const GIFT_COLS = [['#e03a3a', '#ffd23f'], ['#2fa84f', '#ffffff'], ['#3a86ff', '#ffd23f'], ['#b388ff', '#ffffff']];
+function giftMesh(id) {
+  const [c, r] = GIFT_COLS[id % GIFT_COLS.length], g = new THREE.Group(), B = (w, h, d, col, x, y, z) => { const m = new THREE.Mesh(BG(w, h, d), mat(col)); m.position.set(x, y, z); g.add(m); return m; };
+  B(0.36, 0.3, 0.36, c, 0, 0.15, 0); B(0.38, 0.06, 0.38, c, 0, 0.32, 0);   // caja y tapa
+  B(0.07, 0.36, 0.385, r, 0, 0.17, 0); B(0.385, 0.36, 0.07, r, 0, 0.17, 0);   // lazo en cruz
+  B(0.12, 0.08, 0.05, r, -0.06, 0.39, 0).rotation.z = 0.5; B(0.12, 0.08, 0.05, r, 0.06, 0.39, 0).rotation.z = -0.5;   // el nudo
+  return g;
+}
+function xmasClear() {
+  for (const e of xmas.elves.values()) scene.remove(e.mesh);
+  for (const g of xmas.gifts.values()) scene.remove(g.mesh);
+  xmas.elves.clear(); xmas.gifts.clear(); xmas.mine = 0; updateXmasHud();
+}
+function xmasElf(id) { let e = xmas.elves.get(id); if (!e) { e = { id, mesh: elfMesh(), pos: new THREE.Vector3(), tgt: new THREE.Vector3(), yaw: 0, alive: true, placed: false, ph: Math.random() * 6 }; e.mesh.visible = false; scene.add(e.mesh); xmas.elves.set(id, e); } return e; }
+function xmasAddGifts(list) { for (const [id, x, y, z] of list || []) { if (xmas.gifts.has(id)) continue; const m = giftMesh(id); m.position.set(x, y, z); scene.add(m); xmas.gifts.set(id, { id, mesh: m, y, ph: Math.random() * 6 }); } }
+function xmasDelGift(id) { const g = xmas.gifts.get(id); if (g) { scene.remove(g.mesh); xmas.gifts.delete(id); } }
+function xmasWelcome(m) {
+  xmasClear(); xmas.on = m.mode === 'navidad'; document.body.classList.toggle('xmas', xmas.on);
+  if (!xmas.on) return updateXmasHud();
+  for (const id of m.el || []) xmasElf(id);
+  xmasAddGifts(m.g); updateXmasHud();
+}
+function xmasSnap(e) {
+  if (!xmas.on || !Array.isArray(e)) return;
+  for (const [id, x, y, z, yaw, al] of e) { const d = xmasElf(id); d.tgt.set(x, y, z); d.yaw = yaw; d.alive = !!al; if (!d.placed || !al) { d.pos.set(x, y, z); d.placed = true; } }
+}
+function popGift() { const h = $('#xmasHud'); if (!h) return; const s = document.createElement('span'); s.className = 'gpop'; s.textContent = '+1 🎁'; h.appendChild(s); setTimeout(() => s.remove(), 900); try { sfx.hit(); } catch (e) { /* sin sonido */ } }
+function updateXmasHud() { const h = $('#xmasHud'); if (!h) return; h.hidden = !xmas.on; h.querySelector('b').textContent = xmas.mine; }
+function animXmas(dt) {
+  if (!xmas.on) return; const tt = performance.now() / 1000;
+  for (const e of xmas.elves.values()) {
+    e.mesh.visible = e.alive && e.placed; if (!e.mesh.visible) continue;
+    const moving = e.pos.distanceTo(e.tgt) > 0.02; e.pos.lerp(e.tgt, Math.min(1, dt * 12)); e.mesh.position.copy(e.pos); e.mesh.rotation.y = e.yaw;
+    const sw = moving ? Math.sin(tt * 14 + e.ph) * 0.5 : 0; e.mesh.userData.legs[0].rotation.x = sw; e.mesh.userData.legs[1].rotation.x = -sw;
+  }
+  for (const g of xmas.gifts.values()) { g.mesh.rotation.y = tt * 1.6 + g.ph; g.mesh.position.y = g.y + 0.12 + Math.sin(tt * 3 + g.ph) * 0.06; }
+}
 function clearFighters() {
+  xmasClear(); xmas.on = false; document.body.classList.remove('xmas');   // [NAVIDAD]
   for (const f of fighters) { if (f.mesh) { scene.remove(f.mesh); scene.remove(f.label); } if (f.petObj) scene.remove(f.petObj); }
   fighters = []; bots = []; player = null; net.remotes.clear();
 }
@@ -2435,7 +2499,8 @@ function lobbyRefresh() { renderMenuStats(); renderEvent(); renderDaily(); build
 
 /* --- Vista previa 3D del personaje (se dibuja en la misma pantalla, sobre el hueco del panel) --- */
 const pv = { scene: null, cam: null, mesh: null, ang: Math.PI + 0.5, drag: false, lastX: 0, on: false };
-function updatePreview() { if (pv.mesh) fillCharacter(pv.mesh, COLORS[cfg.look.col].c, cfg.cls, 1, cfg.look.skin, cfg.optics[WEAPONS[cfg.cls].id]); updateEquip(); }
+function updatePreview() { if (pv.mesh) pv.mesh.userData.skins = Object.fromEntries(WEAPONS.map(w => [w.id, mySkin(w.id)]));   // [SKINS VISIBLES] tu personaje de la lobby lleva tus skins
+  if (pv.mesh) fillCharacter(pv.mesh, COLORS[cfg.look.col].c, cfg.cls, 1, cfg.look.skin, cfg.optics[WEAPONS[cfg.cls].id]); updateEquip(); }
 function initPreview() {
   if (!renderer || !renderer.setScissorTest) return;
   pv.scene = new THREE.Scene(); pv.cam = new THREE.PerspectiveCamera(30, 1, 0.1, 40);
@@ -2502,7 +2567,7 @@ function lobbyConnect() {
     else if (m.t === 'chatdel') chatDel(m.i);
     else if (m.t === 'notice') showNotice(m);
     else if (m.t === 'err') chatAdd('sys', '', m.m);
-    else if (m.t === 'lobbyok') { document.body.classList.toggle('verified', !!m.rl); chatAdd('sys', '', 'Chat del lobby conectado · ' + m.n + (m.n === 1 ? ' persona' : ' personas') + ' en línea.'); }
+    else if (m.t === 'lobbyok') { document.body.classList.toggle('verified', !!m.rl); chatDel('lobbyok'); chatAdd('sys', '', 'Chat del lobby conectado · ' + m.n + (m.n === 1 ? ' persona' : ' personas') + ' en línea.', 0, 'lobbyok'); }   // [CORREGIDO] al reconectar (p. ej. al iniciar sesión) sustituye al aviso anterior en vez de repetirlo
   };
   ws.onclose = () => { if (lobbyWs === ws) { lobbyWs = null; updateChatCh(); } };
   ws.onerror = () => {};
@@ -2810,6 +2875,7 @@ function frame(now) {
   sky.position.copy(camera.position); cloudRoot.rotation.y += dt * 0.004;
   if (renderer) renderer.render(scene, camera);
   animPets(dt);   // [MASCOTAS]
+  animXmas(dt);   // [NAVIDAD]
   pulseNeon();   // [NEÓN]
   if (state === 'menu') renderPreview(dt);
 }
@@ -2821,6 +2887,6 @@ preloadGunModels();   // [NUEVO] modelos .glb reales: mientras cargan (o si fall
 Object.assign(window.PPR_BP, { petSvg, unlockedColors: () => unlocked(), pickColor, currentColor: () => cfg.look.col,   // [INVENTARIO]
   gunPreview: (wid, skinId) => { const w = WEAPONS.find(x => x.id === wid); return w ? gunModel(w, 0, null, skinId) : null; },   // [3D] el arma con su skin, igual que en la partida
   limit: () => teamLimit, cfg, saveCfg, net: () => net, player: () => player, camera: () => camera, scene: () => scene, THREE, startSpectate, stopSpectate, specCycle, setSpecView: v => { net.specView = v; }, gunsOK, setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
-  rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); setPreviewPet(); if ($('#petsBox')) renderPets(); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
+  rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); setPreviewPet(); updatePreview(); if ($('#petsBox')) renderPets(); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
 requestAnimationFrame(frame);
 })();

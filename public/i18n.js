@@ -40,7 +40,7 @@
       'ENTRENAR': 'TRAINING', 'EQUIPOS': 'TEAMS', 'ESPECTADOR': 'SPECTATOR', 'ESPERANDO RIVALES…': 'WAITING FOR OPPONENTS…',
       'Elegir bando': 'Choose team', 'Elige el próximo mapa': 'Vote for the next map', 'Eliminado': 'Eliminated', 'Enter': 'Enter',
       'Enviar reporte': 'Send report', 'Equipamiento': 'Loadout', 'Esc': 'Esc', 'Escribe un mensaje…  (Enter)': 'Type a message…  (Enter)',
-      'Escribir en el chat': 'Write in the chat', 'Espacio': 'Space', 'Espectador': 'Spectator', 'Este equipo': 'This PC',
+      'Escribir en el chat': 'Write in the chat', 'Espacio': 'Space', 'Espectador': 'Spectator', 'Esta web': 'This site', 'Este equipo': 'This PC', 'Juegas online en el servidor de esta web. Pulsa para usar otro servidor.': 'You play online on this site’s server. Click to use another server.', 'Sin servidor': 'No server',
       'Evento de hoy': 'Today’s event', 'FOV dinámico al ir rápido': 'Dynamic FOV at speed', 'Fin de la partida': 'Match over', 'Fácil': 'Easy',
       'GOLPE': 'STAB', 'GRATIS': 'FREE',
       'Gana XP jugando partidas online (hasta el nivel 50). Las recompensas VIP se desbloquean al comprar el pase; las de niveles ya alcanzados se pueden reclamar en cuanto lo tengas.': 'Earn XP by playing online matches (up to level 50). VIP rewards unlock when you buy the pass; rewards for levels you have already reached can be claimed as soon as you have it.',
@@ -81,10 +81,11 @@
       'Ver la clasificación de la partida': 'View the match scoreboard', 'Victorias': 'Wins', 'Vista': 'View',
       'Vista previa del personaje (arrastra para girarlo)': 'Character preview (drag to rotate)', 'Volumen': 'Volume', 'Volver al menú': 'Back to menu',
       'Épico': 'Epic', 'Únete a nuestro Discord': 'Join our Discord', '— FPS': '— FPS', '✕ Cerrar': '✕ Close',
-      'Idioma': 'Language', 'Inventario': 'Inventory', 'Personalizar ✎': 'Customise ✎', 'Duelo': 'Duel', 'Zona': 'Zone', 'Carrera': 'Gun Game', 'Clasificatorio': 'Ranked', 'Detalles ›': 'Details ›', 'Detalles': 'Details', 'Antes de jugar': 'Before playing', 'Entrenar': 'Training', 'Jugar online': 'Play online'
+      'Idioma': 'Language', 'Inventario': 'Inventory', 'regalos': 'gifts', 'Personalizar ✎': 'Customise ✎', 'Duelo': 'Duel', 'Zona': 'Zone', 'Carrera': 'Gun Game', 'Clasificatorio': 'Ranked', 'Detalles ›': 'Details ›', 'Detalles': 'Details', 'Antes de jugar': 'Before playing', 'Entrenar': 'Training', 'Jugar online': 'Play online'
     }
   };
   /* [PASO 2] Textos que el juego escribe mientras funciona (mensajes, errores, evento del día, tienda, pase…) */
+  Object.assign(DICT.en, {"Navidad": "Christmas", "NAVIDAD": "CHRISTMAS", "regalos": "gifts", "Evento: caza duendes y recoge los regalos que sueltan. Gana el equipo con más regalos en 10 minutos.": "Event: hunt the elves and collect the gifts they drop. The team with the most gifts after 10 minutes wins."});   // [NAVIDAD]
   Object.assign(DICT.en, {"Inventario": "Inventory", "Todo": "All", "Armas": "Weapons", "En uso": "In use", "Usar": "Use", "Equipado ✓": "Equipped ✓", "Mascota": "Pet", "Color exclusivo de rango": "Exclusive rank colour", "Color": "Colour", "Filtrar": "Filter", "No tienes objetos de este tipo.": "You have no items of this type.", "Todavía no tienes objetos. Consíguelos en el Pase de Batalla, la Tienda o el Mercado.": "You don’t have any items yet. Get them in the Battle Pass, the Store or the Market.", "Inicia sesión con una cuenta online para tener inventario: tus skins, banners y mascotas se guardan en tu cuenta.": "Log in with an online account to have an inventory: your skins, banners and pets are saved to your account.", "1 objeto": "1 item"});   // [INVENTARIO]
   Object.assign(DICT.en, {"arrastra para girar": "drag to rotate", "Ver en 3D": "View in 3D"});   // [3D]
   Object.assign(DICT.en, {"Circuito": "Circuit", "Radiación": "Radiation", "Brasas": "Embers", "Sintonía": "Frequency", "Aurora": "Aurora", "Voltio": "Volt", "Magma": "Magma", "Hielo negro": "Black Ice", "Osario": "Ossuary", "Espectro": "Spectre", "Núcleo": "Core"});   // [NEÓN] skins del Pase VIP
@@ -109,6 +110,7 @@
       [/^¡(.+) ya es tuya! Pulsa «Equipar» para llevarla\.$/, m => tr(m[1]) + ' is yours! Press “Equip” to take it with you.'],
       [/^Color exclusivo: se consigue al llegar al rango (.+)\.$/, m => 'Exclusive colour: you get it by reaching ' + tr(m[1]) + ' rank.'],
       [/^★ (.+)$/, m => '★ ' + tr(m[1])],
+      [/^Tu equipo: (AZUL|ROJO) · 🎁 regalos$/, m => 'Your team: ' + tr(m[1]) + ' · 🎁 gifts'],
       [/^Modo destacado: (.+)$/, m => 'Featured mode: ' + tr(m[1])],
       [/^solo en (.+)$/, m => 'only in ' + tr(m[1])],
       [/^No hay ningún jugador llamado «(.+)» en tu sala\.$/, m => 'There’s no player called “' + m[1] + '” in your room.'],

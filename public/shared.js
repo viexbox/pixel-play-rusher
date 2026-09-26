@@ -82,8 +82,9 @@ const MAPS = [
     look: { floor: 'concfloor', outFloor: 'grass', wall: 'concrete', block: 'concrete', metal: 'metal', crate: 'crate', plat: 'concfloor', sun: '#fff4d6', decor: 'nexus', wallH: 8.5 },
     /* Apariciones por equipo (equipo 1 = ROJO, equipo 0 = AZUL): [x, z] */
     spawns: {
-      1: [[-44, 4], [-40, 7], [-44, 10], [-38, 13], [-44, 16], [-36, 18], [-41, 21]],
-      0: [[41, 3], [45, 5], [40, 7], [44, 9], [41, 11], [46, 2], [38, 5]]
+      /* [MAPA] cada equipo en la otra punta del mapa, en el anillo exterior de su lado (antes a x ±40, a mitad de camino desde que el mapa creció a 116 m) */
+      1: [[-53, -14], [-55, -10], [-53, -6], [-55, -1], [-53, 3], [-55, 7], [-53, 10]],
+      0: [[53, -14], [55, -10], [52, -7], [55, -1], [53, 3], [55, 7], [53, 10]]
     },
     /* Zonas del modo «Capturar zona» (y = altura del suelo de la zona): la captura solo cuenta a quien está a esa altura (±2,6 m) */
     zones: [
@@ -103,7 +104,7 @@ const MAPS = [
       { n: 'Capture Point', x0: 30, x1: 48, z0: -30, z1: 0, y0: 2.5, y1: 8 },
       { n: 'Armory', x0: 32, x1: 47, z0: 12, z1: 36, y0: -1, y1: 5 }, { n: 'Armory', x0: 24, x1: 32, z0: 29, z1: 35, y0: -1, y1: 5 }, { n: 'Tunnel Passage', x0: -8, x1: 8, z0: 40, z1: 46, y0: -1, y1: 4 },
       { n: 'Office Block', x0: -46, x1: -22, z0: -36, z1: -24, y0: -1, y1: 4 }, { n: 'Main Plaza', x0: -41, x1: -4, z0: -30, z1: -4, y0: 1, y1: 4 },
-      { n: 'Spawn Red', x0: -50, x1: -30, z0: -4, z1: 24, y0: -1, y1: 2.5 }, { n: 'Spawn Blue', x0: 36, x1: 50, z0: -2, z1: 12, y0: -1, y1: 2.5 },
+      { n: 'Spawn Red', x0: -58, x1: -48, z0: -18, z1: 13, y0: -1, y1: 2.5 }, { n: 'Spawn Blue', x0: 48, x1: 58, z0: -18, z1: 13, y0: -1, y1: 2.5 },
       { n: 'South Alley', x0: -50, x1: 50, z0: 36, z1: 50, y0: -1, y1: 4 }, { n: 'Lower Plaza', x0: 17, x1: 32, z0: 2, z1: 36, y0: -1, y1: 3 },
       { n: 'Central Courtyard', x0: -34, x1: 17, z0: 4, z1: 36, y0: -1, y1: 3 }
     ],
@@ -144,12 +145,15 @@ const MAPS = [
       hut(-56, -51, -28, -22, 'xmax', 'zmin'); hut(-56, -51, 14, 20, 'xmax', 'zmax');     // oeste
       hut(-14, -8, 51, 56, 'zmin', 'xmin'); hut(20, 26, 51, 56, 'zmin', 'xmax');         // sur
       hut(-14, -8, -56, -51, 'zmax', 'xmin'); hut(20, 26, -56, -51, 'zmax', 'xmax');     // norte
+      /* [MAPA] bases de cada equipo en la otra punta del mapa: suelo pintado con bordes blancos (sin colisión) */
+      F(-57, -49, -17, 12, RD); F(-57, -49, -17, -16.5, '#ffffff'); F(-57, -49, 11.5, 12, '#ffffff');
+      F(49, 57, -17, 12, '#2f7bff'); F(49, 57, -17, -16.5, '#ffffff'); F(49, 57, 11.5, 12, '#ffffff');
       crate(53.5, -4, 2, 1.6); crate(-53.5, 34, 2, 1.6); crate(2, 53.5, 2, 1.6); crate(-30, -53.5, 2, 1.6);   // algo de cobertura por el anillo
 
       b.horizon(28, 78, 122, 14, 46, 8, 18, ['#8f99ad', '#a4adbf', '#7f8aa0']);   // los edificios de la ciudad al otro lado del muro
 
       /* ================= SPAWN RED · torre de francotiradores · Main Plaza ================= */
-      F(-48, -30, 0, 20, RD); F(-48, -30, 0, 0.5, '#ffffff'); F(-48, -30, 19.5, 20, '#ffffff');
+      // [MAPA] la base roja está ahora en la otra punta (anillo oeste): su suelo pintado se dibuja allí, más abajo
       P(-47, -43, 24, 24.6, 0, 1.2, GD, 'concrete'); P(-33, -29, 22, 22.6, 0, 1.2, GD, 'concrete'); P(-47, -46.4, 4, 9, 0, 1.2, GD, 'concrete');
       b.run('N', 0, -33, 6, 4, 0, ST, GL, 'stone');                                     // Spawn Red → Main Plaza
       P(-41, -6, -30, -4, 0, H1, PL, 'concfloor');                                      // Main Plaza (1,8 m)
@@ -228,8 +232,8 @@ const MAPS = [
       P(-8, 8, 34, 40, 0, R, GR, 'concrete'); P(-8, 8, 46, 50, 0, R, GR, 'concrete'); P(-8, 8, 40, 46, 3.6, R, GR, 'concrete');       // Tunnel Passage (pasaje cubierto)
       P(-8, 8, 33.4, 34, R - 0.5, R, OR, 'concrete'); F(-50, -8, 43.8, 44.2, YL); F(8, 50, 43.8, 44.2, YL); F(-8, 8, 43.8, 44.2, YL);
       crate(-30, 44, 2, 2); crate(-28, 45.4, 1.8, 1.8); cont(-40, 41, true, GN); crate(-20, 47, 2, 2); crate(20, 42, 2, 2); cont(34, 42, true, BL); crate(28, 47, 2, 2); crate(26, 45.8, 1.6, 1.6);
-      // Spawn Blue
-      F(38, 48, 2, 12, '#2f7bff'); P(46, 46.6, 3, 8, 0, 1.2, GD, 'concrete'); P(38, 42, 13, 13.6, 0, 1.2, GD, 'concrete');
+      // Spawn Blue (el suelo pintado de la base está ahora en el anillo este, más abajo)
+      P(46, 46.6, 3, 8, 0, 1.2, GD, 'concrete'); P(38, 42, 13, 13.6, 0, 1.2, GD, 'concrete');
       // pasaje norte y patio norte
       crate(-19, -42, 2, 2); crate(-15.6, -45, 2, 2); cont(-17, -36, true, BL); cont(13, -45, false, OR); crate(13, -38, 2, 2); crate(20, -30, 2, 2); crate(6, -30, 2, 2); bar(-4, -28, true); bar(24, -26, true);
     }
@@ -380,7 +384,7 @@ function navField(nav, tx, tz, ty) {
     const [i, j, k] = q[qi], h = nav.layers[i * n + j][k], d = layerArr(dist, i, j)[k];
     for (const [di, dj] of NAV8) {
       const ni = i + di, nj = j + dj; if (ni < 0 || nj < 0 || ni >= n || nj >= n) continue;
-      if (di && dj && (!nav.layers[(i + di) * n + j].length || !nav.layers[i * n + (j + dj)].length)) continue;   // sin cortar esquinas
+      if (di && dj && (!nav.layers[(i + di) * n + j].some(v => Math.abs(v - h) <= CONST.STEP) || !nav.layers[i * n + (j + dj)].some(v => Math.abs(v - h) <= CONST.STEP))) continue;   // sin cortar esquinas: [BOTS] las dos casillas de los lados tienen que ser pisables a esta misma altura (antes bastaba con que tuvieran algo, y el bot intentaba colarse en diagonal entre un murete y una caja)
       const hs = nav.layers[ni * n + nj], nd = layerArr(dist, ni, nj), np = layerArr(parent, ni, nj);
       for (let nk = 0; nk < hs.length; nk++) { if (Math.abs(hs[nk] - h) > CONST.STEP || nd[nk] >= 0) continue; nd[nk] = d + (di && dj ? 1.4142 : 1); np[nk] = [i, j, k]; q.push([ni, nj, nk]); }
     }
@@ -391,12 +395,46 @@ function navField(nav, tx, tz, ty) {
 /* Dirección unitaria [dx, dz] hacia el destino: un solo paso, el mismo que usó el BFS para llegar hasta aquí, así siempre es un escalón subible de verdad
    (en vez de adivinar «el vecino con menor distancia», que a veces apuntaba a un sitio inalcanzable en un solo paso desde donde se estaba).
    y = altura actual del que pregunta (null → la más baja de su columna), para saber en qué planta está parado. */
+/* [BOTS] Rescate: la rejilla de navegación comprueba si cabe un bloque de 1 m, pero un bot mide 70 cm y puede colarse en casillas que
+   la rejilla no da por transitables (pegado a una pared, bajo una escalera) o estar en el aire a mitad de salto. Antes, ahí se quedaba
+   «sin dirección» y chocaba contra la pared para siempre. Ahora se le lleva a la casilla conocida más cercana, a una altura a la que
+   puede llegar y con camino hasta el destino; desde ahí sigue su ruta normal. */
+/* [BOTS] Camino que le queda de verdad hasta el destino (en casillas), o null si no se sabe. Sirve para saber si un bot avanza: medirlo
+   en línea recta hacía que un rodeo correcto (subir una escalera que se aleja un poco del destino) pareciera un atasco. */
+function navRemain(nav, field, x, z, y) {
+  if (!field) return null; const n = nav.n, ci = Math.max(0, Math.min(n - 1, Math.floor(x + nav.half))), cj = Math.max(0, Math.min(n - 1, Math.floor(z + nav.half)));
+  const k = navLayer(nav, ci, cj, y), D = k >= 0 ? field.dist[ci * n + cj] : null; return D && D[k] >= 0 ? D[k] : null;
+}
+function navRescue(nav, field, ci, cj, x, z, y) {
+  const n = nav.n, yy = y == null ? 0 : y; let best = null, bs = Infinity;
+  /* 1) En el aire (a mitad de salto) sobre una casilla conocida: la superficie sobre la que va a caer, en su misma casilla, y su ruta normal */
+  { const L = nav.layers[ci * n + cj], D = field.dist[ci * n + cj], P = field.parent[ci * n + cj]; let kk = -1;
+    if (L && D) for (let k = 0; k < L.length; k++) if (L[k] <= yy + 0.6 && D[k] >= 0 && (kk < 0 || L[k] > L[kk])) kk = k;
+    if (kk >= 0) { if (D[kk] === 0) return null; const p = P && P[kk]; if (p) { const px = -nav.half + p[0] + 0.5, pz = -nav.half + p[1] + 0.5, dx = px - x, dz = pz - z, l = Math.hypot(dx, dz) || 1; return [dx / l, dz / l]; } } }
+  /* 2) Casilla que la rejilla no conoce (colado pegado a una pared o bajo una escalera): la casilla conocida alcanzable más cercana */
+  for (let r = 1; r <= 3; r++) {
+    for (let i = ci - r; i <= ci + r; i++) for (let j = cj - r; j <= cj + r; j++) {
+      if (i < 0 || j < 0 || i >= n || j >= n || (Math.abs(i - ci) !== r && Math.abs(j - cj) !== r)) continue;
+      const L = nav.layers[i * n + j], D = field.dist[i * n + j]; if (!L || !D) continue;
+      for (let k = 0; k < L.length; k++) {
+        if (D[k] === undefined || D[k] < 0 || L[k] > yy + 0.6 || L[k] < yy - 1.5) continue;   // alcanzable: como mucho un escalón por encima, o bajando
+        const cx = -nav.half + i + 0.5, cz = -nav.half + j + 0.5, sc = D[k] + Math.hypot(cx - x, cz - z) * 2;
+        if (sc < bs) { bs = sc; best = [cx, cz]; }
+      }
+    }
+    if (best) break;
+  }
+  if (!best) return null;
+  const dx = best[0] - x, dz = best[1] - z, l = Math.hypot(dx, dz) || 1; return [dx / l, dz / l];
+}
 function navDir(nav, field, x, z, y) {
   if (!field) return null;
   const n = nav.n, ci = Math.max(0, Math.min(n - 1, Math.floor(x + nav.half))), cj = Math.max(0, Math.min(n - 1, Math.floor(z + nav.half)));
-  const ck = navLayer(nav, ci, cj, y); if (ck < 0) return null;
-  const cell = field.dist[ci * n + cj]; if (!cell || cell[ck] === undefined || cell[ck] < 0 || cell[ck] === 0) return null;
-  const pcell = field.parent[ci * n + cj], p = pcell && pcell[ck]; if (!p) return null;
+  const ck = navLayer(nav, ci, cj, y);
+  const cell = ck >= 0 ? field.dist[ci * n + cj] : null;
+  if (cell && cell[ck] === 0) return null;   // ya está en el destino
+  if (ck < 0 || !cell || cell[ck] === undefined || cell[ck] < 0) return navRescue(nav, field, ci, cj, x, z, y);   // [BOTS] casilla que la rejilla no conoce
+  const pcell = field.parent[ci * n + cj], p = pcell && pcell[ck]; if (!p) return navRescue(nav, field, ci, cj, x, z, y);
   const px = -nav.half + p[0] + 0.5, pz = -nav.half + p[1] + 0.5, dx = px - x, dz = pz - z, l = Math.hypot(dx, dz) || 1; return [dx / l, dz / l];
 }
 
@@ -554,7 +592,8 @@ const MODES = {
   duelo:     { id: 'duelo',     name: 'Duelo por equipos', short: 'DUELO',    desc: 'El clásico: gana el equipo que llegue antes al límite de bajas.', guns: true },
   zona:      { id: 'zona',      name: 'Capturar zona',     short: 'ZONA',     desc: 'Una zona cambia de sitio cada 50 s. Suma puntos el equipo que la controla en solitario.', guns: true },
   cuchillos: { id: 'cuchillos', name: 'Solo cuchillos',    short: 'CUCHILLOS', desc: 'Sin armas de fuego: cuchillo en mano y a moverse rápido.', guns: false },
-  carrera:   { id: 'carrera',   name: 'Carrera de armas',  short: 'CARRERA',  desc: 'Cada baja te da un arma nueva. Al llegar al cuchillo, una baja más y tu equipo gana. Si te matan a cuchillo, bajas de nivel.', guns: true }
+  carrera:   { id: 'carrera',   name: 'Carrera de armas',  short: 'CARRERA',  desc: 'Cada baja te da un arma nueva. Al llegar al cuchillo, una baja más y tu equipo gana. Si te matan a cuchillo, bajas de nivel.', guns: true },
+  navidad:   { id: 'navidad',   name: 'Navidad',           short: 'NAVIDAD',  desc: 'Evento: caza duendes y recoge los regalos que sueltan. Gana el equipo con más regalos en 10 minutos.', guns: true, event: true }   // [NAVIDAD]
 };
 const GUN_LADDER = [8, 0, 9, 1, 7, 2, 10, 4, 6, 5, 3];   // armas por nivel (AK → … → Lince); tras la última viene el cuchillo (nivel 12)
 const ZONE = { R: 5.5, MOVE_SECS: 50, LIMIT: 160 };  // radio de la zona, cada cuánto cambia de sitio y puntos para ganar
@@ -696,7 +735,7 @@ function viewmodelSight(pose, sight) {
   return { x: x + pose.px, y: y + pose.py, z: z + pose.pz };
 }
 
-const api = { PETS, areaAt, buildNav, navField, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
+const api = { PETS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
