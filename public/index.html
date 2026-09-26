@@ -873,7 +873,9 @@ body:not(.playing) #menu::before{content:'';position:absolute;inset:0;background
 #lkChar .lkinfo b{font-family:'Bungee',var(--hudf);font-weight:400;font-size:clamp(18px,1.8vw,26px);color:#fff;text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000}
 .lkbtn{height:38px;font-family:'Bungee',var(--hudf);font-size:15px;color:#fff;background:rgba(5,6,14,.55);border:2px solid #3ad8ff;box-shadow:0 0 12px rgba(58,216,255,.25);text-shadow:0 2px 0 #000}
 .lkbtn:hover{background:rgba(58,216,255,.18)}
-body.eqopen #lkChar,body.eqopen #lobbyLeft{visibility:hidden}   /* el personaje del cajón se dibuja detrás de la página: nada puede taparlo */
+body.eqopen #lkChar,body.eqopen #lobbyLeft{visibility:hidden}
+/* [LOBBY] con una sección abierta (Tienda, Inventario…) los botones de jugar no asoman por detrás: una regla antigua los bajaba a la esquina */
+body.tabopen #lobbyCenter .modes,body.tabopen #lobbyCenter .modebar,body.tabopen #lobbyCenter .warn{visibility:hidden}   /* el personaje del cajón se dibuja detrás de la página: nada puede taparlo */
 /* iconos y enlaces legales: abajo a la derecha, bajo el personaje */
 #lobbyBar{left:auto;right:18px;transform:none;bottom:12px;width:min(300px,23vw)}
 /* chat: abajo a la izquierda */
@@ -882,6 +884,41 @@ body:not(.playing) #chatTab{left:8px;right:auto}
 /* pantallas medianas: se quitan las noticias y el personaje antes de que se amontone todo */
 @media (max-width:1180px){#lobbyLeft,#lkChar{display:none}#lobbyPlay,#lobbyCenter .modes,#lobbyCenter .warn{width:min(620px,calc(100vw - 420px));min-width:0}#lobbyBar{width:auto}}
 @media (max-width:820px){#lkMenu{position:static;padding:8px}#lobbyPlay{width:calc(100vw - 20px)}#lobbyPlay .modegrid{grid-template-columns:repeat(3,minmax(0,1fr))}#lobbyCenter .modes{width:calc(100vw - 20px)}}
+
+/* [3D] Vista 3D de las skins del Pase */
+.rcard.has3d{cursor:pointer}
+.rcard .prev{position:relative}
+.rcard .v3d{position:absolute;right:4px;bottom:2px;padding:1px 5px;font-size:10px;font-weight:900;letter-spacing:.06em;color:#0a0a12;background:var(--rc);border:1px solid #000}
+.sk3d{position:fixed;inset:0;z-index:80;display:grid;place-items:center;background:rgba(4,6,14,.72);padding:16px}
+.sk3d-card{position:relative;width:min(720px,94vw);aspect-ratio:1.6;border-radius:22px;overflow:hidden;border:2px solid rgba(255,255,255,.14);box-shadow:0 18px 60px rgba(0,0,0,.6),0 0 0 1px var(--rc)}
+.sk3d-bg{position:absolute;inset:0;background:linear-gradient(#3b73e8,#6aa5f2 62%)}
+.sk3d-bg .fl{position:absolute;left:0;right:0;bottom:0;height:34%;background:#e0625f}
+.sk3d-bg .cl{position:absolute;height:5.5%;border-radius:8px;background:#e3ebfa}
+.sk3d-bg .c1{left:8%;top:13%;width:17%}.sk3d-bg .c2{left:55%;top:8%;width:12%}.sk3d-bg .c3{left:28%;top:24%;width:10%}
+.sk3d-bg .bd{position:absolute;bottom:34%;background:#34496e}
+.sk3d-bg .b1{left:4%;width:6%;height:24%}.sk3d-bg .b2{left:11%;width:8%;height:16%}.sk3d-bg .b3{left:25%;width:5.5%;height:20%}.sk3d-bg .b4{left:36%;width:7%;height:13%}
+.sk3d-bg .ct{position:absolute;right:0;bottom:34%;width:40%;height:34%;background:repeating-linear-gradient(90deg,#1d4fd8 0 12px,#2a62ee 12px 20px);border-top:5px solid #16307e}
+.sk3d-card canvas{position:absolute;inset:0;width:100%;height:100%;cursor:grab;touch-action:none}
+.sk3d-card canvas:active{cursor:grabbing}
+.sk3d-rar{position:absolute;left:4%;top:5%;padding:6px 18px;border-radius:99px;background:var(--rc);color:#1a1206;font-size:clamp(12px,2vw,17px);font-weight:800;letter-spacing:.12em;pointer-events:none}
+.sk3d-n{position:absolute;left:4%;top:17%;font-size:clamp(18px,3.2vw,26px);color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.45);pointer-events:none}
+.sk3d-w{position:absolute;left:4%;top:25%;font-size:clamp(13px,2.2vw,17px);color:rgba(255,255,255,.82);pointer-events:none}
+.sk3d-hint{position:absolute;right:3%;bottom:4.5%;padding:6px 12px;border-radius:9px;background:rgba(150,50,50,.55);color:#f5dede;font-size:clamp(11px,1.8vw,15px);pointer-events:none}
+.sk3d-x{position:absolute;right:2.5%;top:4%;width:38px;height:38px;border-radius:50%;background:rgba(5,6,14,.55);color:#fff;font-size:18px;border:1px solid rgba(255,255,255,.3)}
+
+/* [INVENTARIO] */
+#invBox .invhead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-size:18px;letter-spacing:.05em}
+#invBox .invhead span{font-size:13px;opacity:.75}
+#invBox .invf{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+#invBox .invf button{padding:5px 10px;font-size:12px;font-weight:800;letter-spacing:.04em;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);color:#dfe7f7}
+#invBox .invf button[aria-pressed="true"]{background:var(--hot);color:#0a0a12;border-color:#000}
+#invBox .invf button em{font-style:normal;opacity:.7;margin-left:4px}
+#invBox .invgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+#invBox .rcard{min-height:0}
+#invBox .rcard.on{box-shadow:0 0 0 2px var(--rc),0 0 14px color-mix(in srgb,var(--rc) 45%,transparent)}
+#invBox .swatch{display:block;width:54px;height:54px;margin:6px auto;border:3px solid #000;box-shadow:0 3px 0 rgba(0,0,0,.5)}
+#invBox .rcard .act button{width:100%}
+#invBox .rcard .act button.on{background:var(--rc);color:#0a0a12;border-color:#000}
 </style>
 </head>
 <body>
@@ -990,6 +1027,7 @@ body:not(.playing) #chatTab{left:8px;right:auto}
       <li><button role="tab" aria-selected="false" data-tab="pass">Pase <em class="newtag">S1</em></button></li>
       <li><button role="tab" aria-selected="false" data-tab="rank">Clasificación</button></li>
       <li><button role="tab" aria-selected="false" data-tab="profile">Perfil</button></li>
+      <li><button role="tab" aria-selected="false" data-tab="inv">Inventario</button></li>
     </ul>
     <ul class="nav tabs" id="subNav" role="tablist" aria-label="Más secciones">
       <li><button role="tab" aria-selected="false" data-tab="ranks">Rangos</button></li>
@@ -1090,6 +1128,7 @@ body:not(.playing) #chatTab{left:8px;right:auto}
       <p class="note">La clasificación global se guarda en el servidor y muestra tu mejor partida por mapa. «Mis partidas» solo existe en este navegador.</p>
     </div>
     <div class="tabpane" id="tab-ranks" hidden><div id="ranksBox"></div></div>
+    <div class="tabpane" id="tab-inv" hidden><div id="invBox"></div></div>   <!-- [INVENTARIO] -->
     <div class="tabpane" id="tab-store" hidden><div id="storeBox"></div></div>
     <div class="tabpane" id="tab-controls" hidden>
       <div class="keys">

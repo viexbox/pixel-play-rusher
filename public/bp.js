@@ -88,6 +88,99 @@
     if (st.level < level) return 'locked';
     return track === 'vip' && !st.vip ? 'vipoff' : 'ready';
   }
+  /* [3D] Vista 3D de una skin de arma: el mismo modelo que en la partida (con su neón), girable arrastrando y que gira solo si no lo tocas */
+  function open3d(skinId) {
+    const k = S.WEAPON_SKINS.find(x => x.id === skinId); if (!k || !P.gunPreview || !P.THREE) return;
+    const THREE = P.THREE, w = S.WEAPONS.find(x => x.id === k.w), rar = S.RARITY[k.r] || { n: '', c: '#9aa4b8' };
+    const ov = document.createElement('div'); ov.className = 'sk3d'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', k.n);
+    ov.innerHTML = '<div class="sk3d-card" style="--rc:' + rar.c + '"><div class="sk3d-bg"><i class="cl c1"></i><i class="cl c2"></i><i class="cl c3"></i><i class="bd b1"></i><i class="bd b2"></i><i class="bd b3"></i><i class="bd b4"></i><i class="ct"></i><i class="fl"></i></div>' +
+      '<canvas></canvas><span class="sk3d-rar">' + esc(rar.n.toUpperCase()) + '</span><b class="sk3d-n">' + esc(k.n) + '</b><span class="sk3d-w">' + esc(w ? w.name : '') + '</span>' +
+      '<span class="sk3d-hint">arrastra para girar</span><button type="button" class="sk3d-x" aria-label="Cerrar">✕</button></div>';
+    document.body.appendChild(ov);
+    const cv = ov.querySelector('canvas'); let ren;
+    try {   // sin gráficos 3D (o si algo falla al montarla), la ventana no se queda abierta y vacía
+    ren = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+    ren.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); ren.setClearColor(0x000000, 0);
+    const sc = new THREE.Scene(); sc.add(new THREE.AmbientLight(0xffffff, 0.8)); const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(2, 3, 4); sc.add(sun);
+    const g = P.gunPreview(k.w, k.id), piv = new THREE.Group(); piv.add(g); sc.add(piv);
+    const bb = new THREE.Box3().setFromObject(g), ctr = bb.getCenter(new THREE.Vector3()), sz = bb.getSize(new THREE.Vector3()); g.position.sub(ctr);
+    /* [3D] Piezas flotando sobre el arma (skins de neón y legendarias): agujas en fila a lo largo del arma, con el color de neón,
+       que suben, bajan y giran cada una a su ritmo y siguen al arma cuando la giras */
+    const shards = [], fx = k.neon ? k.neon.col : k.r === 'leyenda' ? (k.glow || k.acc) : null;
+    if (fx) {
+      const n = 6, len = sz.z, sc = 0.6 * Math.max(0.7, Math.min(1.3, len / 0.9)), tipM = new THREE.MeshBasicMaterial({ color: fx }), bodyM = new THREE.MeshBasicMaterial({ color: 0xe9eef7 });
+      const haloM = new THREE.MeshBasicMaterial({ color: fx, transparent: true, opacity: 0.22, depthWrite: false });
+      for (let i = 0; i < n; i++) {
+        const s1 = new THREE.Group();
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(0.011 * sc, 0.05 * sc, 4), tipM); tip.rotation.x = Math.PI; s1.add(tip);
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.004 * sc, 0.006 * sc, 0.03 * sc, 4), bodyM); body.position.y = 0.036 * sc; s1.add(body);
+        const halo = new THREE.Mesh(new THREE.ConeGeometry(0.022 * sc, 0.075 * sc, 6), haloM); halo.rotation.x = Math.PI; s1.add(halo);
+        s1.position.set(0, sz.y / 2 + 0.06 * sc, -len / 2 + len * (i + 0.5) / n); s1.userData = { y0: s1.position.y, ph: i * 1.1, sp: 1.6 + (i % 3) * 0.35 };
+        piv.add(s1); shards.push(s1);
+      }
+    }
+    const cam = new THREE.PerspectiveCamera(30, 1.6, 0.01, 50), L = Math.max(sz.x, sz.z), dist = Math.max(L * 1.35, sz.y * 3) + 0.05; cam.position.set(0, dist * 0.18, dist); cam.lookAt(0, 0, 0);
+    let yaw = -Math.PI / 2 + 0.35, pitch = 0.08, drag = null, idleAt = 0, last = performance.now(), alive = true;
+    const loop = t => { if (!alive) return; const dt = Math.min(0.05, (t - last) / 1000); last = t;
+      if (!drag && t - idleAt > 1500) yaw += dt * 0.5;
+      piv.rotation.set(pitch, yaw, 0);
+      const ts = t / 1000; for (const sh of shards) { const u = sh.userData; sh.position.y = u.y0 + Math.sin(ts * u.sp + u.ph) * 0.012; sh.rotation.y = ts * 1.2 + u.ph; }
+      const W = cv.clientWidth, H = cv.clientHeight; if (cv.width !== Math.round(W * ren.getPixelRatio()) || cv.height !== Math.round(H * ren.getPixelRatio())) { ren.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix(); }
+      ren.render(sc, cam); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+    cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, yaw, pitch }; cv.setPointerCapture(e.pointerId); });
+    cv.addEventListener('pointermove', e => { if (!drag) return; yaw = drag.yaw + (e.clientX - drag.x) * 0.01; pitch = Math.max(-0.6, Math.min(0.6, drag.pitch + (e.clientY - drag.y) * 0.006)); });
+    const up = () => { drag = null; idleAt = performance.now(); }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+    const close = () => { if (!alive) return; alive = false; document.removeEventListener('keydown', onKey, true); ren.dispose(); ov.remove(); };
+    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+    document.addEventListener('keydown', onKey, true);
+    ov.querySelector('.sk3d-x').addEventListener('click', close);
+    ov.addEventListener('click', e => { if (e.target === ov) close(); });
+    P.close3d = close;
+    } catch (e) { try { if (ren) ren.dispose(); } catch (e2) { /* nada */ } ov.remove(); }
+  }
+  /* [INVENTARIO] Todo lo que tienes: skins de armas y cuchillos, banners, mascotas y colores; con su rareza, para equiparlo y
+     (las skins de armas) verlo en 3D. Lo que tienes lo dice el servidor (inventario del pase + colores de la cuenta). */
+  let invFilter = 'all';
+  const INV_TYPES = [['all', 'Todo'], ['wskin', 'Armas'], ['kskin', 'Cuchillos'], ['banner', 'Banners'], ['pet', 'Mascotas'], ['color', 'Colores']];
+  function invItems() {
+    const out = [];
+    for (const it of (st && st.inventory) || []) {
+      if (it.t === 'pet') { const d = S.PETS.find(x => x.id === it.id); if (d) out.push({ t: 'pet', id: d.id, name: d.n, kind: 'Mascota', rar: S.RARITY[d.r], svg: P.petSvg ? P.petSvg(d) : '', slot: 'pet' }); continue; }
+      if (!['wskin', 'kskin', 'banner'].includes(it.t) || !S.bpFind(it)) continue;
+      const d = describe(it); out.push({ t: it.t, id: d.id, name: d.name, kind: d.kind, rar: d.rar, svg: d.svg, slot: d.equip });
+    }
+    for (const c of (P.unlockedColors ? P.unlockedColors() : [])) if (S.COLOR_COSTS[c] !== 0) out.push({ t: 'color', id: String(c), name: S.COLOR_NAMES[c], kind: S.COLOR_COSTS[c] === null ? 'Color exclusivo de rango' : 'Color', rar: S.RARITY[S.colorRarity(c)], svg: '<i class="swatch" style="background:' + S.COLOR_HEX[c] + '"></i>' });
+    return out.sort((a, b) => (b.rar ? b.rar.ord : 0) - (a.rar ? a.rar.ord : 0) || a.name.localeCompare(b.name));
+  }
+  function drawInv() {
+    const box = document.getElementById('invBox'); if (!box) return;
+    const all = invItems(), list = invFilter === 'all' ? all : all.filter(x => x.t === invFilter), cur = P.currentColor ? String(P.currentColor()) : '';
+    const count = n => n === 1 ? '1 objeto' : n + ' objetos';
+    box.innerHTML = '<div class="invhead"><b>Inventario</b><span>' + count(all.length) + '</span></div>' +
+      '<div class="invf" role="group" aria-label="Filtrar">' + INV_TYPES.map(([k, n]) => { const c = k === 'all' ? all.length : all.filter(x => x.t === k).length; return '<button type="button" data-invf="' + k + '" aria-pressed="' + (invFilter === k) + '">' + n + '<em>' + c + '</em></button>'; }).join('') + '</div>' +
+      (list.length ? '<div class="invgrid">' + list.map(x => {
+        const on = x.t === 'color' ? cur === x.id : !!(x.slot && st.equipped[x.slot] === x.id);
+        const btn = x.t === 'color' ? '<button type="button" data-invcol="' + x.id + '"' + (on ? ' class="on"' : '') + '>' + (on ? 'En uso' : 'Usar') + '</button>'
+          : '<button type="button" data-inveq="' + x.slot + '" data-invid="' + x.id + '"' + (on ? ' class="on"' : '') + '>' + (on ? 'Equipado ✓' : 'Equipar') + '</button>';
+        const v3d = x.t === 'wskin' && P.gunPreview;
+        return '<div class="rcard' + (on ? ' on' : '') + (v3d ? ' has3d' : '') + '" style="--rc:' + (x.rar ? x.rar.c : '#9aa4b8') + '"' + (v3d ? ' data-skin3d="' + x.id + '"' : '') + '><span class="rar">' + esc((x.rar ? x.rar.n : '').toUpperCase()) + '</span><div class="prev">' + x.svg + (v3d ? '<span class="v3d" title="Ver en 3D">3D</span>' : '') + '</div><b class="nm">' + esc(x.name) + '</b><span class="kind">' + esc(x.kind) + '</span><div class="act">' + btn + '</div></div>';
+      }).join('') + '</div>'
+      : '<p class="note">' + (all.length ? 'No tienes objetos de este tipo.' : 'Todavía no tienes objetos. Consíguelos en el Pase de Batalla, la Tienda o el Mercado.') + '</p>');
+  }
+  P.renderInventory = async () => {
+    const box = document.getElementById('invBox'); if (!box) return;
+    if (!P.acctToken()) { box.innerHTML = '<div class="invhead"><b>Inventario</b></div><p class="note warn">Inicia sesión con una cuenta online para tener inventario: tus skins, banners y mascotas se guardan en tu cuenta.</p>'; return; }
+    box.innerHTML = '<div class="invhead"><b>Inventario</b></div><p class="note">Cargando…</p>';
+    await load(); drawInv();
+  };
+  document.addEventListener('click', async e => {
+    const box = document.getElementById('invBox'); if (!box || !box.contains(e.target)) return;
+    const f = e.target.closest('[data-invf]'); if (f) { invFilter = f.dataset.invf; return drawInv(); }
+    const q = e.target.closest('[data-inveq]'); if (q) { await equip(q.dataset.inveq, q.dataset.invid, q.classList.contains('on')); return drawInv(); }
+    const c = e.target.closest('[data-invcol]'); if (c) { if (P.pickColor) P.pickColor(+c.dataset.invcol); return setTimeout(drawInv, 400); }
+    const s3 = e.target.closest('[data-skin3d]'); if (s3 && !e.target.closest('button')) open3d(s3.dataset.skin3d);
+  });
   function cardHtml(level, track) {
     const r = S.BP_TIERS[level - 1][track], d = describe(r), s = status(level, track);
     let act;
@@ -95,8 +188,9 @@
     else if (s === 'claimed') act = d.equip ? '<button type="button" class="equip' + (st.equipped[d.equip] === d.id ? ' on' : '') + '" data-equip="' + d.equip + '" data-item="' + d.id + '">' + (st.equipped[d.equip] === d.id ? 'Equipado ✓' : 'Equipar') + '</button>' : '<span class="st done">✓ Reclamado</span>';
     else if (s === 'vipoff') act = '<span class="st lock">Nv ' + level + ' · VIP</span>';
     else act = '<span class="st lock">Nivel ' + level + '</span>';
-    return '<div class="rcard ' + track + ' ' + s + (s === 'locked' ? ' locked' : '') + '" style="--rc:' + d.rar.c + '" data-l="' + level + '">' + (track === 'vip' && !(st && st.vip) ? LOCK : '') +
-      '<span class="rar">' + esc(d.rar.n.toUpperCase()) + '</span><div class="prev">' + d.svg + '</div><b class="nm">' + esc(d.name) + '</b><span class="kind">' + esc(d.kind) + '</span><div class="act">' + act + '</div></div>';
+    const v3d = r.t === 'wskin' && P.gunPreview;   // [3D] las skins de armas se pueden ver en 3D al pulsar la tarjeta
+    return '<div class="rcard ' + track + ' ' + s + (s === 'locked' ? ' locked' : '') + (v3d ? ' has3d' : '') + '" style="--rc:' + d.rar.c + '" data-l="' + level + '" data-t="' + track + '">' + (track === 'vip' && !(st && st.vip) ? LOCK : '') +
+      '<span class="rar">' + esc(d.rar.n.toUpperCase()) + '</span><div class="prev">' + d.svg + (v3d ? '<span class="v3d" title="Ver en 3D">3D</span>' : '') + '</div><b class="nm">' + esc(d.name) + '</b><span class="kind">' + esc(d.kind) + '</span><div class="act">' + act + '</div></div>';
   }
   function render() {
     const lv = st ? st.level : 1, vip = !!(st && st.vip);
@@ -172,7 +266,8 @@
   $('#psClaimAll').addEventListener('click', claimAll);
   $('#psScroll').addEventListener('click', e => {
     const c = e.target.closest('[data-claim]'); if (c) return claim(c.dataset.claim);
-    const q = e.target.closest('[data-equip]'); if (q) equip(q.dataset.equip, q.dataset.item, q.classList.contains('on'));
+    const q = e.target.closest('[data-equip]'); if (q) return equip(q.dataset.equip, q.dataset.item, q.classList.contains('on'));
+    const cd = e.target.closest('.rcard.has3d'); if (cd && !e.target.closest('button')) { const r = S.BP_TIERS[+cd.dataset.l - 1][cd.dataset.t]; if (r && r.t === 'wskin') open3d(r.id); }   // [3D]
   });
   $$('.nav button[data-tab=pass]').forEach(b => b.addEventListener('click', openPass));
   window.addEventListener('ppr-session', () => { load().then(() => { if (!$('#passScreen').hidden) render(); }); });   // al iniciar o cerrar sesión: skins, banner y estado al día

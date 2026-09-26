@@ -2207,7 +2207,7 @@ function renderDaily() {
 }
 
 /* --- Secciones, equipamiento y personalización --- */
-const TABS = ['maps', 'rank', 'ranks', 'store', 'controls', 'settings'];
+const TABS = ['maps', 'rank', 'ranks', 'store', 'inv', 'controls', 'settings'];   // [INVENTARIO] 'inv'
 function showTab(name) {
   $$('.nav button').forEach(x => x.setAttribute('aria-selected', String(x.dataset.tab === name)));
   TABS.forEach(t => { $('#tab-' + t).hidden = t !== name; });
@@ -2215,6 +2215,7 @@ function showTab(name) {
   if (name === 'rank') renderLeaderboard();
   if (name === 'ranks') renderRanks();
   if (name === 'store') renderStore();
+  if (name === 'inv' && window.PPR_BP.renderInventory) window.PPR_BP.renderInventory();   // [INVENTARIO]
 }
 function buildClassButtons() {
   $('#classes').innerHTML = WEAPONS.map((w, i) => '<button class="cls" data-i="' + i + '" aria-pressed="' + (i === cfg.cls) + '" title="' + esc(w.desc) + '"><span class="ic">' + weaponIcon(w) + '</span><span><b>' + esc(w.name) + '</b><small>' + esc(w.type) + '</small></span><span class="mt"><i style="--v:' + w.stats[0] * 20 + '%"></i><i style="--v:' + w.stats[1] * 20 + '%"></i><i style="--v:' + w.stats[2] * 20 + '%"></i></span></button>').join('');
@@ -2817,7 +2818,9 @@ if (!cfg.shadowsSet && renderer && isSoftwareGL()) cfg.shadows = false;
 buildMap(cfg.map); applyShadows(); initMenu(); resize(); setInterval(() => { if (state === 'menu') checkServer(); }, 15000); buildGun(WEAPONS[cfg.cls]); gun.visible = false;
 preloadGunModels();   // [NUEVO] modelos .glb reales: mientras cargan (o si fallan) el arma sigue viéndose con las cajas de siempre
 /* Puente para la pantalla del pase de batalla (bp.js) */
-Object.assign(window.PPR_BP, { limit: () => teamLimit, cfg, saveCfg, net: () => net, player: () => player, camera: () => camera, scene: () => scene, THREE, startSpectate, stopSpectate, specCycle, setSpecView: v => { net.specView = v; }, gunsOK, setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
+Object.assign(window.PPR_BP, { petSvg, unlockedColors: () => unlocked(), pickColor, currentColor: () => cfg.look.col,   // [INVENTARIO]
+  gunPreview: (wid, skinId) => { const w = WEAPONS.find(x => x.id === wid); return w ? gunModel(w, 0, null, skinId) : null; },   // [3D] el arma con su skin, igual que en la partida
+  limit: () => teamLimit, cfg, saveCfg, net: () => net, player: () => player, camera: () => camera, scene: () => scene, THREE, startSpectate, stopSpectate, specCycle, setSpecView: v => { net.specView = v; }, gunsOK, setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
   rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); setPreviewPet(); if ($('#petsBox')) renderPets(); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
 requestAnimationFrame(frame);
 })();
