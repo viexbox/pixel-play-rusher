@@ -40,8 +40,8 @@ const KILL_LIMIT = +process.env.KILL_LIMIT || S.CONST.KILL_LIMIT;
 const MAX_PER_ROOM = +process.env.MAX_PLAYERS_PER_ROOM || 10;
 const BREAK_SECS = +process.env.BREAK_SECS || 12;
 /* Equipos: azul (0) y rojo (1). La ronda acaba cuando un equipo suma estas bajas (o al acabar el tiempo: gana quien tenga más). */
-const TEAM_LIMIT = +process.env.TEAM_KILL_LIMIT || (process.env.KILL_LIMIT ? KILL_LIMIT : 40);
-const KNIFE_LIMIT = +process.env.KNIFE_KILL_LIMIT || 25;   // [NUEVO] bajas para ganar en «Solo cuchillos»
+const TEAM_LIMIT = +process.env.TEAM_KILL_LIMIT || (process.env.KILL_LIMIT ? KILL_LIMIT : 60);   // [PARTIDAS] 40 → 60: con partidas de 5 min, que no terminen antes por bajas
+const KNIFE_LIMIT = +process.env.KNIFE_KILL_LIMIT || 40;   // [NUEVO] bajas para ganar en «Solo cuchillos»
 const ZONE_LIMIT = +process.env.ZONE_LIMIT || S.ZONE.LIMIT, ZONE_MOVE = +process.env.ZONE_MOVE_SECS || S.ZONE.MOVE_SECS;   // puntos para ganar en «Capturar zona» y cada cuánto cambia de sitio
 const LADDER = S.GUN_LADDER.slice(0, +process.env.LADDER_LEVELS || S.GUN_LADDER.length);   // niveles de armas de la Carrera (acortable solo para pruebas)
 /* [NUEVO] Colisiones con paredes: el servidor rechaza posiciones dentro de un muro o que lo atraviesan (WALL_CHECK=0 lo desactiva; solo para pruebas con bots que caminan en línea recta) */
@@ -723,6 +723,10 @@ function onMessage(ws, m, now) {
     const map = Number.isInteger(m.map) && m.map >= 0 && m.map < S.MAPS.length ? m.map : 0;
     const cls = Number.isInteger(m.c) && m.c >= 0 && m.c < S.WEAPONS.length ? m.c : 0;
     const lk = Array.isArray(m.lk) && m.lk.length === 2 && m.lk.every(Number.isInteger) ? [clamp(m.lk[0], 0, 15), clamp(m.lk[1], 0, 4)] : null;
+    if (lk) {   // [RANGOS] el color que ven los demás: con cuenta, solo uno que tengas; sin cuenta, nunca uno exclusivo de rango
+      const c = lk[0], exclusive = c >= S.COLOR_COSTS.length || S.COLOR_COSTS[c] === null;
+      if (acct ? !(acct.unlocked || []).includes(c) : exclusive) lk[0] = 0;
+    }
     if (acct && acct.verified && !idt.role) idt = Object.assign({}, idt, { role: 'inf' });   // [NUEVO] cuenta verificada por el administrador: tic azul y beneficios sin clave
     const p = new Player(ws, idt.name, map, cls, ws.ip, lk, idt);
     p.wantTeam = m.tm === 0 || m.tm === 1 ? m.tm : null;   // [NUEVO] bando elegido al entrar a partida

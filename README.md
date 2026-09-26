@@ -173,8 +173,8 @@ Cada cuenta se guarda con un **UUID permanente**; el nombre de usuario es solo u
 
 | Variable | Por defecto | Para qué sirve |
 |---|---|---|
-| `KNIFE_KILL_LIMIT` | `25` | Bajas para ganar en «Solo cuchillos» |
-| `ZONE_LIMIT` / `ZONE_MOVE_SECS` | `100` / `50` | Puntos para ganar en «Capturar zona» y cada cuánto cambia de sitio |
+| `KNIFE_KILL_LIMIT` | `40` | Bajas para ganar en «Solo cuchillos» |
+| `ZONE_LIMIT` / `ZONE_MOVE_SECS` | `160` / `50` | Puntos para ganar en «Capturar zona» y cada cuánto cambia de sitio |
 | `SEASON_DAYS` | `30` | Duración de una temporada clasificatoria |
 | `RANKED_MIN_GAMES` | `5` | Partidas clasificatorias para cobrar el premio de temporada |
 | `TRADE_LOCK_HOURS` | `24` | Bloqueo de objetos recién conseguidos antes de venderlos o intercambiarlos |
@@ -279,8 +279,8 @@ También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con co
 |---|---|---|
 | `PORT` | `3000` | Puerto del servidor |
 | `DATA_DIR` | `./data` | Carpeta de `leaderboard.json` (haz copia de seguridad de este archivo) |
-| `MATCH_TIME` | `180` | Duración de cada partida en segundos |
-| `KILL_LIMIT` | `25` | Bajas necesarias para terminar antes de tiempo |
+| `MATCH_TIME` | `300` | Duración de cada partida en segundos (5 min) |
+| `KILL_LIMIT` / `TEAM_KILL_LIMIT` | `40` / `60` | Bajas para terminar antes de tiempo (entrenamiento / duelo por equipos) |
 | `BREAK_SECS` | `12` | Pausa con resultados entre partidas |
 | `MAX_PLAYERS_PER_ROOM` | `10` | Jugadores por sala (se crean salas nuevas al llenarse) |
 | `ALLOWED_ORIGINS` | *(mismo dominio)* | Orígenes admitidos para WebSocket y API si la web está en otro dominio |
