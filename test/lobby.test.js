@@ -59,7 +59,7 @@ const has = (b, f) => b.msgs.some(f);
     ok(/PixelPlayRusher/.test($('#brandHud').textContent), 'el HUD de la partida incluye el nombre del juego');
     ok($('#lobbyTL #name') && $('#lobbyTL #krTotal') && $('#lobbyTL #stK'), 'arriba a la derecha: perfil, estadísticas del jugador y contador de PX');
     const tabs = $$('.nav button').map(b => b.dataset.tab).sort().join();
-    ok($$('.nav button').length === 10 && tabs === 'controls,home,maps,market,pass,profile,rank,ranks,settings,store' && $$('#topNav button').length === 6 && $('#topNav button[data-tab=pass]') && $('#topNav button[data-tab=profile]') && $('#topNav button[data-tab=market]'), 'las 10 secciones siguen accesibles: 6 arriba en el centro y el resto en el perfil (Rangos, Mapas) y en la barra de abajo (Controles, Ajustes)');
+    ok($$('.nav button').length === 11 && tabs === 'controls,home,inv,maps,market,pass,profile,rank,ranks,settings,store' && $$('#topNav button').length === 7 && $('#topNav button[data-tab=inv]') && $('#topNav button[data-tab=pass]') && $('#topNav button[data-tab=profile]') && $('#topNav button[data-tab=market]'), 'las 11 secciones siguen accesibles (con Inventario): 7 en el menú y el resto en el perfil (Rangos, Mapas) y en la barra de abajo (Controles, Ajustes)');
     ok($('#lobbyNews #eventBox') && $('#lobbyNews #daily') && $('#lobbyNews #newsMap'), 'arriba a la izquierda: noticias (el mapa nuevo), evento de hoy y desafíos diarios');
     ok($('#lobbyPlay #serverBtn') && $('#lobbyPlay #onlineInfo') && $('#lobbyPlay #modeCards') && $('#lobbyPlay #modeBtn'), 'a la izquierda: servidor y modo de juego');
     ok($('#lobbyCenter .modebar #mapBtn') && $$('#lobbyCenter .modebar #diff button').length === 3, 'bajo los botones de jugar: mapa y dificultad de los bots');

@@ -87,6 +87,22 @@ const findColor = (g, hex) => { let f = false; g.traverse(o => { if (o.material 
     dragon().querySelector('[data-equip]').click(); ok(await until(() => dragon().querySelector('.equip.on')), 'equipar la skin Dragón (botón «Equipado ✓»)');
     const oro = () => A.$$('#psScroll .rcard').find(c => /Oro real/.test(c.textContent)); oro().querySelector('[data-equip]').click(); ok(await until(() => oro().querySelector('.equip.on')), 'y el cuchillo Oro real');
     ok(A.w.PPR_BP.equipped['weapon:ak'] === 'ak_dragon' && A.w.PPR_BP.equipped.knife === 'k_oro', 'el juego sabe lo equipado');
+    /* [INVENTARIO] sección con todo lo que tiene la cuenta */
+    { A.$('[data-tab=inv]').click(); await sleep(600);
+      const own = A.w.PPR_BP.state ? A.w.PPR_BP.state.inventory.length : -1, cards = A.$$('#invBox .rcard').length;
+      ok(A.$('[data-tab=inv]') && !A.$('#tab-inv').hidden && own > 0 && cards >= own, 'la sección Inventario lista todo lo que tiene la cuenta (' + cards + ' objetos, ' + own + ' del pase y mascotas)');
+      const fb = A.$('#invBox [data-invf=kskin]'); fb.click(); await sleep(50);
+      ok(A.$$('#invBox .rcard').length === A.w.PPR_BP.state.inventory.filter(i => i.t === 'kskin').length, 'el filtro «Cuchillos» deja solo las skins de cuchillo');
+      A.$('#invBox [data-invf=all]').click(); A.$('[data-tab=home]').click(); }
+    /* [3D] las skins de armas se pueden ver en 3D al pulsar su tarjeta */
+    { const WS = S.BP_TIERS.reduce((n, t) => n + (t.free.t === 'wskin') + (t.vip.t === 'wskin'), 0);
+      ok(A.$$('#psScroll .rcard.has3d').length === WS && A.$$('#psScroll .rcard.has3d .v3d').length === WS, 'las ' + WS + ' tarjetas de skins de armas llevan la etiqueta «3D»');
+      ok(A.$$('#psScroll .rcard.has3d').every(c => { const r = S.BP_TIERS[+c.dataset.l - 1][c.dataset.t]; return r && r.t === 'wskin'; }), 'y solo las de skins de armas (no las de PX, cuchillos ni banners)');
+      const c = A.$('#psScroll .rcard.has3d[data-l="35"][data-t="vip"]'); c.querySelector('.prev').click(); await sleep(60);
+      const ov = A.$('.sk3d');
+      ok(!ov || (/Osario/.test(ov.textContent) && /Asalto/.test(ov.textContent)), 'pulsar la de Osario abre su vista 3D con su nombre y su arma (o, sin gráficos 3D, no deja una ventana vacía)');
+      if (ov) { A.w.document.dispatchEvent(new A.w.KeyboardEvent('keydown', { key: 'Escape' })); await sleep(30); ok(!A.$('.sk3d'), 'Escape la cierra'); }
+    }
     A.$('#psClose').click(); A.$$('#classes .cls')[8].click(); A.$('#play').click(); A.$('#eqPlay').click(); ok(await until(() => A.T.state === 'playing'), 'empieza una partida con la AK');
     ok(findColor(A.T.gun, S.WEAPON_SKINS.find(k => k.id === 'ak_dragon').body) && findColor(A.T.gun, S.WEAPON_SKINS.find(k => k.id === 'ak_dragon').acc), 'el arma en primera persona lleva los colores de la skin Dragón');
     ok(findColor(A.T.knifeG, '#ffd23a') && findColor(A.T.knifeG, '#c4161f'), 'y el cuchillo lleva los colores del Oro real (hoja dorada, guarda roja)');
