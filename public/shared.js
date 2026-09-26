@@ -4,7 +4,7 @@
 'use strict';
 const TAU = Math.PI * 2;
 /* [AJUSTE estilo Krunker] Más velocidad, salto más seco y gravedad mayor (menos tiempo en el aire). El servidor vigila la velocidad con MOVE.MAX_H (15,5 m/s): el bunny hop llega a ~11 m/s, el deslizamiento a ~12,4 y un slide hop a ~14,9. */
-const CONST = { WALK: 7.4, SPRINT: 8.8, CROUCH: 4.2, JUMP: 8.6, GRAV: 27, STEP: 0.55, MATCH_TIME: 180, KILL_LIMIT: 25, RESPAWN: 3, SHOP_START_CASH: 800, SHOP_KILL_CASH: 350 };   // [NUEVO] economía de la tienda de armas
+const CONST = { WALK: 7.4, SPRINT: 8.8, CROUCH: 4.2, JUMP: 8.6, GRAV: 27, STEP: 0.55, MATCH_TIME: 300, KILL_LIMIT: 40, RESPAWN: 3, SHOP_START_CASH: 800, SHOP_KILL_CASH: 350 };   // [NUEVO] economía de la tienda de armas
 
 const WEAPONS = [
   { id: 'asalto', name: 'Asalto', type: 'Fusil de asalto', desc: 'Equilibrado y fiable a cualquier distancia.', dmg: 20, interval: 0.1, mag: 30, reload: 1.7, spread: 0.011, pellets: 1, range: 130, kick: 0.006, fall: null, aimFov: 0.78, speed: 1, stats: [3, 4, 4], col: '#ff5a5f', size: [0.07, 0.1, 0.5], look: { mag: [0.05, 0.16, 0.08, -0.3], barrel: 0.5 }, optics: ['punto', 'hierro'] },
@@ -76,7 +76,7 @@ function makeBuilder(onBox, cols) {
 
 const MAPS = [
   {
-    name: 'Nexus Outpost', half: 50,
+    name: 'Nexus Outpost', half: 58,   // [MAPA] antes 50: 116 × 116 m, con un anillo exterior de casetas en las que se puede entrar
     desc: 'Complejo táctico amurallado de 4 niveles: plaza elevada con torre de francotiradores, patio central, reactor en alto, red de tejados con helipuertos, centro tecnológico, armería y un punto de captura en la azotea.',
     sky: ['#2a86ff', '#cfe6ff'], fog: '#cfe6ff', floor: ['#7f8898', '#6f7888'], out: '#62c94a', pal: ['#aab2be', '#ff8a1f', '#3fd15a', '#3a9bff', '#ffd23f'],
     look: { floor: 'concfloor', outFloor: 'grass', wall: 'concrete', block: 'concrete', metal: 'metal', crate: 'crate', plat: 'concfloor', sun: '#fff4d6', decor: 'nexus', wallH: 8.5 },
@@ -92,6 +92,8 @@ const MAPS = [
     ],
     /* Nombres de las zonas del mapa (para el rótulo «estás en…»): el primero que encaje gana. y = altura de los pies. */
     areas: [
+      { n: 'Hut', x0: 51, x1: 56, z0: -28, z1: -22, y0: 0, y1: 3 }, { n: 'Hut', x0: 51, x1: 56, z0: 14, z1: 20, y0: 0, y1: 3 }, { n: 'Hut', x0: -56, x1: -51, z0: -28, z1: -22, y0: 0, y1: 3 }, { n: 'Hut', x0: -56, x1: -51, z0: 14, z1: 20, y0: 0, y1: 3 }, { n: 'Hut', x0: -14, x1: -8, z0: 51, z1: 56, y0: 0, y1: 3 }, { n: 'Hut', x0: 20, x1: 26, z0: 51, z1: 56, y0: 0, y1: 3 }, { n: 'Hut', x0: -14, x1: -8, z0: -56, z1: -51, y0: 0, y1: 3 }, { n: 'Hut', x0: 20, x1: 26, z0: -56, z1: -51, y0: 0, y1: 3 },    // [MAPA] casetas del anillo exterior
+      
       { n: 'Helipad A', x0: -44, x1: -35, z0: -47.5, z1: -38.5, y0: 4.5, y1: 9 }, { n: 'Helipad B', x0: -9, x1: 0, z0: -47.5, z1: -38.5, y0: 4.5, y1: 9 },
       { n: 'Tech Hub', x0: 32, x1: 48, z0: -48, z1: -30, y0: 4.5, y1: 9 }, { n: 'West Tower Roof', x0: 16, x1: 26, z0: -48, z1: -34, y0: 4.5, y1: 9 },
       { n: 'East Roof', x0: -46, x1: -22, z0: -48, z1: -30, y0: 4.5, y1: 9 },
@@ -115,7 +117,35 @@ const MAPS = [
       const bar = (x, z, alongX) => (alongX ? P(x - 1.6, x + 1.6, z - 0.25, z + 0.25, 0, 1.1, WD, 'wood') : P(x - 0.25, x + 0.25, z - 1.6, z + 1.6, 0, 1.1, WD, 'wood'));   // barricada baja de madera
       const rail = (x0, x1, z0, z1, y, c = GD) => P(x0, x1, z0, z1, y, y + 0.9, c, 'concrete');   // parapeto bajo
 
-      b.perimeter(50, 8.5, '#8d96a6');
+      b.perimeter(58, 8.5, '#8d96a6');   // [MAPA] el muro exterior pasa de 50 a 58 m: todo lo de dentro queda igual
+
+      /* ================= [MAPA] ANILLO EXTERIOR · casetas de madera en las que se puede entrar =================
+         6 × 5 m, paredes de 3 m, puerta de 2 m mirando al centro del mapa (alineada con la rejilla de 1 m de la
+         navegación, para que los bots también entren y salgan), ventana en un lateral para asomarse, una caja dentro
+         para cubrirse y techo encima. */
+      const HT = 0.3, HH = 3.0, HD = 2.4, HCOL = '#b07a45', HROOF = '#5a3f2a';
+      const hut = (x0, x1, z0, z1, door, win) => {
+        const side = (sd, open) => {
+          const alongZ = sd === 'xmin' || sd === 'xmax', a0 = alongZ ? z0 : x0, a1 = alongZ ? z1 : x1, c = (a0 + a1) / 2;
+          const bx = (b0, b1, y0, y1) => alongZ
+            ? P(sd === 'xmin' ? x0 : x1 - HT, sd === 'xmin' ? x0 + HT : x1, b0, b1, y0, y1, HCOL, 'wood')
+            : P(b0, b1, sd === 'zmin' ? z0 : z1 - HT, sd === 'zmin' ? z0 + HT : z1, y0, y1, HCOL, 'wood');
+          if (!open) { bx(a0, a1, 0, HH); return; }
+          const g0 = c - open.w / 2, g1 = c + open.w / 2;
+          bx(a0, g0, 0, HH); bx(g1, a1, 0, HH); if (open.y0 > 0) bx(g0, g1, 0, open.y0); bx(g0, g1, open.y1, HH);
+        };
+        for (const sd of ['xmin', 'xmax', 'zmin', 'zmax']) side(sd, sd === door ? { w: 2, y0: 0, y1: HD } : sd === win ? { w: 1.4, y0: 1.1, y1: 2.0 } : null);
+        P(x0 - 0.2, x1 + 0.2, z0 - 0.2, z1 + 0.2, HH, HH + 0.3, HROOF, 'wood');                                   // techo
+        const bxX = door === 'xmin' ? x1 - 1.1 : door === 'xmax' ? x0 + 1.1 : (x0 + x1) / 2 + 1.6;               // caja al fondo, lejos de la puerta
+        const bxZ = door === 'zmin' ? z1 - 1.1 : door === 'zmax' ? z0 + 1.1 : (z0 + z1) / 2 + 1.6;
+        crate(bxX, bxZ, 1.2, 1.1);
+      };
+      hut(51, 56, -28, -22, 'xmin', 'zmin'); hut(51, 56, 14, 20, 'xmin', 'zmax');         // este
+      hut(-56, -51, -28, -22, 'xmax', 'zmin'); hut(-56, -51, 14, 20, 'xmax', 'zmax');     // oeste
+      hut(-14, -8, 51, 56, 'zmin', 'xmin'); hut(20, 26, 51, 56, 'zmin', 'xmax');         // sur
+      hut(-14, -8, -56, -51, 'zmax', 'xmin'); hut(20, 26, -56, -51, 'zmax', 'xmax');     // norte
+      crate(53.5, -4, 2, 1.6); crate(-53.5, 34, 2, 1.6); crate(2, 53.5, 2, 1.6); crate(-30, -53.5, 2, 1.6);   // algo de cobertura por el anillo
+
       b.horizon(28, 78, 122, 14, 46, 8, 18, ['#8f99ad', '#a4adbf', '#7f8aa0']);   // los edificios de la ciudad al otro lado del muro
 
       /* ================= SPAWN RED · torre de francotiradores · Main Plaza ================= */
@@ -380,18 +410,18 @@ function buildWorld(i, onBox) {
 }
 
 /* Economía (PX) y progreso: se comparten con el servidor, que es quien reparte y cobra en las cuentas online. */
-const COLOR_COSTS = [0, 0, 0, 0, 150, 150, 300, 300, 500, 500];
+const COLOR_COSTS = [0, 0, 0, 0, 150, 150, 300, 300, 500, 500, null, null, null, null, null];   // [RANGOS] null = exclusivo de rango: no se compra ni se vende ni se intercambia
 /* [NUEVO] Los colores de pago (coste > 0) se pueden comerciar en el mercado; su rareza depende del coste. */
-const COLOR_NAMES = ['Naranja', 'Coral', 'Azul', 'Turquesa', 'Amarillo', 'Violeta', 'Cian', 'Lima', 'Carbón', 'Blanco'];
-const COLOR_HEX = ['#ff7b00', '#ff4d6d', '#3a86ff', '#2ec4b6', '#ffbe0b', '#b388ff', '#00c2ff', '#8ae234', '#3b4058', '#f2f5ff'];
-const colorRarity = i => (COLOR_COSTS[i] >= 500 ? 'epico' : COLOR_COSTS[i] >= 300 ? 'raro' : 'poco');
+const COLOR_NAMES = ['Naranja', 'Coral', 'Azul', 'Turquesa', 'Amarillo', 'Violeta', 'Cian', 'Lima', 'Carbón', 'Blanco', 'Plata', 'Oro', 'Platino', 'Diamante', 'Maestro'];
+const COLOR_HEX = ['#ff7b00', '#ff4d6d', '#3a86ff', '#2ec4b6', '#ffbe0b', '#b388ff', '#00c2ff', '#8ae234', '#3b4058', '#f2f5ff', '#c9d1e4', '#ffd54a', '#63e6ff', '#7aa2ff', '#ff4dd8'];
+const colorRarity = i => (COLOR_COSTS[i] === null ? 'leyenda' : COLOR_COSTS[i] >= 500 ? 'epico' : COLOR_COSTS[i] >= 300 ? 'raro' : 'poco');
 const RANKS = [
   { n: 'Bronce', pts: 0, col: '#cd7f32', kr: 50 },
-  { n: 'Plata', pts: 1500, col: '#c9d1e4', kr: 150 },
-  { n: 'Oro', pts: 5000, col: '#ffd54a', kr: 400, color: 5 },
-  { n: 'Platino', pts: 12000, col: '#63e6ff', kr: 800, color: 6 },
-  { n: 'Diamante', pts: 25000, col: '#7aa2ff', kr: 1500, color: 8 },
-  { n: 'Maestro', pts: 50000, col: '#ff4dd8', kr: 3000, color: 9 }
+  { n: 'Plata', pts: 1500, col: '#c9d1e4', kr: 150, color: 10 },   // [RANGOS] cada rango da un color exclusivo con su tono (antes eran colores
+  { n: 'Oro', pts: 5000, col: '#ffd54a', kr: 400, color: 11 },       // que también se vendían en la tienda por 150-500 PX, y Plata no daba ninguno)
+  { n: 'Platino', pts: 12000, col: '#63e6ff', kr: 800, color: 12 },
+  { n: 'Diamante', pts: 25000, col: '#7aa2ff', kr: 1500, color: 13 },
+  { n: 'Maestro', pts: 50000, col: '#ff4dd8', kr: 3000, color: 14 }
 ];
 const EVENTS = [
   { name: 'Fin de semana', desc: 'Doble PX en todas las partidas.', mult: 2 },
@@ -513,7 +543,7 @@ const MODES = {
   carrera:   { id: 'carrera',   name: 'Carrera de armas',  short: 'CARRERA',  desc: 'Cada baja te da un arma nueva. Al llegar al cuchillo, una baja más y tu equipo gana. Si te matan a cuchillo, bajas de nivel.', guns: true }
 };
 const GUN_LADDER = [8, 0, 9, 1, 7, 2, 10, 4, 6, 5, 3];   // armas por nivel (AK → … → Lince); tras la última viene el cuchillo (nivel 12)
-const ZONE = { R: 5.5, MOVE_SECS: 50, LIMIT: 100 };  // radio de la zona, cada cuánto cambia de sitio y puntos para ganar
+const ZONE = { R: 5.5, MOVE_SECS: 50, LIMIT: 160 };  // radio de la zona, cada cuánto cambia de sitio y puntos para ganar
 const LEAGUES = [
   { n: 'Hierro',   min: 0,    col: '#8a8f9e', cr: 0,    px: 0 },
   { n: 'Bronce',   min: 900,  col: '#cd7f32', cr: 150,  px: 0 },

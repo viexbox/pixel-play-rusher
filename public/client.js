@@ -58,7 +58,7 @@ const BOT_COLORS = ['#ff4d6d', '#3a86ff', '#2ec4b6', '#ffbe0b', '#b388ff', '#ff7
 const { WALK, SPRINT, CROUCH, JUMP, GRAV, STEP, MATCH_TIME, KILL_LIMIT, RESPAWN } = S.CONST;
 /* Equipos: azul (0) y rojo (1). Al entrar se reparte al azar; no hay fuego amigo y gana el equipo con más bajas. */
 const TEAMS = [{ n: 'AZUL', c: '#2f7bff' }, { n: 'ROJO', c: '#ff3b48' }];
-const OFFLINE_TEAM_LIMIT = 40;
+const OFFLINE_TEAM_LIMIT = 60;   // [PARTIDAS] igual que online
 let teamLimit = OFFLINE_TEAM_LIMIT;
 const tdot = t => '<i class="tdot t' + (t === 1 ? 1 : 0) + '"></i>';
 
@@ -1683,11 +1683,11 @@ function onWelcome(m) {
   if (curMap !== m.map) buildMap(m.map);
   clearFighters();
   if (m.spec) {   // espectador: sin jugador propio; la cámara sigue a los demás
-    player = newFighter('Espectador', true, '#ffffff'); player.alive = false; player.id = 0; fighters = [player]; bots = []; net.tk = m.tk || [0, 0]; teamLimit = m.lim || 40; m.players.forEach(addRemote);
+    player = newFighter('Espectador', true, '#ffffff'); player.alive = false; player.id = 0; fighters = [player]; bots = []; net.tk = m.tk || [0, 0]; teamLimit = m.lim || 60; m.players.forEach(addRemote);
     document.body.classList.remove('dead'); simTime = 0; timeLeft = m.tl; $('#menu').hidden = true; $('#end').hidden = true; $('#pause').hidden = true; hud.hidden = true; el.board.hidden = true; el.death.hidden = true; gun.visible = false; document.body.classList.remove('playing'); document.body.classList.add('spectating');
     state = 'spectate'; if (window.PPR_BP.onSpectate) window.PPR_BP.onSpectate(true); return;
   }
-  player = newFighter(m.n || cfg.name, true, '#ffc857'); player.rl = m.rl || 0; player.team = m.tm === 1 ? 1 : 0; net.tk = m.tk || [0, 0]; teamLimit = m.lim || 40;
+  player = newFighter(m.n || cfg.name, true, '#ffc857'); player.rl = m.rl || 0; player.team = m.tm === 1 ? 1 : 0; net.tk = m.tk || [0, 0]; teamLimit = m.lim || 60;
   player.id = m.id; player.wi = cfg.cls; player.alive = false; player.ammo = 0; player.reload = 0; player.fireCd = 0; player.slide = 0; player.aim = 0; player.eye = 1.6; player.meleeCd = 0;
   fighters = [player]; bots = [];
   m.players.forEach(addRemote);
@@ -2063,7 +2063,10 @@ K.kr = 'voltarena.v1.kr'; K.daily = 'voltarena.v1.daily'; K.unlock = 'voltarena.
 const COLORS = [
   { n: 'Naranja', c: '#ff7b00', cost: 0 }, { n: 'Coral', c: '#ff4d6d', cost: 0 }, { n: 'Azul', c: '#3a86ff', cost: 0 }, { n: 'Turquesa', c: '#2ec4b6', cost: 0 },
   { n: 'Amarillo', c: '#ffbe0b', cost: 150 }, { n: 'Violeta', c: '#b388ff', cost: 150 }, { n: 'Cian', c: '#00c2ff', cost: 300 }, { n: 'Lima', c: '#8ae234', cost: 300 },
-  { n: 'Carbón', c: '#3b4058', cost: 500 }, { n: 'Blanco', c: '#f2f5ff', cost: 500 }
+  { n: 'Carbón', c: '#3b4058', cost: 500 }, { n: 'Blanco', c: '#f2f5ff', cost: 500 },
+  /* [RANGOS] exclusivos de rango: sin precio (no se compran ni se venden) */
+  { n: 'Plata', c: '#c9d1e4', cost: null, rank: 1 }, { n: 'Oro', c: '#ffd54a', cost: null, rank: 2 }, { n: 'Platino', c: '#63e6ff', cost: null, rank: 3 },
+  { n: 'Diamante', c: '#7aa2ff', cost: null, rank: 4 }, { n: 'Maestro', c: '#ff4dd8', cost: null, rank: 5 }
 ];
 const FREE = [0, 1, 2, 3];
 const hs = { name: $('#hsName'), lvl: $('#hsLvl'), kd: $('#hsKD'), kr: $('#hsKr'), gain: $('#hsKrGain') };
@@ -2181,13 +2184,15 @@ function buildMapButtons() {
 }
 const unlocked = () => { if (remote) return remote.unlocked.slice(); const u = store.get(K.unlock, FREE); return Array.isArray(u) ? u : FREE; };
 function buildCustom() {
+  if (!remote) { const u0 = unlocked(); let ch = false; for (const ri of cfg.rankClaimed || []) { const r = RANKS[ri]; if (r && r.color != null && !u0.includes(r.color)) { u0.push(r.color); ch = true; } } if (ch) store.set(K.unlock, u0); }   // [RANGOS] invitados que ya reclamaron: su color exclusivo nuevo
   const un = unlocked(); if (!un.includes(cfg.look.col)) cfg.look.col = 0;
-  $('#swColors').innerHTML = COLORS.map((c, i) => { const ok = un.includes(i); return '<button class="cs' + (ok ? '' : ' locked') + '" data-i="' + i + '" style="--c:' + c.c + '" data-cost="' + (ok ? '' : c.cost + ' PX') + '" aria-pressed="' + (cfg.look.col === i) + '" aria-label="' + esc(c.n) + (ok ? '' : ', cuesta ' + c.cost + ' PX') + '"></button>'; }).join('');
+  $('#swColors').innerHTML = COLORS.map((c, i) => { const ok = un.includes(i); return '<button class="cs' + (ok ? '' : ' locked') + '" data-i="' + i + '" style="--c:' + c.c + '" data-cost="' + (ok ? '' : c.cost == null ? '★ ' + S.RANKS[c.rank].n : c.cost + ' PX') + '" aria-pressed="' + (cfg.look.col === i) + '" aria-label="' + esc(c.n) + (ok ? '' : ', cuesta ' + c.cost + ' PX') + '"></button>'; }).join('');
   $('#swColors').classList.toggle('hasLock', COLORS.some((c, i) => !un.includes(i)));
   $('#swSkins').innerHTML = SKINS.map((c, i) => '<button class="cs" data-i="' + i + '" style="--c:' + c + '" aria-pressed="' + (cfg.look.skin === i) + '" aria-label="Piel ' + (i + 1) + '"></button>').join('');
 }
 function pickColor(i) {
   const un = unlocked(), c = COLORS[i], msg = $('#custMsg');
+  if (c && c.cost == null && !un.includes(i)) { msg.textContent = 'Color exclusivo: se consigue al llegar al rango ' + S.RANKS[c.rank].n + '.'; return; }   // [RANGOS] ni se compra ni se desbloquea gratis
   if (remote && !un.includes(i)) { // el servidor cobra y desbloquea
     acctPost('api/me/unlock', { i }).then(j => { remote = j.profile; cfg.look.col = i; saveCfg(); msg.textContent = 'Desbloqueado: ' + c.n + ' (−' + c.cost + ' PX)'; renderKr(); buildCustom(); updatePreview(); }).catch(e => { msg.textContent = e.message; });
     return;
@@ -2287,7 +2292,7 @@ function selectMap(i) {
 /* --- Rangos y recompensas: se suben con los puntos acumulados y cada rango da PX y, en los altos, un color exclusivo --- */
 const RANKS = S.RANKS;
 const tierOf = pts => { let t = 0; RANKS.forEach((r, i) => { if (pts >= r.pts) t = i; }); return t; };
-const rewardText = r => '+' + fmtKr(r.kr) + ' PX' + (r.color != null ? ' · color «' + COLORS[r.color].n + '»' : '');
+const rewardText = r => '+' + fmtKr(r.kr) + ' PX' + (r.color != null ? ' · color exclusivo «' + COLORS[r.color].n + '»' : '');
 function claimRank(i) {
   const r = RANKS[i], pts = statsNow().points || 0;
   if (remote) { // en cuentas online reclama el servidor
