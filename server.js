@@ -7,7 +7,7 @@ if (process.env.DATABASE_URL && !global.__PPR_DB) {
     .catch(e => { console.error('No se pudo iniciar PostgreSQL:', e.message); process.exit(1); });
   return;
 }
-/* PixelPlayRusher · servidor online
+/* Krunxa · servidor online
    - Sirve la carpeta /public
    - WebSocket en /ws (salas por mapa, combate validado por el servidor)
    - API: /api/status y /api/leaderboard
@@ -26,6 +26,7 @@ const { createAccounts } = require('./server/accounts.js');
 const { createBattlePass } = require('./server/battlepass.js');
 const { createMarket } = require('./server/market.js');
 const { createSocial } = require('./server/social.js');
+const { createParty } = require('./server/party.js');   // [GRUPOS]
 const { createRanked } = require('./server/ranked.js');
 const { createEvents } = require('./server/events.js');
 const legal = require('./server/legal.js');
@@ -61,7 +62,7 @@ const LEAVE_MIN_MS = +process.env.RANKED_LEAVE_MS || 60000;   // tiempo mínimo 
 const MAX_CONN_PER_IP = +process.env.MAX_CONN_PER_IP || 8;
 const TRUST_PROXY = process.env.TRUST_PROXY; // '1' = confiar siempre, '0' = nunca, sin definir = solo si la conexión llega desde una red privada (proxy)
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
-const FILE_ORIGIN = process.env.ALLOW_FILE_ORIGIN !== '0';   // [NUEVO] el juego abierto desde un archivo local (pixel-play-rusher.html) manda «Origin: null»: se acepta para poder jugar online desde él (la API usa tokens, no cookies)
+const FILE_ORIGIN = process.env.ALLOW_FILE_ORIGIN !== '0';   // [NUEVO] el juego abierto desde un archivo local (krunxa.html) manda «Origin: null»: se acepta para poder jugar online desde él (la API usa tokens, no cookies)
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const RESPAWN_MS = S.CONST.RESPAWN * 1000;
 const PROTOCOL = 1;
@@ -342,6 +343,7 @@ class Room {
     if (this.tk[a.team] >= this.limit()) this.endRound(now);
   }
   assignTeam(p) {
+    if (p.forceTeam === 0 || p.forceTeam === 1) { p.team = p.forceTeam; return; }   // [GRUPOS] el grupo juega junto, en el mismo equipo
     let c0 = 0, c1 = 0; for (const o of this.players.values()) { if (o === p) continue; if (o.team === 0) c0++; else c1++; }
     if (p.wantTeam === 0 || p.wantTeam === 1) { const want = p.wantTeam, other = 1 - want, wc = want === 0 ? c0 : c1, oc = want === 0 ? c1 : c0;
       if (wc <= oc + 1) { p.team = want; return; } }   // [NUEVO] se respeta el bando elegido, salvo que ya le saque más de un jugador de ventaja al otro
@@ -351,7 +353,10 @@ class Room {
   rebalance() {
     const t = [[], []]; for (const p of this.players.values()) t[p.team].push(p);
     while (Math.abs(t[0].length - t[1].length) >= 2) {
-      const from = t[0].length > t[1].length ? 0 : 1, i = Math.floor(Math.random() * t[from].length), p = t[from].splice(i, 1)[0];
+      /* [GRUPOS] solo se mueve a quien no juega en grupo: un grupo nunca se separa (si el equipo grande es todo del grupo, se deja así
+         y los siguientes que entren van al otro equipo) */
+      const from = t[0].length > t[1].length ? 0 : 1, free = t[from].filter(x => x.forceTeam !== 0 && x.forceTeam !== 1); if (!free.length) break;
+      const p = free[Math.floor(Math.random() * free.length)]; t[from].splice(t[from].indexOf(p), 1);
       p.team = 1 - from; t[1 - from].push(p); this.broadcast({ t: 'team', id: p.id, tm: p.team });
     }
   }
@@ -672,6 +677,16 @@ const server = http.createServer((req, res) => {
    ===================================================================== */
 const wss = new WebSocketServer({ noServer: true, maxPayload: 4096, perMessageDeflate: false });
 const connections = new Set();
+/* [GRUPOS] las conexiones abiertas de una cuenta (en la lobby o en partida), para que las invitaciones lleguen al momento */
+const acctSockets = uid => [...connections].filter(ws => ws.readyState === 1 && (ws.acctId === uid || (ws.player && ws.player.acctUser && ws.player.acctUser.id === uid)));
+const party = createParty({ S, accounts: () => accounts, sockets: acctSockets, log, maxParty: +process.env.MAX_PARTY || 4 });
+const PARTY_T = new Set(['pget', 'pinv', 'pacc', 'pdec', 'pleave', 'pkick', 'plead', 'pready', 'pplay']);
+/* Sala para un grupo: del mismo mapa y modo (sin clasificatorio) y con sitio para todos a la vez; si no hay, una nueva */
+function findRoomFor(map, mode, need) {
+  const max = admin.settings.maxPerRoom || MAX_PER_ROOM;
+  for (const r of rooms.values()) if (r.map === map && r.mode === mode && !r.ranked && r.humanCount() + need <= max) return r;
+  return new Room(map, mode, false);
+}
 
 /* [NUEVO] Identidad de los jugadores sin cuenta: nombre libre para invitados y sesión única por cuenta */
 function freeGuestName(base) {
@@ -764,6 +779,7 @@ wss.on('connection', ws => {
     clearTimeout(helloTimer); connections.delete(ws); lobby.delete(ws);
     const n = (perIp.get(ip) || 1) - 1; if (n <= 0) perIp.delete(ip); else perIp.set(ip, n);
     if (ws.player && ws.player.room) ws.player.room.remove(ws.player);
+    { const uid = ws.acctId || (ws.player && ws.player.acctUser && ws.player.acctUser.id); if (uid) setTimeout(() => { if (!acctSockets(uid).length) party.leave(uid); }, +process.env.PARTY_GRACE_MS || 60000); }   // [GRUPOS] se sale del grupo si pasa un minuto sin conexión (no en el salto de la lobby a la partida)
     if (ws.spec) { const r = ws.spec.room; r.specs.delete(ws.spec); if (!r.players.size && !r.specs.size) rooms.delete(r.id); }
   });
   ws.on('error', () => {});
@@ -812,11 +828,24 @@ function onMessage(ws, m, now) {
     if (wantRanked && !acct) { ws.send(JSON.stringify({ t: 'err', m: 'Para jugar el clasificatorio necesitas una cuenta online.' })); return ws.close(); }
     p.mmr = acct ? ranked.mmrOf(acct) : 0;
     ws.player = p; lobby.delete(ws);
-    const joinedRoom = findRoom(map, mode, wantRanked, S.leagueIdx(p.mmr)); joinedRoom.add(p);
+    /* [GRUPOS] con billete de grupo: todos a la misma sala (con sitio para el grupo entero) y al mismo equipo */
+    const pc = acct && typeof m.pt === 'string' ? party.claim(acct.id, m.pt) : null;
+    let joinedRoom;
+    if (pc) {
+      let r = pc.go.room != null ? rooms.get(pc.go.room) : null;
+      if (!r || r.humanCount() >= (admin.settings.maxPerRoom || MAX_PER_ROOM)) { r = findRoomFor(pc.go.map, pc.go.mode, pc.need); pc.go.room = r.id; pc.go.team = null; }
+      if (pc.go.team == null) { let c0 = 0, c1 = 0; for (const o of r.players.values()) if (!o.isBot) { if (o.team === 0) c0++; else c1++; } pc.go.team = c0 <= c1 ? 0 : 1; }
+      p.forceTeam = pc.go.team; joinedRoom = r;
+    } else joinedRoom = findRoom(map, mode, wantRanked, S.leagueIdx(p.mmr));
+    joinedRoom.add(p);
     if (acct && bp && bp.equippedLook) bp.equippedLook(acct.id).then(sk => { if (!sk || !Object.keys(sk).length || !p.room) return; p.sk = sk; p.room.broadcast({ t: 'look', id: p.id, sk }); }).catch(() => {});   // [SKINS VISIBLES] las skins las decide el inventario, no el cliente
     if (acct && bp && bp.equippedPet) bp.equippedPet(acct.id).then(pet => { if (!pet || !p.room) return; p.pet = pet; p.room.broadcast({ t: 'pet', id: p.id, pt: pet }); }).catch(() => {});   // [NUEVO] mascota: la decide el inventario de la cuenta, no el cliente
     if (renamedNote) ws.send(JSON.stringify({ t: 'notice', kind: 'sys', m: renamedNote }));
     return;
+  }
+  if (PARTY_T.has(m.t)) {   // [GRUPOS] desde la lobby o desde la partida
+    const me = ws.player ? ws.player.acctUser : ws.acctId ? accounts.allUsers().find(u => u.id === ws.acctId) : null;
+    const r = party.handle(me || null, m); if (r) ws.send(JSON.stringify(r)); return;
   }
   if (m.t === 'lobby') { // canal de chat de la pantalla de inicio (sin partida)
     if (ws.player || ws.lobbyName || lobby.size >= 400) return;
@@ -869,7 +898,7 @@ function onMessage(ws, m, now) {
 }
 
 admin.ready.then(() => { if (admin.credentialsNotice) console.log(admin.credentialsNotice); }); // la contraseña generada solo va a la consola (no al registro del panel)
-server.listen(PORT, HOST, () => log('PixelPlayRusher escuchando en http://' + HOST + ':' + PORT + ' (partidas de ' + MATCH_TIME + ' s, ' + MAX_PER_ROOM + ' jugadores por sala)'));
+server.listen(PORT, HOST, () => log('Krunxa escuchando en http://' + HOST + ':' + PORT + ' (partidas de ' + MATCH_TIME + ' s, ' + MAX_PER_ROOM + ' jugadores por sala)'));
 
 function finish(code) { if (PGDB) PGDB.close().finally(() => process.exit(code)); else process.exit(code); }   // con PostgreSQL se espera a que terminen los guardados
 function shutdown() { log('Cerrando…'); lbSave(); admin.flushAll(); accounts.flush(); bp.flush(); finish(0); }

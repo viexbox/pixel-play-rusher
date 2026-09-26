@@ -1,10 +1,10 @@
-# Pixel Play Rusher · versión online
+# Krunxa · versión online
 
 Shooter en primera persona por bloques con **partidas online**, un mapa táctico de cuatro niveles (**Nexus Outpost**), 8 clases, cuchillo y **clasificación global**.
 Este paquete contiene el juego (navegador) y un servidor Node.js pequeño que hace de sala de juego.
 
 ```
-pixel-play-rusher/
+krunxa/
 ├─ server.js            Servidor: sirve la web, WebSocket (/ws) y API de clasificación
 ├─ package.json         Dependencias (solo «ws» en producción)
 ├─ public/              Todo lo que ve el navegador
@@ -21,7 +21,7 @@ pixel-play-rusher/
 
 ## 0. Jugar ya, sin instalar nada
 
-- **Con bots, en cualquier sitio:** abre `public/index.html` con doble clic (o sube la carpeta `public/` a tu hosting) y pulsa «Entrenar con bots». También tienes `pixel-play-rusher.html`, la misma versión en un solo archivo.
+- **Con bots, en cualquier sitio:** abre `public/index.html` con doble clic (o sube la carpeta `public/` a tu hosting) y pulsa «Entrenar con bots». También tienes `krunxa.html`, la misma versión en un solo archivo.
 - **Online con otros jugadores:** hace falta el servidor (secciones 1 a 5).
 
 ## Pantalla de inicio
@@ -145,7 +145,7 @@ Cada cuenta se guarda con un **UUID permanente**; el nombre de usuario es solo u
 
 **Robustez.** Al apagar el servidor ahora se vacían también los almacenes de temporadas, eventos, ofertas de intercambio y denuncias de perfil (antes podían perder hasta 1,5 s de cambios).
 
-**Jugar online desde el archivo HTML.** `pixel-play-rusher.html` no lleva servidor: para el modo online hay que indicarle dónde está el tuyo. Pulsa el botón **«Servidor»** del menú y escribe su dirección (`https://mi-juego.onrender.com`), o abre el archivo con `…/pixel-play-rusher.html?server=https://mi-juego.onrender.com` (se recuerda en ese navegador; `?server=` vacío lo borra). El servidor acepta las conexiones que vienen de un archivo local (`ALLOW_FILE_ORIGIN=0` lo desactiva) y sigue rechazando las de webs ajenas. La conexión espera hasta 25 s (un servidor gratuito dormido tarda en despertar) y el servidor da `HELLO_TIMEOUT_MS` (20 s) al cliente para saludar; si lo corta por tardar, el cliente reintenta solo. Una sala online necesita al menos 2 jugadores para empezar («Esperando rivales…»).
+**Jugar online desde el archivo HTML.** `krunxa.html` no lleva servidor: para el modo online hay que indicarle dónde está el tuyo. Pulsa el botón **«Servidor»** del menú y escribe su dirección (`https://mi-juego.onrender.com`), o abre el archivo con `…/krunxa.html?server=https://mi-juego.onrender.com` (se recuerda en ese navegador; `?server=` vacío lo borra). El servidor acepta las conexiones que vienen de un archivo local (`ALLOW_FILE_ORIGIN=0` lo desactiva) y sigue rechazando las de webs ajenas. La conexión espera hasta 25 s (un servidor gratuito dormido tarda en despertar) y el servidor da `HELLO_TIMEOUT_MS` (20 s) al cliente para saludar; si lo corta por tardar, el cliente reintenta solo. Una sala online necesita al menos 2 jugadores para empezar («Esperando rivales…»).
 
 **Las cuentas no se pierden.** Altas, pagos, PX y Créditos se escriben a disco (o a PostgreSQL) **al instante**. Cada archivo de datos guarda además su última copia buena (`.bak`); si un archivo aparece dañado (corte de luz a mitad de escritura) **nunca se sobrescribe en silencio**: se aparta como `.corrupt-<fecha>`, se recupera la copia buena y el registro lo avisa. Ninguna parte del código borra cuentas. **Importante:** en plataformas que vacían el disco al reiniciar o redesplegar (Render, Railway, Fly…) las cuentas guardadas en archivos **se pierden** salvo que uses PostgreSQL (`DATABASE_URL`) o un disco persistente (`DATA_DIR`); el servidor lo detecta, lo avisa en el registro y en el resumen del panel. Comprobado apagando el servidor en seco (kill -9) en archivos y en PostgreSQL.
 
@@ -231,10 +231,10 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo 
 sudo apt update && sudo apt install -y caddy
 ```
 
-**3. Sube el proyecto** (por ejemplo a `/opt/pixel-play-rusher`) y prepara las dependencias:
+**3. Sube el proyecto** (por ejemplo a `/opt/krunxa`) y prepara las dependencias:
 
 ```bash
-cd /opt/pixel-play-rusher
+cd /opt/krunxa
 npm install --omit=dev
 ```
 
@@ -242,7 +242,7 @@ npm install --omit=dev
 
 ```bash
 sudo npm install -g pm2
-pm2 start server.js --name pixel-play-rusher
+pm2 start server.js --name krunxa
 pm2 save && pm2 startup     # ejecuta el comando que te muestre para arrancar al reiniciar
 ```
 
@@ -252,7 +252,7 @@ pm2 save && pm2 startup     # ejecuta el comando que te muestre para arrancar al
 
 Comprueba `https://midominio.com`: el menú debe mostrar «N jugadores conectados». Salud del servidor: `https://midominio.com/healthz`.
 
-**Actualizar más adelante:** sube los archivos nuevos y ejecuta `pm2 restart pixel-play-rusher`.
+**Actualizar más adelante:** sube los archivos nuevos y ejecuta `pm2 restart krunxa`.
 
 ## 4. Opción B: plataformas (Render, Railway, Fly.io)
 
@@ -264,7 +264,7 @@ Comprueba `https://midominio.com`: el menú debe mostrar «N jugadores conectado
 4. **Dominio propio:** en el panel de la plataforma añade tu dominio; te dará un registro **CNAME** (o A) para crear en tu DNS. El HTTPS lo pone la plataforma.
 5. Los planes gratuitos suelen «dormir» el servicio tras un rato sin visitas, lo que interrumpe las partidas. Para jugar en serio usa un plan de pago o un VPS.
 
-También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con contenedores: `docker build -t pixel-play-rusher . && docker run -d -p 3000:3000 -v pixel-play-rusher-data:/data pixel-play-rusher`.
+También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con contenedores: `docker build -t krunxa . && docker run -d -p 3000:3000 -v krunxa-data:/data krunxa`.
 
 ## 5. Opción C: web en tu hosting y servidor en otro sitio
 
@@ -323,7 +323,7 @@ También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con co
 - **Un solo proceso:** no hay balanceo entre varios servidores; las salas viven en la memoria de esa instancia. Si se reinicia, las partidas en curso se cortan (la clasificación se conserva).
 - **HTTPS:** si la web va por `https`, el WebSocket va por `wss` automáticamente. Sin HTTPS los navegadores modernos bloquearán algunas funciones.
 - **Fuentes:** la página carga las fuentes desde Google Fonts. Si quieres evitar peticiones a terceros (por privacidad/RGPD), elimina el `<link>` de fuentes de `index.html`; el juego usa fuentes del sistema como alternativa.
-- **Marca y contenido:** Pixel Play Rusher es un juego original: el código, los mapas y las armas están escritos desde cero y usan tipos de arma genéricos. No incluye recursos de Krunker.io ni de nadie más.
+- **Marca y contenido:** Krunxa es un juego original: el código, los mapas y las armas están escritos desde cero y usan tipos de arma genéricos. No incluye recursos de Krunker.io ni de nadie más.
 
 ## 8. Personalizar
 
@@ -374,7 +374,7 @@ Quien controle ese buzón controla el panel: protege el correo con verificación
 ```bash
 npm install          # incluye jsdom para las pruebas
 npm test
-npm run build:single     # genera pixel-play-rusher.html, todo el juego en un solo archivo
+npm run build:single     # genera krunxa.html, todo el juego en un solo archivo
 ```
 
 Incluyen: HUD y mira del francotirador con el cliente real, API y archivos estáticos, protocolo, combate con compensación de latencia, límite de cadencia, anti-teletransporte, fin de ronda y clasificación persistente, el cliente real conectado al servidor real, orígenes y límites por IP. Con `node test/load.js 40 15` simulas carga.
