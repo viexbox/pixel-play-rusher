@@ -1,4 +1,4 @@
-/* PixelPlayRusher · Modos de juego, clasificatorio con temporadas y espectador.
+/* Krunxa · Modos de juego, clasificatorio con temporadas y espectador.
    Usa window.PPR_BP (puente con client.js). El servidor manda; aquí solo se elige, se dibuja y se avisa. */
 (function () {
   'use strict';

@@ -5,7 +5,7 @@ import { validateLogin, validateRegister, isAdminName } from '../../api/authServ
 const TEMPLATE = `
 <div class="auth-panel">
   <img class="auth-emblem" src="logo.jpg" width="72" height="72" alt="">
-  <h2 id="authTitle" class="auth-logo">PixelPlay<b>Rusher</b></h2>
+  <h2 id="authTitle" class="auth-logo">Krun<b>xa</b></h2>
   <p class="auth-tag">Arena de disparos por bloques</p>
   <div class="auth-tabs" role="tablist" aria-label="Acceso">
     <button type="button" role="tab" id="tabLogin" data-tab="login" aria-selected="true" aria-controls="loginForm">Entrar</button>

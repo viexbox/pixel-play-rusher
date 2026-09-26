@@ -6,7 +6,7 @@
     if (!box) {
       box = document.createElement('div'); box.setAttribute('role', 'alert');
       box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#7a0f22;color:#fff;font:14px/1.45 system-ui,Arial,sans-serif;padding:10px 14px;white-space:pre-wrap;max-height:45vh;overflow:auto;border-top:3px solid #ff5a6e';
-      box.textContent = '⚠ PixelPlayRusher no se ha cargado bien. Vuelve a subir los archivos de la carpeta «public» (sobre todo shared.js y client.js) y comprueba que no haya un package.json dentro de ella.';
+      box.textContent = '⚠ Krunxa no se ha cargado bien. Vuelve a subir los archivos de la carpeta «public» (sobre todo shared.js y client.js) y comprueba que no haya un package.json dentro de ella.';
       (document.body || document.documentElement).appendChild(box);
     }
     box.textContent += '\n• ' + msg;

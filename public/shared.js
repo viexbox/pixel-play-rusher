@@ -1,4 +1,4 @@
-/* PixelPlayRusher · código compartido entre el navegador y el servidor.
+/* Krunxa · código compartido entre el navegador y el servidor.
    Contiene armas, mapas, física y trazado de rayos. */
 (function (root) {
 'use strict';

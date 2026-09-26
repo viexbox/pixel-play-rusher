@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="src/ui/auth.css">
-<title>PixelPlayRusher · Arena de disparos por bloques</title>
+<title>Krunxa · Arena de disparos por bloques</title>
 <link rel="icon" href="favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="description" content="PixelPlayRusher: shooter en primera persona por bloques con partidas online, mapas, clases y clasificación global.">
+<meta name="description" content="Krunxa: shooter en primera persona por bloques con partidas online, mapas, clases y clasificación global.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Bungee&family=Exo+2:ital,wght@0,600;0,700;0,800;1,700;1,800;1,900&display=swap" rel="stylesheet">
@@ -844,7 +844,7 @@ body:not(.playing) #menu::before{content:'';position:absolute;inset:0;background
 /* centro: logo arriba, jugar en el medio */
 #lobbyCenter{inset:0;left:0;top:0;transform:none;width:auto;max-width:none;display:block}
 #brandTop{position:absolute;top:12px;left:50%;transform:translateX(-50%);white-space:nowrap}
-#brandTop .logo{flex-direction:row;align-items:baseline;transform:skewX(-6deg)}
+#brandTop .logo{flex-direction:row;align-items:baseline;justify-content:center;transform:skewX(-6deg)}   /* [NOMBRE] «Krunxa» es más corto: centrado sobre la franja */
 #brandTop .logo .l1,#brandTop .logo b{font-size:clamp(34px,4.6vw,72px);letter-spacing:.01em;margin:0}
 #brandTop .tag{margin-top:6px}
 #lobbyCenter .modes{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 760px));min-width:380px;margin:0}
@@ -852,15 +852,16 @@ body:not(.playing) #menu::before{content:'';position:absolute;inset:0;background
 #lobbyCenter .warn,#lobbyCenter .mail-banner{position:absolute;left:50%;top:calc(44% + clamp(112px,14vh,140px));transform:translateX(-50%);width:min(560px,calc(100vw - 760px));min-width:380px}
 /* noticias, evento y desafíos: arriba a la derecha */
 #lobbyLeft{top:12px;right:18px;left:auto;bottom:auto;width:min(360px,27vw);max-height:46vh}
-#lobbyNews{min-height:0;max-height:46vh;background:rgba(5,6,14,.62)}
+#lobbyNews{min-height:0;max-height:46vh;background:rgba(5,6,14,.62);overflow-y:auto;scrollbar-width:thin}   /* [REVISIÓN] si no caben, las noticias se desplazan (antes los desafíos quedaban cortados) */
 /* modos de juego: fila abajo en el centro */
-#lobbyPlay{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);width:min(760px,calc(100vw - 2*max(340px,24vw)));min-width:480px;z-index:6;display:flex;flex-direction:column;gap:6px;background:rgba(5,6,14,.55);padding:8px 12px}
+#lobbyPlay{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);width:min(920px,calc(100vw - 2*max(318px,23vw)));min-width:480px;z-index:6;display:flex;flex-direction:column;gap:6px;background:rgba(5,6,14,.55);padding:8px 12px}
 #lobbyPlay .tabh{display:none}
 #lobbyPlay .srvrow{display:flex;align-items:center;gap:10px;min-height:0}
 #lobbyPlay #onlineInfo{-webkit-line-clamp:1;font-size:11px}
-#lobbyPlay .modegrid{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+#lobbyPlay .modegrid{grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}   /* [REVISIÓN] 6 modos desde el de Navidad: todos en una fila (antes Clasificatorio bajaba solo a otra) */
 #lobbyPlay .mcard.wide{grid-column:auto}
-#lobbyPlay .mcard{height:34px;font-size:clamp(9px,.78vw,11px);padding:0 5px;gap:5px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden}
+#lobbyPlay .mcard{height:34px;font-size:clamp(8px,.7vw,11px);padding:0 5px;gap:5px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden}
+@media (max-width:1500px){#lobbyPlay .mcard i{display:none}#lobbyPlay .mcard{justify-content:center;padding:0 3px}}   /* [REVISIÓN] sin el cuadradito de color en pantallas medianas, para que quepa «CLASIFICATORIO» */
 #lobbyPlay .mcard i{width:16px;height:16px}
 #lobbyPlay #serverBtn{height:30px}
 #lobbyPlay #modeDesc{margin:0;padding:0;min-height:0;background:none;border:0;font-size:11px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -877,7 +878,8 @@ body.eqopen #lkChar,body.eqopen #lobbyLeft{visibility:hidden}
 /* [LOBBY] con una sección abierta (Tienda, Inventario…) los botones de jugar no asoman por detrás: una regla antigua los bajaba a la esquina */
 body.tabopen #lobbyCenter .modes,body.tabopen #lobbyCenter .modebar,body.tabopen #lobbyCenter .warn{visibility:hidden}
 /* [LOBBY] el panel de las secciones empieza debajo de la tira del perfil (antes tapaba «Cerrar sesión») y llega hasta la fila de modos */
-#lobbyC{top:clamp(158px,20vh,176px);bottom:160px}
+#lobbyC{top:clamp(158px,20vh,176px);bottom:24px}
+body.tabopen #lobbyPlay{visibility:hidden}   /* [REVISIÓN] con una sección abierta, el panel de modos no tapa la parte de abajo de la sección */
 /* [LOBBY] el menú izquierdo no pasa de su columna: el título del pase baja a otra línea si no cabe (antes se metía encima del panel) */
 #lkMenu{max-width:calc(var(--col) + var(--edge) - 4px)}
 #lkMenu .passrow{display:block;max-width:100%;white-space:normal;text-align:left;line-height:1.1;font-size:clamp(15px,1.45vw,22px)}
@@ -885,7 +887,7 @@ body.tabopen #lobbyCenter .modes,body.tabopen #lobbyCenter .modebar,body.tabopen
 /* iconos y enlaces legales: abajo a la derecha, bajo el personaje */
 #lobbyBar{left:auto;right:18px;transform:none;bottom:12px;width:min(300px,23vw)}
 /* chat: abajo a la izquierda */
-body:not(.playing) #chat{left:var(--edge);right:auto;width:min(320px,calc(24vw - 10px))}
+body:not(.playing) #chat{left:var(--edge);right:auto;width:min(300px,calc(22vw - 6px))}   /* [REVISIÓN] un poco más estrecho: deja sitio a los 6 modos */
 body:not(.playing) #chatTab{left:8px;right:auto}
 /* pantallas medianas: se quitan las noticias y el personaje antes de que se amontone todo */
 @media (max-width:1180px){#lobbyLeft,#lkChar{display:none}#lobbyPlay,#lobbyCenter .modes,#lobbyCenter .warn{width:min(620px,calc(100vw - 420px));min-width:0}#lobbyBar{width:auto}}
@@ -931,6 +933,30 @@ body:not(.playing) #chatTab{left:8px;right:auto}
 #xmasHud small{font-size:12px;letter-spacing:.1em;text-transform:uppercase;opacity:.9}
 #xmasHud .gpop{position:absolute;left:100%;top:0;margin-left:8px;font-size:18px;color:#ffd23f;animation:gpop .9s ease-out forwards;white-space:nowrap}
 @keyframes gpop{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-26px)}}
+
+/* [GRUPOS] el grupo va en el centro, encima de los modos y bajo el botón ONLINE, con los miembros uno al lado del otro (como en Krunker) */
+#partyBox{position:absolute;left:50%;bottom:calc(16px + 132px);transform:translateX(-50%);width:min(640px,calc(100vw - 2*max(318px,23vw)));min-width:420px;z-index:7;display:none;text-align:center}
+body:not(.playing):not(.tabopen):not(.eqopen) #partyBox{display:block}
+#partyBox .pt-inv{height:32px;padding:0 18px;font-family:'Bungee',var(--hudf);font-size:12px;color:#fff;background:rgba(5,6,14,.6);border:2px dashed rgba(255,255,255,.35)}
+#partyBox .pt-inv:hover{border-color:var(--volt);color:var(--volt)}
+#partyBox.on{background:rgba(5,6,14,.8);border:2px solid rgba(255,255,255,.18);padding:6px 8px;text-align:left}
+.pt-head{display:flex;justify-content:space-between;font-family:'Bungee',var(--hudf);font-size:12px;margin-bottom:4px}.pt-head span{opacity:.7}
+.pt-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.pt-row{position:relative;display:flex;align-items:center;gap:6px;padding:5px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);min-width:0}
+.pt-row.rdy{border-color:#3fd15a}
+.pt-av{flex:none;width:26px;height:26px;display:grid;place-items:center;background:#2a3350;font-weight:900;border-radius:4px}
+.pt-n{flex:1;min-width:0;display:flex;flex-direction:column}
+.pt-nm{display:flex;align-items:center;font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden}.pt-nm>span{overflow:hidden;text-overflow:ellipsis}.pt-nm svg{flex:none}
+.pt-n small{font-size:10px;font-weight:600;opacity:.7;white-space:nowrap}.pt-n em{color:#3fd15a;font-style:normal}
+.pt-crown{position:absolute;top:-9px;left:6px;font-style:normal;font-size:13px}
+.pt-kick{position:absolute;top:2px;right:2px;width:18px;height:18px;padding:0;font-size:10px;line-height:1;background:rgba(255,59,72,.3);border:1px solid #ff3b48;color:#fff}
+.pt-pend{font-size:11px;opacity:.75;margin:4px 0 0}
+.pt-acts{display:flex;gap:6px;margin-top:6px}.pt-acts button{flex:1;height:28px;font-weight:800;font-size:12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff}
+.pt-acts button.on{background:#3fd15a;color:#0a0a12}.pt-acts button.alt{background:rgba(255,59,72,.2);border-color:rgba(255,59,72,.6)}
+.pt-hint{font-size:10px;opacity:.6;margin:4px 0 0}
+#ptInvite{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:60;min-width:320px;padding:12px 14px;background:rgba(8,11,24,.96);border:2px solid var(--volt);box-shadow:0 10px 30px rgba(0,0,0,.5);text-align:center}
+#ptInvite p{margin:0 0 10px;font-size:15px}#ptInvite div{display:flex;gap:8px;justify-content:center}
+#ptInvite button{min-width:110px;height:34px;font-weight:900;background:var(--volt);color:#0a0a12;border:0}#ptInvite button.alt{background:rgba(255,255,255,.12);color:#fff}
 </style>
 </head>
 <body>
@@ -989,7 +1015,7 @@ body:not(.playing) #chatTab{left:8px;right:auto}
   <div id="banner" hidden>ESPERANDO RIVALES…</div>
   <aside id="lb"><header><span>CLASIFICACIÓN</span><span id="lbPlace">1/1</span></header><ol id="liveRows"></ol></aside>
 
-  <div id="brandHud">PixelPlay<b>Rusher</b></div>
+  <div id="brandHud">Krun<b>xa</b></div>
   <div id="killcard"></div>
   <div id="teamBanner"></div>
   <div id="toast"></div>
@@ -1051,7 +1077,7 @@ body:not(.playing) #chatTab{left:8px;right:auto}
   <!-- Centro: título y botones para jugar -->
   <div id="lobbyCenter">
     <header id="brandTop">
-      <h1 class="logo"><span class="l1">PixelPlay</span><b>Rusher</b></h1>
+      <h1 class="logo"><span class="l1">Krun</span><b>xa</b></h1>
       <p class="tag"><span>Arena de disparos por bloques</span></p>
     </header>
     <div class="modes" id="lobbyBC" aria-label="Modos de juego">
@@ -1064,7 +1090,7 @@ body:not(.playing) #chatTab{left:8px;right:auto}
     </div>
     <p id="mailBanner" class="mail-banner" hidden></p>
     <p class="warn" id="netMsg" hidden></p>
-    <p class="warn" id="touchWarn" hidden>PixelPlayRusher se juega con teclado y ratón. Ábrelo desde un ordenador.</p>
+    <p class="warn" id="touchWarn" hidden>Krunxa se juega con teclado y ratón. Ábrelo desde un ordenador.</p>
     <p class="warn" id="glWarn" hidden>Tu navegador no puede mostrar gráficos 3D (WebGL). Prueba con otro navegador o activa la aceleración por hardware.</p>
   </div>
 
@@ -1120,6 +1146,10 @@ body:not(.playing) #chatTab{left:8px;right:auto}
       </div>
     </section>
   </div>
+
+  <!-- [GRUPOS] el grupo con el que vas a jugar (encima del chat) y el aviso de invitación -->
+  <div id="partyBox" aria-label="Grupo"></div>
+  <div id="ptInvite" role="alertdialog" aria-label="Invitación a un grupo" hidden></div>
 
   <!-- [LOBBY] Abajo a la derecha: tu personaje con su arma -->
   <div id="lkChar">
