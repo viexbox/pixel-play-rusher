@@ -36,6 +36,10 @@ const PORT = +process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const MATCH_TIME = +process.env.MATCH_TIME || S.CONST.MATCH_TIME;
+/* [NAVIDAD] Modo del evento: 10 min, duendes neutrales que huyen y sueltan regalos al caer; gana el equipo con más regalos */
+const XMAS_TIME = +process.env.XMAS_TIME || 600;
+const XMAS = { elves: 6, hp: 60, walk: 3.2, run: 5.6, flee: 9, drop: 3, killDrop: 1, ttl: 30000, respawn: 6000, pickR: 1.4 };
+let elfSeq = 900000, giftSeq = 1;
 const KILL_LIMIT = +process.env.KILL_LIMIT || S.CONST.KILL_LIMIT;
 const MAX_PER_ROOM = +process.env.MAX_PLAYERS_PER_ROOM || 10;
 const BREAK_SECS = +process.env.BREAK_SECS || 12;
@@ -140,7 +144,7 @@ class Player {
     ws.send(str);
   }
   pub() {
-    return { pt: this.pet || '', id: this.id, n: this.name, c: this.cls, lk: this.lk, k: this.kills, d: this.deaths, p: this.points, alive: this.alive, rl: this.role || 0, tm: this.team, x: r3(this.x), y: r3(this.y), z: r3(this.z), yaw: r3(this.yaw), pitch: r3(this.pitch), h: this.h };
+    return { pt: this.pet || '', sk: this.sk || undefined, id: this.id, n: this.name, c: this.cls, lk: this.lk, k: this.kills, d: this.deaths, p: this.points, alive: this.alive, rl: this.role || 0, tm: this.team, x: r3(this.x), y: r3(this.y), z: r3(this.z), yaw: r3(this.yaw), pitch: r3(this.pitch), h: this.h };
   }
 }
 
@@ -165,6 +169,8 @@ class Room {
     this.id = roomSeq++; this.map = map; this.world = worlds[map];
     this.tk = [0, 0]; this.chatLog = []; this.players = new Map(); this.tl = MATCH_TIME; this.phase = 'play'; this.breakLeft = 0; this.boardT = 0; this.wait = true;
     rooms.set(this.id, this); this.newZone(Date.now(), true);
+    this.elves = new Map(); this.gifts = new Map();   // [NAVIDAD]
+    if (this.mode === 'navidad') { this.tl = XMAS_TIME; this.spawnElves(Date.now()); }
   }
   broadcast(obj, except) {
     const s = typeof obj === 'string' ? obj : JSON.stringify(obj);
@@ -172,7 +178,7 @@ class Room {
     for (const sp of this.specs) sp.send(s);   // los espectadores reciben todo
   }
   /* ---- [NUEVO] Modos de juego ---- */
-  limit() { return this.mode === 'zona' ? ZONE_LIMIT : this.mode === 'cuchillos' ? KNIFE_LIMIT : this.mode === 'carrera' ? LADDER.length + 1 : TEAM_LIMIT; }
+  limit() { return this.mode === 'navidad' ? 0 : this.mode === 'zona' ? ZONE_LIMIT : this.mode === 'cuchillos' ? KNIFE_LIMIT : this.mode === 'carrera' ? LADDER.length + 1 : TEAM_LIMIT; }
   classFor(p) { return this.mode === 'carrera' ? LADDER[Math.min(p.gl, LADDER.length - 1)] : p.nextCls; }
   gunsAllowed(p) { return this.mode === 'cuchillos' ? false : this.mode === 'carrera' ? p.gl < LADDER.length : true; }
   /* ---- [NUEVO] Bots de relleno ---- */
@@ -268,7 +274,62 @@ class Room {
     this.zoneT -= dt; if (this.zoneT <= 0) { this.zoneT = 0.5; this.broadcast({ t: 'zone', z: this.zoneMsg() }); }
     if (now >= this.zoneMoveAt) this.newZone(now);
   }
+  /* ---------- [NAVIDAD] duendes y regalos ---------- */
+  spawnElves(now) {
+    this.elves.clear();
+    for (let i = 0; i < XMAS.elves; i++) { const e = { isElf: true, id: elfSeq++, alive: true, hp: XMAS.hp, yaw: 0, respawnAt: 0 }; this.placeElf(e); this.elves.set(e.id, e); }
+    this.broadcast({ t: 'elves', e: [...this.elves.keys()] });
+  }
+  randomSpot() { const w = this.world.waypoints; const p = w[Math.floor(Math.random() * w.length)]; return [p[0], p[1]]; }
+  placeElf(e) {
+    const [x, z] = this.randomSpot(); e.x = x; e.y = 0; e.z = z; e.tgt = this.randomSpot(); e.best = Infinity; e.bestAt = 0; e.fleeAt = 0;
+    e.ent = { pos: { x, y: 0, z }, vel: { x: 0, y: 0, z: 0 }, hw: 0.28, h: 1.1, onGround: true };
+  }
+  xmasTick(now, dt) {
+    const nav = this.world.nav, alive = [...this.players.values()].filter(p => p.alive);
+    for (const e of this.elves.values()) {
+      if (!e.alive) { if (now >= e.respawnAt) { e.alive = true; e.hp = XMAS.hp; this.placeElf(e); } continue; }
+      let near = null, nd = Infinity; for (const p of alive) { const d = Math.hypot(p.x - e.x, p.z - e.z); if (d < nd) { nd = d; near = p; } }
+      const fleeing = nd < XMAS.flee;
+      if (fleeing && now >= e.fleeAt) {   // huye hacia el punto más lejano del jugador entre unos cuantos al azar
+        let best = null, bd = -1; for (let k = 0; k < 6; k++) { const c = this.randomSpot(), d = Math.hypot(c[0] - near.x, c[1] - near.z); if (d > bd) { bd = d; best = c; } }
+        e.tgt = best; e.fleeAt = now + 1200; e.best = Infinity;
+      }
+      const dt2 = Math.hypot(e.tgt[0] - e.x, e.tgt[1] - e.z);
+      if (dt2 < 1.4) { e.tgt = this.randomSpot(); e.best = Infinity; }
+      if (dt2 < e.best - 0.4) { e.best = dt2; e.bestAt = now; } else if (now - e.bestAt > 2500) { e.tgt = this.randomSpot(); e.best = Infinity; e.bestAt = now; }   // atascado: otro destino
+      let dir = nav ? S.navDir(nav, S.navField(nav, e.tgt[0], e.tgt[1], 0), e.x, e.z, e.y) : null;
+      if (!dir) { const l = dt2 || 1; dir = [(e.tgt[0] - e.x) / l, (e.tgt[1] - e.z) / l]; }
+      const sp = fleeing ? XMAS.run : XMAS.walk, l = Math.hypot(dir[0], dir[1]) || 1;
+      e.ent.vel.x = dir[0] / l * sp; e.ent.vel.z = dir[1] / l * sp;
+      S.moveEntity(this.world.colliders, e.ent, dt);
+      e.x = e.ent.pos.x; e.y = e.ent.pos.y; e.z = e.ent.pos.z; e.yaw = Math.atan2(dir[0], dir[1]);
+    }
+    for (const g of this.gifts.values()) {
+      if (now > g.exp) { this.gifts.delete(g.id); this.broadcast({ t: 'gdel', id: g.id }); continue; }
+      for (const p of alive) if (Math.hypot(p.x - g.x, p.z - g.z) < XMAS.pickR && Math.abs(p.y - g.y) < 1.6) {
+        this.gifts.delete(g.id); p.gifts = (p.gifts || 0) + 1; this.tk[p.team]++;
+        this.broadcast({ t: 'gpick', id: g.id, p: p.id, n: p.gifts, tk: this.tk }); break;
+      }
+    }
+  }
+  dropGifts(x, y, z, n, now) {
+    const add = [];
+    for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, r = n > 1 ? 0.6 + Math.random() * 0.6 : 0; const g = { id: giftSeq++, x: r3(x + Math.cos(a) * r), y: r3(y), z: r3(z + Math.sin(a) * r), exp: now + XMAS.ttl }; this.gifts.set(g.id, g); add.push([g.id, g.x, g.y, g.z]); }
+    this.broadcast({ t: 'gadd', g: add });
+  }
+  giftList() { return [...this.gifts.values()].map(g => [g.id, g.x, g.y, g.z]); }
+  elfDamage(e, a, amount, head, now) {
+    if (!e.alive || this.phase !== 'play') return;
+    e.hp -= amount; const killed = e.hp <= 0;
+    a.send(JSON.stringify({ t: 'hit', v: e.id, h: head ? 1 : 0, d: amount, k: killed ? 1 : 0, elf: 1 }));
+    if (!killed) return;
+    e.alive = false; e.respawnAt = now + XMAS.respawn; a.points += 50;
+    this.broadcast({ t: 'ekill', id: e.id, k: a.id });
+    this.dropGifts(e.x, e.y, e.z, XMAS.drop, now);
+  }
   onKill(a, v, wname, now) {
+    if (this.mode === 'navidad') { this.dropGifts(v.x, v.y, v.z, XMAS.killDrop, now); return; }   // [NAVIDAD] las bajas no suman: suman los regalos
     if (this.mode === 'zona') return;                                    // en la zona mandan los puntos de zona, no las bajas
     if (this.mode === 'carrera') {
       const last = LADDER.length, knife = wname === 'Cuchillo';
@@ -296,7 +357,7 @@ class Room {
   }
   add(p) {
     p.room = this; this.assignTeam(p); this.players.set(p.id, p); this.noteLone();
-    p.send(JSON.stringify({ t: 'welcome', v: PROTOCOL, id: p.id, n: p.name, rl: p.role || 0, tm: p.team, lim: this.limit(), mode: this.mode, rk: this.ranked ? 1 : 0, zone: this.zoneMsg(), tk: this.tk, room: this.id, map: this.map, cash: p.cash, shop: S.SHOP, tl: r3(this.tl), phase: this.phase, players: [...this.players.values()].filter(o => o !== p).map(o => o.pub()) }));
+    p.send(JSON.stringify({ t: 'welcome', v: PROTOCOL, id: p.id, n: p.name, rl: p.role || 0, tm: p.team, lim: this.limit(), mode: this.mode, rk: this.ranked ? 1 : 0, zone: this.zoneMsg(), tk: this.tk, room: this.id, g: this.mode === 'navidad' ? this.giftList() : undefined, el: this.mode === 'navidad' ? [...this.elves.keys()] : undefined, map: this.map, cash: p.cash, shop: S.SHOP, tl: r3(this.tl), phase: this.phase, players: [...this.players.values()].filter(o => o !== p).map(o => o.pub()) }));
     this.broadcast({ t: 'join', p: p.pub() }, p);
     this.spawn(p, Date.now(), 1500);
     this.sendBoard();
@@ -347,6 +408,7 @@ class Room {
     if (this.phase === 'play') {
       this.wait = this.players.size < 2;
       if (!this.wait) { this.tl -= dt; this.zoneTick(now, dt); }
+      if (this.mode === 'navidad') this.xmasTick(now, dt);   // [NAVIDAD]
       for (const p of this.players.values()) {
         if (!p.alive) { if (now >= p.respawnAt) this.spawn(p, now, 1500); }
         else if (now - p.lastHit > 4000 && p.hp < 100) p.hp = Math.min(100, p.hp + 18 * dt);
@@ -361,8 +423,9 @@ class Room {
     const arr = [];
     for (const p of this.players.values()) if (p.alive) arr.push([p.id, r3(p.x), r3(p.y), r3(p.z), r3(p.yaw), r3(p.pitch), r3(p.h)]);
     const sStr = JSON.stringify(arr), tl = Math.max(0, Math.round(this.tl * 10) / 10), w = this.wait ? 1 : 0;
-    for (const p of this.players.values()) p.send('{"t":"snap","tl":' + tl + ',"w":' + w + ',"hp":' + Math.round(p.hp) + ',"s":' + sStr + '}');
-    for (const sp of this.specs) sp.send('{"t":"snap","tl":' + tl + ',"w":' + w + ',"hp":0,"s":' + sStr + '}');
+    const eStr = this.mode === 'navidad' ? ',"e":' + JSON.stringify([...this.elves.values()].map(e => [e.id, r3(e.x), r3(e.y), r3(e.z), r3(e.yaw), e.alive ? 1 : 0])) : '';   // [NAVIDAD] duendes
+    for (const p of this.players.values()) p.send('{"t":"snap","tl":' + tl + ',"w":' + w + ',"hp":' + Math.round(p.hp) + ',"s":' + sStr + eStr + '}');
+    for (const sp of this.specs) sp.send('{"t":"snap","tl":' + tl + ',"w":' + w + ',"hp":0,"s":' + sStr + eStr + '}');
     if (this.specs.size && (this.specT = (this.specT || 0) + dt) >= 1) {   // cada segundo, estadísticas de cada jugador para el espectador: [id, disparos, aciertos, cabezas, correcciones, cadencia sospechosa, ping]
       this.specT = 0; const st = JSON.stringify({ t: 'sstats', p: [...this.players.values()].map(p => [p.id, p.shots, p.hits, p.hs, p.fixes, p.rlv, Math.round(p.ping), p.hp > 0 ? Math.round(p.hp) : 0, p.gl]) });
       for (const sp of this.specs) sp.send(st);
@@ -391,8 +454,9 @@ class Room {
     const votes = this.tally(), top = Math.max(...votes);          // el mapa más votado gana; en empate, al azar entre los empatados
     if (top > 0) { const win = votes.map((n, i) => (n === top ? i : -1)).filter(i => i >= 0), pick = win[Math.floor(Math.random() * win.length)]; if (pick !== this.map) { this.map = pick; this.world = worlds[pick]; this.broadcast({ t: 'map', map: pick }); } }
     this.phase = 'play'; this.tl = MATCH_TIME; this.tk = [0, 0]; this.zs = [0, 0]; this.newZone(now, true); this.rebalance();
-    for (const p of this.players.values()) { p.kills = p.deaths = p.points = p.hs = p.streak = p.bestStreak = 0; p.gl = 0; p.zt = 0; p.alive = false; p.roundStart = now; p.cash = S.CONST.SHOP_START_CASH; p.send(JSON.stringify({ t: 'cash', cash: p.cash })); }
-    this.broadcast({ t: 'round', tl: MATCH_TIME, lim: this.limit(), zone: this.zoneMsg(), nb: this.botCount() });
+    if (this.mode === 'navidad') { this.tl = XMAS_TIME; this.gifts.clear(); this.broadcast({ t: 'gclr' }); this.spawnElves(now); }   // [NAVIDAD]
+    for (const p of this.players.values()) { p.kills = p.deaths = p.points = p.hs = p.streak = p.bestStreak = p.gifts = 0; p.gl = 0; p.zt = 0; p.alive = false; p.roundStart = now; p.cash = S.CONST.SHOP_START_CASH; p.send(JSON.stringify({ t: 'cash', cash: p.cash })); }
+    this.broadcast({ t: 'round', tl: this.tl, lim: this.limit(), zone: this.zoneMsg(), nb: this.botCount() });
     for (const p of this.players.values()) this.spawn(p, now, 4000);
     this.sendBoard();
   }
@@ -400,6 +464,11 @@ class Room {
   /* --- Combate --- */
   hitscan(shooter, o, d, maxT, T, now) {
     let bestT = S.rayWorld(this.world.colliders, o, d, maxT), who = null, head = false;
+    if (this.mode === 'navidad') for (const e of this.elves.values()) {   // [NAVIDAD] los duendes son neutrales: les puede dar cualquiera
+      if (!e.alive) continue;
+      const th = S.raySphere(o, d, { x: e.x, y: e.y + 0.92, z: e.z }, 0.22), tb = S.rayCyl(o, d, e.x, e.z, 0.3, e.y, e.y + 0.75);
+      if (th < bestT && th <= tb + 0.05) { bestT = th; who = e; head = true; } else if (tb < bestT) { bestT = tb; who = e; head = false; }
+    }
     for (const v of this.players.values()) {
       if (v === shooter || v.team === shooter.team || !v.alive || v.protectUntil > now) continue;   // sin fuego amigo: los disparos atraviesan a los compañeros
       const pp = posAt(v, T);
@@ -411,6 +480,7 @@ class Room {
     return { t: bestT, who, head };
   }
   damage(v, a, amount, head, wname, now) {
+    if (v.isElf) return this.elfDamage(v, a, amount, head, now);   // [NAVIDAD]
     if (!v.alive || this.phase !== 'play' || v.team === a.team) return;
     v.hp -= amount; v.lastHit = now;
     const killed = v.hp <= 0;
@@ -539,8 +609,13 @@ function json(res, obj, code, origin) {
   res.end(JSON.stringify(obj));
 }
 /* [NUEVO] Aviso de almacenamiento: en plataformas que borran el disco al reiniciar o redesplegar (Render, Railway, Fly…) las cuentas guardadas en archivos se PIERDEN si no hay PostgreSQL ni un disco persistente (DATA_DIR) */
-const EPHEMERAL_HOST = !PGDB && !process.env.DATA_DIR ? ['RENDER', 'DYNO', 'FLY_APP_NAME', 'RAILWAY_ENVIRONMENT', 'K_SERVICE', 'VERCEL', 'NETLIFY'].find(k => process.env[k]) || '' : '';
-if (EPHEMERAL_HOST) console.log(new Date().toISOString(), '¡ATENCIÓN! Detectada la plataforma (' + EPHEMERAL_HOST + ') sin DATABASE_URL ni DATA_DIR: las cuentas se guardan en el disco del servidor, que allí se BORRA al reiniciar o redesplegar. Configura DATABASE_URL (PostgreSQL) o un disco persistente con DATA_DIR.');
+/* [RAILWAY] ¿Se pierden los datos al redesplegar? En Railway, el Dockerfile ya pone DATA_DIR=/data, así que antes este aviso no saltaba
+   nunca: /data solo se conserva si hay un volumen montado ahí. Railway lo indica en RAILWAY_VOLUME_MOUNT_PATH. */
+const ON_RAILWAY = !!(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID || process.env.RAILWAY_SERVICE_ID);
+const railVolOk = () => { const v = process.env.RAILWAY_VOLUME_MOUNT_PATH; if (!v) return false; const d = path.resolve(DATA_DIR), m = path.resolve(v); return d === m || d.startsWith(m + path.sep); };
+const EPHEMERAL_HOST = PGDB ? '' : ON_RAILWAY ? (railVolOk() ? '' : 'RAILWAY_ENVIRONMENT')
+  : !process.env.DATA_DIR ? ['RENDER', 'DYNO', 'FLY_APP_NAME', 'K_SERVICE', 'VERCEL', 'NETLIFY'].find(k => process.env[k]) || '' : '';
+if (EPHEMERAL_HOST) console.log(new Date().toISOString(), '¡ATENCIÓN! Detectada la plataforma (' + EPHEMERAL_HOST + ') sin DATABASE_URL ni un disco persistente montado en ' + DATA_DIR + ': las cuentas, los PX y las compras se guardan en un disco que allí se BORRA al reiniciar o redesplegar. Configura DATABASE_URL (PostgreSQL) o un disco persistente con DATA_DIR.');
 function status() {
   return { mail: accounts.mailOn(), terms: process.env.REQUIRE_TERMS !== '0', storage: { mode: PGDB ? 'postgres' : 'archivos', warn: !!EPHEMERAL_HOST, platform: EPHEMERAL_HOST }, protocol: PROTOCOL, admin: admin.adminUser, accounts: true, store: accounts.storeInfo().enabled, bp: true, market: true, social: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
 }
@@ -738,6 +813,7 @@ function onMessage(ws, m, now) {
     p.mmr = acct ? ranked.mmrOf(acct) : 0;
     ws.player = p; lobby.delete(ws);
     const joinedRoom = findRoom(map, mode, wantRanked, S.leagueIdx(p.mmr)); joinedRoom.add(p);
+    if (acct && bp && bp.equippedLook) bp.equippedLook(acct.id).then(sk => { if (!sk || !Object.keys(sk).length || !p.room) return; p.sk = sk; p.room.broadcast({ t: 'look', id: p.id, sk }); }).catch(() => {});   // [SKINS VISIBLES] las skins las decide el inventario, no el cliente
     if (acct && bp && bp.equippedPet) bp.equippedPet(acct.id).then(pet => { if (!pet || !p.room) return; p.pet = pet; p.room.broadcast({ t: 'pet', id: p.id, pt: pet }); }).catch(() => {});   // [NUEVO] mascota: la decide el inventario de la cuenta, no el cliente
     if (renamedNote) ws.send(JSON.stringify({ t: 'notice', kind: 'sys', m: renamedNote }));
     return;
