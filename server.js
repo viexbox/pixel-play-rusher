@@ -620,6 +620,15 @@ function clientIp(req) {
 const apiHits = new Map();
 setInterval(() => apiHits.clear(), 60000).unref();
 
+/* [SEO] Dirección pública del juego para canonical, Open Graph, robots.txt y sitemap: PUBLIC_URL si está definida (recomendado),
+   si no, el dominio con el que se ha pedido la página */
+const SITE_URL = String(process.env.PUBLIC_URL || '').replace(/\/+$/, '');
+function siteUrl(req) {
+  if (SITE_URL) return SITE_URL;
+  const host = String(req.headers.host || '').replace(/[^A-Za-z0-9.:\-\[\]]/g, '') || 'localhost';
+  const https = req.socket.encrypted || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
+  return (https ? 'https' : 'http') + '://' + host;
+}
 function json(res, obj, code, origin) {
   const h = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
   if (origin && (ALLOWED_ORIGINS.includes(origin) || (FILE_ORIGIN && origin === 'null'))) { h['Access-Control-Allow-Origin'] = origin; h['Vary'] = 'Origin'; }
@@ -651,6 +660,15 @@ const server = http.createServer((req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
   const p = url.pathname;
   if (p === '/healthz') { res.writeHead(200, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' }); return res.end('ok'); }   // [NUEVO] para el control de salud del hosting
+  if (p === '/robots.txt') {   // [SEO] los buscadores pueden indexar el juego, pero no el panel ni la API
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+    return res.end('User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ' + siteUrl(req) + '/sitemap.xml\n');
+  }
+  if (p === '/sitemap.xml') {
+    const base = siteUrl(req), u = (loc, pr) => '<url><loc>' + base + loc + '</loc><priority>' + pr + '</priority></url>';
+    res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+    return res.end('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + u('/', '1.0') + u('/privacidad', '0.3') + u('/terminos', '0.3') + '</urlset>\n');
+  }
   if (p === '/privacidad' || p === '/terminos') {   // [NUEVO] páginas legales (con los datos del titular de LEGAL_OWNER / LEGAL_EMAIL)
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'" });
     return res.end(p === '/privacidad' ? legal.privacy(process.env) : legal.terms(process.env));
@@ -680,6 +698,7 @@ const server = http.createServer((req, res) => {
     headers['Cache-Control'] = rel.startsWith('vendor') ? 'public, max-age=86400' : 'no-cache';
     if (ext === '.html') headers['Content-Security-Policy'] = CSP;
     if (rel === 'admin.html') headers['X-Robots-Tag'] = 'noindex, nofollow';
+    if (rel === 'index.html') data = Buffer.from(data.toString('utf8').split('__SITE_URL__').join(siteUrl(req)));   // [SEO] direcciones absolutas de canonical, Open Graph y Twitter
     res.writeHead(200, headers);
     res.end(req.method === 'HEAD' ? undefined : data);
   });

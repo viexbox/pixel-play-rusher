@@ -277,6 +277,15 @@ También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con co
 3. Edita `public/config.js`: `window.VOLT_CONFIG = { server: 'https://juego.midominio.com' };`
 4. Sube el contenido de `public/` a tu hosting (normalmente a `public_html`).
 
+## 5b. Buscadores y redes sociales (SEO)
+
+- **Define `PUBLIC_URL`** con tu dominio (`https://tudominio.com`, sin barra final). Con ella el servidor rellena la dirección canónica, las etiquetas Open Graph/Twitter (vista previa al compartir en WhatsApp, Discord, X…), `robots.txt` y `sitemap.xml`. Sin ella usa el dominio con el que se pide la página.
+- `/robots.txt` deja indexar el juego y bloquea `/admin` y `/api/`. `/sitemap.xml` lista la portada y las páginas legales.
+- Imagen al compartir: `public/og-image.jpg` (1200×630). Si cambias el mapa o el logo, sustitúyela por otra del mismo tamaño.
+- `public/manifest.webmanifest` e `icon-192.png`/`icon-512.png` permiten instalar el juego como aplicación desde Chrome/Edge.
+- Después de publicar: da de alta el dominio en **Google Search Console** y **Bing Webmaster Tools** y envía `https://tudominio.com/sitemap.xml`. Para probar la vista previa usa el [depurador de Facebook](https://developers.facebook.com/tools/debug/) o pega el enlace en Discord.
+- Las etiquetas están en `public/index.html` entre `<!-- SEO:` y `<!-- /SEO -->`; el archivo único (`build:single`) quita ese bloque.
+
 ## 6. Variables de entorno
 
 | Variable | Por defecto | Para qué sirve |

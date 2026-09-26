@@ -35,6 +35,8 @@ function replaceOnce(html, from, to) {
 }
 function build(opts = {}) {
   let html = read('index.html').replace('<script src="diag.js"></script>\n', '');   // el aviso de errores de carga solo hace falta con servidor
+  html = html.replace(/<!-- SEO:[\s\S]*?<!-- \/SEO -->\n/, '');   // canonical, Open Graph y manifiesto solo tienen sentido servidos desde el dominio
+  if (html.includes('__SITE_URL__')) throw new Error('Quedan marcadores __SITE_URL__ fuera del bloque SEO de index.html');
   const guard = (name, code) => { if (/<\/script/i.test(code)) throw new Error('«</script» dentro de ' + name); return code; };
   const three = opts.inlineThree ? '<script>\n' + guard('three', read('vendor/three.min.js')) + '\n</script>' : '<script src="' + (opts.three || 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js') + '"></script>';
   html = replaceOnce(html, '<script src="vendor/three.min.js"></script>', three);
