@@ -3,6 +3,7 @@
    Se ejecuta con PostgreSQL (si hay uno accesible en PG_TEST_URL) y con archivos. */
 const { spawn } = require('child_process'); const path = require('path'); const fs = require('fs');
 const S = require('../public/shared.js');
+const PASS_ITEMS = S.BP_TIERS.reduce((n, t) => n + (t.free.t !== 'px') + (t.vip.t !== 'px'), 0);   // objetos que da el pase entero (34 desde las skins de neón del VIP)
 const PG_URL = process.env.PG_TEST_URL || 'postgres://ppr:ppr_test@127.0.0.1:5432/ppr_test';
 let failed = 0; const ok = (c, m) => { console.log(c ? 'ok  ' : 'FALLO', m); if (!c) failed++; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -25,7 +26,7 @@ async function scenario(label, port, dir, dbUrl) {
   await adm('POST', '/px', { username: 'Vende_1', delta: 8000, reason: 'prueba' }); await adm('POST', '/px', { username: 'Compra_2', delta: 8000, reason: 'prueba' });
   await call('POST', '/api/bp/buy', {}, TA); await call('POST', '/api/bp/skip', { levels: 49 }, TA); await call('POST', '/api/bp/claim-all', {}, TA);
   await call('POST', '/api/bp/equip', { slot: 'weapon:ak', item: 'ak_dragon' }, TA); await call('POST', '/api/bp/equip', { slot: 'banner', item: 's1' }, TA);
-  ok((await inv(TA)).inventory.length === 23, 'Vende_1 parte con los 23 objetos del pase');
+  ok((await inv(TA)).inventory.length === PASS_ITEMS, 'Vende_1 parte con los ' + PASS_ITEMS + ' objetos del pase');
   r0 = await cred('Compra_2', 6000); ok(r0.status === 200 && r0.j.credits === 6000 && await cr(TB) === 6000, 'el panel ajusta Créditos (Compra_2: 6.000 CR)'); await cred('Otro_3', 6000); await cred('Vende_1', 10000);
   ok((await cred('Otro_3', -99999)).j.credits === 0 && (await cred('Otro_3', 6000)).j.credits === 6000, 'restar más de lo que hay deja el saldo en 0, nunca negativo');
   ok((await call('GET', '/api/me', null, TA)).j.profile.px === (await call('GET', '/api/me', null, TA)).j.profile.px && typeof (await call('GET', '/api/me', null, TA)).j.profile.credits === 'number', 'el perfil lleva dos monedas: PX y Créditos');
@@ -39,7 +40,7 @@ async function scenario(label, port, dir, dbUrl) {
   ok((await call('POST', '/api/market/list', { t: 'wskin', item: 'ak_dragon', price: 2000000 }, TA)).status === 400 && (await call('POST', '/api/market/list', { t: 'wskin', item: 'ak_dragon', price: -5 }, TA)).status === 400, 'y hay un tope de precio; los negativos se rechazan');
   r = await call('POST', '/api/market/list', { t: 'wskin', item: 'ak_dragon', price: 5000 }, TA); const L1 = r.j.id;
   ok(r.status === 200 && L1 > 0 && r.j.net === 4500, 'Vende_1 anuncia la AK Dragón a 5.000 CR (cobraría 4.500 tras la comisión)');
-  let sa = await inv(TA); ok(!sa.inventory.some(i => i.id === 'ak_dragon') && !sa.equipped['weapon:ak'] && sa.inventory.length === 22, 'el objeto sale del inventario y deja de estar equipado (queda en depósito en el anuncio)');
+  let sa = await inv(TA); ok(!sa.inventory.some(i => i.id === 'ak_dragon') && !sa.equipped['weapon:ak'] && sa.inventory.length === PASS_ITEMS - 1, 'el objeto sale del inventario y deja de estar equipado (queda en depósito en el anuncio)');
   ok((await call('POST', '/api/bp/equip', { slot: 'weapon:ak', item: 'ak_dragon' }, TA)).status === 403, 'y mientras está a la venta no se puede equipar');
   ok((await call('POST', '/api/market/list', { t: 'wskin', item: 'ak_dragon', price: 5000 }, TA)).status === 404, 'ni anunciar dos veces');
 
@@ -89,7 +90,7 @@ async function scenario(label, port, dir, dbUrl) {
   r = await call('POST', '/api/market/cancel', { id: lc.id }, TA); ok(r.status === 200 && r.j.state.inventory.some(i => i.id === 'duo_oro'), 'Vende_1 retira su anuncio y el objeto vuelve a su inventario');
   ok((await call('POST', '/api/market/cancel', { id: lc.id }, TA)).status === 404, 'y no se puede retirar dos veces');
   /* ---- conservación de objetos ---- */
-  const nList = (await call('GET', '/api/market?mine=1', null, TA)).j.total, nInv = (await inv(TA)).inventory.length; ok(nList + nInv === 23 - 3, 'los objetos ni se crean ni se pierden: inventario (' + nInv + ') + anuncios (' + nList + ') = 20 (23 menos las 3 ventas)');
+  const nList = (await call('GET', '/api/market?mine=1', null, TA)).j.total, nInv = (await inv(TA)).inventory.length; ok(nList + nInv === PASS_ITEMS - 3, 'los objetos ni se crean ni se pierden: inventario (' + nInv + ') + anuncios (' + nList + ') = ' + (PASS_ITEMS - 3) + ' (' + PASS_ITEMS + ' menos las 3 ventas)');
 
   /* ---- panel ---- */
   const pl = (await adm('GET', '/market')).j; ok(pl.listings.length >= 1 && pl.sales >= 2, 'el panel ve los anuncios y cuenta las ventas (' + pl.sales + ')');

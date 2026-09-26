@@ -82,7 +82,8 @@ function boot(languages, saved) {
     ['Kraken', 'Kraken', 'los nombres de los bots no se tocan'],
     ['¿Comprar Dron Z-3 por 1500 PX?', 'Buy Drone Z-3 for 1500 PX?', 'confirmación de compra de una mascota'],
     ['Comprar · 5000 PX', 'Buy · 5000 PX', 'botón de comprar mascota'],
-    ['Te faltan 4350 PX.', 'You need 4350 more PX.', 'aviso de saldo insuficiente']
+    ['Te faltan 4350 PX.', 'You need 4350 more PX.', 'aviso de saldo insuficiente'],
+    ['Osario · Skin · Asalto', 'Ossuary · Skin · Assault', 'nombre de una skin de neón del Pase VIP']
   ];
   for (const [es, want, why] of cases) { const got = T(es); ok(got === want, why + ': «' + es + '» → «' + got + '»'); }
   en.confirm('¿Bloquear a Zoe_7? Se romperá la amistad y no podrá enviarte solicitudes.');

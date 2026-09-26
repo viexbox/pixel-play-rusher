@@ -70,7 +70,7 @@ async function scenario(label, port, dir, dbUrl) {
   const wantPx = S.BP_TIERS.reduce((n, t) => n + (t.free.t === 'px' ? t.free.n : 0) + (t.vip.t === 'px' ? t.vip.n : 0), 0) - 8;   // todo menos lo ya reclamado (nivel 1 gratis)
   ok(r.status === 200 && r.j.claimed.length === 100 - 2 && r.j.state.claims.length === 100, 'reclamar todo: las 98 recompensas pendientes (50 niveles × 2 filas)');
   ok(await px(TA) === pBefore + wantPx, 'y suma exactamente los PX del pase (' + wantPx + ')');
-  const inv = r.j.state.inventory; ok(inv.filter(i => i.t === 'wskin').length === 15 && inv.filter(i => i.t === 'kskin').length === 7 && inv.filter(i => i.t === 'banner').length === 1, 'el inventario tiene las 15 skins de armas, las 7 de cuchillo y el banner');
+  const inv = r.j.state.inventory; const WS = S.BP_TIERS.reduce((n, t) => n + (t.free.t === 'wskin') + (t.vip.t === 'wskin'), 0); ok(inv.filter(i => i.t === 'wskin').length === WS && WS === 26 && inv.filter(i => i.t === 'kskin').length === 7 && inv.filter(i => i.t === 'banner').length === 1, 'el inventario tiene las ' + WS + ' skins de armas (15 de antes + 11 de neón del VIP), las 7 de cuchillo y el banner');
   ok((await call('POST', '/api/bp/claim-all', {}, TA)).status === 400, 'una segunda vez no hay nada pendiente');
 
   /* ---- equipar ---- */
@@ -126,7 +126,7 @@ async function scenario(label, port, dir, dbUrl) {
     const zoe = (await q("SELECT name FROM app_docs WHERE name='accounts.json'")).length; const users = (await q("SELECT data->'users' AS u FROM app_docs WHERE name='accounts.json'"))[0].u; const zid = Object.values(users).find(u => u.username === 'Zoe_7').id;   // las cuentas se guardan por UUID
     const row = (await q('SELECT xp, level, vip FROM bp_progress WHERE user_id = $1 AND season = 1', [zid]))[0];
     ok(zoe === 1 && row.level === 50 && row.vip === true && row.xp === S.bpTotalXp(50), 'en PostgreSQL: bp_progress guarda nivel 50, VIP y la XP exacta; las cuentas están en app_docs');
-    ok((await q('SELECT count(*)::int AS n FROM bp_claims WHERE user_id = $1', [zid]))[0].n === 100 && (await q('SELECT count(*)::int AS n FROM bp_inventory WHERE user_id = $1', [zid]))[0].n === 23 && (await q('SELECT count(*)::int AS n FROM bp_equipped WHERE user_id = $1', [zid]))[0].n === 3 && (await q('SELECT count(*)::int AS n FROM bp_gifts'))[0].n === 1, 'bp_claims (100), bp_inventory (23), bp_equipped (3) y bp_gifts (1) con los datos esperados');
+    ok((await q('SELECT count(*)::int AS n FROM bp_claims WHERE user_id = $1', [zid]))[0].n === 100 && (await q('SELECT count(*)::int AS n FROM bp_inventory WHERE user_id = $1', [zid]))[0].n === 34 && (await q('SELECT count(*)::int AS n FROM bp_equipped WHERE user_id = $1', [zid]))[0].n === 3 && (await q('SELECT count(*)::int AS n FROM bp_gifts'))[0].n === 1, 'bp_claims (100), bp_inventory (34, con las 11 de neón), bp_equipped (3) y bp_gifts (1) con los datos esperados');
     let dup = ''; try { await c.query("INSERT INTO bp_claims (user_id, season, level, track, item_type, item_id) VALUES ($1, 1, 1, 'free', 'px', '8')", [zid]); } catch (e) { dup = e.code; }
     ok(dup === '23505', 'la propia base de datos impide reclamar dos veces (clave única): error ' + dup);
     let bad = ''; try { await c.query("INSERT INTO bp_progress (user_id, season, xp, level) VALUES (999, 1, -5, 1)"); } catch (e) { bad = e.code; }

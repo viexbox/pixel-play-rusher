@@ -3,6 +3,7 @@
    Se ejecuta con PostgreSQL (si hay uno accesible) y con archivos. El bloqueo y la caducidad se acortan por variables de entorno. */
 const { spawn } = require('child_process'); const path = require('path'); const fs = require('fs');
 const S = require('../public/shared.js');
+const PASS_ITEMS = S.BP_TIERS.reduce((n, t) => n + (t.free.t !== 'px') + (t.vip.t !== 'px'), 0);   // objetos que da el pase entero (34 desde las skins de neón del VIP)
 const PG_URL = process.env.PG_TEST_URL || 'postgres://ppr:ppr_test@127.0.0.1:5432/ppr_test';
 let failed = 0; const ok = (c, m) => { console.log(c ? 'ok  ' : 'FALLO', m); if (!c) failed++; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -27,7 +28,7 @@ async function scenario(label, port, dir, dbUrl) {
   await adm('POST', '/px', { username: 'Vende_1', delta: 9000, reason: 't' }); await adm('POST', '/px', { username: 'Compra_2', delta: 3000, reason: 't' });
   for (const [u, d] of [['Vende_1', 20000], ['Compra_2', 20000], ['Otro_3', 20000]]) await adm('POST', '/credits', { username: u, delta: d, reason: 't' });
   await call('POST', '/api/bp/buy', {}, TA); await call('POST', '/api/bp/skip', { levels: 49 }, TA); await call('POST', '/api/bp/claim-all', {}, TA);
-  ok((await inv(TA)).inventory.length === 23, 'Vende_1 tiene los 23 objetos del pase (recién reclamados)');
+  ok((await inv(TA)).inventory.length === PASS_ITEMS, 'Vende_1 tiene los ' + PASS_ITEMS + ' objetos del pase (recién reclamados)');
   ok((await mkt(TB)).j.lock === Math.round(LOCK_MS), 'el mercado informa del bloqueo (' + Math.round(LOCK_MS / 1000) + ' s en la prueba; 24 h por defecto)');
 
   /* ---- bloqueo ---- */

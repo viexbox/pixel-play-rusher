@@ -48,6 +48,16 @@ function pgStore(pool, S) {
         return true;
       });
     },
+    /* [NEÓN] Un nivel reclamado cuando daba PX y que ahora da un objeto: se apunta el objeto en el MISMO registro y se entrega.
+       Solo si la fila sigue siendo de PX (WHERE item_type = 'px'), así pasa una única vez aunque luego vendas el objeto. */
+    upgradeClaim(uid, level, track, r) {
+      return tx(async c => {
+        const up = await c.query("UPDATE bp_claims SET item_type = $5, item_id = $6 WHERE user_id = $1 AND season = $2 AND level = $3 AND track = $4 AND item_type = 'px'", [uid, SEASON, level, track, r.t, r.id]);
+        if (!up.rowCount) return false;
+        await c.query('INSERT INTO bp_inventory (user_id, item_type, item_id, source) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING', [uid, r.t, r.id, 'pase-s' + SEASON + '-' + track + '-' + level]);
+        return true;
+      });
+    },
     async grantVip(uid, giftedBy) {
       const r = await pool.query('INSERT INTO bp_progress (user_id, season, vip, vip_since, gifted_by) VALUES ($1, $2, TRUE, now(), $3) ON CONFLICT (user_id, season) DO UPDATE SET vip = TRUE, vip_since = now(), gifted_by = $3, updated_at = now() WHERE bp_progress.vip = FALSE',
         [uid, SEASON, giftedBy || null]);
@@ -152,6 +162,12 @@ function fileStore(dataDir, log, S) {
       if (r.t !== 'px') u.inventory[r.t + ':' + r.id] = u.inventory[r.t + ':' + r.id] || { t: r.t, id: r.id, source: 'pase-s' + SEASON + '-' + track + '-' + level, ts: Date.now() };
       st.save(); return true;
     },
+    async upgradeClaim(uid, level, track, r) {   // [NEÓN] ver la versión de PostgreSQL
+      const u = U(uid), k = level + ':' + track, c = u.claims[k]; if (!c || c.t !== 'px') return false;
+      u.claims[k] = { t: r.t, id: r.id, ts: c.ts, was: 'px:' + c.id };
+      u.inventory[r.t + ':' + r.id] = u.inventory[r.t + ':' + r.id] || { t: r.t, id: r.id, source: 'pase-s' + SEASON + '-' + track + '-' + level, ts: Date.now() };
+      st.save(); return true;
+    },
     async grantVip(uid, giftedBy) { const u = U(uid); if (u.vip) return false; u.vip = true; u.vipSince = Date.now(); u.giftedBy = giftedBy || ''; st.save(); return true; },
     async remapUsers(pairs) {   // [NUEVO] igual que en PostgreSQL: pasa el progreso de ids antiguos a UUID
       const m = new Map(pairs.map(p => [String(p.old), p.id]));
@@ -226,7 +242,13 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
 
   const owned = (st, t, id) => st.inventory.some(x => x.t === t && x.id === id);
   const view = async u => {
-    const st = await store.state(u.id), lv = S.bpLevelOf(st.xp);
+    let st = await store.state(u.id);
+    if (st.vip) {   // [NEÓN] niveles VIP reclamados cuando daban PX y que ahora dan una skin: se entrega una sola vez
+      let got = false;
+      for (const c of st.claims) { const r = c.track === 'vip' && c.t === 'px' && S.BP_TIERS[c.level - 1] ? S.BP_TIERS[c.level - 1].vip : null; if (r && r.t !== 'px' && await store.upgradeClaim(u.id, c.level, 'vip', r)) got = true; }
+      if (got) st = await store.state(u.id);
+    }
+    const lv = S.bpLevelOf(st.xp);
     return { season: SEASON, level: lv.level, xp: st.xp, into: lv.into, need: lv.need, vip: st.vip, giftedBy: st.giftedBy, claims: st.claims.map(c => c.level + ':' + c.track), inventory: st.inventory, equipped: st.equipped,
       prices: { vip: VIP_PX, skip: SKIP_PX }, px: u.px };
   };
