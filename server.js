@@ -50,6 +50,8 @@ const ZONE_LIMIT = +process.env.ZONE_LIMIT || S.ZONE.LIMIT, ZONE_MOVE = +process
 const LADDER = S.GUN_LADDER.slice(0, +process.env.LADDER_LEVELS || S.GUN_LADDER.length);   // niveles de armas de la Carrera (acortable solo para pruebas)
 /* [NUEVO] Colisiones con paredes: el servidor rechaza posiciones dentro de un muro o que lo atraviesan (WALL_CHECK=0 lo desactiva; solo para pruebas con bots que caminan en línea recta) */
 const WALL_CHECK = process.env.WALL_CHECK !== '0';
+const AIM_CHECK = process.env.AIM_CHECK === '1';   // [ANTITRAMPAS] 1 = descartar los disparos fuera de la mira; por defecto solo se cuentan (espectador y registro) para vigilar falsos positivos
+const AIM_TURN_RATE = +process.env.AIM_TURN_RATE || 25;   // giro máximo (rad/s) que se tolera entre el último estado y el disparo
 /* [NUEVO] Emparejamiento clasificatorio con poca gente: una sala con menos de 2 jugadores acepta ligas cada vez más lejanas cuanto más tiempo lleva esperando (+1 liga cada RANKED_WIDEN_SECS, tope 6) */
 /* [NUEVO] Bots de relleno: una sala NO clasificatoria con al menos 1 jugador real se completa con bots hasta FILL_BOTS jugadores en total (0 = sin bots). Se van según entran personas reales.
    Los bots juegan con las mismas reglas (armas, daño, muros), pero una ronda con menos de 2 jugadores reales NO da PX, Créditos, XP del pase, estadísticas ni entrada en la clasificación (así no se pueden «granjear»). BOT_SKILL 0–1 (0,5 por defecto) sube su puntería. */
@@ -127,7 +129,7 @@ function sanitizeName(s) { return String(s || '').replace(/[^\p{L}\p{N}_ \-]/gu,
 
 class Player {
   constructor(ws, name, map, cls, ip, lk, ident) {
-    this.role = ident.role; this.nameKey = ident.nameKey; this.ipKey = ident.ipKey; this.shots = 0; this.hits = 0; this.fixes = 0; this.rlv = 0; this.roundStart = Date.now();
+    this.role = ident.role; this.nameKey = ident.nameKey; this.ipKey = ident.ipKey; this.shots = 0; this.hits = 0; this.fixes = 0; this.rlv = 0; this.aimv = 0; this.roundStart = Date.now();
     this.lk = lk; this.ws = ws; this.ip = ip; this.id = playerSeq++; this.name = name; this.cls = cls; this.nextCls = cls; this.map = map; this.wantTeam = null;   // [NUEVO] bando elegido al entrar a partida (null = automático)
     this.x = 0; this.y = 0; this.z = 0; this.yaw = 0; this.pitch = 0; this.h = 1.8;
     this.hp = 100; this.alive = false; this.ep = 0;
@@ -426,8 +428,8 @@ class Room {
     const eStr = this.mode === 'navidad' ? ',"e":' + JSON.stringify([...this.elves.values()].map(e => [e.id, r3(e.x), r3(e.y), r3(e.z), r3(e.yaw), e.alive ? 1 : 0])) : '';   // [NAVIDAD] duendes
     for (const p of this.players.values()) p.send('{"t":"snap","tl":' + tl + ',"w":' + w + ',"hp":' + Math.round(p.hp) + ',"s":' + sStr + eStr + '}');
     for (const sp of this.specs) sp.send('{"t":"snap","tl":' + tl + ',"w":' + w + ',"hp":0,"s":' + sStr + eStr + '}');
-    if (this.specs.size && (this.specT = (this.specT || 0) + dt) >= 1) {   // cada segundo, estadísticas de cada jugador para el espectador: [id, disparos, aciertos, cabezas, correcciones, cadencia sospechosa, ping]
-      this.specT = 0; const st = JSON.stringify({ t: 'sstats', p: [...this.players.values()].map(p => [p.id, p.shots, p.hits, p.hs, p.fixes, p.rlv, Math.round(p.ping), p.hp > 0 ? Math.round(p.hp) : 0, p.gl]) });
+    if (this.specs.size && (this.specT = (this.specT || 0) + dt) >= 1) {   // cada segundo, estadísticas de cada jugador para el espectador: [id, disparos, aciertos, cabezas, correcciones, cadencia sospechosa, ping, vida, nivel de la Carrera, disparos fuera de la mira]
+      this.specT = 0; const st = JSON.stringify({ t: 'sstats', p: [...this.players.values()].map(p => [p.id, p.shots, p.hits, p.hs, p.fixes, p.rlv, Math.round(p.ping), p.hp > 0 ? Math.round(p.hp) : 0, p.gl, p.aimv]) });
       for (const sp of this.specs) sp.send(st);
     }
     this.boardT += dt; if (this.boardT >= 1) { this.boardT = 0; this.sendBoard(); }
@@ -506,6 +508,10 @@ class Room {
     const eye = { x: p.x, y: p.y + p.h - 0.2, z: p.z };
     let o = eye;
     if (Array.isArray(m.o) && m.o.length === 3 && m.o.every(Number.isFinite) && Math.hypot(m.o[0] - eye.x, m.o[1] - eye.y, m.o[2] - eye.z) < 2.5) o = { x: m.o[0], y: m.o[1], z: m.o[2] };
+    if (!p.isBot && !this.aimOk(p, w, m.d.slice(0, w.pellets), now)) {   // [ANTITRAMPAS] disparo fuera del cono del arma respecto a donde mira el jugador (silent aim, sin dispersión forzada fuera de rango…)
+      p.aimv++; if (p.aimv % 25 === 1) log('Posible disparo fuera de la mira: ' + p.name + ' · ' + p.aimv + ' veces');
+      if (AIM_CHECK) return;
+    }
     const T = now - clamp(p.ping / 2 + 100, 100, 450);
     const agg = new Map(); let firstEnd = null;
     for (const dd of m.d.slice(0, w.pellets)) {
@@ -524,6 +530,18 @@ class Room {
     if (agg.size) p.hits++;
     if (firstEnd) this.broadcast({ t: 'shot', id: p.id, rl: p.role || 0, o: [r3(o.x), r3(o.y), r3(o.z)], e: firstEnd, c: p.cls }, p);
     for (const [v, a] of agg) this.damage(v, p, a.dmg, a.head, w.name, now);
+  }
+  /* [ANTITRAMPAS] Cada perdigón debe salir dentro del cono máximo del arma alrededor de la mira (yaw/pitch del último estado).
+     El cliente manda su estado justo antes de disparar; para clientes antiguos se añade un margen por el giro desde ese estado. */
+  aimOk(p, w, dirs, now) {
+    const cp = Math.cos(p.pitch), ax = -Math.sin(p.yaw) * cp, ay = Math.sin(p.pitch), az = -Math.cos(p.yaw) * cp;
+    const cone = Math.atan(Math.max(w.spread * 2, w.scopedSpread || 0)) + 0.03 + AIM_TURN_RATE * clamp((now - p.lastSt) / 1000, 0, 0.1);
+    for (const dd of dirs) {
+      if (!Array.isArray(dd) || dd.length !== 3 || !dd.every(Number.isFinite)) continue;
+      const len = Math.hypot(dd[0], dd[1], dd[2]); if (len < 1e-6) continue;
+      if (Math.acos(clamp((dd[0] * ax + dd[1] * ay + dd[2] * az) / len, -1, 1)) > cone) return false;
+    }
+    return true;
   }
   onMelee(p, m, now) {
     if (!p.alive || this.phase !== 'play' || now < p.nextMelee) return;
@@ -750,7 +768,13 @@ wss.on('connection', ws => {
   perIp.set(ip, (perIp.get(ip) || 0) + 1);
   connections.add(ws);
   ws.alive = true; ws.player = null; ws.rl = { t: Date.now(), n: 0 };
-  ws.on('pong', () => { ws.alive = true; });
+  ws.pingSeq = 0; ws.pingSent = new Map();
+  ws.on('pong', data => {
+    ws.alive = true;
+    const t = ws.pingSent.get(String(data)); if (t === undefined) return;   // solo cuentan los pings de medición que envió el servidor
+    ws.pingSent.delete(String(data));
+    if (ws.player) { const rtt = clamp(Date.now() - t, 0, 1000); ws.player.ping = ws.player.pingMeasured ? ws.player.ping * 0.7 + rtt * 0.3 : rtt; ws.player.pingMeasured = true; }
+  });
   const helloTimer = setTimeout(() => { if (!ws.player && !ws.lobbyName) ws.close(1008, 'hello'); }, +process.env.HELLO_TIMEOUT_MS || 20000);   // [AJUSTE] 20 s (antes 5): un equipo lento tarda en enviar el saludo mientras carga los gráficos
   ws.on('message', data => {
     const now = Date.now();
@@ -771,6 +795,18 @@ wss.on('connection', ws => {
 setInterval(() => {
   for (const ws of connections) { if (!ws.alive) { ws.terminate(); continue; } ws.alive = false; try { ws.ping(); } catch (e) { /* cerrado */ } }
 }, 20000).unref();
+/* [ANTITRAMPAS] Ping medido por el servidor (antes lo decía el cliente y un tramposo podía declarar 1000 ms para rebobinar más los impactos).
+   Los navegadores responden solos a los ping del protocolo WebSocket; el contenido es un número de secuencia que solo conoce el servidor. */
+function measurePing() {
+  const now = Date.now();
+  for (const ws of connections) {
+    if (!ws.player || ws.readyState !== 1) continue;
+    for (const [k, t] of ws.pingSent) if (now - t > 10000) ws.pingSent.delete(k);   // pongs perdidos
+    const k = String(++ws.pingSeq); ws.pingSent.set(k, now);
+    try { ws.ping(k); } catch (e) { ws.pingSent.delete(k); }
+  }
+}
+setInterval(measurePing, 2000).unref();
 
 function onMessage(ws, m, now) {
   if (m.t === 'hello') {
@@ -862,8 +898,7 @@ function onMessage(ws, m, now) {
       p.cash -= item.price; p.nextCls = item.wi;
       return p.send(JSON.stringify({ t: 'buy', ok: true, i: m.i, wi: item.wi, cash: p.cash }));
     }
-    case 'ping':
-      if (Number.isFinite(m.rtt)) p.ping = clamp(m.rtt, 0, 1000);
+    case 'ping':   // [ANTITRAMPAS] el «rtt» que manda el cliente ya no se usa: el ping lo mide el servidor (ver measurePing)
       return p.send(JSON.stringify({ t: 'pong', ts: m.ts }));
   }
 }
