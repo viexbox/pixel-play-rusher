@@ -467,7 +467,19 @@ const WEAPON_SKINS = [
   { id: 'centinela_ocaso', w: 'centinela', n: 'Ocaso', r: 'raro', body: '#7a3a2a', acc: '#ffb066', dark: '#2a1410', rough: 0.4, metal: 0.2, glow: '#ff8c4a', pattern: 'rayas' },
   { id: 'centinela_imperial', w: 'centinela', n: 'Imperial', r: 'leyenda', body: '#1c1028', acc: '#d4af37', dark: '#0a0714', rough: 0.2, metal: 0.7, glow: '#d4af37', pattern: 'carbono' },
   { id: 'vortice_onix', w: 'vortice', n: 'Ónix', r: 'comun', body: '#232733', acc: '#6c7486', dark: '#101319', rough: 0.35, metal: 0.15 },
-  { id: 'vortice_toxico', w: 'vortice', n: 'Tóxico', r: 'epico', body: '#1c2b1a', acc: '#8dff5a', dark: '#0a120a', rough: 0.45, metal: 0.1, glow: '#8dff5a', pattern: 'camuflaje' }
+  { id: 'vortice_toxico', w: 'vortice', n: 'Tóxico', r: 'epico', body: '#1c2b1a', acc: '#8dff5a', dark: '#0a120a', rough: 0.45, metal: 0.1, glow: '#8dff5a', pattern: 'camuflaje' },
+  /* [NEÓN] skins de la vía VIP del pase: un dibujo que emite luz propia sobre el cuerpo (neon.pat, en client.js) */
+  { id: 'rafaga_circuito', w: 'rafaga', n: 'Circuito', r: 'epico', body: '#10141f', acc: '#22e6ff', dark: '#05070c', rough: 0.35, metal: 0.3, glow: '#22e6ff', neon: { pat: 'n_circuito', col: '#22e6ff' } },
+  { id: 'vortice_radiacion', w: 'vortice', n: 'Radiación', r: 'epico', body: '#101a0d', acc: '#8dff3a', dark: '#050a04', rough: 0.35, metal: 0.3, glow: '#8dff3a', neon: { pat: 'n_hex', col: '#8dff3a' } },
+  { id: 'sheriff_brasas', w: 'sheriff', n: 'Brasas', r: 'epico', body: '#1a1414', acc: '#ff7a1a', dark: '#0a0606', rough: 0.35, metal: 0.3, glow: '#ff7a1a', neon: { pat: 'n_grietas', col: '#ff7a1a' } },
+  { id: 'duo_sintonia', w: 'duo', n: 'Sintonía', r: 'epico', body: '#1a0d24', acc: '#ff3df0', dark: '#0a0510', rough: 0.35, metal: 0.3, glow: '#ff3df0', neon: { pat: 'n_rayas', col: '#ff3df0' } },
+  { id: 'precision_aurora', w: 'precision', n: 'Aurora', r: 'epico', body: '#0b1424', acc: '#3dffc4', dark: '#04080f', rough: 0.35, metal: 0.3, glow: '#3dffc4', neon: { pat: 'n_rayas', col: '#3dffc4' } },
+  { id: 'trueno_voltio', w: 'trueno', n: 'Voltio', r: 'epico', body: '#0d1330', acc: '#ffe23a', dark: '#050816', rough: 0.35, metal: 0.3, glow: '#ffe23a', neon: { pat: 'n_grietas', col: '#ffe23a' } },
+  { id: 'torrente_magma', w: 'torrente', n: 'Magma', r: 'leyenda', body: '#140c0a', acc: '#ff4a1a', dark: '#070403', rough: 0.35, metal: 0.3, glow: '#ff4a1a', neon: { pat: 'n_grietas', col: '#ff4a1a' } },
+  { id: 'centinela_hielo_negro', w: 'centinela', n: 'Hielo negro', r: 'leyenda', body: '#0a0e16', acc: '#7fe8ff', dark: '#04060a', rough: 0.35, metal: 0.3, glow: '#7fe8ff', neon: { pat: 'n_circuito', col: '#7fe8ff' } },
+  { id: 'asalto_osario', w: 'asalto', n: 'Osario', r: 'leyenda', body: '#e9e2d0', acc: '#ff2a3a', dark: '#2a1414', rough: 0.35, metal: 0.3, glow: '#ff2a3a', neon: { pat: 'n_grietas', col: '#ff2a3a' } },
+  { id: 'lince_espectro', w: 'lince', n: 'Espectro', r: 'leyenda', body: '#120c1c', acc: '#b25cff', dark: '#06040c', rough: 0.35, metal: 0.3, glow: '#b25cff', neon: { pat: 'n_hex', col: '#b25cff' } },
+  { id: 'ak_nucleo', w: 'ak', n: 'Núcleo', r: 'leyenda', body: '#12080c', acc: '#ff2d6f', dark: '#070306', rough: 0.35, metal: 0.3, glow: '#ff2d6f', neon: { pat: 'n_circuito', col: '#ff2d6f' } }
 ];
 /* Skins de cuchillo: hoja, filo, guarda y mango */
 const KNIFE_SKINS = [
@@ -495,6 +507,8 @@ const BP_FREE = { 5: bpItem('kskin', 'k_oxido'), 10: bpItem('wskin', 'asalto_car
 const BP_VIP = { 1: bpItem('banner', 's1'), 3: bpItem('wskin', 'rafaga_lava'), 6: bpItem('kskin', 'k_lava'), 9: bpItem('wskin', 'ak_jade'), 13: bpItem('wskin', 'torrente_hielo'), 16: bpItem('wskin', 'sheriff_bandido'),
   19: bpItem('kskin', 'k_neon'), 22: bpItem('wskin', 'asalto_neon'), 25: bpPx(250), 28: bpItem('wskin', 'trueno_tormenta'), 33: bpItem('kskin', 'k_oro'), 38: bpItem('wskin', 'precision_eclipse'),
   42: bpItem('wskin', 'lince_fantasma'), 46: bpItem('kskin', 'k_vacio'), 48: bpItem('wskin', 'duo_oro'), 50: bpItem('wskin', 'ak_dragon') };
+/* [NEÓN] 11 skins de neón, una por arma, en niveles de la vía VIP que antes daban PX (quien ya reclamó ese nivel recibe la skin: ver battlepass.js) */
+Object.assign(BP_VIP, { 5: bpItem('wskin', 'rafaga_circuito'), 8: bpItem('wskin', 'vortice_radiacion'), 11: bpItem('wskin', 'sheriff_brasas'), 15: bpItem('wskin', 'duo_sintonia'), 18: bpItem('wskin', 'precision_aurora'), 21: bpItem('wskin', 'trueno_voltio'), 25: bpItem('wskin', 'torrente_magma'), 30: bpItem('wskin', 'centinela_hielo_negro'), 35: bpItem('wskin', 'asalto_osario'), 40: bpItem('wskin', 'lince_espectro'), 45: bpItem('wskin', 'ak_nucleo') });
 const BP_TIERS = Array.from({ length: BP_LEVELS }, (_, i) => { const l = i + 1; return { level: l, free: BP_FREE[l] || bpPx(8 + Math.floor(l / 16) * 4), vip: BP_VIP[l] || bpPx(10 + Math.floor(l / 12) * 5) }; });
 /* [NUEVO] Mascotas: te siguen en la partida y los demás jugadores las ven. Solo se consiguen comprándolas con PX en la
    tienda (el servidor cobra y comprueba que la tienes antes de dejarte equiparla). kind = forma del modelo en client.js. */

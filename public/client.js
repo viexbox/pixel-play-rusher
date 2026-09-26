@@ -292,6 +292,31 @@ const TEX = {
       g.closePath(); g.fillStyle = rgba('0,0,0', 0.1 + R() * 0.22); g.fill(); }
     speckle(g, S, R, 500, 0.1);
   } },
+  /* [NEÓN] Patrones que emiten luz: líneas blancas sobre negro. Se usan como emissiveMap (el color lo pone la skin),
+     así las líneas se ven encendidas aunque el arma esté a la sombra. */
+  n_circuito: { tile: 1, raw: true, draw(g, S, R) {
+    g.fillStyle = '#000'; g.fillRect(0, 0, S, S); g.strokeStyle = '#fff'; g.fillStyle = '#fff'; g.lineWidth = 5; g.lineCap = 'square';
+    for (let k = 0; k < 16; k++) { let x = Math.round(R() * 8) * S / 8, y = Math.round(R() * 8) * S / 8; g.beginPath(); g.moveTo(x, y);
+      for (let st = 0; st < 5; st++) { if (R() < 0.5) x += (R() < 0.5 ? -1 : 1) * S / 8; else y += (R() < 0.5 ? -1 : 1) * S / 8; g.lineTo(x, y); }
+      g.stroke(); g.fillRect(x - 7, y - 7, 14, 14); }
+  } },
+  n_grietas: { tile: 1, raw: true, draw(g, S, R) {
+    g.fillStyle = '#000'; g.fillRect(0, 0, S, S); g.strokeStyle = '#fff'; g.lineJoin = 'round';
+    const crack = (x, y, a, len, w, depth) => { g.lineWidth = w; g.beginPath(); g.moveTo(x, y);
+      for (let i = 0; i < 6; i++) { a += (R() - 0.5) * 1.1; x += Math.cos(a) * len / 6; y += Math.sin(a) * len / 6; g.lineTo(x, y);
+        if (depth < 2 && R() < 0.3) { g.stroke(); crack(x, y, a + (R() < 0.5 ? -1 : 1) * (0.6 + R() * 0.6), len * 0.55, w * 0.6, depth + 1); g.lineWidth = w; g.beginPath(); g.moveTo(x, y); } }
+      g.stroke(); };
+    for (let k = 0; k < 6; k++) crack(R() * S, R() * S, R() * Math.PI * 2, S * (0.45 + R() * 0.35), 4 + R() * 2, 0);
+  } },
+  n_hex: { tile: 1, raw: true, draw(g, S) {
+    g.fillStyle = '#000'; g.fillRect(0, 0, S, S); g.strokeStyle = '#fff'; g.lineWidth = 3.5; const r = S / 8, h = r * Math.sqrt(3);
+    for (let row = -1; row < 7; row++) for (let col = -1; col < 7; col++) { const cx = col * r * 1.5, cy = row * h + (col % 2 ? h / 2 : 0);
+      g.beginPath(); for (let k = 0; k < 6; k++) { const a = Math.PI / 3 * k; const px = cx + Math.cos(a) * r * 0.92, py = cy + Math.sin(a) * r * 0.92; k ? g.lineTo(px, py) : g.moveTo(px, py); } g.closePath(); g.stroke(); }
+  } },
+  n_rayas: { tile: 1, raw: true, draw(g, S) {
+    g.fillStyle = '#000'; g.fillRect(0, 0, S, S); g.save(); g.translate(S / 2, S / 2); g.rotate(-0.55); g.translate(-S, -S); g.fillStyle = '#fff';
+    for (let k = 0; k < 14; k++) { g.fillRect(0, k * S / 7, S * 2, k % 3 === 0 ? 10 : 4); } g.restore();
+  } },
   rayas: { tile: 1, draw(g, S, R) {   // dos franjas diagonales gruesas, estilo carreras
     white(g, S); g.save(); g.translate(S / 2, S / 2); g.rotate(-0.5); g.translate(-S / 2, -S / 2);
     DK(g, 0.5, S * 0.18, -S * 0.5, S * 0.16, S * 2); DK(g, 0.28, S * 0.42, -S * 0.5, S * 0.09, S * 2);
@@ -632,7 +657,17 @@ function gunPartColor(partName, wcol, acc, dark) {
   return dark;
 }
 /* Modelo de arma (se usa en primera persona y en las manos de los personajes) */
-const gunMatCache = {};
+const gunMatCache = {}, NEON_MATS = new Set();
+/* [NEÓN] El brillo de las skins late despacio, como un neón de verdad */
+/* [NEÓN] El mismo dibujo en negativo (líneas negras sobre blanco): multiplicado por el color del cuerpo, lo deja igual salvo en las líneas */
+const neonShade = {};
+function neonShadeTex(pat) {
+  if (neonShade[pat]) return neonShade[pat];
+  const src = getTex(pat).image, c = document.createElement('canvas'); c.width = src.width; c.height = src.height; const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.globalCompositeOperation = 'difference'; g.drawImage(src, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return (neonShade[pat] = t);
+}
+function pulseNeon() { const k = 0.82 + 0.28 * Math.sin(performance.now() / 1000 * 3.2); for (const m of NEON_MATS) m.emissiveIntensity = m.userData.neon ? k : 0.55 * k; }
 /* [TOON] Sombreado tipo cómic para las armas: bandas de luz duras (MeshToonMaterial + rampa de 3 tonos) en vez del
    degradado suave de antes. Las skins siguen mandando: color, patrón y brillo se aplican igual; «metal» usa una rampa
    con más contraste (reflejo marcado) y «rough» suaviza la banda clara. Los valores de la skin quedan en userData. */
@@ -649,14 +684,17 @@ function gunMat(col, sk, wcol, acc, dark) {
   const skinPart = !!sk && (isBody || isAcc || isDark);
   const rough = skinPart && sk.rough != null ? sk.rough : null, metal = skinPart && sk.metal != null ? sk.metal : null;
   const glow = skinPart && isAcc && sk.glow ? sk.glow : '', pattern = skinPart && isBody && sk.pattern ? sk.pattern : '';
+  const neon = skinPart && isBody && sk.neon ? sk.neon : null;   // [NEÓN] dibujo que emite luz sobre el cuerpo
   const ramp = metal != null && metal >= 0.5 ? 'metal' : rough != null && rough >= 0.55 ? 'matte' : 'std';
-  const key = col + '|' + ramp + '|' + glow + '|' + pattern + '|' + (rough != null ? rough : '') + '|' + (metal != null ? metal : '');
+  const key = col + '|' + ramp + '|' + glow + '|' + pattern + '|' + (rough != null ? rough : '') + '|' + (metal != null ? metal : '') + '|' + (neon ? neon.pat + neon.col : '');
   if (gunMatCache[key]) return gunMatCache[key];
   const params = { color: col, gradientMap: toonRamp(ramp) };
   if (glow) { params.emissive = new THREE.Color(glow); params.emissiveIntensity = 0.55; }
   if (pattern) params.map = getTex(pattern);
+  if (neon) { params.emissive = new THREE.Color(neon.col); params.emissiveMap = getTex(neon.pat); params.emissiveIntensity = 1; params.map = neonShadeTex(neon.pat); }   // las líneas también oscurecen el cuerpo: así destacan hasta sobre un cuerpo claro (Osario)
   const m = new THREE.MeshToonMaterial(params);
-  m.userData = { toon: true, rough, metal, ramp };
+  m.userData = { toon: true, rough, metal, ramp, neon: !!neon };
+  if (neon || glow) NEON_MATS.add(m);   // late despacio (pulseNeon)
   return (gunMatCache[key] = m);
 }
 /* [TOON] Contorno negro por «casco invertido»: una copia de la pieza, un pelín más grande, pintada solo por dentro
@@ -721,7 +759,13 @@ function gunModel(w, ox, oid, skinId) {
     model.children.slice().forEach(part => { if (part.name.startsWith('sight_')) model.remove(part); });
     model.traverse(part => { if (part.isMesh) part.material = gunMat(gunPartColor(part.name, wcol, acc, dark), sk, wcol, acc, dark); });
     g.add(model);
-    if (L.scope) g.add(box(0.05, 0.05, L.scope, 0, s[1] / 2 + 0.045, -s[2] * 0.5, dark)); else if (opt) sights(-s[2] * 0.3, -s[2] * 0.12, -s[2] - bl + 0.02); else g.add(box(0.03, 0.04, 0.05, 0, s[1] / 2 + 0.02, -s[2] * 0.6, dark));
+    /* [CORREGIDO] Las miras y el destello se colocan con las medidas REALES del modelo 3D (su cuerpo y la boca del cañón), no con las del
+       arma de cajas: en algunas armas (Precisión, Dúo, Centinela) el modelo es más corto y la mira quedaba flotando fuera del arma */
+    model.updateMatrixWorld(true);
+    const partBox = n => { let o = null; model.traverse(x => { if (!o && x.name === n) o = x; }); return o ? new THREE.Box3().setFromObject(o) : null; };
+    const bb = partBox('body') || new THREE.Box3().setFromObject(model), tip = partBox('muzzle') || partBox('barrel') || bb;
+    const f0 = bb.min.z, len = bb.max.z - bb.min.z; g.userData.tipZ = tip.min.z;
+    if (L.scope) g.add(box(0.05, 0.05, Math.min(L.scope, len * 0.9), 0, bb.max.y + 0.045, f0 + len * 0.5, dark)); else if (opt) sights(f0 + len * 0.7, f0 + len * 0.88, tip.min.z + 0.02); else g.add(box(0.03, 0.04, 0.05, 0, bb.max.y + 0.02, f0 + len * 0.4, dark));
   } else {
     g.add(box(s[0], s[1], s[2], 0, 0, -s[2] / 2, wcol));
     g.add(box(s[0] * 0.5, 0.012, s[2] * 0.9, 0, s[1] / 2 + 0.006, -s[2] / 2, acc)); // franja clara en el cajón
@@ -741,7 +785,7 @@ function gunModel(w, ox, oid, skinId) {
   if (!GUN_GLTF[w.id] && L.drum) g.add(box(0.075, 0.075, 0.09, 0, 0, -s[2] * 0.55, dark));
   if (!GUN_GLTF[w.id] && L.pump) g.add(box(0.1, 0.06, 0.16, 0, -0.06, -s[2] - 0.05, dark));
   const fl = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.95, side: THREE.DoubleSide, fog: false }));
-  fl.position.set(0, 0.012, -s[2] - bl - 0.08); fl.visible = false; g.add(fl); g.userData.flash = fl;
+  fl.position.set(0, 0.012, (g.userData.tipZ != null ? g.userData.tipZ : -s[2] - bl) - 0.08); fl.visible = false; g.add(fl); g.userData.flash = fl;   // [CORREGIDO] con modelo 3D, en la boca real del cañón
   addGunOutlines(g, 0.0035);   // [TOON] contorno negro fino en todas las piezas del arma
   g.position.x = ox || 0; return g;
 }
@@ -2765,6 +2809,7 @@ function frame(now) {
   sky.position.copy(camera.position); cloudRoot.rotation.y += dt * 0.004;
   if (renderer) renderer.render(scene, camera);
   animPets(dt);   // [MASCOTAS]
+  pulseNeon();   // [NEÓN]
   if (state === 'menu') renderPreview(dt);
 }
 
