@@ -16,7 +16,8 @@ ok(S.MAPS.length === 1 && m.name === 'Nexus Outpost' && m.half === 58, 'solo hay
 ok(!JSON.stringify(S.MAPS.map(x => x.name)).match(/Almenas|Dunas|Contenedores|Bosque|Fábrica|Cañón/), 'ningún mapa antiguo (Almenas, Dunas, Contenedores, Bosque, Fábrica, Cañón) sigue en la lista');
 const need = ['Spawn Red', 'Spawn Blue', 'South Alley', 'Tunnel Passage', 'Main Plaza', 'Sniper Perch', 'Office Block', 'Central Courtyard', 'Lower Plaza', 'Reactor Complex', 'East Roof', 'Rooftop Network', 'West Tower Roof', 'Helipad A', 'Helipad B', 'Tech Hub', 'Armory', 'Capture Point'];
 /* un punto DENTRO de cada zona (x, altura de los pies, z) */
-const probe = { 'Spawn Red': [-40, 0, 8], 'Spawn Blue': [43, 0, 6], 'South Alley': [-30, 0, 42], 'Tunnel Passage': [0, 0, 43], 'Main Plaza': [-24, 1.8, -14], 'Sniper Perch': [-44, 5.4, -17], 'Office Block': [-40, 1.8, -27], 'Central Courtyard': [-6, 0, 28],
+const probe = { 'Spawn Red': [-53, 0, 0], 'Spawn Blue': [53, 0, 0],   // [MAPA] las bases están ahora en la otra punta del mapa
+  'South Alley': [-30, 0, 42], 'Tunnel Passage': [0, 0, 43], 'Main Plaza': [-24, 1.8, -14], 'Sniper Perch': [-44, 5.4, -17], 'Office Block': [-40, 1.8, -27], 'Central Courtyard': [-6, 0, 28],
   'Lower Plaza': [25, 0, 24], 'Reactor Complex': [10, 3.6, -1], 'East Roof': [-30, 5.4, -42], 'Rooftop Network': [-17, 5.4, -42], 'West Tower Roof': [21, 5.4, -38], 'Helipad A': [-39, 5.46, -43], 'Helipad B': [-4, 5.46, -43], 'Tech Hub': [40, 5.4, -40],
   'Armory': [40, 0, 28], 'Capture Point': [40, 4.05, -13] };
 const names = new Set(m.areas.map(a => a.n)), wrong = need.filter(n => S.areaAt(0, ...probe[n]) !== n);
@@ -138,6 +139,13 @@ console.log('\n=== 4b. Navegación de los bots (rejilla de 1 m, campo de distanc
   ok(withNav.every(t => t !== null && t < 30), 'un bot que sigue la navegación llega de Spawn Red a Spawn Blue en ' + Math.min(...withNav).toFixed(0) + '–' + Math.max(...withNav).toFixed(0) + ' s en los ' + trips.length + ' trayectos');
   ok(straight.filter(t => t !== null).length <= 2, 'mientras que en línea recta llegan ' + straight.filter(t => t !== null).length + ' de ' + trips.length + ' (se atascan contra las paredes): por eso los bots necesitan navegación');
   const back = trips.map(([a, b]) => walk(b, a, true)); ok(back.every(t => t !== null && t < 30), 'y también de Spawn Blue a Spawn Red (' + Math.min(...back).toFixed(0) + '–' + Math.max(...back).toFixed(0) + ' s)');
+  /* [BOTS] 30 trayectos entre puntos al azar del mapa (siempre los mismos): todos tienen que llegar. Antes se quedaban «sin dirección» al
+     colarse en huecos que la rejilla no conocía, y la ruta cortaba esquinas en diagonal entre un murete y una caja. */
+  { let seed = 4242; const RR = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }; const oldRand = Math.random; Math.random = RR;
+    const wps = world.waypoints, res = [];
+    for (let k = 0; res.length < 30 && k < 200; k++) { const a = wps[Math.floor(RR() * wps.length)], b = wps[Math.floor(RR() * wps.length)]; if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 20) continue; if (!S.navDir(nav, S.navField(nav, b[0], b[1], 0), a[0], a[1], 0)) continue; res.push(walk(a, [b[0], b[1], 0], true)); }
+    Math.random = oldRand; const okN = res.filter(t => t !== null && t < 60).length;
+    ok(okN === res.length, 'en 30 trayectos entre puntos al azar del mapa, los bots llegan en todos (' + okN + ' de ' + res.length + ', el más lento en ' + Math.max(...res.map(t => t === null ? 999 : t)).toFixed(0) + ' s)'); }
   /* [PR3] las 5 zonas del modo Capturar Zona, algunas en altura (Main Plaza, Reactor Complex, Capture Point): antes los bots se quedaban abajo, empujando la pared de la escalera */
   const toZones = m.zones.map(z => walk([-40, 8], [z.x, z.z, z.y], true));
   ok(toZones.every(t => t !== null && t < 90), 'y un bot llega a las 5 zonas de Capturar Zona, incluidas las que están en una azotea (la salida de emergencia usa un desvío al azar, así que el tiempo varía de una vez a otra) (' + m.zones.map((z, i) => z.n + ' ' + (toZones[i] === null ? 'NO LLEGÓ' : toZones[i].toFixed(0) + 's')).join(', ') + ')');

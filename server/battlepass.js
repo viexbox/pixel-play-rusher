@@ -19,8 +19,8 @@ function pgStore(pool, S) {
     async state(uid) {
       const [p, c, i, e] = await Promise.all([
         pool.query('SELECT xp, level, vip, vip_since, gifted_by FROM bp_progress WHERE user_id = $1 AND season = $2', [uid, SEASON]),
-        pool.query('SELECT level, track, item_type, item_id FROM bp_claims WHERE user_id = $1 AND season = $2 ORDER BY level', [uid, SEASON]),
-        pool.query('SELECT item_type, item_id, obtained_at FROM bp_inventory WHERE user_id = $1', [uid]),
+        pool.query('SELECT level, track, item_type, item_id FROM bp_claims WHERE user_id = $1 AND season = $2 ORDER BY level, track', [uid, SEASON]),   // [CORREGIDO] siempre el mismo orden (antes, dentro de un nivel, gratis/VIP salían en cualquier orden)
+        pool.query('SELECT item_type, item_id, obtained_at FROM bp_inventory WHERE user_id = $1 ORDER BY obtained_at, item_type, item_id', [uid]),   // [CORREGIDO] sin ORDER BY, PostgreSQL podía devolver el inventario en otro orden tras reiniciar
         pool.query('SELECT slot, item_id FROM bp_equipped WHERE user_id = $1', [uid])]);
       const r = p.rows[0] || { xp: 0, level: 1, vip: false, vip_since: null, gifted_by: null };
       return { xp: r.xp, level: r.level, vip: r.vip, vipSince: r.vip_since ? +new Date(r.vip_since) : 0, giftedBy: r.gifted_by || '', claims: c.rows.map(x => ({ level: x.level, track: x.track, t: x.item_type, id: x.item_id })),
@@ -357,7 +357,13 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
     }
   });
 
-  return { equippedPet: async uid => { try { const st = await store.state(uid), id = st.equipped.pet; return id && S.PETS.some(p => p.id === id) && st.inventory.some(i => i.t === 'pet' && i.id === id) ? id : ''; } catch (e) { return ''; } }, handles, handleHttp, awardMatch, view, store, lock, S, prices: { vip: VIP_PX, skip: SKIP_PX }, flush: () => (store.flush ? store.flush() : undefined) };
+  /* [SKINS VISIBLES] Las skins de arma equipadas, para que los demás jugadores las vean. Solo las que de verdad tiene en el inventario
+     y que son de esa arma: el cliente no puede enseñar una skin que no tiene. */
+  const equippedLook = async uid => { try { const st = await store.state(uid), out = {};
+    for (const [slot, id] of Object.entries(st.equipped || {})) { if (!slot.startsWith('weapon:')) continue; const wid = slot.slice(7), k = S.WEAPON_SKINS.find(x => x.id === id && x.w === wid);
+      if (k && st.inventory.some(i => i.t === 'wskin' && i.id === id)) out[wid] = id; }
+    return out; } catch (e) { return {}; } };
+  return { equippedLook, equippedPet: async uid => { try { const st = await store.state(uid), id = st.equipped.pet; return id && S.PETS.some(p => p.id === id) && st.inventory.some(i => i.t === 'pet' && i.id === id) ? id : ''; } catch (e) { return ''; } }, handles, handleHttp, awardMatch, view, store, lock, S, prices: { vip: VIP_PX, skip: SKIP_PX }, flush: () => (store.flush ? store.flush() : undefined) };
 }
 
 module.exports = { createBattlePass };

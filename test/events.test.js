@@ -17,7 +17,7 @@ class Bot {
 }
 const world = S.buildWorld(0);
 const los = (a, b) => { const o = { x: a.x, y: 1.6, z: a.z }, d = { x: b.x - a.x, y: -0.4, z: b.z - a.z }, l = Math.hypot(d.x, d.y, d.z); d.x /= l; d.y /= l; d.z /= l; return S.rayWorld(world.colliders, o, d, l) >= l - 0.05; };
-async function ring(bot, tgt, r0, r1) { for (let r = r0; r <= r1 + (r0 > 3 ? 8 : 1.5); r += 0.6) for (let k = 0; k < 48; k++) { const a = k / 48 * Math.PI * 2, x = tgt.x + Math.cos(a) * r, z = tgt.z + Math.sin(a) * r; if (Math.abs(x) > 48 || Math.abs(z) > 48 || S.overlapAt(world.colliders, x, 0, z, 0.4, 1.8)) continue; if (los({ x, z }, tgt)) { await bot.walkTo(x, z); return true; } } return false; }
+async function ring(bot, tgt, r0, r1) { for (let r = r0; r <= r1 + (r0 > 3 ? 8 : 1.5); r += 0.6) for (let k = 0; k < 48; k++) { const a = k / 48 * Math.PI * 2, x = tgt.x + Math.cos(a) * r, z = tgt.z + Math.sin(a) * r; if (Math.abs(x) > 56 || Math.abs(z) > 56 || S.overlapAt(world.colliders, x, 0, z, 0.4, 1.8)) continue; if (los({ x, z }, tgt)) { await bot.walkTo(x, z); return true; } } return false; }
 const aim = (b, t) => { const dx = t.x - b.pos.x, dy = 1.2 - 1.6, dz = t.z - b.pos.z, l = Math.hypot(dx, dy, dz); return [dx / l, dy / l, dz / l]; };
 /* atacante mata a víctima: how = 'gun' | 'knife' → true si llegó el mensaje de baja */
 async function kill(att, vic, how) {
@@ -52,7 +52,7 @@ const call = async (m, p, b, tk) => { const r = await fetch(B + p, { method: m, 
   ok(!/[<>]/.test(e1.event.name), 'y el nombre se limpia (sin < ni >)');
   const now = Date.now(); m = ev.multFor({ mode: 'cuchillos', cls: 0 }, now); const feat = ev.featured(now), fm = feat && feat.mode === 'cuchillos' ? 1.5 : 1;
   ok(m.px === Math.min(3, 2 * fm) && m.cr === Math.min(3, 2 * fm) && ev.multFor({ mode: 'zona', cls: 0 }, now).px === (feat && feat.mode === 'zona' ? 1.5 : 1), 'el evento solo cuenta en su modo (×2' + (fm > 1 ? ' × el destacado, con tope ×3' : '') + ')');
-  const e2 = start({ name: 'Solo francotiradores', cls: [3], px: 2, cr: 1, hours: 1 }); ok(ev.multFor({ mode: 'duelo', cls: 3 }, now).px >= 2 && ev.multFor({ mode: 'duelo', cls: 0 }, now).px < 2, 'un evento por arma solo cuenta con esa arma (Lince = clase 3)');
+  const e2 = start({ name: 'Solo francotiradores', cls: [3], px: 2, cr: 1, hours: 1 }); { const t2 = Date.now(), p3 = ev.multFor({ mode: 'duelo', cls: 3 }, t2).px, p0 = ev.multFor({ mode: 'duelo', cls: 0 }, t2).px;   /* [CORREGIDO] la hora de DESPUÉS de crear el evento: con la de antes, si pasaba 1 ms, el evento aún no había empezado */ ok(p3 >= 2 && p3 >= p0 * 2 - 1e-9 && p0 < p3, 'un evento por arma solo cuenta con esa arma (Lince ×' + p3 + ' frente a otra arma ×' + p0 + ', cualquier día de la semana)'); }   // [CORREGIDO] el fin de semana ya da ×2 a todas: se compara con el mismo día, no con un número fijo
   const e3 = start({ name: 'Mega', px: 3, cr: 3, hours: 1 }); ok(ev.multFor({ mode: 'cuchillos', cls: 3 }, now).px === 3 && ev.multFor({ mode: 'cuchillos', cls: 3 }, now).cr === 3, 'varios eventos a la vez se multiplican pero con un tope de ×3 (2 × 2 × 3 = 12 → 3)');
   ok(start({ name: 'Cuarto', px: 2, cr: 1, hours: 1 }).ok && start({ name: 'Quinto', px: 2, cr: 1, hours: 1 }).ok && start({ name: 'Sexto', px: 2, cr: 1, hours: 1 }).code === 400, 'como mucho 5 eventos del administrador a la vez');
   ok(stop(e3.event.id).ok && stop(e3.event.id).code === 404 && stop(9999).code === 404, 'terminar un evento lo quita (y no se puede terminar dos veces)');

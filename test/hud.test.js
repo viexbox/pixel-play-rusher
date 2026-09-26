@@ -54,7 +54,7 @@ const world = S.buildWorld(0);
   let placed = false;
   for (let k = 0; k < 96 * 4 && !placed; k++) {   // 96 direcciones y, si no hay 22 m despejados desde donde aparece el jugador, 20, 18 y 16 m
     const a = (k % 96) / 96 * Math.PI * 2, R = [22, 20, 18, 16][Math.floor(k / 96)], x = T.player.pos.x + Math.cos(a) * R, z = T.player.pos.z + Math.sin(a) * R;
-    if (Math.abs(x) > 36 || Math.abs(z) > 36 || S.overlapAt(world.colliders, x, 0, z, 0.4, 1.8)) continue;
+    if (Math.abs(x) > 56 || Math.abs(z) > 56 || S.overlapAt(world.colliders, x, 0, z, 0.4, 1.8)) continue;
     const o = eye(); const clear = ty => { const t = { x, y: ty, z }, d = { x: t.x - o.x, y: t.y - o.y, z: t.z - o.z }, l = Math.hypot(d.x, d.y, d.z); d.x /= l; d.y /= l; d.z /= l; return S.rayWorld(world.colliders, o, d, l) >= l - 0.05; };
     if ([0.4, 1.1, 1.7].every(clear)) { bot.pos.set(x, 0, z); placed = true; }   // línea de tiro libre a tres alturas (piernas, pecho y cabeza): un obstáculo bajo a medio camino podía tapar el cuerpo
   }
@@ -73,7 +73,7 @@ const world = S.buildWorld(0);
   // --- Disparo y recompensas ---
   /* el jugador se desplaza un poco durante el calentamiento: se vuelve a comprobar la línea de tiro (a tres alturas) con su posición ACTUAL y, si algo tapa al bot, se recoloca */
   { const o0 = eye(), clear = (x, z) => [0.4, 1.1, 1.7].every(ty => { const d = { x: x - o0.x, y: ty - o0.y, z: z - o0.z }, l = Math.hypot(d.x, d.y, d.z); d.x /= l; d.y /= l; d.z /= l; return S.rayWorld(world.colliders, o0, d, l) >= l - 0.05; });
-    if (!clear(bot.pos.x, bot.pos.z)) { for (let k = 0; k < 96; k++) { const a = k / 96 * Math.PI * 2, x = T.player.pos.x + Math.cos(a) * 22, z = T.player.pos.z + Math.sin(a) * 22; if (Math.abs(x) > 36 || Math.abs(z) > 36 || S.overlapAt(world.colliders, x, 0, z, 0.4, 1.8) || !clear(x, z)) continue; bot.pos.set(x, 0, z); break; } }
+    if (!clear(bot.pos.x, bot.pos.z)) { for (let k = 0; k < 96; k++) { const a = k / 96 * Math.PI * 2, x = T.player.pos.x + Math.cos(a) * 22, z = T.player.pos.z + Math.sin(a) * 22; if (Math.abs(x) > 56 || Math.abs(z) > 56 || S.overlapAt(world.colliders, x, 0, z, 0.4, 1.8) || !clear(x, z)) continue; bot.pos.set(x, 0, z); break; } }
     aim(); for (let f = 0; f < 6; f++) { aim(); T.step(1 / 60); } }
   const hp0 = bot.hp; let kills0 = T.player.kills, sawNum = false, sawFeed = false, sawKill = false;
   T.setMouse(true);

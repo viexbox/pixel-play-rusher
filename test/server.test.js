@@ -70,7 +70,7 @@ function losClear(a, b) { // de a (ojo) a pecho de b
 async function approach(a, target) {
   for (let r = 6; r <= 12; r += 3) for (let k = 0; k < 24; k++) {
     const ang = k / 24 * Math.PI * 2, x = target.x + Math.cos(ang) * r, z = target.z + Math.sin(ang) * r;
-    if (Math.abs(x) > 48 || Math.abs(z) > 48 || S.overlapAt(world.colliders, x, 0, z, 0.4, 1.8)) continue;
+    if (Math.abs(x) > 56 || Math.abs(z) > 56 || S.overlapAt(world.colliders, x, 0, z, 0.4, 1.8)) continue;
     if (losClear({ x, z }, target)) { await a.walkTo(x, z, 9); return { x, z }; }
   }
   return null;

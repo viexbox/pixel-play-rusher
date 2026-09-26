@@ -39,11 +39,12 @@ function bot(mode, extra) { return new Promise(res => { const ws = new WebSocket
     /* ---------- selector ---------- */
     const A = boot(); ok(await until(() => !A.$('#playOnline').disabled), 'el cliente detecta el servidor');
     ok(A.$('#modeBtn').textContent === 'Duelo por equipos' && /Duelo/.test(A.$('#playOnline small').textContent), 'por defecto se juega el Duelo por equipos (botón «Modo» y botón online lo dicen)');
-    ok(A.$$('#modeCards .mcard').length === 5 && A.$$('#modeCards .mcard[data-m]').length === 4 && A.$('#modeCards .mcard.wide[data-rk]') && A.$('#modeCards [data-m=duelo]').classList.contains('on') && /clásico/i.test(A.$('#modeDesc').textContent), 'el panel del inicio enseña los 4 modos y la tarjeta ancha de Clasificatorio, con el Duelo elegido y su descripción');
+    const NM = Object.keys(S.MODES).length;   // [NAVIDAD] 5 modos desde el de Navidad
+    ok(A.$$('#modeCards .mcard').length === NM + 1 && A.$$('#modeCards .mcard[data-m]').length === NM && A.$('#modeCards [data-m=navidad]') && A.$('#modeCards .mcard.wide[data-rk]') && A.$('#modeCards [data-m=duelo]').classList.contains('on') && /clásico/i.test(A.$('#modeDesc').textContent), 'el panel del inicio enseña los ' + NM + ' modos (con Navidad) y la tarjeta ancha de Clasificatorio, con el Duelo elegido y su descripción');
     A.$('#modeCards [data-m=zona]').click(); ok(A.T.cfg.mode === 'zona' && A.$('#modeBtn').textContent === 'Capturar zona' && A.$('#playOnline small').textContent === 'Capturar zona' && A.$('#modeCards [data-m=zona]').classList.contains('on') && /zona/i.test(A.$('#modeDesc').textContent), 'elegir una tarjeta cambia el modo, el botón «Modo», el botón online y la descripción');
     A.$('#modeCards [data-m=duelo]').click();
     A.$('#modeCards [data-rk]').click(); ok(await until(() => !A.$('#modeModal').hidden), 'sin cuenta la tarjeta de Clasificatorio abre la ventana que explica por qué hace falta'); A.$('#modeModal').hidden = true;
-    A.$('#modeBtn').click(); ok(await until(() => A.$$('#modeBox .mdl-card').length === 4), 'el botón «Modo» abre la ventana con los 4 modos'); await until(() => A.$('#modeBox .mdl-sea'));
+    A.$('#modeBtn').click(); ok(await until(() => A.$$('#modeBox .mdl-card').length === Object.keys(S.MODES).length), 'el botón «Modo» abre la ventana con los ' + Object.keys(S.MODES).length + ' modos'); await until(() => A.$('#modeBox .mdl-sea'));
     ok(A.$('#mdlRk').disabled && /cuenta online/.test(A.$('#modeBox .mdl-rk').textContent), 'sin cuenta el clasificatorio está bloqueado y explica por qué');
     await until(() => A.$('#modeBox .mdl-sea'));
     ok(/Temporada 1/.test(A.$('#modeBox .mdl-sea').textContent) && A.$$('#modeBox .mdl-tb tr').length === 7, 'enseña la temporada y las 7 ligas con sus premios');

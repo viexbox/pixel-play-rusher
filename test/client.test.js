@@ -43,7 +43,7 @@ function los(a, b) { const o = { x: a.x, y: 1.6, z: a.z }, d = { x: b.x - a.x, y
 async function approach(bot, tgt) {
   for (let r = 6; r <= 12; r += 3) for (let k = 0; k < 24; k++) {
     const a = k / 24 * Math.PI * 2, x = tgt.x + Math.cos(a) * r, z = tgt.z + Math.sin(a) * r;
-    if (Math.abs(x) > 48 || Math.abs(z) > 48 || S.overlapAt(world.colliders, x, 0, z, 0.4, 1.8)) continue;
+    if (Math.abs(x) > 56 || Math.abs(z) > 56 || S.overlapAt(world.colliders, x, 0, z, 0.4, 1.8)) continue;
     if (los({ x, z }, tgt)) { await bot.walkTo(x, z); return { x, z }; }
   }
 }
