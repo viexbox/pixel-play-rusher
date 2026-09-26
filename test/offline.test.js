@@ -24,7 +24,7 @@ w.eval(c);
   ok(!$('#play').disabled, '«Entrenar con bots» sigue disponible');
   $('#play').click(); $('#eqPlay').click(); ok(T.state === 'playing', 'el entrenamiento contra bots arranca');
   let kills = 0;
-  for (let f = 0; f < 60 * 200 && T.state === 'playing'; f++) { if (f % 50 === 0) { T.keys.KeyW = true; T.player.yaw += 0.4; } T.setMouse(f % 200 < 100); T.step(1 / 60); }
+  for (let f = 0; f < 60 * (require('../public/shared.js').CONST.MATCH_TIME + 20) && T.state === 'playing'; f++) { if (f % 50 === 0) { T.keys.KeyW = true; T.player.yaw += 0.4; } T.setMouse(f % 200 < 100); T.step(1 / 60); }
   kills = T.fighters.reduce((a, x) => a + x.kills, 0);
   ok(kills > 10, 'los bots juegan la partida (' + kills + ' bajas)');
   ok(T.state === 'ended', 'la partida termina');

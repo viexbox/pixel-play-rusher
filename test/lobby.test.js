@@ -34,7 +34,7 @@ const has = (b, f) => b.msgs.some(f);
     await until(() => has(p2, m => m.t === 'welcome'));
     const w2 = p2.msgs.find(m => m.t === 'welcome'), a = w2.players.find(p => p.n === 'Ana');
     ok(a && a.lk && a.lk[0] === 6 && a.lk[1] === 2, 'el aspecto (color, piel) llega a los demás jugadores');
-    ok(has(p1, m => m.t === 'join' && m.p.n === 'Beto' && m.p.lk[0] === 15 && m.p.lk[1] === 0), 'valores de aspecto fuera de rango se corrigen (15, 0)');
+    ok(has(p1, m => m.t === 'join' && m.p.n === 'Beto' && m.p.lk[0] === 0 && m.p.lk[1] === 0), 'valores de aspecto fuera de rango se corrigen (un color que no existe pasa al normal, 0)');   // [RANGOS] antes se recortaba a 15; ahora un color inexistente o exclusivo de rango sin tenerlo pasa al normal
     p1.ws.send(JSON.stringify({ t: 'chat', m: 'gg' }));
     ok(await until(() => has(p2, m => m.t === 'chat' && m.n === 'Ana' && m.m === 'gg') && has(p1, m => m.t === 'chat' && m.m === 'gg')), 'el chat de la sala llega a todos los de la sala');
     ok(!has(l2, m => m.t === 'chat' && m.m === 'gg'), 'el chat de la sala no se cuela en el lobby');
@@ -109,7 +109,7 @@ const has = (b, f) => b.msgs.some(f);
     for (let f = 0; f < 200; f++) T.step(1 / 60);
     const victims = T.fighters.filter(x => !x.isPlayer && x.team !== T.player.team);   // los equipos de los bots son aleatorios: solo se puede eliminar a los ENEMIGOS (no hay fuego amigo)
     T.damage(victims[0], 500, T.player, true, 'Lince'); T.damage(victims[1], 500, T.player, false, 'Lince');
-    for (let f = 0; f < 60 * 200 && T.state === 'playing'; f++) T.step(1 / 60);
+    for (let f = 0; f < 60 * (S.CONST.MATCH_TIME + 20) && T.state === 'playing'; f++) T.step(1 / 60);   // [PARTIDAS] la duración real, no un número fijo
     ok(T.state === 'ended', 'la partida termina');
     const kr = wKR(); ok(kr > 40, 'las bajas dan KR (' + kr + ' KR tras la partida)');
     ok(/PX/.test($('#endSub').textContent), 'la pantalla final muestra los PX ganados: «' + $('#endSub').textContent.replace(/\s+/g, ' ').slice(0, 90) + '»');

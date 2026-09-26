@@ -70,7 +70,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
 
   /* ---------- Cuentas y sesiones ---------- */
   const fails = new Map(), regHits = new Map();
-  const pub = u => ({ id: u.id, username: u.username, px: u.px, credits: u.credits | 0, stats: u.stats, unlocked: u.unlocked, colorTs: u.colorTs || {}, claimed: u.claimed, createdAt: u.createdAt, email: mask(u.email), emailVerified: !!u.emailVerified, deleteAt: u.deleteAt || 0, echange: u.echange ? mask(u.echange.email) : '' });   // [NUEVO] correo (enmascarado), si está verificado y si la cuenta está en plazo de eliminación
+  const pub = u => (syncRankColors(u), { id: u.id, username: u.username, px: u.px, credits: u.credits | 0, stats: u.stats, unlocked: u.unlocked, colorTs: u.colorTs || {}, claimed: u.claimed, createdAt: u.createdAt, email: mask(u.email), emailVerified: !!u.emailVerified, deleteAt: u.deleteAt || 0, echange: u.echange ? mask(u.echange.email) : '' });   // [NUEVO] correo (enmascarado), si está verificado y si la cuenta está en plazo de eliminación
   function newSession(u) {
     const token = hex(32), t = now();
     D.sessions[sha(token)] = { uid: u.id, exp: t + SESSION_MS };
@@ -170,6 +170,12 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     if (cost == null) return err(400, 'Color no válido.'); if (u.unlocked.includes(i)) return err(400, 'Ya lo tienes.');
     if (u.px < cost) return err(402, 'Te faltan ' + (cost - u.px) + ' PX.');
     u.px -= cost; u.unlocked.push(i); (u.colorTs = u.colorTs || {})[i] = now(); db.flush(); return { ok: true, profile: pub(u) };   // colorTs: cuándo se consiguió (bloqueo de 24 h del mercado)
+  }
+  /* [RANGOS] Quien reclamó un rango antes del cambio recibe su color exclusivo nuevo sin volver a reclamar */
+  function syncRankColors(u) {
+    let ch = false;
+    for (const i of u.claimed || []) { const r = S.RANKS[i]; if (r && r.color != null && !u.unlocked.includes(r.color)) { u.unlocked.push(r.color); (u.colorTs = u.colorTs || {})[r.color] = now(); ch = true; } }
+    if (ch) db.save();
   }
   function claimRank(u, i) {
     i = i | 0; const r = S.RANKS[i];

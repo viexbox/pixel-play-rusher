@@ -12,7 +12,7 @@ async function until(fn, ms = 8000) { const t0 = Date.now(); while (Date.now() -
 console.log('=== 1. Un único mapa: Nexus Outpost ===');
 const m = S.MAPS[0], world = S.buildWorld(0), cols = world.colliders, boxes = [];
 S.buildWorld(0, (cx, y0, cz, w, h, d, color, solid, tag) => boxes.push({ cx, y0, cz, w, h, d, color, solid, tag }));
-ok(S.MAPS.length === 1 && m.name === 'Nexus Outpost' && m.half === 50, 'solo hay un mapa: «' + m.name + '» de ' + m.half * 2 + ' × ' + m.half * 2 + ' m');
+ok(S.MAPS.length === 1 && m.name === 'Nexus Outpost' && m.half === 58, 'solo hay un mapa (116 m desde que se añadió el anillo de casetas): «' + m.name + '» de ' + m.half * 2 + ' × ' + m.half * 2 + ' m');
 ok(!JSON.stringify(S.MAPS.map(x => x.name)).match(/Almenas|Dunas|Contenedores|Bosque|Fábrica|Cañón/), 'ningún mapa antiguo (Almenas, Dunas, Contenedores, Bosque, Fábrica, Cañón) sigue en la lista');
 const need = ['Spawn Red', 'Spawn Blue', 'South Alley', 'Tunnel Passage', 'Main Plaza', 'Sniper Perch', 'Office Block', 'Central Courtyard', 'Lower Plaza', 'Reactor Complex', 'East Roof', 'Rooftop Network', 'West Tower Roof', 'Helipad A', 'Helipad B', 'Tech Hub', 'Armory', 'Capture Point'];
 /* un punto DENTRO de cada zona (x, altura de los pies, z) */
@@ -29,8 +29,8 @@ ok(S.areaAt(0, -39, 5.46, -43) === 'Helipad A' && S.areaAt(0, -39, 0, -43) !== '
 console.log('\n=== 2. Geometría ===');
 const finite = boxes.every(b => [b.cx, b.y0, b.cz, b.w, b.h, b.d].every(Number.isFinite) && b.w > 0 && b.h > 0 && b.d > 0);
 ok(finite && cols.length >= 200 && cols.length <= 400, cols.length + ' cajas macizas, todas con medidas válidas (ninguna vacía ni NaN)');
-const inside = cols.filter(c => c.minX >= -52.01 && c.maxX <= 52.01 && c.minZ >= -52.01 && c.maxZ <= 52.01 && c.maxY <= 12).length;
-ok(inside === cols.length, 'todo cabe dentro del recinto (100 × 100 m más 2 m de muro por lado) y por debajo de 12 m');
+const lim = m.half + 2.01, inside = cols.filter(c => c.minX >= -lim && c.maxX <= lim && c.minZ >= -lim && c.maxZ <= lim && c.maxY <= 12).length;
+ok(inside === cols.length, 'todo cabe dentro del recinto (' + m.half * 2 + ' × ' + m.half * 2 + ' m más 2 m de muro por lado) y por debajo de 12 m');
 const top = (x, z) => { let t = 0; for (const c of cols) if (x >= c.minX && x <= c.maxX && z >= c.minZ && z <= c.maxZ && c.maxY > t && c.maxY < 8) t = c.maxY; return t; };
 const near = (a, b) => Math.abs(a - b) < 0.02;
 ok(near(top(-24, -14), 1.8) && near(top(10, -1), 3.6) && near(top(-30, -42), 5.4) && near(top(21, -38), 5.4) && near(top(34, -25), 3.6) && near(top(40, 24), 3.6) && top(-6, 28) === 0,
@@ -97,11 +97,20 @@ const traps = R.q.filter(([i, j, k]) => !back.has(id(i, j, k)));
 ok(traps.length === 0, R.q.length + ' superficies alcanzables y de todas se puede VOLVER a la base: ' + traps.length + ' trampas' + (traps.length ? ' (p. ej. x ' + ctr(traps[0][0]) + ', z ' + ctr(traps[0][1]) + ')' : ''));
 let stuckOk = 0; for (const [n, [x, y, z]] of Object.entries(targets)) if (reach(Bl, x, y, z) !== null && reach(R, x, y, z) !== null) stuckOk++; ok(stuckOk === Object.keys(targets).length, 'ambos equipos alcanzan exactamente los mismos destinos');
 
+/* ---------- [MAPA] casetas del anillo exterior: se puede entrar en las 8 ---------- */
+{
+  const huts = m.areas.filter(a => a.n === 'Hut'), nav0 = world.nav;
+  const walkable = (x, z) => { const i = Math.floor(x + nav0.half), j = Math.floor(z + nav0.half), L = nav0.layers[i * nav0.n + j]; return !!(L && L.includes(0)); };
+  ok(huts.length === 8, 'hay 8 casetas en el anillo exterior (' + huts.length + ')');
+  const enter = huts.filter(a => { const cx = (a.x0 + a.x1) / 2, cz = (a.z0 + a.z1) / 2; return walkable(cx, cz) && !!S.navDir(nav0, S.navField(nav0, cx, cz, 0), 41, 3); });
+  ok(enter.length === 8, 'en las 8 se puede entrar caminando desde Spawn Blue: el interior tiene techo pero cabe un cuerpo (' + enter.length + ' de 8)');
+  ok(huts.every(a => S.areaAt(0, (a.x0 + a.x1) / 2, 0.1, (a.z0 + a.z1) / 2) === 'Hut'), 'y dentro, el indicador de ubicación dice «Hut»');
+}
 /* ---------- 4b. Navegación de los bots (con altura: sube escaleras) ---------- */
 console.log('\n=== 4b. Navegación de los bots (rejilla de 1 m, campo de distancias con capas por altura) ===');
 {
   const nav = world.nav, C = S.CONST, columnsWithSurface = nav.layers.filter(l => l.length).length, totalLayers = nav.layers.reduce((a, l) => a + l.length, 0);
-  ok(nav && nav.n === 100 && columnsWithSurface > 4000 && columnsWithSurface < 10000, 'el mundo trae su rejilla de navegación: ' + columnsWithSurface + ' columnas con alguna superficie pisable, de ' + nav.n * nav.n);
+  ok(nav && nav.n === m.half * 2 && columnsWithSurface > nav.n * nav.n * 0.5 && columnsWithSurface <= nav.n * nav.n, 'el mundo trae su rejilla de navegación: ' + columnsWithSurface + ' columnas con alguna superficie pisable, de ' + nav.n * nav.n);
   ok(totalLayers >= columnsWithSurface, 'y ' + (totalLayers - columnsWithSurface) + ' columnas tienen más de una altura pisable (suelo y, encima, una cubierta o una azotea)');
   const f = S.navField(nav, 43, 6); ok(S.navField(nav, 43.3, 6.2) === f, 'el campo hacia un destino se calcula una sola vez y queda en caché');
   let reachableGround = 0, groundColumns = 0; for (let c = 0; c < nav.n * nav.n; c++) { if (nav.layers[c].length && nav.layers[c][0] < 3) { groundColumns++; if (f.dist[c] && f.dist[c][0] >= 0) reachableGround++; } }
@@ -186,7 +195,7 @@ Bot.n = 20;
   w.eval(client.slice(0, i) + 'window.__M = { buildMap, mapGroup, MAPS, TEX, get cfg() { return cfg; }, get curMap() { return curMap; }, get mapHalf() { return mapHalf; } };\n' + client.slice(i));
   const M = w.__M;
   ok(M.cfg.map === 0 && errors.length === 0, 'una configuración guardada con «map: 5» (de cuando había 6 mapas) se corrige a 0 y el juego arranca sin errores (' + errors.length + ')');
-  ok(M.curMap === 0 && M.mapHalf === 50 && M.MAPS.length === 1, 'el cliente construye Nexus Outpost al arrancar');
+  ok(M.curMap === 0 && M.mapHalf === 58 && M.MAPS.length === 1, 'el cliente construye Nexus Outpost al arrancar');
   ok(M.TEX.glass && M.TEX.helipad && M.TEX.helipad.raw === true && !M.TEX.glass.raw, 'existen las texturas «glass» (se tiñe) y «helipad» (colores propios, sin teñir)');
   ok([...tags].every(t => M.TEX[t]), 'todas las etiquetas de textura que usa el mapa (' + [...tags].join(', ') + ') existen en el cliente');
   const meshes = []; M.mapGroup.traverse(o => { if (o.isMesh) meshes.push(o); });

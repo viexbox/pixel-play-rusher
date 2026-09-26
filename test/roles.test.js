@@ -118,7 +118,7 @@ function boot(url, withServer) {
     R.T.showTab('ranks'); await sleep(50);
     ok(R.$$('#ranksBox .tier').length === 6 && /Oro/.test(R.$('#ranksBox .rankhead').textContent) && R.$$('#ranksBox [data-claim]').length === 3, 'pestaña Rangos: 6 rangos, con 6.000 puntos eres Oro y hay 3 recompensas por reclamar');
     const kr0 = R.T.krTotal(); R.$('#ranksBox [data-claim="2"]').click();
-    ok(R.T.krTotal() === kr0 + 400 && R.T.unlocked().includes(5) && R.T.cfg.rankClaimed.includes(2), 'reclamar Oro: +400 KR y se desbloquea el color Violeta');
+    ok(R.T.krTotal() === kr0 + 400 && R.T.unlocked().includes(11) && R.T.cfg.rankClaimed.includes(2), 'reclamar Oro: +400 KR y se desbloquea su color exclusivo, «Oro»');   // [RANGOS] antes daba Violeta, que también se vende en la tienda
     ok(R.$$('#ranksBox [data-claim]').length === 2 && /Reclamado/.test(R.$$('#ranksBox .tier')[2].textContent), 'la recompensa reclamada no se puede repetir');
     R.$('#ranksBox [data-claim="2"]') && R.$('#ranksBox [data-claim="2"]').click(); ok(R.T.krTotal() === kr0 + 400, 'y no da KR dos veces');
     R.$$('#ranksBox [data-claim]').forEach(b => b.click()); ok(R.T.krTotal() === kr0 + 400 + 50 + 150, 'reclamar Bronce y Plata suma sus KR');

@@ -67,7 +67,7 @@ function createMarket({ S, accounts, bp, admin, dataDir, log, env }) {
     async list(u, b) {
       const t = String(b.t || ''), id = String(b.item || ''), price = Math.trunc(+b.price);
       if (!TYPES.includes(t)) return err(400, 'Tipo de objeto no válido.');
-      const def = defOf(t, id); if (!def) return err(400, t === 'color' ? 'Ese color no se puede vender (los 4 colores gratuitos no se comercian).' : 'Objeto no válido.');
+      const def = defOf(t, id); if (!def) return err(400, t === 'color' ? (S.COLOR_COSTS[+id] === null ? 'Los colores de rango son exclusivos: no se venden ni se intercambian.' : 'Ese color no se puede vender (los 4 colores gratuitos no se comercian).') : 'Objeto no válido.');
       const min = M.MIN_PRICE[def.r]; if (!Number.isFinite(price) || price < min) return err(400, 'El precio mínimo de un objeto ' + rarName(def.r).toLowerCase() + ' es ' + min + ' CR.');
       if (price > M.MAX_PRICE) return err(400, 'El precio máximo es ' + M.MAX_PRICE + ' CR.');
       let r;

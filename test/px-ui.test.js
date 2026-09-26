@@ -57,7 +57,7 @@ async function register(U, name, email, pw) { U.$('#tabRegister').click(); U.$('
     /* ---------- PX: saldo, colores y rangos del servidor ---------- */
     await adm('POST', '/px', { username: 'Zoe_7', delta: 500, reason: 'prueba UI' }); await A.T.syncRemote();
     ok(A.$('#krTotal').textContent === '500' && A.T.krTotal() === 500, 'el saldo del panel de admin llega al juego (500 PX)');
-    A.T.showTab('maps'); const locked = A.$$('#swColors .cs.locked'); ok(locked.length === 6 && /150 PX/.test(locked[0].dataset.cost), 'los colores bloqueados muestran su precio en PX');
+    A.T.showTab('maps'); const locked = A.$$('#swColors .cs.locked'); ok(locked.length === 11 && /150 PX/.test(locked[0].dataset.cost) && locked.filter(b => /^★ /.test(b.dataset.cost)).length === 5, 'los colores bloqueados muestran su precio en PX, y los 5 exclusivos de rango, su rango (★ Oro…)');   // [RANGOS] 6 de pago + 5 de rango
     locked[0].click(); ok(await until(() => A.$('#krTotal').textContent === '350'), 'comprar un color lo cobra en el servidor (500 → 350 PX)');
     const me = (await api('GET', '/me', null, tok)).j.profile; ok(me.px === 350 && me.unlocked.includes(4) && /Desbloqueado/.test(A.$('#custMsg').textContent), 'y el servidor guarda el color desbloqueado');
     A.T.showTab('ranks'); const claim = A.$('[data-claim="0"]'); ok(!!claim, 'el rango Bronce se puede reclamar'); claim.click();

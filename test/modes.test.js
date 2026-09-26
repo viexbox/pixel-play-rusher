@@ -42,7 +42,7 @@ const call = async (m, p, b, tk) => { const r = await fetch(B + p, { method: m, 
   try {
     const AT = (await call('POST', '/api/admin/login', { user: 'Viexbox', password: APASS })).j.token, adm = (m, p, b) => call(m, '/api/admin' + p, b, AT);
     /* ---------- modo por defecto ---------- */
-    let a = new Bot('Duelo1'); let w = await a.connect(0); ok(w.mode === 'duelo' && w.rk === 0 && w.lim === 40 && w.zone === null, 'sin pedir modo se juega el Duelo por equipos de siempre (límite ' + w.lim + ' bajas)');
+    let a = new Bot('Duelo1'); let w = await a.connect(0); ok(w.mode === 'duelo' && w.rk === 0 && w.lim === 60 && w.zone === null, 'sin pedir modo se juega el Duelo por equipos de siempre (límite ' + w.lim + ' bajas)');   // [PARTIDAS] 40 → 60 con partidas de 5 min
     let z = new Bot('Zona1', { mode: 'zona' }); const wz = await z.connect(0); ok(wz.mode === 'zona' && wz.room !== w.room && wz.zone && wz.zone.r === S.ZONE.R && wz.zone.o === -1 && wz.lim === 3, 'cada modo tiene sus propias salas (' + wz.room + ' ≠ ' + w.room + '); la zona llega en el welcome');
     let x = new Bot('Raro', { mode: 'inventado' }); ok((await x.connect(0)).mode === 'duelo', 'un modo desconocido cae al Duelo'); x.close(); a.close(); z.close(); await sleep(300);
 
