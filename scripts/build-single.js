@@ -61,7 +61,7 @@ function build(opts = {}) {
 }
 module.exports = { build };
 if (require.main === module) {
-  const args = process.argv.slice(2), out = args.find(a => !a.startsWith('--')) || 'pixel-play-rusher.html';
+  const args = process.argv.slice(2), out = args.find(a => !a.startsWith('--')) || 'krunxa.html';
   fs.writeFileSync(out, build({ inlineThree: args.includes('--inline-three') }));
   console.log('Generado ' + out + ' (' + Math.round(fs.statSync(out).size / 1024) + ' KB)');
 }

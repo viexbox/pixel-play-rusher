@@ -1,4 +1,4 @@
-/* PixelPlayRusher · Perfil de jugador, amigos y Mercado de cosméticos.
+/* Krunxa · Perfil de jugador, amigos y Mercado de cosméticos.
    Usa window.PPR_BP (catálogo compartido y utilidades de client.js/bp.js). El servidor decide todo; aquí solo se dibuja y se piden las acciones.
    Cuentas online: perfil propio y ajeno, foto (16 predefinidas o imagen propia reducida a 128×128), estado, amigos, bloqueos, denuncias y mercado con Créditos. */
 (function () {
@@ -25,6 +25,8 @@
   const avatarHtml = (a, px) => !a ? presetSvg(0, px) : a.kind === 'custom' ? '<img src="' + esc(a.preview || (/^https?:\/\//.test(a.url) ? a.url : P.apiUrl(a.url))) + '" width="' + px + '" height="' + px + '" alt="" style="object-fit:cover;display:block">' : presetSvg(a.id, px);
   const TICKS = { admin: 'Administrador verificado', inf: 'Influencer verificado', acc: 'Cuenta verificada' };
   const tick = v => v ? '<svg class="vtick" viewBox="0 0 24 24" role="img" aria-label="' + TICKS[v] + '"><title>' + TICKS[v] + '</title><path d="M12 2l2.4 2 3.1-.3 1 3 2.6 1.7-.9 3 .9 3-2.6 1.7-1 3-3.1-.3L12 22l-2.4-2-3.1.3-1-3L2.9 15.6l.9-3-.9-3 2.6-1.7 1-3 3.1.3z" fill="#2aa1ff"/><path d="M8 12.2l2.6 2.6L16 9.4" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '';
+  /* [VERIFICADOS] nombre dorado brillante + tic, igual que en la partida (antes en el perfil y en la lista de amigos solo salía el tic) */
+  const vname = u => u.verified ? '<span class="rl-admin">' + esc(u.username) + '</span>' + tick(u.verified) : esc(u.username);
   const ONLINE = { game: ['En partida', '#37f29a'], lobby: ['En el menú', '#ffdc3a'], off: ['Desconectado', '#6b7590'] };
 
   /* ---------- Ventana de diálogo ---------- */
@@ -51,9 +53,9 @@
     const acts = own ? '<button class="ps-btn" data-a="editphoto">Cambiar foto</button><button class="ps-btn alt" data-a="editstatus">Cambiar estado</button><button class="ps-btn alt" data-a="rename">Cambiar nombre</button><button class="ps-btn alt" data-a="account">Mi cuenta</button>'
       : !tk() ? '<span class="pf-hint">Inicia sesión para añadir amigos.</span>'
       : { none: '<button class="ps-btn" data-a="request">Añadir amigo</button>', 'pending-out': '<button class="ps-btn alt" data-a="cancel">Cancelar solicitud</button>', 'pending-in': '<button class="ps-btn" data-a="accept">Aceptar solicitud</button><button class="ps-btn alt" data-a="decline">Rechazar</button>',
-          friend: '<button class="ps-btn" data-a="trade">Proponer intercambio</button><button class="ps-btn alt" data-a="remove">Eliminar amigo</button>', blocked: '<button class="ps-btn alt" data-a="unblock">Desbloquear</button>' }[p.relation] + (p.relation !== 'blocked' ? '<button class="ps-btn ghost" data-a="block">Bloquear</button>' : '') + '<button class="ps-btn ghost" data-a="report">Denunciar</button>';
+          friend: (P.partyInvite ? '<button class="ps-btn" data-a="pinv">Invitar al grupo</button>' : '') + '<button class="ps-btn" data-a="trade">Proponer intercambio</button><button class="ps-btn alt" data-a="remove">Eliminar amigo</button>', blocked: '<button class="ps-btn alt" data-a="unblock">Desbloquear</button>' }[p.relation] + (p.relation !== 'blocked' ? '<button class="ps-btn ghost" data-a="block">Bloquear</button>' : '') + '<button class="ps-btn ghost" data-a="report">Denunciar</button>';
     return (b ? '<div class="pf-banner" style="--b1:' + b.c1 + ';--b2:' + b.c2 + '"><b>' + esc(b.tag) + '</b> ' + esc(b.n.toUpperCase()) + '</div>' : '<div class="pf-banner none"></div>') +
-      '<div class="pf-head"><div class="pf-av' + (own ? ' own' : '') + '" ' + (own ? 'data-a="editphoto" title="Cambiar foto"' : '') + '>' + avatarHtml(p.avatar, 96) + '</div><div class="pf-id"><h2>' + esc(p.username) + tick(p.verified) + '</h2>' +
+      '<div class="pf-head"><div class="pf-av' + (own ? ' own' : '') + '" ' + (own ? 'data-a="editphoto" title="Cambiar foto"' : '') + '>' + avatarHtml(p.avatar, 96) + '</div><div class="pf-id"><h2>' + vname(p) + '</h2>' +
       '<div class="pf-tags"><span class="pf-rank" style="--c:' + p.rank.col + '">' + esc(p.rank.n) + '</span><span>Pase nivel <b>' + p.bpLevel + '</b>' + (p.bpVip ? ' · VIP' : '') + '</span><span>' + fmt(p.points) + ' pts</span><span>' + p.friends + ' amigos</span>' + (p.ranked && p.ranked.league ? '<span class="pf-rank" style="--c:' + p.ranked.col + '" title="Liga del clasificatorio">Liga ' + esc(p.ranked.league) + '</span>' : '') + ((p.ranked && p.ranked.badges) || []).map(b => '<span class="pf-rank" style="--c:' + (b.col || '#9aa4b8') + '" title="Insignia de la temporada ' + b.s + '">T' + b.s + ' · ' + esc(b.l) + '</span>').join('') + '</div>' +
       '<p class="pf-status">' + (p.status ? esc(p.status) : '<i>Sin estado</i>') + '</p>' + (own && p.avatar.status === 'pending' ? '<small class="pf-hint">📷 Tu foto está en revisión: solo tú la ves hasta que se apruebe.</small>' : '') + (own && p.note ? '<small class="pf-hint" style="color:#ff8b98">' + esc(p.note) + '</small>' : '') + (on ? '<small class="pf-on" style="--c:' + on[1] + '">● ' + on[0] + '</small>' : '') + '</div></div>' +
       '<div class="pf-stats">' + [['Partidas', st.games], ['Bajas', st.kills], ['K/D', st.kd], ['Victorias', st.wins], ['Mejor partida', st.best], ['Mejor racha', st.streak]].map(x => '<div><b>' + fmt(x[1]) + '</b><span>' + x[0] + '</span></div>').join('') + '</div>' +
@@ -66,8 +68,8 @@
     if (!tk()) { el.innerHTML = '<p class="pf-hint">Inicia sesión con una cuenta online para tener amigos.</p>'; $('#pfReqN').textContent = ''; return; }
     if (!social) { el.innerHTML = '<p class="pf-hint">Cargando…</p>'; return; }
     $('#pfReqN').textContent = social.incoming.length ? social.incoming.length : '';
-    const row = (u, extra) => '<div class="pf-row" data-name="' + esc(u.username) + '"><span class="pf-mini">' + avatarHtml(u.avatar, 36) + '</span><span class="pf-rn"><b>' + esc(u.username) + tick(u.verified) + '</b><small>' + (u.online ? '<i style="color:' + ONLINE[u.online][1] + '">●</i> ' + ONLINE[u.online][0] : esc(u.rank.n)) + '</small></span>' + (extra || '') + '</div>';
-    if (side === 'friends') el.innerHTML = social.friends.length ? social.friends.map(u => row(u)).join('') : '<p class="pf-hint">Aún no tienes amigos. Abre el perfil de un jugador y pulsa «Añadir amigo».</p>';
+    const row = (u, extra) => '<div class="pf-row" data-name="' + esc(u.username) + '"><span class="pf-mini">' + avatarHtml(u.avatar, 36) + '</span><span class="pf-rn"><b>' + vname(u) + '</b><small>' + (u.online ? '<i style="color:' + ONLINE[u.online][1] + '">●</i> ' + ONLINE[u.online][0] : esc(u.rank.n)) + '</small></span>' + (extra || '') + '</div>';
+    if (side === 'friends') el.innerHTML = social.friends.length ? social.friends.map(u => row(u, u.online && P.partyInvite ? '<button class="ps-btn sm" data-q="pinv" title="Invitar al grupo">Invitar</button>' : '')).join('') : '<p class="pf-hint">Aún no tienes amigos. Abre el perfil de un jugador y pulsa «Añadir amigo».</p>';
     else if (side === 'req') el.innerHTML = (social.incoming.length ? '<h4>Recibidas</h4>' + social.incoming.map(u => row(u, '<button class="ps-btn sm" data-q="accept">Aceptar</button><button class="ps-btn sm alt" data-q="decline">✕</button>')).join('') : '') +
       (social.outgoing.length ? '<h4>Enviadas</h4>' + social.outgoing.map(u => row(u, '<button class="ps-btn sm alt" data-q="cancel">Cancelar</button>')).join('') : '') || '<p class="pf-hint">No hay solicitudes pendientes.</p>';
     else el.innerHTML = social.blocked.length ? social.blocked.map(u => row(u, '<button class="ps-btn sm alt" data-q="unblock">Desbloquear</button>')).join('') : '<p class="pf-hint">No has bloqueado a nadie.</p>';
@@ -109,6 +111,7 @@
     if (a === 'rename') { const rb = $('#renameBtn'); if (rb) { closeProfile(); rb.click(); } return; }
     if (a === 'account') { closeProfile(); return P.openAccount && P.openAccount(); }
     if (a === 'report') return reportPlayer(name);
+    if (a === 'pinv') { if (P.partyInvite) P.partyInvite(name); return; }   // [GRUPOS]
     if (a === 'trade') { closeProfile(); await openMarket(); toggleTrades(true); return proposeTrade(name); }
     if (a === 'block' && !window.confirm('¿Bloquear a ' + name + '? Se romperá la amistad y no podrá enviarte solicitudes.')) return;
     if (a === 'remove' && !window.confirm('¿Eliminar a ' + name + ' de tus amigos?')) return;
@@ -124,6 +127,7 @@
     $('#pfTabs').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b) { side = b.dataset.t; renderSide(); } });
     $('#pfList').addEventListener('click', async e => {
       const row = e.target.closest('.pf-row'); if (!row) return; const name = row.dataset.name, q = e.target.closest('[data-q]');
+      if (q && q.dataset.q === 'pinv') { if (P.partyInvite) P.partyInvite(name); return; }   // [GRUPOS]
       if (q) { try { await api('POST', 'api/social/' + q.dataset.q, { name }); await refreshSocial(); renderSide(); if (cur && cur.username === name) await show(name); } catch (er) { P.toast(er.message); } return; }
       show(name);
     });

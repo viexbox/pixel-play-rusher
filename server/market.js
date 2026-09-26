@@ -1,5 +1,5 @@
 'use strict';
-/* PixelPlayRusher · Mercado de cosméticos y intercambios entre jugadores.
+/* Krunxa · Mercado de cosméticos y intercambios entre jugadores.
    - Se comercia con Créditos (la moneda que solo se gana jugando y vendiendo), nunca con PX: así no se venden objetos por dinero real entre jugadores.
    - Se pueden vender las skins, cuchillos y banners del pase y los colores de pago (no los 4 colores gratuitos).
    - Al anunciar, el objeto sale del inventario (y de lo equipado) y queda en depósito en el anuncio; al retirarlo vuelve, al venderse pasa al comprador.

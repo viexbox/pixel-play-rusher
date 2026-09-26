@@ -4,7 +4,7 @@
    escribe aquí su URL (con https), por ejemplo: 'https://juego.midominio.com' */
 window.VOLT_CONFIG = { server: '', auth: true };  // auth: false desactiva la pantalla de acceso (login / registro / invitado)
 /* Servidor elegido por el jugador (sin tocar este archivo): se escribe con el botón «Servidor» del menú o abriendo el juego con  ?server=https://mi-servidor.com
-   (se recuerda en este navegador; ?server= vacío lo borra). Útil sobre todo con pixel-play-rusher.html abierto desde el ordenador. */
+   (se recuerda en este navegador; ?server= vacío lo borra). Útil sobre todo con krunxa.html abierto desde el ordenador. */
 (function () {
   try {
     const ok = v => /^https?:\/\/[^\s/?#]+(:\d+)?(\/[^\s?#]*)?$/i.test(v), q = new URLSearchParams(location.search).get('server');

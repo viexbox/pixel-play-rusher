@@ -1,4 +1,4 @@
-/* PixelPlayRusher · pantalla del Pase de batalla (Temporada 1).
+/* Krunxa · pantalla del Pase de batalla (Temporada 1).
    Se apoya en window.PPR_BP, que client.js rellena con el catálogo compartido (S) y utilidades del juego.
    El servidor manda: aquí solo se dibuja el estado que devuelve /api/bp y se piden las acciones. */
 (function () {

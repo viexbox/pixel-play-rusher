@@ -619,7 +619,7 @@ function chestTex(color, style) {
   } else if (style === 6) { // jersey a rayas
     g.fillStyle = 'rgba(0,0,0,.18)'; for (let y = 6; y < 58; y += 12) g.fillRect(0, y, 64, 6);
   }
-  if (style === 5 || style === 7 || style === 1 || style === 0) { // rayo de PixelPlayRusher
+  if (style === 5 || style === 7 || style === 1 || style === 0) { // rayo de Krunxa
     g.fillStyle = '#ffdc3a'; g.strokeStyle = 'rgba(0,0,0,.5)'; g.lineWidth = 2; g.beginPath(); g.moveTo(34, 8); g.lineTo(22, 30); g.lineTo(31, 30); g.lineTo(26, 52); g.lineTo(44, 24); g.lineTo(34, 24); g.lineTo(40, 8); g.closePath();
     if (style !== 0) { g.fill(); g.stroke(); }
   }
@@ -1617,7 +1617,8 @@ function startOnline() {
   try { ws = new WebSocket(wsUrl()); }
   catch (e) { return netFail('No se pudo abrir la conexión.'); }
   net.ws = ws; net.joined = false;
-  ws.onopen = () => netSend({ t: 'hello', v: 1, n: cfg.name, map: cfg.map, c: cfg.cls, lk: [cfg.look.col, cfg.look.skin], adm: admToken(), inf: cfg.infKey || '', acct: acctToken(), mode: S.MODES[cfg.mode] ? cfg.mode : 'duelo', rk: cfg.ranked && cfg.mode === 'duelo' ? 1 : 0, tm: cfg.wantTeam });
+  const ptok = partyC.tok; partyC.tok = null;   // [GRUPOS] el billete del grupo se guarda ANTES: borrarlo después de asignar onopen lo borraba antes de enviarlo
+  ws.onopen = () => netSend({ t: 'hello', v: 1, n: cfg.name, map: cfg.map, c: cfg.cls, lk: [cfg.look.col, cfg.look.skin], adm: admToken(), inf: cfg.infKey || '', acct: acctToken(), mode: S.MODES[cfg.mode] ? cfg.mode : 'duelo', rk: cfg.ranked && cfg.mode === 'duelo' ? 1 : 0, tm: cfg.wantTeam, pt: ptok || undefined });   // [GRUPOS] billete del grupo (solo sirve una vez)
   ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } try { netHandle(m); } catch (e) { console.error(e); } };
   ws.onclose = ev => {
     if (net.ws !== ws) return;
@@ -1683,6 +1684,7 @@ function netHandle(m) {
   switch (m.t) {
     case 'welcome': return onWelcome(m);
     case 'join': return addRemote(m.p);
+    case 'party': case 'pinvite': case 'pnote': case 'pgo': onPartyMsg(m); return;   // [GRUPOS] también en partida
     case 'pet': { const pf = net.remotes.get(m.id); if (pf) setPet(pf, m.pt); return; }
     case 'look': return applyLook(net.remotes.get(m.id), m.sk);   // [SKINS VISIBLES] alguien entra con skins equipadas   // [MASCOTAS] alguien equipó su mascota al entrar
     case 'leave': return removeRemote(m.id);
@@ -2557,6 +2559,41 @@ function chatSend(raw) {
   if (state === 'menu' && lobbyWs && lobbyWs.readyState === 1) return lobbyWs.send(JSON.stringify({ t: 'chat', m: text }));
   chatAdd('me', cfg.name, text); chatAdd('sys', '', 'Sin conexión con el servidor: solo tú ves este mensaje.');
 }
+/* ===== [GRUPOS] Panel del grupo en la lobby, invitaciones y jugar juntos. El servidor decide todo (quién está, quién manda, a qué sala
+   se va); aquí solo se pinta y se piden cosas por la conexión de la lobby. ===== */
+const partyC = { st: null, tok: null, invs: [] };
+function lobbySend(m) { if (lobbyWs && lobbyWs.readyState === 1) { lobbyWs.send(JSON.stringify(m)); return true; } if (online && net.ws && net.ws.readyState === 1) { net.ws.send(JSON.stringify(m)); return true; } return false; }
+function partyInvite(name) { if (!acctToken()) return toast('Inicia sesión con una cuenta online para jugar en grupo con tus amigos.'); if (!lobbySend({ t: 'pinv', u: name })) toast('Sin conexión con el servidor.'); else toast('Invitación enviada a ' + name); }
+const partyIsLead = () => !!(partyC.st && partyC.st.id && partyC.st.lead === cfg.name);
+function renderParty() {
+  const box = $('#partyBox'); if (!box) return; const p = partyC.st;
+  if (!p || !p.id) { box.innerHTML = '<button type="button" class="pt-inv" data-pt="friends">＋ Jugar con amigos</button>'; box.classList.remove('on'); return; }
+  box.classList.add('on');
+  const lead = partyIsLead(), me = (p.members.find(x => x.u === cfg.name) || {});
+  box.innerHTML = '<div class="pt-head"><b>Grupo</b><span>' + p.members.length + '/' + p.max + '</span></div><div class="pt-list">' +
+    p.members.map(x => '<div class="pt-row' + (x.ready || x.lead ? ' rdy' : '') + '">' + (x.lead ? '<i class="pt-crown" title="Jefe del grupo">👑</i>' : '') + '<span class="pt-av">' + esc(x.u[0].toUpperCase()) + '</span><span class="pt-n"><span class="pt-nm">' + nameHtml(x.u, x.rl) + '</span><small>' + esc(x.rank || '') + (x.ready && !x.lead ? ' · <em>Listo</em>' : '') + '</small></span>' +
+      (lead && x.u !== cfg.name ? '<button type="button" class="pt-kick" data-pt="kick" data-u="' + esc(x.u) + '" title="Sacar del grupo">✕</button>' : '') + '</div>').join('') + '</div>' +
+    (p.pending && p.pending.length ? '<p class="pt-pend">Invitado: ' + p.pending.map(esc).join(', ') + '</p>' : '') +
+    '<div class="pt-acts">' + (lead ? '<button type="button" data-pt="friends">＋ Invitar</button>' : '<button type="button" data-pt="ready" class="' + (me.ready ? 'on' : '') + '">' + (me.ready ? 'Listo ✓' : 'Listo') + '</button>') + '<button type="button" data-pt="leave" class="alt">Salir</button></div>' +
+    (lead ? '<p class="pt-hint">Eres el jefe: al pulsar Jugar entráis todos juntos.</p>' : '<p class="pt-hint">El jefe empieza la partida.</p>');
+}
+function showPartyInvite(m) {
+  partyC.invs = partyC.invs.filter(i => i.id !== m.id); partyC.invs.push(m);
+  const box = $('#ptInvite'); if (!box) return;
+  box.innerHTML = '<p><b>' + nameHtml(m.from.u, m.from.rl) + '</b> te invita a su grupo</p><div><button type="button" data-pi="acc" data-id="' + m.id + '">Aceptar</button><button type="button" data-pi="dec" data-id="' + m.id + '" class="alt">Rechazar</button></div>';
+  box.hidden = false; clearTimeout(showPartyInvite.t); showPartyInvite.t = setTimeout(() => { box.hidden = true; }, m.exp || 60000);
+}
+function onPartyMsg(m) {
+  if (m.t === 'party') { partyC.st = m.id ? m : null; renderParty(); return true; }
+  if (m.t === 'pinvite') { showPartyInvite(m); try { sfx.hit(); } catch (e) { /* sin sonido */ } return true; }
+  if (m.t === 'pnote') { toast(m.m); return true; }
+  if (m.t === 'pgo') {   // el jefe ha empezado: todos a jugar con el billete del grupo
+    partyC.tok = m.tok; if (S.MODES[m.mode]) cfg.mode = m.mode; if (Number.isInteger(m.map)) cfg.map = m.map;
+    if (state === 'menu' && !online) { document.body.classList.remove('eqopen'); startOnline(); }
+    return true;
+  }
+  return false;
+}
 function lobbyConnect() {
   if (lobbyWs || !serverOK || state !== 'menu' || online || typeof WebSocket === 'undefined') return;
   let ws; try { ws = new WebSocket(wsUrl()); } catch (e) { return; }
@@ -2568,7 +2605,8 @@ function lobbyConnect() {
     else if (m.t === 'chatdel') chatDel(m.i);
     else if (m.t === 'notice') showNotice(m);
     else if (m.t === 'err') chatAdd('sys', '', m.m);
-    else if (m.t === 'lobbyok') { document.body.classList.toggle('verified', !!m.rl); chatDel('lobbyok'); chatAdd('sys', '', 'Chat del lobby conectado · ' + m.n + (m.n === 1 ? ' persona' : ' personas') + ' en línea.', 0, 'lobbyok'); }   // [CORREGIDO] al reconectar (p. ej. al iniciar sesión) sustituye al aviso anterior en vez de repetirlo
+    else if (onPartyMsg(m)) return;   // [GRUPOS]
+    else if (m.t === 'lobbyok') { lobbySend({ t: 'pget' }); document.body.classList.toggle('verified', !!m.rl); chatDel('lobbyok'); chatAdd('sys', '', 'Chat del lobby conectado · ' + m.n + (m.n === 1 ? ' persona' : ' personas') + ' en línea.', 0, 'lobbyok'); }   // [CORREGIDO] al reconectar (p. ej. al iniciar sesión) sustituye al aviso anterior en vez de repetirlo
   };
   ws.onclose = () => { if (lobbyWs === ws) { lobbyWs = null; updateChatCh(); } };
   ws.onerror = () => {};
@@ -2615,7 +2653,7 @@ function initChat() {
     else if (e.key === 'Escape') { chatEl.input.value = ''; chatEl.input.blur(); }
   });
   chatEl.input.addEventListener('focus', () => { if (state === 'playing') { Object.keys(keys).forEach(k => { keys[k] = false; }); mouseL = mouseR = false; } });
-  chatAdd('sys', '', 'Bienvenido a PixelPlayRusher. Durante la partida, pulsa Enter para escribir.');
+  chatAdd('sys', '', 'Bienvenido a Krunxa. Durante la partida, pulsa Enter para escribir.');
   setInterval(updateChatCh, 600); updateChatCh();
 }
 
@@ -2687,7 +2725,21 @@ function initMenu() {
   });
   $('#play').addEventListener('click', () => openLoadout('train'));
   $('#playOnline').addEventListener('click', () => openLoadout('online'));
-  $('#eqPlay').addEventListener('click', () => { closeEq(); if (pendingPlay === 'online') startOnline(); else startMatch(); });
+  $('#eqPlay').addEventListener('click', () => {
+    if (pendingPlay === 'online' && partyC.st && partyC.st.id) {   // [GRUPOS] en grupo: el jefe empieza para todos; los demás esperan
+      if (!partyIsLead()) return toast('Estás en un grupo: la partida la empieza el jefe.');
+      closeEq(); lobbySend({ t: 'pplay', mode: S.MODES[cfg.mode] ? cfg.mode : 'duelo', map: cfg.map }); return;
+    }
+    closeEq(); if (pendingPlay === 'online') startOnline(); else startMatch();
+  });
+  $('#partyBox').addEventListener('click', e => { const b = e.target.closest('[data-pt]'); if (!b) return; const a = b.dataset.pt;
+    if (a === 'friends') { if (!acctToken()) return toast('Inicia sesión con una cuenta online para jugar en grupo con tus amigos.'); return showTab('profile'); }
+    if (a === 'leave') return lobbySend({ t: 'pleave' });
+    if (a === 'kick') return lobbySend({ t: 'pkick', u: b.dataset.u });
+    if (a === 'ready') { const me = partyC.st && partyC.st.members.find(x => x.u === cfg.name); return lobbySend({ t: 'pready', r: !(me && me.ready) }); }
+  });
+  $('#ptInvite').addEventListener('click', e => { const b = e.target.closest('[data-pi]'); if (!b) return; lobbySend({ t: b.dataset.pi === 'acc' ? 'pacc' : 'pdec', id: b.dataset.id }); $('#ptInvite').hidden = true; });
+  renderParty();
   $('#teamPick').addEventListener('click', e => { const b = e.target.closest('.tm'); if (b) pickTeam(b.dataset.tm); });
   $('#lbScope').addEventListener('change', renderLeaderboard);
   $('#lbScope').value = 'local';
@@ -2885,7 +2937,7 @@ if (!cfg.shadowsSet && renderer && isSoftwareGL()) cfg.shadows = false;
 buildMap(cfg.map); applyShadows(); initMenu(); resize(); setInterval(() => { if (state === 'menu') checkServer(); }, 15000); buildGun(WEAPONS[cfg.cls]); gun.visible = false;
 preloadGunModels();   // [NUEVO] modelos .glb reales: mientras cargan (o si fallan) el arma sigue viéndose con las cajas de siempre
 /* Puente para la pantalla del pase de batalla (bp.js) */
-Object.assign(window.PPR_BP, { petSvg, unlockedColors: () => unlocked(), pickColor, currentColor: () => cfg.look.col,   // [INVENTARIO]
+Object.assign(window.PPR_BP, { partyInvite, petSvg, unlockedColors: () => unlocked(), pickColor, currentColor: () => cfg.look.col,   // [INVENTARIO]
   gunPreview: (wid, skinId) => { const w = WEAPONS.find(x => x.id === wid); return w ? gunModel(w, 0, null, skinId) : null; },   // [3D] el arma con su skin, igual que en la partida
   limit: () => teamLimit, cfg, saveCfg, net: () => net, player: () => player, camera: () => camera, scene: () => scene, THREE, startSpectate, stopSpectate, specCycle, setSpecView: v => { net.specView = v; }, gunsOK, setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
   rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); setPreviewPet(); updatePreview(); if ($('#petsBox')) renderPets(); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });

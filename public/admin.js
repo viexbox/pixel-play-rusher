@@ -1,4 +1,4 @@
-/* Panel de administración de PixelPlayRusher (script clásico, sin dependencias). Todo el texto se inserta con textContent. */
+/* Panel de administración de Krunxa (script clásico, sin dependencias). Todo el texto se inserta con textContent. */
 (function () {
 'use strict';
 const $ = s => document.querySelector(s);
@@ -450,7 +450,7 @@ function showKey(name, key) {
 }
 async function downloadBackup() {
   const r = await act(() => api('GET', '/backup')); if (!r) return;
-  const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' })), download: 'pixel-play-rusher-backup.json' }); document.body.append(a); a.click(); a.remove(); toast('Copia descargada');
+  const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' })), download: 'krunxa-backup.json' }); document.body.append(a); a.click(); a.remove(); toast('Copia descargada');
 }
 
 /* ---------- Arranque ---------- */

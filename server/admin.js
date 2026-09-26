@@ -1,5 +1,5 @@
 'use strict';
-/* PixelPlayRusher · administración del servidor (dueño de la web).
+/* Krunxa · administración del servidor (dueño de la web).
    - Cuenta de administrador con contraseña guardada como hash scrypt (nunca en claro)
    - Sesiones con token, bloqueo por intentos fallidos y registro de auditoría
    - Baneos (por nombre o por IP «anonimizada»), silencios, avisos y expulsiones
@@ -156,13 +156,13 @@ function createAdmin(opts) {
     let nm; try { nm = require('nodemailer'); } catch (e) { log('Falta el módulo nodemailer: ejecuta npm install.'); return false; }
     const secure = env.SMTP_SECURE === '1' || +env.SMTP_PORT === 465;
     const tr = nm.createTransport({ host: env.SMTP_HOST, port: +env.SMTP_PORT || (secure ? 465 : 587), secure, ignoreTLS: env.SMTP_INSECURE === '1', auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS || '' } : undefined, connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 });
-    await tr.sendMail({ from: env.SMTP_FROM || env.SMTP_USER || 'PixelPlayRusher <no-reply@localhost>', to, subject, text });
+    await tr.sendMail({ from: env.SMTP_FROM || env.SMTP_USER || 'Krunxa <no-reply@localhost>', to, subject, text });
     return true;
   }
   async function deliverReset(token) {
     const link = PUBLIC_URL ? PUBLIC_URL + '/admin#reset=' + token : '';
     const mins = Math.round(RESET_TTL / 60000);
-    const text = 'Has pedido restablecer la contraseña del administrador de PixelPlayRusher.\n\n' + (link ? 'Abre este enlace (válido ' + mins + ' minutos y de un solo uso):\n' + link + '\n\n' : '') + 'Código de restablecimiento (pégalo en «Ya tengo un código» de la pantalla de acceso del panel):\n' + token + '\n\nSi no has sido tú, ignora este mensaje: tu contraseña no cambia.';
+    const text = 'Has pedido restablecer la contraseña del administrador de Krunxa.\n\n' + (link ? 'Abre este enlace (válido ' + mins + ' minutos y de un solo uso):\n' + link + '\n\n' : '') + 'Código de restablecimiento (pégalo en «Ya tengo un código» de la pantalla de acceso del panel):\n' + token + '\n\nSi no has sido tú, ignora este mensaje: tu contraseña no cambia.';
     let sent = false;
     try { sent = await sendMail(cred.data.email, 'Restablecer la contraseña del administrador', text); } catch (e) { log('No se pudo enviar el correo de restablecimiento: ' + e.message); }
     if (!sent) console.log('\n[RESTABLECER CONTRASEÑA] ' + (smtpOn() ? 'El correo no se pudo enviar. ' : 'No hay correo SMTP configurado. ') + 'Válido ' + mins + ' min.\n' + (link ? '  Enlace: ' + link + '\n' : '') + '  Código: ' + token + '\n'); // solo a la consola (no al registro del panel)
@@ -185,7 +185,7 @@ function createAdmin(opts) {
     if (!okPassword(password)) return { code: 400, error: PASS_RULE }; // no gasta el enlace
     await setPassword(password); resetTok = null; sessions.clear(); fails.clear(); resetFails.delete(ip);
     audit('admin', 'contraseña-restablecida', ipKey(ip));
-    sendMail(cred.data.email, 'Tu contraseña de administrador ha cambiado', 'La contraseña del administrador de PixelPlayRusher se acaba de restablecer. Si no has sido tú, entra al servidor y ejecuta «node scripts/admin-password.js» para recuperar el control.').catch(() => {});
+    sendMail(cred.data.email, 'Tu contraseña de administrador ha cambiado', 'La contraseña del administrador de Krunxa se acaba de restablecer. Si no has sido tú, entra al servidor y ejecuta «node scripts/admin-password.js» para recuperar el control.').catch(() => {});
     return { ok: true };
   }
 
@@ -489,7 +489,7 @@ function createAdmin(opts) {
     'POST /kickall': ({ s }) => { let n = 0; for (const p of rt.players()) if (p.role !== 'admin') { rt.kick(p, 'La moderación ha cerrado las partidas.'); n++; } audit(s.user, 'expulsar-todos', n + ' jugadores'); return { ok: true, kicked: n }; },
     'GET /audit': () => ({ audit: auditS.data.list.slice(-300).reverse() }),
     'GET /logs': () => ({ logs: logRing.slice(-300) }),
-    'GET /backup': ({ s }) => { audit(s.user, 'copia-de-seguridad', ''); return { __download: 'pixel-play-rusher-backup-' + new Date().toISOString().slice(0, 10) + '.json', data: { version: 1, at: now(), leaderboard: rt.lbAll(), bans: bansS.data, reports: reportsS.data, influencers: { seq: infS.data.seq, list: infS.data.list.map(inf.pub) }, history: histS.data, stats: ST, settings: S_ } }; },
+    'GET /backup': ({ s }) => { audit(s.user, 'copia-de-seguridad', ''); return { __download: 'krunxa-backup-' + new Date().toISOString().slice(0, 10) + '.json', data: { version: 1, at: now(), leaderboard: rt.lbAll(), bans: bansS.data, reports: reportsS.data, influencers: { seq: infS.data.seq, list: infS.data.list.map(inf.pub) }, history: histS.data, stats: ST, settings: S_ } }; },
     'POST /leaderboard/remove': ({ b, s }) => { const n = rt.lbRemove(String(b.name || '')); audit(s.user, 'clasificacion-quitar', b.name + ' (' + n + ')'); return { ok: true, removed: n }; },
     'POST /leaderboard/reset': ({ b, s }) => { if (b.confirm !== 'BORRAR') return { code: 400, error: 'Escribe BORRAR para confirmar.' }; const n = rt.lbClear(); audit(s.user, 'clasificacion-borrar-todo', n + ' entradas'); return { ok: true, removed: n }; },
     'POST /password': async ({ b, s }) => {
