@@ -639,22 +639,282 @@ function headMat(skin, seed) {
   return (headMats[key] = [s, s, s, s, s, new THREE.MeshLambertMaterial({ map: faceTex(skin, seed) })]);
 }
 
-/* [NUEVO] Modelos 3D reales (Blender, public/models/weapons/*.glb), generados con scripts/generate_weapons.py.
-   Solo para las 9 armas «normales» (no AK ni Lince, que tienen geometría propia hecha a mano: culata de madera
-   y mira telescópica con zoom, respectivamente — cambiarlas de golpe es más delicado y se deja para más adelante).
-   Si el modelo no ha cargado todavía (o falla la carga), el arma se sigue dibujando con cajas, como siempre. */
-const GUN_GLTF = {}, GUN_GLB_IDS = ['asalto', 'rafaga', 'torrente', 'trueno', 'sheriff', 'precision', 'duo', 'vortice', 'centinela'];
-function preloadGunModels() {
-  if (typeof THREE.GLTFLoader !== 'function') return;   // el HTML de un solo archivo sin servidor no puede llegar a los .glb: se queda con las cajas
-  const loader = new THREE.GLTFLoader();
-  GUN_GLB_IDS.forEach(id => loader.load('models/weapons/' + id + '.glb', gltf => { GUN_GLTF[id] = gltf.scene.children[0]; if (player && WEAPONS[player.wi] && WEAPONS[player.wi].id === id) buildGun(WEAPONS[player.wi]); }, undefined, () => { /* sin conexión a los modelos: se queda con las cajas, sin más */ }));
+/* [ARMAS HD] Armas detalladas hechas con piezas biseladas (antes: modelos .glb de Blender con piezas sueltas, o cajas).
+   Cada arma se describe como una lista de piezas con un «papel» de color (body = color del arma o de la skin, acc = detalle,
+   dark = piezas oscuras, metal = acero algo más claro que dark, y colores fijos para cartuchos, lentes…). Al construirla,
+   las piezas del mismo color se funden en UNA malla (pocas llamadas de dibujo aunque haya 60 piezas) y el contorno de
+   cómic se hace pieza a pieza y también se funde. Medidas en metros, el cañón mira a −z y el cajón ocupa de z=0 a z=−size[2]
+   con su parte de arriba en y=size[1]/2 (ahí se montan las miras, igual que antes). */
+const CHAMFER_CACHE = {};
+function chamferGeo(w, h, d, c) {   // caja con las aristas achaflanadas: lo que más quita el aspecto de «cubo» sin salirse del low-poly
+  c = Math.min(c == null ? 0.004 : c, w * 0.3, h * 0.3, d * 0.3);
+  const k = [w, h, d, c].map(v => v.toFixed(4)).join(','); if (CHAMFER_CACHE[k]) return CHAMFER_CACHE[k];
+  if (c < 0.0006) return (CHAMFER_CACHE[k] = new THREE.BoxGeometry(w, h, d));
+  const hw = w / 2 - c, hh = h / 2 - c, sh = new THREE.Shape();
+  sh.moveTo(-hw, -hh); sh.lineTo(hw, -hh); sh.lineTo(hw, hh); sh.lineTo(-hw, hh); sh.lineTo(-hw, -hh);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: d - 2 * c, bevelEnabled: true, bevelThickness: c, bevelSize: c, bevelSegments: 1, curveSegments: 1 });
+  g.translate(0, 0, -(d - 2 * c) / 2); g.computeVertexNormals();
+  return (CHAMFER_CACHE[k] = g);
 }
-/* Cada pieza del modelo (por su nombre, puesto en Blender) recibe el color que le tocaría en el sistema de cajas:
-   «body_rail» es la franja del cajón (antes iba en `acc`); todo lo demás son piezas oscuras, como antes. */
-function gunPartColor(partName, wcol, acc, dark) {
-  if (partName === 'body') return wcol;
-  if (partName === 'body_rail') return acc;
-  return dark;
+const CYL_CACHE = {};
+function cylGeo(r1, r2, len, seg) {   // cilindro a lo largo de z (r1 = radio del lado −z, el de la boca)
+  const k = [r1, r2, len, seg].join(','); if (CYL_CACHE[k]) return CYL_CACHE[k];
+  const g = new THREE.CylinderGeometry(r2, r1, len, seg || 10); g.rotateX(-Math.PI / 2);
+  return (CYL_CACHE[k] = g);
+}
+/* Funde varias piezas { geo, m (Matrix4) } en una sola geometría con posición, normal y uv */
+function mergePieces(list) {
+  let n = 0; const flat = list.map(p => { const g = p.geo.index ? p.geo.toNonIndexed() : p.geo; n += g.attributes.position.count; return { g, m: p.m }; });
+  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2), nm = new THREE.Matrix3(), v = new THREE.Vector3();
+  let o = 0;
+  for (const { g, m } of flat) {
+    const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv; nm.getNormalMatrix(m);
+    for (let i = 0; i < P.count; i++, o++) {
+      v.fromBufferAttribute(P, i).applyMatrix4(m); pos[o * 3] = v.x; pos[o * 3 + 1] = v.y; pos[o * 3 + 2] = v.z;
+      if (N) { v.fromBufferAttribute(N, i).applyMatrix3(nm).normalize(); nor[o * 3] = v.x; nor[o * 3 + 1] = v.y; nor[o * 3 + 2] = v.z; }
+      if (U) { uv[o * 2] = U.getX(i) * 4; uv[o * 2 + 1] = U.getY(i) * 4; }
+    }
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  out.computeBoundingBox(); out.computeBoundingSphere();
+  return out;
+}
+/* Lienzo de piezas: b() = caja biselada, c() = cilindro. rx/ry/rz en radianes. Devuelve las piezas para gunModel. */
+function gunKit() {
+  const parts = [], e = new THREE.Euler(), q = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1);
+  const put = (role, geo, x, y, z, rx, ry, rz, noLine) => { e.set(rx || 0, ry || 0, rz || 0); q.setFromEuler(e); parts.push({ role, geo, noLine, m: new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), q, one) }); };
+  return {
+    parts,
+    b: (role, w, h, d, x, y, z, rx, ry, rz, c) => put(role, chamferGeo(w, h, d, c), x, y, z, rx, ry, rz),
+    c: (role, r1, r2, len, x, y, z, seg, rx, ry) => put(role, cylGeo(r1, r2, len, seg), x, y, z, rx, ry, 0),
+    t: (role, w, h, d, x, y, z, rx, ry, rz) => put(role, chamferGeo(w, h, d, 0), x, y, z, rx, ry, rz, true)   // detalle diminuto: sin contorno (quedaría un borrón negro)
+  };
+}
+/* ---- Piezas comunes ---- */
+function kitGrip(k, s, z, tilt, len) {   // empuñadura de pistola con estrías y talón
+  const y = -s[1] / 2 - (len || 0.12) / 2 + 0.012, r = tilt == null ? -0.3 : tilt;
+  k.b('dark', 0.052, len || 0.12, 0.062, 0, y, z, r, 0, 0, 0.012);
+  for (let i = 0; i < 3; i++) k.t('metal', 0.054, 0.006, 0.05, 0, y + 0.03 - i * 0.025, z - 0.004 + (i * 0.025) * Math.sin(-r), r);
+  k.b('metal', 0.056, 0.014, 0.07, 0, y - (len || 0.12) / 2 + 0.004, z + (len || 0.12) / 2 * Math.sin(-r), r, 0, 0, 0.004);
+}
+function kitTrigger(k, s, z) {   // guardamonte y gatillo
+  const y0 = -s[1] / 2;
+  k.b('metal', 0.014, 0.007, 0.075, 0, y0 - 0.036, z - 0.045, 0, 0, 0, 0.002);
+  k.b('metal', 0.014, 0.036, 0.007, 0, y0 - 0.018, z - 0.082, 0, 0, 0, 0.002);
+  k.t('acc', 0.008, 0.024, 0.008, 0, y0 - 0.014, z - 0.05, -0.3);
+}
+function kitMag(k, s, m, curve) {   // cargador: m = [ancho, alto, largo, z] de shared.js; curve = curvatura (0 recto)
+  const [mw, mh, md, mz] = m, y0 = -s[1] / 2;
+  k.b('body', mw + 0.012, 0.026, md + 0.014, 0, y0 - 0.008, mz, 0, 0, 0, 0.004);   // brocal
+  const h1 = mh * 0.55, h2 = mh * 0.5;
+  k.b('dark', mw, h1, md, 0, y0 - 0.02 - h1 / 2, mz - curve * 0.1, curve * 0.5, 0, 0, 0.006);
+  k.b('dark', mw, h2, md, 0, y0 - 0.02 - h1 - h2 / 2 + 0.012, mz - curve * 0.16, curve * 1.2, 0, 0, 0.006);
+  for (let i = 0; i < 3; i++) k.t('metal', mw + 0.003, 0.006, md * 0.8, 0, y0 - 0.045 - i * (h1 / 3), mz - curve * 0.1 - 0.004 * i, curve * 0.5);
+  k.b('metal', mw + 0.006, 0.012, md + 0.006, 0, y0 - 0.02 - h1 - h2 + 0.016, mz - curve * 0.3, curve * 1.2, 0, 0, 0.003);   // base
+}
+function kitRail(k, s, z0, z1, x) {   // riel picatinny: base + dientes
+  const top = s[1] / 2, len = z0 - z1;
+  k.b('metal', (x || s[0] * 0.55), 0.008, len, 0, top + 0.004, (z0 + z1) / 2, 0, 0, 0, 0.002);
+  for (let z = z0 - 0.012; z > z1 + 0.008; z -= 0.022) k.t('metal', (x || s[0] * 0.55) + 0.008, 0.005, 0.009, 0, top + 0.0095, z);
+}
+function kitBarrel(k, s, z0, len, r, brake) {   // cañón con bloque de gases y freno de boca
+  k.c('metal', r, r, len, 0, 0.012, z0 - len / 2, 10);
+  if (brake === 'supp') { k.c('dark', r * 2.1, r * 2.1, 0.11, 0, 0.012, z0 - len - 0.05, 12); k.c('metal', r * 2.2, r * 2.2, 0.012, 0, 0.012, z0 - len - 0.1, 12); return z0 - len - 0.106; }
+  k.c('dark', r * 1.7, r * 1.7, 0.05, 0, 0.012, z0 - len - 0.02, 8);
+  if (brake !== 'plain') for (const sx of [-1, 1]) k.t('metal', 0.006, r * 2, 0.008, sx * r * 1.7, 0.012, z0 - len - 0.02);
+  return z0 - len - 0.045;
+}
+function kitScope(k, s, zc, len, yc, r0) {   // mira telescópica de verdad: tubo, campana, ocular, anillas y lentes
+  const y = yc || s[1] / 2 + 0.05, r = r0 || 0.02;
+  k.c('dark', r, r, len * 0.62, 0, y, zc, 12);
+  k.c('dark', r * 1.55, r, len * 0.2, 0, y, zc - len * 0.4, 12); k.c('metal', r * 1.6, r * 1.6, 0.01, 0, y, zc - len * 0.5, 12);
+  k.c('dark', r * 1.1, r * 1.35, len * 0.16, 0, y, zc + len * 0.38, 12); k.c('acc', r * 1.38, r * 1.38, 0.008, 0, y, zc + len * 0.3, 12);
+  k.c('metal', 0.009, 0.009, 0.02, 0, y + r + 0.006, zc, 8, Math.PI / 2); k.c('metal', 0.009, 0.009, 0.02, r + 0.006, y, zc + 0.02, 8, 0, Math.PI / 2);   // torretas
+  for (const dz of [-len * 0.22, len * 0.2]) { k.b('metal', 0.03, 0.03, 0.018, 0, y - 0.02, zc + dz, 0, 0, 0, 0.003); k.b('metal', 0.048, 0.008, 0.022, 0, s[1] / 2 + 0.008, zc + dz, 0, 0, 0, 0.002); }
+  k.c('lens', r * 1.4, r * 1.4, 0.004, 0, y, zc - len * 0.505, 12); k.c('lens', r * 1.2, r * 1.2, 0.004, 0, y, zc + len * 0.465, 12);
+}
+function kitStock(k, s, style) {   // culata detrás del cajón (z > 0): en primera persona es lo que lleva el arma hasta la esquina de la pantalla
+  const top = s[1] / 2;
+  if (style === 'short') { k.b('body', s[0] * 0.85, s[1] * 0.75, 0.09, 0, top - s[1] * 0.42, 0.045, 0, 0, 0, 0.008); k.b('dark', s[0] * 0.9, s[1] * 0.85, 0.02, 0, top - s[1] * 0.45, 0.1, 0, 0, 0, 0.005); return; }   // culata corta de subfusil
+  k.b('body', s[0] * 0.8, s[1] * 0.55, 0.12, 0, top - s[1] * 0.3, 0.06, 0, 0, 0, 0.008);          // cuello de la culata
+  k.b('body', s[0] * 0.78, s[1] * 0.9, 0.1, 0, top - s[1] * 0.5, 0.16, 0, 0, 0, 0.01);            // culata
+  k.b('dark', s[0] * 0.84, s[1] * 0.35, 0.09, 0, top - s[1] * 0.78, 0.155, 0, 0, 0, 0.006);       // parte baja oscura
+  k.b('dark', s[0] * 0.86, s[1] * 0.98, 0.02, 0, top - s[1] * 0.5, 0.215, 0, 0, 0, 0.005);        // cantonera de goma
+  k.b('acc', s[0] * 0.8 + 0.003, 0.008, 0.08, 0, top - s[1] * 0.25, 0.15, 0, 0, 0, 0.002);
+}
+/* ---- Cada familia de armas ---- */
+function buildRifle(k, w, s, L, bl, o) {   // fusiles: Asalto, Centinela, Precisión
+  const [sx, sy, sz] = s, top = sy / 2;
+  k.b('body', sx, sy * 0.6, sz * 0.62, 0, top - sy * 0.3, -sz * 0.31, 0, 0, 0, 0.008);          // cajón superior
+  const lowL = Math.max(sz * 0.46, L.mag ? -L.mag[3] + L.mag[2] / 2 + 0.01 : 0);
+  k.b('body', sx * 0.88, sy * 0.46, lowL, 0, -sy * 0.26, -lowL / 2, 0, 0, 0, 0.008);      // cajón inferior (llega hasta el cargador)
+  k.b('acc', sx + 0.003, 0.012, sz * 0.36, 0, top - sy * 0.22, -sz * 0.3, 0, 0, 0, 0.002);       // franja
+  k.b('dark', 0.004, sy * 0.24, sz * 0.14, sx / 2 + 0.001, top - sy * 0.28, -sz * 0.2, 0, 0, 0, 0.001);   // ventana de expulsión
+  k.b('metal', 0.02, 0.012, 0.03, 0.022, top - 0.012, -sz * 0.08, 0, 0, 0, 0.003);             // palanca de carga
+  const hg0 = -sz * 0.62, hgL = sz * 0.38 + (o.longGuard || 0);
+  k.b(o.guard || 'dark', sx * 0.96, sy * 0.8, hgL, 0, top - sy * 0.42, hg0 - hgL / 2, 0, 0, 0, 0.01);   // guardamanos
+  for (let i = 0; i < 4; i++) for (const x of [-1, 1]) k.t('metal', 0.004, sy * 0.2, hgL * 0.14, x * (sx * 0.48 + 0.001), top - sy * 0.42, hg0 - hgL * (0.16 + i * 0.22));   // ranuras
+  kitRail(k, s, -0.01, hg0 - hgL + 0.01);
+  const tip = kitBarrel(k, s, hg0 - hgL + 0.004, Math.max(0.06, bl * 0.9 - (o.longGuard || 0)), o.r || 0.012, o.brake);
+  k.b('dark', 0.026, 0.03, 0.022, 0, 0.03, hg0 - hgL - 0.02, 0, 0, 0, 0.004);                  // bloque de gases
+  if (L.mag) kitMag(k, s, L.mag, o.curve == null ? 0.12 : o.curve);
+  kitGrip(k, s, -0.07); kitTrigger(k, s, -0.1);
+  kitStock(k, s, o.stock);
+  if (L.scope) kitScope(k, s, -sz * 0.4, L.scope + 0.08);
+  return tip;
+}
+function buildSmg(k, w, s, L, bl, o) {   // subfusiles: Ráfaga, Vórtice
+  const [sx, sy, sz] = s, top = sy / 2;
+  k.b('body', sx, sy, sz * 0.78, 0, 0, -sz * 0.39, 0, 0, 0, 0.01);
+  k.b('dark', sx * 1.02, sy * 0.34, sz * 0.3, 0, -sy * 0.3, -sz * 0.18, 0, 0, 0, 0.005);        // bloque del gatillo
+  k.b('acc', sx + 0.003, 0.01, sz * 0.5, 0, top - sy * 0.3, -sz * 0.42, 0, 0, 0, 0.002);
+  k.b('acc', sx + 0.003, 0.01, sz * 0.2, 0, top - sy * 0.52, -sz * 0.55, 0, 0, 0, 0.002);
+  for (let i = 0; i < 3; i++) for (const x of [-1, 1]) k.t('dark', 0.004, sy * 0.35, 0.012, x * (sx / 2 + 0.001), top - sy * 0.5, -sz * (0.62 + i * 0.07));
+  k.b('dark', sx * 0.9, sy * 0.78, sz * 0.26, 0, -0.004, -sz * 0.91, 0, 0, 0, 0.01);            // funda del cañón
+  kitRail(k, s, -0.012, -sz * 0.72);
+  const tip = kitBarrel(k, s, -sz * 1.03, Math.max(0.05, bl * 0.55), 0.011, o.brake);
+  if (L.mag) kitMag(k, s, L.mag, 0.04);
+  kitGrip(k, s, -0.07); kitTrigger(k, s, -0.1);
+  if (o.foregrip) { k.b('dark', 0.036, 0.075, 0.036, 0, -sy / 2 - 0.04, -sz * 0.86, 0.12, 0, 0, 0.008); k.b('metal', 0.04, 0.01, 0.04, 0, -sy / 2 - 0.078, -sz * 0.86 - 0.005, 0.12, 0, 0, 0.003); }
+  kitStock(k, s, 'short');
+  return tip;
+}
+function buildLmg(k, w, s, L, bl) {   // ametralladora: Torrente
+  const [sx, sy, sz] = s, top = sy / 2;
+  k.b('body', sx, sy, sz * 0.6, 0, 0, -sz * 0.3, 0, 0, 0, 0.012);
+  k.b('metal', sx * 1.04, sy * 0.4, sz * 0.2, 0, top - sy * 0.2, -sz * 0.12, 0, 0, 0, 0.006);   // tapa de alimentación
+  k.b('acc', sx + 0.003, 0.012, sz * 0.4, 0, -sy * 0.05, -sz * 0.32, 0, 0, 0, 0.002);
+  const g0 = -sz * 0.6, gL = sz * 0.4 + 0.04;
+  k.c('dark', 0.034, 0.034, gL, 0, 0.006, g0 - gL / 2, 12);                                     // camisa del cañón
+  for (let i = 0; i < 5; i++) for (const a of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) k.t('metal', 0.006, 0.006, 0.02, Math.cos(a) * 0.0345, 0.006 + Math.sin(a) * 0.0345, g0 - 0.03 - i * gL / 5.2);
+  kitRail(k, s, -0.012, g0 + 0.01);
+  const tip = kitBarrel(k, s, g0 - gL, Math.max(0.08, bl * 0.7), 0.014, 'brake');
+  k.b('metal', 0.012, 0.05, 0.012, 0, top + 0.02, g0 - 0.05); k.b('metal', 0.012, 0.012, 0.1, 0, top + 0.045, g0 - 0.1); k.b('metal', 0.012, 0.05, 0.012, 0, top + 0.02, g0 - 0.15);   // asa de transporte
+  for (const x of [-1, 1]) k.b('metal', 0.01, 0.01, 0.2, x * 0.02, -0.03, g0 - gL + 0.02, 0, 0, x * 0.1, 0.002);   // bípode plegado bajo el cañón
+  k.b('dark', 0.05, 0.02, 0.03, 0, -0.03, g0 - gL - 0.07, 0, 0, 0, 0.004);
+  if (L.mag) { const [mw, mh, md, mz] = L.mag; k.b('dark', mw, mh, md, 0, -top - mh / 2 + 0.01, mz, 0, 0, 0, 0.012); k.b('acc', mw + 0.003, 0.012, md * 0.7, 0, -top - mh * 0.35, mz, 0, 0, 0, 0.002); k.b('metal', mw + 0.004, 0.01, md + 0.004, 0, -top - mh + 0.012, mz, 0, 0, 0, 0.003); }
+  kitGrip(k, s, -0.07); kitTrigger(k, s, -0.1); kitStock(k, s);
+  return tip;
+}
+function buildShotgun(k, w, s, L, bl) {   // escopeta: Trueno
+  const [sx, sy, sz] = s, top = sy / 2;
+  k.b('body', sx, sy * 0.8, sz * 0.55, 0, top - sy * 0.4, -sz * 0.275, 0, 0, 0, 0.012);
+  k.b('acc', sx + 0.003, 0.012, sz * 0.4, 0, top - sy * 0.18, -sz * 0.28, 0, 0, 0, 0.002);
+  for (let i = 0; i < 4; i++) { k.c('shell', 0.009, 0.009, 0.034, sx / 2 + 0.008, top - sy * 0.45, -sz * (0.12 + i * 0.1), 8, 0, 0); k.c('brass', 0.0095, 0.0095, 0.012, sx / 2 + 0.008, top - sy * 0.45, -sz * (0.12 + i * 0.1) + 0.02, 8); }   // cartuchos de repuesto
+  k.b('dark', 0.006, sy * 0.3, sz * 0.46, sx / 2 + 0.003, top - sy * 0.45, -sz * 0.27, 0, 0, 0, 0.002);
+  const bz = -sz * 0.55, bL = sz * 0.45 + bl * 0.8;
+  k.c('metal', 0.02, 0.02, bL, 0, top - 0.024, bz - bL / 2, 12);                                 // cañón
+  k.c('dark', 0.016, 0.016, bL * 0.8, 0, top - 0.064, bz - bL * 0.4, 10);                         // depósito tubular
+  k.c('dark', 0.024, 0.024, 0.03, 0, top - 0.024, bz - bL + 0.012, 12);
+  k.b('metal', 0.006, 0.006, bL * 0.95, 0, top - 0.002, bz - bL / 2, 0, 0, 0, 0.001);            // banda de mira
+  k.t('hi', 0.008, 0.008, 0.008, 0, top + 0.004, bz - bL + 0.02);
+  const pz = bz - bL * 0.3;                                                                        // corredera (pump) estriada
+  k.b('dark', 0.056, 0.05, 0.16, 0, top - 0.068, pz, 0, 0, 0, 0.012);
+  for (let i = 0; i < 5; i++) k.t('metal', 0.059, 0.036, 0.008, 0, top - 0.068, pz - 0.06 + i * 0.03);
+  kitGrip(k, s, -0.07, -0.42); kitTrigger(k, s, -0.1); kitStock(k, s);
+  return bz - bL - 0.003;
+}
+function buildRevolver(k, w, s, L, bl) {   // revólver: Sheriff
+  const [sx, sy, sz] = s, top = sy / 2, dz = -sz * 0.5;
+  k.b('body', sx, sy * 0.78, sz, 0, top - sy * 0.39, -sz / 2, 0, 0, 0, 0.01);
+  k.c('dark', 0.036, 0.036, 0.07, 0, 0.004, dz, 12);                                             // tambor
+  for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; k.t('metal', 0.008, 0.008, 0.074, Math.cos(a) * 0.034, 0.004 + Math.sin(a) * 0.034, dz); }   // estrías
+  k.c('metal', 0.012, 0.012, 0.02, 0, 0.004, dz - 0.044, 10);
+  const bL = Math.max(0.12, bl * 0.55);
+  k.c('metal', 0.013, 0.013, bL, 0, top - 0.018, -sz - bL / 2 + 0.01, 10);                       // cañón
+  k.b('body', 0.02, 0.014, bL, 0, top - 0.004, -sz - bL / 2 + 0.01, 0, 0, 0, 0.003);            // costilla
+  k.c('dark', 0.006, 0.006, bL * 0.55, 0, top - 0.042, -sz - bL * 0.28, 8);                       // varilla
+  k.t('hi', 0.006, 0.012, 0.01, 0, top + 0.006, -sz - bL + 0.02);
+  k.b('dark', 0.016, 0.03, 0.02, 0, top + 0.006, 0.004, 0.4, 0, 0, 0.004);                        // martillo
+  k.b('dark', 0.05, 0.13, 0.052, 0, -sy / 2 - 0.05, 0.005, -0.5, 0, 0, 0.016);                   // cachas
+  for (const x of [-1, 1]) k.t('acc', 0.004, 0.02, 0.02, x * 0.026, -sy / 2 - 0.04, 0.0, -0.5);   // medallones
+  k.b('metal', 0.052, 0.016, 0.03, 0, -sy / 2 - 0.1, 0.035, -0.5, 0, 0, 0.004);
+  kitTrigger(k, s, -0.03);
+  return -sz - bL + 0.005;
+}
+function buildPistol(k, w, s, L, bl) {   // pistola: Dúo
+  const [sx, sy, sz] = s, top = sy / 2;
+  k.b('body', sx, sy * 0.52, sz + 0.03, 0, top - sy * 0.26, -sz / 2 - 0.015, 0, 0, 0, 0.007);    // corredera
+  for (let i = 0; i < 5; i++) for (const x of [-1, 1]) k.t('dark', 0.003, sy * 0.36, 0.005, x * (sx / 2 + 0.0005), top - sy * 0.26, -0.012 - i * 0.011);   // estrías
+  k.b('dark', 0.004, sy * 0.2, 0.03, sx / 2 + 0.0005, top - sy * 0.2, -sz * 0.45, 0, 0, 0, 0.001);
+  k.b('dark', sx * 0.92, sy * 0.5, sz * 0.9, 0, -sy * 0.2, -sz * 0.47, 0, 0, 0, 0.006);           // armazón
+  k.b('acc', sx + 0.003, 0.008, sz * 0.5, 0, -sy * 0.1, -sz * 0.55, 0, 0, 0, 0.002);
+  k.c('metal', 0.009, 0.009, 0.03, 0, top - sy * 0.26, -sz - 0.03, 10);
+  k.t('hi', 0.006, 0.01, 0.008, 0, top + 0.004, -sz - 0.01); k.t('dark', 0.02, 0.01, 0.008, 0, top + 0.004, -0.01);
+  k.b('dark', 0.046, 0.12, 0.056, 0, -sy / 2 - 0.045, -0.02, -0.25, 0, 0, 0.012);
+  k.b('body', 0.048, 0.07, 0.04, 0, -sy / 2 - 0.045, -0.02, -0.25, 0, 0, 0.01);
+  kitTrigger(k, s, -0.05);
+  return -sz - 0.046;
+}
+function buildAk(k, w, s, L, bl) {   // AK: cajón estampado, madera y cargador muy curvo
+  const [sx, sy, sz] = s, top = sy / 2;
+  k.b('body', sx, sy, 0.36, 0, 0, -0.18, 0, 0, 0, 0.008);                                          // cajón
+  k.b('metal', sx * 0.8, 0.014, 0.3, 0, top + 0.004, -0.19, 0, 0, 0, 0.004);                       // tapa
+  for (let i = 0; i < 4; i++) k.t('metal', sx * 0.82, 0.006, 0.01, 0, top + 0.012, -0.08 - i * 0.05);   // nervios de la tapa
+  k.b('dark', 0.004, sy * 0.3, 0.09, sx / 2 + 0.001, top - sy * 0.32, -0.16, 0, 0, 0, 0.001);    // ventana
+  k.b('metal', 0.01, 0.018, 0.12, sx / 2 + 0.004, top - sy * 0.5, -0.2, 0, 0, 0, 0.002);         // selector
+  k.b('acc', sx + 0.003, 0.01, 0.2, 0, -sy * 0.16, -0.2, 0, 0, 0, 0.002);
+  k.b('wood', 0.086, 0.074, 0.22, 0, -0.014, -0.47, 0, 0, 0, 0.012);                               // guardamanos de madera
+  k.b('woodDk', 0.07, 0.032, 0.22, 0, 0.045, -0.47, 0, 0, 0, 0.008);
+  for (let i = 0; i < 3; i++) for (const x of [-1, 1]) k.t('woodDk', 0.004, 0.03, 0.03, x * 0.044, -0.014, -0.4 - i * 0.06);
+  k.c('metal', 0.012, 0.012, 0.26, 0, 0.038, -0.49, 8);                                            // tubo de gases
+  k.b('metal', 0.035, 0.04, 0.03, 0, 0.025, -0.6, 0, 0, 0, 0.005);                                  // bloque de gases
+  const tip = kitBarrel(k, s, -0.58, Math.max(0.1, bl * 0.9), 0.014, 'brake');
+  k.b('metal', 0.012, 0.035, 0.014, 0, 0.05, tip + 0.06, 0, 0, 0, 0.003);                          // poste de mira
+  k.b('wood', 0.056, 0.13, 0.066, 0, -top - 0.058, -0.08, -0.3, 0, 0, 0.014);                     // empuñadura de madera
+  kitTrigger(k, s, -0.11);
+  const mz = -0.25, y0 = -top;                                                                      // cargador «banana» en 3 tramos
+  k.b('dark', 0.05, 0.08, 0.08, 0, y0 - 0.035, mz, 0.1, 0, 0, 0.008);
+  k.b('dark', 0.05, 0.08, 0.08, 0, y0 - 0.1, mz - 0.018, 0.3, 0, 0, 0.008);
+  k.b('dark', 0.05, 0.07, 0.08, 0, y0 - 0.16, mz - 0.05, 0.5, 0, 0, 0.008);
+  for (let i = 0; i < 3; i++) k.t('metal', 0.053, 0.006, 0.06, 0, y0 - 0.04 - i * 0.06, mz - 0.01 * i * i, 0.1 + i * 0.2);
+  k.b('wood', sx * 0.8, sy * 1.0, 0.18, 0, -0.02, 0.1, -0.12, 0, 0, 0.012);                        // culata de madera
+  k.b('woodDk', sx * 0.84, sy * 1.15, 0.02, 0, -0.035, 0.19, -0.12, 0, 0, 0.004);
+  return tip;
+}
+function buildSniper(k, w, s, L, bl) {   // francotirador: Lince (la mira va en la altura que usa el zoom, ver OPTICS.scope)
+  const [sx, sy, sz] = s, top = sy / 2;
+  k.b('body', sx, sy, sz * 0.45, 0, 0, -sz * 0.225, 0, 0, 0, 0.008);                             // cajón
+  k.b('body', sx * 1.1, sy * 1.05, sz * 0.5, 0, -0.004, -sz * 0.7, 0, 0, 0, 0.012);              // guardamanos flotante
+  for (let i = 0; i < 5; i++) for (const x of [-1, 1]) k.t('dark', 0.004, sy * 0.4, sz * 0.05, x * (sx * 0.55 + 0.001), -0.004, -sz * (0.52 + i * 0.075));
+  k.b('acc', sx + 0.003, 0.01, sz * 0.35, 0, top - sy * 0.3, -sz * 0.24, 0, 0, 0, 0.002);
+  k.b('metal', 0.05, 0.018, 0.018, 0.045, 0.02, -sz * 0.3, 0, 0, 0, 0.004); k.b('hi', 0.03, 0.03, 0.03, 0.078, 0.02, -sz * 0.3, 0, 0, 0, 0.008);   // cerrojo
+  const tip = kitBarrel(k, s, -sz * 0.95, Math.max(0.1, bl * 0.95), 0.013, 'brake');
+  k.b('dark', 0.05, 0.05, 0.09, 0, 0.012, tip + 0.03, 0, 0, 0, 0.008);                           // freno grande
+  kitScope(k, s, -sz * 0.45, L.scope + 0.1, s[1] / 2 + 0.055, 0.024);
+  k.b('dark', 0.06, 0.13, 0.07, 0, -top - 0.06, -0.08, -0.25, 0, 0, 0.012); kitTrigger(k, s, -0.11);
+  if (L.mag) kitMag(k, s, L.mag, 0); else k.b('dark', 0.045, 0.05, 0.08, 0, -top - 0.02, -sz * 0.36, 0, 0, 0, 0.006);
+  k.b('body', sx * 0.9, sy * 1.5, 0.2, 0, -0.02, 0.1, 0, 0, 0, 0.012); k.b('dark', sx * 0.95, sy * 1.6, 0.02, 0, -0.02, 0.205, 0, 0, 0, 0.004); k.b('metal', sx * 0.6, 0.03, 0.12, 0, top + 0.012, 0.06, 0, 0, 0, 0.006);   // culata y carrillera
+  return tip;
+}
+const GUN_BUILDERS = {
+  ak: buildAk, lince: buildSniper,
+  asalto: (k, w, s, L, bl) => buildRifle(k, w, s, L, bl, {}),
+  centinela: (k, w, s, L, bl) => buildRifle(k, w, s, L, bl, { longGuard: 0.06, curve: 0.05, brake: 'brake', r: 0.013 }),
+  precision: (k, w, s, L, bl) => buildRifle(k, w, s, L, bl, { longGuard: 0.08, curve: 0, guard: 'body', r: 0.011, brake: 'plain' }),
+  rafaga: (k, w, s, L, bl) => buildSmg(k, w, s, L, bl, {}),
+  vortice: (k, w, s, L, bl) => buildSmg(k, w, s, L, bl, { brake: 'supp', foregrip: true }),
+  torrente: buildLmg, trueno: buildShotgun, sheriff: buildRevolver, duo: buildPistol
+};
+const FIXED_GUN_COLS = { shell: '#e5484d', brass: '#d9a441', lens: '#38e4ff', hi: '#ffdc3a', wood: '#9a5522', woodDk: '#74400f' };
+function buildDetailedGun(w, g, s, L, bl, cols, matFor) {
+  const k = gunKit(), tip = GUN_BUILDERS[w.id](k, w, s, L, bl), byRole = {};
+  for (const p of k.parts) (byRole[p.role] = byRole[p.role] || []).push(p);
+  for (const role in byRole) {
+    const mesh = new THREE.Mesh(mergePieces(byRole[role]), role === 'lens' ? new THREE.MeshBasicMaterial({ color: FIXED_GUN_COLS.lens }) : matFor(cols[role] || FIXED_GUN_COLS[role]));
+    mesh.name = role; mesh.userData.ownOutline = true; g.add(mesh);
+  }
+  /* Contorno: una copia de cada pieza (salvo los detalles diminutos) un poco más grande y pintada por dentro, todo en una malla */
+  const t = 0.0035, bb = new THREE.Box3(), sz = new THREE.Vector3(), ct = new THREE.Vector3(), lines = [];
+  for (const p of k.parts) {
+    if (p.noLine || p.role === 'lens') continue;
+    if (!p.geo.boundingBox) p.geo.computeBoundingBox(); bb.copy(p.geo.boundingBox); bb.getSize(sz); bb.getCenter(ct);
+    const sc = new THREE.Matrix4().makeTranslation(ct.x, ct.y, ct.z).multiply(new THREE.Matrix4().makeScale(1 + 2 * t / Math.max(sz.x, 1e-3), 1 + 2 * t / Math.max(sz.y, 1e-3), 1 + 2 * t / Math.max(sz.z, 1e-3))).multiply(new THREE.Matrix4().makeTranslation(-ct.x, -ct.y, -ct.z));
+    lines.push({ geo: p.geo, m: p.m.clone().multiply(sc) });
+  }
+  const ol = new THREE.Mesh(mergePieces(lines), OUTLINE_MAT); ol.userData.isOutline = true; ol.renderOrder = -1; ol.raycast = () => {}; g.add(ol);
+  return tip;
 }
 /* Modelo de arma (se usa en primera persona y en las manos de los personajes) */
 const gunMatCache = {}, NEON_MATS = new Set();
@@ -702,7 +962,7 @@ function gunMat(col, sk, wcol, acc, dark) {
    Solo en las armas: el mapa y los personajes no pagan ningún coste extra. */
 const OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: 0x07080d, side: THREE.BackSide });
 function addGunOutlines(root, t) {
-  const meshes = []; root.traverse(o => { if (o.isMesh && !o.userData.isOutline && o.material !== OUTLINE_MAT) meshes.push(o); });
+  const meshes = []; root.traverse(o => { if (o.isMesh && !o.userData.isOutline && !o.userData.ownOutline && o.material !== OUTLINE_MAT) meshes.push(o); });
   for (const m of meshes) {
     if (m.material && (m.material.transparent || m.material.type === 'MeshBasicMaterial')) continue;   // cristales de mira, destellos: sin contorno
     const g = m.geometry; if (!g) continue; if (!g.boundingBox) g.computeBoundingBox();
@@ -742,30 +1002,12 @@ function gunModel(w, ox, oid, skinId) {
     glass(0.04, 0.04, 0, ty0 + 0.038, zc - 0.116, '#38e4ff');
   }
   };
-  if (w.id === 'ak') {
-    const steel = '#2b2f3f', wood = sk ? sk.acc : '#9a5522', woodDk = sk ? sk.dark : '#74400f', top = s[1] / 2, ty0 = top + 0.012, rail = '#20242f', zc = -0.16;
-    g.add(box(s[0], s[1], 0.36, 0, 0, -0.18, wcol));                                  // cajón de mecanismo
-    g.add(box(s[0] * 0.55, 0.012, 0.3, 0, top + 0.006, -0.18, steel));                  // tapa
-    g.add(box(0.085, 0.078, 0.22, 0, -0.012, -0.47, wood)); g.add(box(0.066, 0.03, 0.22, 0, 0.045, -0.47, woodDk)); // guardamanos de madera
-    g.add(cyl(0.012, 0.012, 0.26, 0, 0.038, -0.49, steel));                             // tubo de gases
-    g.add(box(0.035, 0.035, bl, 0, 0.012, -s[2] - bl / 2 + 0.02, steel));               // cañón
-    g.add(box(0.045, 0.045, 0.05, 0, 0.012, -s[2] - bl + 0.05, steel));                 // apagallamas
-    g.add(box(0.06, 0.13, 0.07, 0, -top - 0.06, -0.08, wood));                          // empuñadura
-    const m1 = box(0.05, 0.13, 0.08, 0, -top - 0.075, -0.25, steel); m1.rotation.x = 0.12; g.add(m1); // cargador curvo
-    const m2 = box(0.05, 0.11, 0.08, 0, -top - 0.19, -0.27, steel); m2.rotation.x = 0.35; g.add(m2);
-    sights(zc, -0.06, -s[2] - bl + 0.02);
-  } else if (w.id !== 'lince' && GUN_GLTF[w.id]) {   // [NUEVO] modelo .glb real, ya cargado (nunca para Lince: su mira telescópica con zoom es geometría propia, no se toca esta sesión)
-    const model = GUN_GLTF[w.id].clone(true);
-    model.children.slice().forEach(part => { if (part.name.startsWith('sight_')) model.remove(part); });
-    model.traverse(part => { if (part.isMesh) part.material = gunMat(gunPartColor(part.name, wcol, acc, dark), sk, wcol, acc, dark); });
-    g.add(model);
-    /* [CORREGIDO] Las miras y el destello se colocan con las medidas REALES del modelo 3D (su cuerpo y la boca del cañón), no con las del
-       arma de cajas: en algunas armas (Precisión, Dúo, Centinela) el modelo es más corto y la mira quedaba flotando fuera del arma */
-    model.updateMatrixWorld(true);
-    const partBox = n => { let o = null; model.traverse(x => { if (!o && x.name === n) o = x; }); return o ? new THREE.Box3().setFromObject(o) : null; };
-    const bb = partBox('body') || new THREE.Box3().setFromObject(model), tip = partBox('muzzle') || partBox('barrel') || bb;
-    const f0 = bb.min.z, len = bb.max.z - bb.min.z; g.userData.tipZ = tip.min.z;
-    if (L.scope) g.add(box(0.05, 0.05, Math.min(L.scope, len * 0.9), 0, bb.max.y + 0.045, f0 + len * 0.5, dark)); else if (opt) sights(f0 + len * 0.7, f0 + len * 0.88, tip.min.z + 0.02); else g.add(box(0.03, 0.04, 0.05, 0, bb.max.y + 0.02, f0 + len * 0.4, dark));
+  if (GUN_BUILDERS[w.id]) {   // [ARMAS HD] arma detallada (ver buildDetailedGun)
+    const metal = '#' + new THREE.Color(dark).lerp(new THREE.Color('#8a93b8'), 0.22).getHexString();
+    const cols = { body: wcol, acc, dark, metal }; if (w.id === 'ak') { cols.wood = sk ? sk.acc : '#9a5522'; cols.woodDk = sk ? sk.dark : '#74400f'; cols.metal = '#2b2f3f'; }
+    g.userData.tipZ = buildDetailedGun(w, g, s, L, bl, cols, c => gunMat(c, sk, wcol, acc, dark));
+    if (w.id === 'ak') sights(-0.16, -0.06, g.userData.tipZ + 0.06);
+    else if (!L.scope) { if (opt) sights(-s[2] * 0.3, -s[2] * 0.12, g.userData.tipZ + 0.03); else g.add(box(0.01, 0.016, 0.012, 0, s[1] / 2 + 0.008, g.userData.tipZ + 0.035, dark)); }   // punto de mira sencillo
   } else {
     g.add(box(s[0], s[1], s[2], 0, 0, -s[2] / 2, wcol));
     g.add(box(s[0] * 0.5, 0.012, s[2] * 0.9, 0, s[1] / 2 + 0.006, -s[2] / 2, acc)); // franja clara en el cajón
@@ -782,8 +1024,8 @@ function gunModel(w, ox, oid, skinId) {
       g.add(box(0.05, 0.05, 0.09, 0, 0.012, -s[2] - bl + 0.03, dark));
     } else if (L.scope) g.add(box(0.05, 0.05, L.scope, 0, s[1] / 2 + 0.045, -s[2] * 0.5, dark)); else if (opt) sights(-s[2] * 0.3, -s[2] * 0.12, -s[2] - bl + 0.02); else g.add(box(0.03, 0.04, 0.05, 0, s[1] / 2 + 0.02, -s[2] * 0.6, dark));
   }
-  if (!GUN_GLTF[w.id] && L.drum) g.add(box(0.075, 0.075, 0.09, 0, 0, -s[2] * 0.55, dark));
-  if (!GUN_GLTF[w.id] && L.pump) g.add(box(0.1, 0.06, 0.16, 0, -0.06, -s[2] - 0.05, dark));
+  if (!GUN_BUILDERS[w.id] && L.drum) g.add(box(0.075, 0.075, 0.09, 0, 0, -s[2] * 0.55, dark));
+  if (!GUN_BUILDERS[w.id] && L.pump) g.add(box(0.1, 0.06, 0.16, 0, -0.06, -s[2] - 0.05, dark));
   const fl = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.95, side: THREE.DoubleSide, fog: false }));
   fl.position.set(0, 0.012, (g.userData.tipZ != null ? g.userData.tipZ : -s[2] - bl) - 0.08); fl.visible = false; g.add(fl); g.userData.flash = fl;   // [CORREGIDO] con modelo 3D, en la boca real del cañón
   addGunOutlines(g, 0.0035);   // [TOON] contorno negro fino en todas las piezas del arma
@@ -2958,7 +3200,6 @@ function frame(now) {
 
 if (!cfg.shadowsSet && renderer && isSoftwareGL()) cfg.shadows = false;
 buildMap(cfg.map); applyShadows(); initMenu(); resize(); setInterval(() => { if (state === 'menu') checkServer(); }, 15000); buildGun(WEAPONS[cfg.cls]); gun.visible = false;
-preloadGunModels();   // [NUEVO] modelos .glb reales: mientras cargan (o si fallan) el arma sigue viéndose con las cajas de siempre
 /* Puente para la pantalla del pase de batalla (bp.js) */
 Object.assign(window.PPR_BP, { partyInvite, petSvg, unlockedColors: () => unlocked(), pickColor, currentColor: () => cfg.look.col,   // [INVENTARIO]
   gunPreview: (wid, skinId) => { const w = WEAPONS.find(x => x.id === wid); return w ? gunModel(w, 0, null, skinId) : null; },   // [3D] el arma con su skin, igual que en la partida
