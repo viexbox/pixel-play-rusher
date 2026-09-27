@@ -22,7 +22,7 @@ const S = (() => { const mod = { exports: {} }; new Function('module', 'exports'
 const { createAdmin, Store } = require('./server/admin.js');
 const PGDB = global.__PPR_DB || null;   // PostgreSQL (opcional)
 if (PGDB) Store.db = PGDB;
-const { createAccounts } = require('./server/accounts.js');
+const { createAccounts, portalOrigin } = require('./server/accounts.js');
 const { createBattlePass } = require('./server/battlepass.js');
 const { createMarket } = require('./server/market.js');
 const { createSocial } = require('./server/social.js');
@@ -699,8 +699,11 @@ const ADS = (() => {
   if (prov === 'h5' && client) return { on: true, provider: 'h5', client, slot };
   return { on: false, provider: '', client: '', slot: '' };
 })();
+const PORTAL_ANCESTORS = process.env.PORTALS === '0' ? '' : ' https://*.crazygames.com https://crazygames.com https://*.poki.com https://poki.com https://*.poki-gdn.com https://*.poki.io' + (process.env.PORTAL_ANCESTORS ? ' ' + String(process.env.PORTAL_ANCESTORS).replace(/[;'"]/g, '') : '');   // [PORTALES] webs que pueden incrustar el juego
 const ADS_HOSTS = ADS.provider === 'h5' ? ' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.googleadservices.com https://*.doubleclick.net https://*.gstatic.com https://*.adtrafficquality.google' : '';
-const CSP = "default-src 'self'; script-src 'self'" + ADS_HOSTS + "; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:" + CDN_ORIGIN + (ADS_HOSTS ? ' https:' : '') + "; connect-src 'self' ws: wss:" + ADS_HOSTS + ";" + (ADS_HOSTS ? " frame-src 'self'" + ADS_HOSTS + ";" : '') + " base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+const CSP = "default-src 'self'; script-src 'self'" + ADS_HOSTS + "; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:" + CDN_ORIGIN + (ADS_HOSTS ? ' https:' : '') + "; connect-src 'self' ws: wss:" + ADS_HOSTS + ";" + (ADS_HOSTS ? " frame-src 'self'" + ADS_HOSTS + ";" : '') + " base-uri 'none'; form-action 'none'; frame-ancestors 'self'" + PORTAL_ANCESTORS;
+/* [PORTALES] con ?portal=crazygames|poki la página carga el SDK del portal y sus anuncios (vídeo, iframes, imágenes de otros dominios) */
+const CSP_PORTAL = "default-src 'self'; script-src 'self' https:; style-src 'self' 'unsafe-inline' https:; font-src https: data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' ws: wss: https:; frame-src 'self' https:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'" + PORTAL_ANCESTORS;
 
 function isPrivateAddr(a) {
   a = String(a || '').replace(/^::ffff:/, '');
@@ -730,7 +733,7 @@ function siteUrl(req) {
 }
 function json(res, obj, code, origin) {
   const h = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
-  if (origin && (ALLOWED_ORIGINS.includes(origin) || (FILE_ORIGIN && origin === 'null'))) { h['Access-Control-Allow-Origin'] = origin; h['Vary'] = 'Origin'; }
+  if (origin && (ALLOWED_ORIGINS.includes(origin) || portalOrigin(origin) || (FILE_ORIGIN && origin === 'null'))) { h['Access-Control-Allow-Origin'] = origin; h['Vary'] = 'Origin'; }
   res.writeHead(code || 200, h);
   res.end(JSON.stringify(obj));
 }
@@ -743,7 +746,7 @@ const EPHEMERAL_HOST = PGDB ? '' : ON_RAILWAY ? (railVolOk() ? '' : 'RAILWAY_ENV
   : !process.env.DATA_DIR ? ['RENDER', 'DYNO', 'FLY_APP_NAME', 'K_SERVICE', 'VERCEL', 'NETLIFY'].find(k => process.env[k]) || '' : '';
 if (EPHEMERAL_HOST) console.log(new Date().toISOString(), '¡ATENCIÓN! Detectada la plataforma (' + EPHEMERAL_HOST + ') sin DATABASE_URL ni un disco persistente montado en ' + DATA_DIR + ': las cuentas, los PX y las compras se guardan en un disco que allí se BORRA al reiniciar o redesplegar. Configura DATABASE_URL (PostgreSQL) o un disco persistente con DATA_DIR.');
 function status() {
-  return { ads: ADS.on ? { provider: ADS.provider, client: ADS.client, slot: ADS.slot, px: accounts.adsCfg.px, perDay: accounts.adsCfg.perDay } : null, mail: accounts.mailOn(), terms: process.env.REQUIRE_TERMS !== '0', storage: { mode: PGDB ? 'postgres' : 'archivos', warn: !!EPHEMERAL_HOST, platform: EPHEMERAL_HOST }, protocol: PROTOCOL, admin: admin.adminUser, accounts: true, store: accounts.storeInfo().enabled, bp: true, market: true, social: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
+  return { ads: ADS.on ? { provider: ADS.provider, client: ADS.client, slot: ADS.slot, px: accounts.adsCfg.px, perDay: accounts.adsCfg.perDay } : null, portalAds: accounts.adsCfg.portal ? { px: accounts.adsCfg.px, perDay: accounts.adsCfg.perDay } : null, mail: accounts.mailOn(), terms: process.env.REQUIRE_TERMS !== '0', storage: { mode: PGDB ? 'postgres' : 'archivos', warn: !!EPHEMERAL_HOST, platform: EPHEMERAL_HOST }, protocol: PROTOCOL, admin: admin.adminUser, accounts: true, store: accounts.storeInfo().enabled, bp: true, market: true, social: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
 }
 
 const server = http.createServer((req, res) => {
@@ -795,7 +798,7 @@ const server = http.createServer((req, res) => {
     const ext = path.extname(file).toLowerCase();
     const headers = { 'Content-Type': MIME[ext] || 'application/octet-stream', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' };
     headers['Cache-Control'] = rel.startsWith('vendor') ? 'public, max-age=86400' : 'no-cache';
-    if (ext === '.html') headers['Content-Security-Policy'] = CSP;
+    if (ext === '.html') headers['Content-Security-Policy'] = rel === 'index.html' && /[?&]portal=(crazygames|poki)(&|$)/.test(req.url) && PORTAL_ANCESTORS ? CSP_PORTAL : CSP;
     if (rel === 'admin.html') headers['X-Robots-Tag'] = 'noindex, nofollow';
     if (rel === 'index.html') data = Buffer.from(data.toString('utf8').split('__SITE_URL__').join(siteUrl(req)).replace('<!--__VERIFY__-->', VERIFY_TAGS));   // [SEO] direcciones absolutas de canonical, Open Graph y Twitter, y verificación de Google/Bing
     res.writeHead(200, headers);
@@ -883,6 +886,7 @@ server.on('upgrade', (req, socket, head) => {
     let ok = false;
     try { ok = ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS.includes(origin) : new URL(origin).host === req.headers.host; } catch (e) { ok = false; }
     if (!ok && FILE_ORIGIN && origin === 'null' && !isAdminWs) ok = true;   // partida desde un archivo local (no el panel de administración)
+    if (!ok && !isAdminWs && portalOrigin(origin)) ok = true;   // [PORTALES] el juego subido a Poki / CrazyGames (nunca el panel)
     if (!ok) return reject('403 Forbidden');
   }
   const ip = clientIp(req);

@@ -2367,7 +2367,7 @@ function setNetMsg(t) { const e = $('#netMsg'); e.textContent = t || ''; e.hidde
 
 function setServer(ok, j) {
   const first = ok && !serverOK;
-  if (ok && j) initAds(j.ads);   // [ANUNCIOS]
+  if (ok && j) initAds(j.ads, j.portalAds);   // [ANUNCIOS] (y los del portal, si se juega en CrazyGames/Poki)
   serverOK = ok; if (ok) lobbyConnect(); else lobbyClose();
   { const pl = $('#lobbyPlay'); if (pl) pl.classList.toggle('srvok', !!ok); }   // punto verde/rojo del botón «Servidor»
   setTimeout(() => { const oi = $('#onlineInfo'); if (oi) oi.title = oi.textContent; }, 0);   // el aviso se recorta a 4 líneas: el texto completo sale al pasar el ratón
@@ -2796,7 +2796,10 @@ function initEnd() {
     renderEndMaps();
   });
 }
+/* [PORTALES] anuncio entre partidas del portal (CrazyGames/Poki), con el juego en silencio; el portal decide si toca */
+function portalBreak(won) { const P = window.PPR_PORTAL; if (!P) return; if (won) P.happy(); P.commercial(() => adSound(false), () => adSound(true)); }
 function onNetEnd(m) {
+  if (!net.spec) portalBreak(player && m.tw === player.team);
   if (net.spec) { net.endAt = performance.now() + m.next * 1000; if (window.PPR_BP.onSpecEnd) window.PPR_BP.onSpecEnd(m); return; }
   if (m.nb > 0 && m.rw === false) toast('Sala con bots: esta ronda no da premios (hacen falta 2 jugadores reales).');   // [NUEVO]
   { const ex = $('#endXp'); if (ex) ex.hidden = true; }   // (la línea de Créditos y la de clasificatorio llegan ANTES del fin de ronda: se ocultan al empezar la siguiente)   // la XP del pase llega poco después (mensaje bpxp)
@@ -3002,7 +3005,7 @@ function saveLocalResult(pl, won) {
 }
 function endMatch() {
   if (state !== 'playing') return;
-  state = 'ended'; document.body.classList.remove('playing');
+  state = 'ended'; document.body.classList.remove('playing'); portalBreak(false);
   if (document.exitPointerLock) document.exitPointerLock();
   mouseL = mouseR = false; sfx.end();
   const s = sortedFighters(), place = s.indexOf(player) + 1, tk = tkNow(), win = tk[0] === tk[1] ? -1 : tk[0] > tk[1] ? 0 : 1, won = win === player.team;
@@ -3086,7 +3089,8 @@ async function syncRemote() {
    Ads) se usa adBreak({ type: 'reward' }); en modo de prueba sale un anuncio falso de 5 s. El premio lo pide el cliente al acabar y lo decide el
    servidor (tope diario y espera entre anuncios). Sin ADS_PROVIDER en el servidor no se carga nada. */
 let ADS = null, adsLoaded = false, adBusy = false, adLeft = null;
-function initAds(a) {
+function initAds(a, portalAds) {
+  if (window.PPR_PORTAL && portalAds) { ADS = { provider: 'portal', px: portalAds.px, perDay: portalAds.perDay }; return; }   // [PORTALES] anuncios con premio del propio portal
   ADS = a && a.provider ? a : null; if (!ADS || ADS.provider !== 'h5' || adsLoaded) return; adsLoaded = true;
   window.adsbygoogle = window.adsbygoogle || []; window.adBreak = window.adConfig = function (o) { window.adsbygoogle.push(o); };
   const sc = document.createElement('script'); sc.async = true; sc.crossOrigin = 'anonymous'; sc.setAttribute('data-ad-frequency-hint', '60s');
@@ -3097,14 +3101,14 @@ function onDeathAds() {
   const head = $('#deathHead'); if (!ADS || !head) return;
   let b = $('#adReward'); if (!b) { b = document.createElement('button'); b.type = 'button'; b.id = 'adReward'; head.appendChild(b); b.addEventListener('click', watchAd); }
   b.hidden = !remote || adLeft === 0; b.disabled = adBusy; b.textContent = adBusy ? 'Cargando anuncio…' : '📺 Ver anuncio · +' + fmtKr(ADS.px) + ' PX';
-  if (!$('#adBanner') && (ADS.slot || ADS.provider === 'test')) {   // el banner se crea una vez y se queda (no se recarga en cada muerte)
+  if (!$('#adBanner') && ADS.provider !== 'portal' && (ADS.slot || ADS.provider === 'test')) {   // el banner se crea una vez y se queda (no se recarga en cada muerte)
     const bx = document.createElement('div'); bx.id = 'adBanner'; head.appendChild(bx);   // debajo del botón, antes de la tienda de armas
     if (ADS.provider === 'test') bx.innerHTML = '<div class="ad-fake">Anuncio<br><small>(modo de prueba: aquí irá un banner de 300 × 250)</small></div>';
     else { bx.innerHTML = '<ins class="adsbygoogle" style="display:inline-block;width:300px;height:250px" data-ad-client="' + esc(ADS.client) + '" data-ad-slot="' + esc(ADS.slot) + '"></ins>'; try { window.adsbygoogle.push({}); } catch (e) { /* bloqueador de anuncios */ } }
   }
 }
 async function claimAd() {
-  try { const j = await acctPost('api/me/adreward', {}); remote = j.profile; renderKr(); adLeft = j.left; sfx.gold(); toast('📺 +' + fmtKr(j.px) + ' PX por ver el anuncio · te quedan ' + j.left + ' hoy'); }
+  try { const j = await acctPost('api/me/adreward', window.PPR_PORTAL ? { portal: window.PPR_PORTAL.name } : {}); remote = j.profile; renderKr(); adLeft = j.left; sfx.gold(); toast('📺 +' + fmtKr(j.px) + ' PX por ver el anuncio · te quedan ' + j.left + ' hoy'); }
   catch (e) { toast(e.message); if (/todos los anuncios/.test(e.message)) adLeft = 0; }
   adBusy = false; onDeathAds();
 }
@@ -3113,6 +3117,7 @@ function watchAd() {
   if (adBusy || !ADS || !remote) return; adBusy = true; onDeathAds();
   const fail = msg => { adBusy = false; onDeathAds(); if (msg) toast(msg); };
   if (ADS.provider === 'test') return testAd(ok => (ok ? claimAd() : fail('Tienes que ver el anuncio entero para ganar el premio.')));
+  if (ADS.provider === 'portal') return window.PPR_PORTAL.rewarded(() => adSound(false), () => adSound(true)).then(ok => (ok ? claimAd() : fail('Ahora mismo no hay anuncios disponibles. Prueba más tarde.')));   // [PORTALES]
   let shown = false;
   try {
     window.adBreak({ type: 'reward', name: 'muerte',
@@ -3358,6 +3363,7 @@ function claimRank(i) {
 /* --- Tienda: comprar PX con dinero real (pago seguro en Stripe; los PX los acredita el servidor al confirmarse el pago) --- */
 async function renderStore() {
   const box = $('#storeBox'); box.innerHTML = '<p class="note">Cargando…</p>';
+  if (window.PPR_PORTAL) { box.innerHTML = '<p class="note">En esta web los PX se consiguen jugando: premio diario, desafíos, pase de batalla y anuncios con premio.</p>'; return; }   // [PORTALES] sin pagos fuera del portal
   let info = null;
   try { const r = await fetch(apiUrl('api/store'), { cache: 'no-store' }); if (r.ok) info = await r.json(); } catch (e) { /* sin servidor */ }
   if (!info) { box.innerHTML = '<p class="note">La tienda necesita el servidor del juego. No está disponible en esta versión.</p>'; return; }
@@ -4074,6 +4080,7 @@ let orbitA = 0, last = performance.now();
 const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 function frame(now) {
   requestAnimationFrame(frame);
+  if (window.PPR_PORTAL) window.PPR_PORTAL.gameplay(state === 'playing' && !!player && player.alive && !document.hidden);   // [PORTALES] el portal sabe cuándo se juega (no enseña anuncios en mitad del combate)
   const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
   adaptQuality(raw);
   tickKnives(dt);   // [CUCHILLOS] luces que recorren las hojas con efecto
@@ -4117,4 +4124,5 @@ Object.assign(window.PPR_BP, { partyInvite, petSvg, unlockedColors: () => unlock
   limit: () => teamLimit, cfg, saveCfg, net: () => net, netSend, sfx, curMap: () => curMap, player: () => player, camera: () => camera, scene: () => scene, THREE, startSpectate, stopSpectate, specCycle, setSpecView: v => { net.specView = v; }, gunsOK, setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
   rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); setPreviewPet(); updatePreview(); if ($('#petsBox')) renderPets(); if ($('#outfitsBox')) renderOutfits(); if ($('#knivesBox')) renderKnives(); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
 requestAnimationFrame(frame);
+if (window.PPR_PORTAL) window.PPR_PORTAL.loadingDone();   // [PORTALES] el juego ya está listo
 })();

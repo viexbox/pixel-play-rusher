@@ -42,7 +42,9 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 
 - Rampas para deslizarse (`b.ramp()` en shared.js: escalones finos de 0,25 m con `rp`; `moveEntity` pega a la rampa, `moveStep` acelera con `MOVE.RAMP_ACC` hasta `MAX_H`; el cliente dibuja una cuña con `rampGeo`). Castillo: patio → adarve; Barrio: calle → tejados por el callejón. Test `ramps.test.js`.
 
+- Portales **CrazyGames/Poki**: `public/portal.js` (solo con `?portal=` o `PPR_PORTAL_NAME`): SDK, `gameplay()` desde el bucle `frame`, anuncio entre partidas (`portalBreak`) y con premio (ADS provider 'portal'), esconde Discord/Tienda/invitaciones (`html.portal`). Servidor: `portalOrigin()`, `PORTAL_ANCESTORS`, `CSP_PORTAL`, `portalAds` en `/api/status`. Paquete: `node scripts/build-portal.js poki|crazygames https://servidor` → `dist/`. Test `portal.test.js`.
+
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).
-- Adaptar a CrazyGames/Poki, estadísticas de jugadores en el panel.
+- (Dueño) Dar de alta el juego en CrazyGames y Poki (pasos en README). Estadísticas de jugadores en el panel.
 - Los `.glb` de `public/models/weapons` y `scripts/generate_weapons.py` ya no se usan.

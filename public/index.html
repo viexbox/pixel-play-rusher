@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="shell.js"></script>   <!-- [MÓVIL] marco que gira y escala el juego en móviles (ver shell.js) -->
+<script src="shell.js"></script>
+<script src="portal.js"></script>   <!-- [PORTALES] CrazyGames / Poki (solo con ?portal=…; ver portal.js) -->   <!-- [MÓVIL] marco que gira y escala el juego en móviles (ver shell.js) -->
 <link rel="stylesheet" href="src/ui/auth.css">
 <title>Krunxa · Shooter FPS online gratis en el navegador</title>
 <meta name="description" content="Juega gratis a Krunxa, un shooter FPS de bloques en el navegador: partidas online rápidas, 11 armas, modos por equipos, clasificatorio, pase de batalla y ranking global. Sin descargas.">
@@ -1076,6 +1077,8 @@ body.touch.playing:not(.dead) #touchUI{display:block}
 #touchUI #tReload{right:max(132px,calc(env(safe-area-inset-right) + 108px));bottom:92px;width:60px;height:60px;font-size:9px}
 #touchUI #tKnife{right:max(30px,env(safe-area-inset-right));bottom:230px;width:60px;height:60px;font-size:9px}
 #touchUI .tbtn[hidden]{display:none}
+/* [PORTALES] dentro de CrazyGames/Poki: sin enlaces externos ni compras con dinero */
+html.portal #discordBtn,html.portal [data-tab="store"],html.portal .pt-ref{display:none!important}
 #touchUI #tBomb{right:max(100px,calc(env(safe-area-inset-right) + 76px));bottom:230px;width:60px;height:60px;font-size:9px;border-color:#ffd23f;color:#ffd23f}   /* [BOMBA] mantener para plantar o desactivar */
 #touchUI .tbtn.sm{width:46px;height:46px;border-radius:12px;font-size:11px;top:max(10px,env(safe-area-inset-top))}
 #touchUI #tPause{right:max(12px,env(safe-area-inset-right))}
