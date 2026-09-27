@@ -2148,7 +2148,7 @@ function updatePlayer(dt) {
   if (!p.alive) {
     resetGameFeel();   // [NUEVO] al morir se quita el retroceso y el FOV extra
     knifeT = 0; pendingMelee = 0; knifeG.visible = false; slot = 0; slotK = 0; slashT = 0;   // [NUEVO] al morir se suelta el cuchillo
-    if (online) el.deathCount.textContent = 'Reapareces en ' + Math.max(1, Math.ceil((net.respawnAt - performance.now()) / 1000)) + ' s.';   // [CORREGIDO] ya no se cambia de arma con 1-9: ahora es la tienda
+    if (online) el.deathCount.textContent = net.mode === 'bomba' ? 'Reapareces en la siguiente ronda.' : 'Reapareces en ' + Math.max(1, Math.ceil((net.respawnAt - performance.now()) / 1000)) + ' s.';   // [BOMBA] sin reaparecer hasta la ronda siguiente   // [CORREGIDO] ya no se cambia de arma con 1-9: ahora es la tienda
     else if (simTime >= p.respawnAt) respawn(p);
     else el.deathCount.textContent = 'Reapareces en ' + Math.ceil(p.respawnAt - simTime) + ' s.';   // [CORREGIDO] ya no se cambia de arma con 1-9: ahora es la tienda
     return;
@@ -2510,6 +2510,8 @@ function netHandle(m) {
     case 'notice': return showNotice(m);
     case 'reportok': return reportResult(m);
     case 'zone': net.zone = m.z; if (window.PPR_BP.onZone) window.PPR_BP.onZone(m.z); return;
+    case 'bomb': { const prev = net.bomb; net.bomb = m.b; if (m.b && Array.isArray(m.b.tk)) net.tk = m.b.tk; if (window.PPR_BP.onBomb) window.PPR_BP.onBomb(m.b, prev, m); updateHudSlow(); return; }   // [BOMBA]
+    case 'bprog': net.bprog = m; return;
     case 'gg': return onNetLadder(m);
     case 'rank': net.rank = m; return onNetRank(m);
     case 'sstats': net.sstats = m.p; if (window.PPR_BP.onSpecStats) window.PPR_BP.onSpecStats(m.p); return;
@@ -2525,7 +2527,7 @@ function netHandle(m) {
 function onWelcome(m) {
   clearTimeout(net.timer); net.joined = true; net.tries = 0; net.id = m.id; setNetMsg('');
   { const ec = $('#endCr'), er = $('#endRank'); if (ec) ec.hidden = true; if (er) er.hidden = true; }
-  net.mode = S.MODES[m.mode] ? m.mode : 'duelo'; net.ranked = !!m.rk; net.zone = m.zone || null; net.gl = 0; net.rank = null; net.spec = !!m.spec;   // [NUEVO] modo de la sala
+  net.mode = S.MODES[m.mode] ? m.mode : 'duelo'; net.ranked = !!m.rk; net.zone = m.zone || null; net.bomb = m.b || null; net.bprog = null; { const tb = $('#tBomb'); if (tb) tb.hidden = net.mode !== 'bomba'; } net.gl = 0; net.rank = null; net.spec = !!m.spec;   // [NUEVO] modo de la sala
   net.cash = Number.isFinite(m.cash) ? m.cash : S.CONST.SHOP_START_CASH;   // [NUEVO] tienda de armas
   if (curMap !== m.map) buildMap(m.map);
   clearFighters();
@@ -2809,7 +2811,7 @@ function onNetRound(m) {
   if (net.spec) { net.remotes.forEach(f => { f.alive = false; resetPose(f); f.mesh.visible = false; f.label.visible = false; }); timeLeft = m.tl; teamLimit = m.lim != null ? m.lim : teamLimit; net.zone = m.zone || null; return; }
   if (!player) return;
   if (m.nb > 0) toast('Sala con bots de relleno: no se dan premios ni estadísticas hasta que haya 2 jugadores reales.');   // [NUEVO]
-  net.gl = 0; teamLimit = m.lim != null ? m.lim : teamLimit; net.zone = m.zone || null; { const ec = $('#endCr'), er = $('#endRank'); if (ec) ec.hidden = true; if (er) er.hidden = true; } if (window.PPR_BP.onMode) window.PPR_BP.onMode(net);
+  net.gl = 0; teamLimit = m.lim != null ? m.lim : teamLimit; net.zone = m.zone || null; net.bomb = null; net.bprog = null; { const ec = $('#endCr'), er = $('#endRank'); if (ec) ec.hidden = true; if (er) er.hidden = true; } if (window.PPR_BP.onMode) window.PPR_BP.onMode(net);
   teamBanner(player.team, 'Nueva ronda · sin fuego amigo');
   $('#end').hidden = true; hud.hidden = false; el.feed.innerHTML = '';
   fighters.forEach(f => { f.kills = f.deaths = f.points = f.hs = f.streak = 0; });
@@ -3883,6 +3885,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Tab') { el.board.hidden = false; updateHudSlow(); }
   if (e.code === 'Escape' && !locked && el.death.hidden) pauseGame();   // [NUEVO] con la tienda abierta el cursor ya está libre: Escape no debe abrir la pausa encima
   if (e.code === 'KeyR' && player.alive && slot === 0) startReload();   // con el cuchillo en mano no se recarga
+  if (e.code === 'KeyE' && online && net.mode === 'bomba') netSend({ t: 'bact', on: 1 });   // [BOMBA] mantener E: plantar o desactivar
   if (e.code === 'Digit1') setSlot(0); else if (e.code === 'Digit2' || e.code === 'Digit3') setSlot(1); else if (e.code === 'KeyE') setSlot(0);   // [CONTROLES] 1/E = arma principal, 2/3 = cuchillo
   if (e.code === 'KeyQ') { if (slot !== 1) setSlot(1); else playerMelee(); }   // [CONTROLES] Q: si no tienes el cuchillo en la mano, lo saca; si ya lo tienes, golpea
   if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && player.alive && S.startSlide(player)) sfx.slide();   // [CONTROLES] agacharse en marcha (ahora con Mayús) = deslizarse (reglas en S.MOVE)
@@ -3894,7 +3897,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'KeyT' && TUT.i >= 0) endTutorial();   // [TUTORIAL] saltar
   if (e.code === 'KeyF' && player.alive && slot === 1 && slashT === 0 && knifeT === 0 && inspectT === 0) inspectT = 0.0001;   // [CUCHILLOS] inspeccionar el cuchillo
 });
-document.addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Tab') el.board.hidden = true; });
+document.addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Tab') el.board.hidden = true; if (e.code === 'KeyE' && online && net.mode === 'bomba') netSend({ t: 'bact', on: 0 }); });
 /* [MÓVIL] Controles táctiles: joystick a la izquierda (aparece donde pongas el dedo), arrastrar en la derecha para mirar y botones
    para disparar (también se puede arrastrar desde él para apuntar mientras disparas), apuntar, saltar, agacharse/deslizar, recargar,
    cuchillo, marcador y pausa. Solo se ve en partida y con el jugador vivo (CSS: body.touch.playing:not(.dead)). */
@@ -3910,9 +3913,9 @@ function initTouch() {
   const ui = document.createElement('div'); ui.id = 'touchUI';
   const B = (id, txt, cls) => '<button type="button" id="' + id + '" class="tbtn ' + (cls || '') + '">' + txt + '</button>';
   ui.innerHTML = '<div class="tzone tz-move"></div><div class="tzone tz-look"></div><div class="tjoy" hidden><i></i></div>' +
-    B('tFire', 'DISPARAR', 'big') + B('tAim', 'APUNTAR') + B('tJump', 'SALTAR') + B('tCrouch', 'AGACHAR') + B('tReload', 'RECARGAR') + B('tKnife', 'CUCHILLO') + B('tBoard', 'TAB', 'sm') + B('tPause', '❚❚', 'sm') +
+    B('tFire', 'DISPARAR', 'big') + B('tAim', 'APUNTAR') + B('tJump', 'SALTAR') + B('tCrouch', 'AGACHAR') + B('tReload', 'RECARGAR') + B('tKnife', 'CUCHILLO') + B('tBomb', 'BOMBA') + B('tBoard', 'TAB', 'sm') + B('tPause', '❚❚', 'sm') +
     '<div id="tRotate">Gira el móvil para jugar en horizontal</div>';
-  document.body.appendChild(ui);
+  document.body.appendChild(ui); ui.querySelector('#tBomb').hidden = true;
   const joy = ui.querySelector('.tjoy'), knob = joy.querySelector('i'), R = 56, act = {};   // act: qué hace cada dedo (por identificador)
   const alive = () => state === 'playing' && player && player.alive;
   const look = (t, a) => {   // mirar con el dedo (misma sensibilidad que el ratón, un poco más rápida para el pulgar)
@@ -3924,6 +3927,7 @@ function initTouch() {
     if (id === 'tFire') mouseL = on;
     else if (id === 'tCrouch') { keys.ShiftLeft = on; if (on && alive() && S.startSlide(player)) sfx.slide(); }
     else if (id === 'tBoard') { el.board.hidden = !on; if (on) updateHudSlow(); }
+    else if (id === 'tBomb') { if (online && net.mode === 'bomba') netSend({ t: 'bact', on: on ? 1 : 0 }); }   // [BOMBA] mantener pulsado, como la E
     else if (!on) return;
     else if (id === 'tAim') { mouseR = !mouseR; ui.querySelector('#tAim').classList.toggle('on', mouseR); }
     else if (id === 'tJump') { if (alive()) jumpQueued = true; }
@@ -4096,7 +4100,7 @@ buildMap(cfg.map); applyShadows(); initMenu(); resize(); setInterval(() => { if 
 /* Puente para la pantalla del pase de batalla (bp.js) */
 Object.assign(window.PPR_BP, { partyInvite, petSvg, unlockedColors: () => unlocked(), pickColor, currentColor: () => cfg.look.col,   // [INVENTARIO]
   gunPreview: (wid, skinId) => { const w = WEAPONS.find(x => x.id === wid); return w ? gunModel(w, 0, null, skinId) : null; },   // [3D] el arma con su skin, igual que en la partida
-  limit: () => teamLimit, cfg, saveCfg, net: () => net, player: () => player, camera: () => camera, scene: () => scene, THREE, startSpectate, stopSpectate, specCycle, setSpecView: v => { net.specView = v; }, gunsOK, setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
+  limit: () => teamLimit, cfg, saveCfg, net: () => net, netSend, sfx, curMap: () => curMap, player: () => player, camera: () => camera, scene: () => scene, THREE, startSpectate, stopSpectate, specCycle, setSpecView: v => { net.specView = v; }, gunsOK, setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
   rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); setPreviewPet(); updatePreview(); if ($('#petsBox')) renderPets(); if ($('#outfitsBox')) renderOutfits(); if ($('#knivesBox')) renderKnives(); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
 requestAnimationFrame(frame);
 })();

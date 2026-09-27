@@ -439,3 +439,12 @@ Al morir aparece la tienda (`#shop` en `public/index.html`): 8 tarjetas con icon
 - **Rótulo «estás en…»:** bajo el reloj aparece el nombre de la zona donde estás (`S.areaAt`, definido por `areas` en el mapa).
 - **Bots:** siguen una rejilla de navegación de 1 m con capas por altura (`S.buildNav`, `S.navField`, `S.navDir`) para rodear paredes, cruzar puertas y túneles, y **subir escaleras hacia zonas elevadas** (Main Plaza, Reactor Complex, Capture Point); sin objetivo, rondan cerca de los rivales. Si se quedan un momento sin avanzar de verdad hacia su objetivo (borde de una escalera), saltan y desvían la dirección para no quedarse en bucle.
 - **Pruebas:** `test/maps.test.js` comprueba en los dos mapas las zonas nombradas, las apariciones, que se llegue caminando (sin saltar) a todo lo alto desde las dos bases, que no haya trampas sin salida, la navegación de los bots, el servidor y el cliente.
+
+## Modo «Desactivar bomba»
+
+- **Cómo se juega:** por rondas y sin reaparecer. En cada ronda un equipo **ataca** (planta la bomba en el punto **A** o **B**) y el otro **defiende** (lo impide o la desactiva). Los papeles se cambian cada ronda; en la primera ataca ROJO. Gana la partida el primer equipo que llega a **4 rondas**.
+- **Plantar y desactivar:** se mantiene pulsada la **E** (en el móvil, el botón **BOMBA**): 3 s dentro del círculo de A o B para plantar, 5 s junto a la bomba para desactivarla. Moverse o soltar la tecla cancela.
+- **Cómo acaba una ronda:** la bomba explota (35 s de mecha) → atacantes · la desactivan → defensores · un equipo entero eliminado → el otro · se acaba el tiempo (80 s) sin plantar → defensores. El ganador de cada ronda suma 50 puntos por jugador; plantar o desactivar da 100.
+- **Mapas:** cada mapa declara sus puntos en `bomb` (`public/shared.js`): Castillo Real (A en la calle del mercado, B en los establos) y Barrio Arcoíris (calles norte y sur). Tiempos en `S.BOMB`; en el servidor se pueden cambiar con `BOMB_WIN`, `BOMB_ROUND`, `BOMB_FUSE` y `BOMB_PAUSE`.
+- **Bots:** los atacantes van a un punto y plantan; los defensores vigilan los puntos y, si hay bomba, van a desactivarla.
+- **Código:** servidor en `server.js` (`bombStart`, `bombTick`, `bombEnd`, mensajes `bomb` y `bprog`; el cliente manda `bact`), interfaz en `public/modes.js` (`drawBomb`: aviso central, barra de progreso, puntos A/B en 3D, bomba parpadeando y cartel de resultado). Pruebas: `test/bomb.test.js` (servidor) y `test/bomb-ui.test.js` (interfaz).

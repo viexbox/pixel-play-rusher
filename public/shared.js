@@ -90,6 +90,7 @@ const MAPS = [
       0: [[35, -10], [36, -6], [35, -2], [36, 2], [35, 6], [36, 10], [33, 0]]
     },
     zones: [{ n: 'Keep Roof', x: 0, z: 0, y: 4.8 }, { n: 'Market Street', x: 0, z: -24, y: 0 }, { n: 'Stables', x: 0, z: 21, y: 0 }],
+    bomb: [{ n: 'A', x: 0, z: -28, y: 0 }, { n: 'B', x: 0, z: 21, y: 0 }],   // [BOMBA] puntos de plantado: calle del mercado y establos
     areas: [
       { n: 'Keep Roof', x0: -5, x1: 5, z0: -5, z1: 5, y0: 4, y1: 9 }, { n: 'Keep', x0: -5, x1: 5, z0: -5, z1: 5, y0: -1, y1: 4 },
       { n: 'Ramparts', x0: -25, x1: -23, z0: -40, z1: 40, y0: 3, y1: 8 }, { n: 'Ramparts', x0: 23, x1: 25, z0: -40, z1: 40, y0: 3, y1: 8 },
@@ -167,6 +168,7 @@ const MAPS = [
       0: [[37, -10], [38, -6], [37, -2], [38, 2], [37, 6], [38, 10], [35, 0]]
     },
     zones: [{ n: 'Fountain Plaza', x: 0, z: -8, y: 0 }, { n: 'North Houses', x: 14, z: -26, y: 0 }, { n: 'South Houses', x: -14, z: 26, y: 0 }],
+    bomb: [{ n: 'A', x: 0, z: -18, y: 0 }, { n: 'B', x: 0, z: 18, y: 0 }],   // [BOMBA] puntos de plantado: calle norte y calle sur
     areas: [
       { n: 'Rooftops', x0: -30, x1: 30, z0: -30, z1: -22, y0: 3, y1: 9 }, { n: 'Rooftops', x0: -30, x1: 30, z0: 22, z1: 30, y0: 3, y1: 9 },
       { n: 'House', x0: -30, x1: -10, z0: -30, z1: -22, y0: -1, y1: 3 }, { n: 'House', x0: 10, x1: 30, z0: -30, z1: -22, y0: -1, y1: 3 },
@@ -642,10 +644,14 @@ const MODES = {
   zona:      { id: 'zona',      name: 'Capturar zona',     short: 'ZONA',     desc: 'Una zona cambia de sitio cada 50 s. Suma puntos el equipo que la controla en solitario.', guns: true },
   cuchillos: { id: 'cuchillos', name: 'Solo cuchillos',    short: 'CUCHILLOS', desc: 'Sin armas de fuego: cuchillo en mano y a moverse rápido.', guns: false },
   carrera:   { id: 'carrera',   name: 'Carrera de armas',  short: 'CARRERA',  desc: 'Cada baja te da un arma nueva. Al llegar al cuchillo, una baja más y tu equipo gana. Si te matan a cuchillo, bajas de nivel.', guns: true },
+  bomba:     { id: 'bomba',     name: 'Desactivar bomba',  short: 'BOMBA',    desc: 'Por rondas y sin reaparecer: un equipo planta la bomba en A o B y el otro la desactiva. Los papeles cambian cada ronda; gana el primero en llegar a 4.', guns: true },   // [BOMBA]
   navidad:   { id: 'navidad',   name: 'Navidad',           short: 'NAVIDAD',  desc: 'Evento: caza duendes y recoge los regalos que sueltan. Gana el equipo con más regalos en 10 minutos.', guns: true, event: true }   // [NAVIDAD]
 };
 const GUN_LADDER = [8, 0, 9, 1, 7, 2, 10, 4, 6, 5, 3];   // armas por nivel (AK → … → Lince); tras la última viene el cuchillo (nivel 12)
-const ZONE = { R: 5.5, MOVE_SECS: 50, LIMIT: 160 };  // radio de la zona, cada cuánto cambia de sitio y puntos para ganar
+const ZONE = { R: 5.5, MOVE_SECS: 50, LIMIT: 160 };
+/* [BOMBA] Desactivar bomba: rondas ganadas para vencer, duración de la ronda, mecha, segundos para plantar/desactivar, radio de cada
+   punto de plantado (A/B, en el mapa: bomb), distancia para desactivar y pausa entre rondas */
+const BOMB = { WIN: 4, ROUND: 80, FUSE: 35, PLANT: 3, DEFUSE: 5, R: 3.5, DEF_R: 2.2, PAUSE: 4 };  // radio de la zona, cada cuánto cambia de sitio y puntos para ganar
 const LEAGUES = [
   { n: 'Hierro',   min: 0,    col: '#8a8f9e', cr: 0,    px: 0 },
   { n: 'Bronce',   min: 900,  col: '#cd7f32', cr: 150,  px: 0 },
@@ -784,7 +790,7 @@ function viewmodelSight(pose, sight) {
   return { x: x + pose.px, y: y + pose.py, z: z + pose.pz };
 }
 
-const api = { KNIFE_ROULETTE, OUTFIT_ROULETTE, rouletteDef, rouletteOdds, PETS, OUTFITS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
+const api = { KNIFE_ROULETTE, OUTFIT_ROULETTE, rouletteDef, rouletteOdds, PETS, OUTFITS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, BOMB, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

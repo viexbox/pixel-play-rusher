@@ -24,7 +24,7 @@
     renderInline();
   }
   /* Tarjetas de modo en el panel del inicio (los mismos modos y la misma casilla de Clasificatorio que la ventana «Modo», sin abrirla) */
-  const MODE_COL = { duelo: '#2f7bff', zona: '#ff8a1f', cuchillos: '#3fd15a', carrera: '#ff3b48' };
+  const MODE_COL = { duelo: '#2f7bff', zona: '#ff8a1f', cuchillos: '#3fd15a', carrera: '#ff3b48', bomba: '#b388ff' };
   function renderInline() {
     const box = $('#modeCards'); if (!box) return;
     const rkOn = !!(cfg.ranked && cfg.mode === 'duelo');
@@ -88,6 +88,7 @@
     if (n.mode === 'carrera') { const tot = P.limit(), nivel = (n.gl || 0) + 1; t = nivel >= tot ? 'NIVEL FINAL · SOLO CUCHILLO · una baja y ganas' : 'NIVEL ' + nivel + ' / ' + tot + (pl && P.S.WEAPONS[pl.wi] ? ' · ' + P.S.WEAPONS[pl.wi].name.toUpperCase() : ''); }
     else if (n.mode === 'cuchillos') t = 'SOLO CUCHILLOS · el primer equipo a ' + (P.limit ? P.limit() : '') + ' bajas';
     else if (n.mode === 'zona') t = '';
+    else if (n.mode === 'bomba') { const tkk = n.tk || [0, 0]; t = 'BOMBA · RONDA ' + ((n.bomb && n.bomb.n) || 1) + ' · ROJO ' + (tkk[1] || 0) + ' – ' + (tkk[0] || 0) + ' AZUL · gana el primero a ' + ((P.limit && P.limit()) || S.BOMB.WIN); }
     else if (n.ranked) t = 'CLASIFICATORIO';
     el.hidden = !t; el.textContent = t;
   }
@@ -117,6 +118,65 @@
     if (h.dataset.t !== txt) { h.dataset.t = txt; h.querySelector('span').textContent = txt; }
     h.style.setProperty('--c', '#' + c.toString(16).padStart(6, '0')); h.classList.toggle('mine', mine && z.o >= 0);
     const ar = h.querySelector('i'); ar.style.transform = 'rotate(' + (inside ? 0 : -ang) + 'rad)'; ar.style.opacity = inside ? 0.25 : 1;
+  }
+  /* =====================================================================
+     [BOMBA] Desactivar bomba: puntos A/B en 3D, bomba plantada, avisos y resultado de cada ronda
+     ===================================================================== */
+  const TEAMN = ['AZUL', 'ROJO'];
+  let bombG = null, bombMesh = null, bombLed = null, siteMap = -1, resT = 0;
+  function letterTex(T, ch) { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); if (!g || !g.fillText) return null; g.fillStyle = 'rgba(8,10,20,.8)'; g.beginPath(); g.arc(64, 64, 58, 0, Math.PI * 2); g.fill(); g.lineWidth = 8; g.strokeStyle = '#ffd23f'; g.stroke(); g.fillStyle = '#ffd23f'; g.font = '900 78px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, 64, 70); return new T.CanvasTexture(c); }
+  function ensureBomb() {
+    const scene = P.scene(), T = P.THREE, mi = P.curMap ? P.curMap() : 0, sites = (S.MAPS[mi] && S.MAPS[mi].bomb) || []; if (!scene || !T) return;
+    if (!bombG) { bombG = new T.Group(); scene.add(bombG); }
+    if (siteMap !== mi) {   // los puntos A y B del mapa: anillo en el suelo y letra flotante
+      siteMap = mi; while (bombG.children.length) bombG.remove(bombG.children[0]);
+      for (const st of sites) {
+        const ring = new T.Mesh(new T.RingGeometry(S.BOMB.R - 0.25, S.BOMB.R, 40), new T.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.55, side: T.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.set(st.x, (st.y || 0) + 0.05, st.z); bombG.add(ring);
+        const tex = letterTex(T, st.n); if (tex) { const sp = new T.Sprite(new T.SpriteMaterial({ map: tex, depthTest: false, transparent: true })); sp.scale.set(1.6, 1.6, 1); sp.position.set(st.x, (st.y || 0) + 3.4, st.z); sp.renderOrder = 5; bombG.add(sp); }
+      }
+      bombMesh = new T.Group(); const body = new T.Mesh(new T.BoxGeometry(0.55, 0.28, 0.38), new T.MeshLambertMaterial({ color: 0x2b2f3a })); body.position.y = 0.14; bombMesh.add(body);
+      for (let k = 0; k < 3; k++) { const st = new T.Mesh(new T.BoxGeometry(0.1, 0.1, 0.36), new T.MeshLambertMaterial({ color: [0xff3b48, 0xffd23f, 0x3a86ff][k] })); st.position.set(-0.18 + k * 0.18, 0.3, 0); bombMesh.add(st); }
+      bombLed = new T.Mesh(new T.BoxGeometry(0.12, 0.06, 0.12), new T.MeshBasicMaterial({ color: 0xff2020 })); bombLed.position.set(0.18, 0.36, 0.1); bombMesh.add(bombLed); bombMesh.visible = false; bombG.add(bombMesh);
+    }
+  }
+  function setRes(b) {
+    const el = $('#bombRes'); if (!el || !b || b.st !== 'pause' || b.w == null) return;
+    const why = { desactivada: 'Bomba desactivada', explota: '¡La bomba ha explotado!', eliminados: 'Equipo eliminado', tiempo: 'Se acabó el tiempo' }[b.why] || '';
+    el.querySelector('b').textContent = 'RONDA PARA EL EQUIPO ' + TEAMN[b.w]; el.querySelector('span').textContent = why; el.style.setProperty('--c', TEAMC[b.w]); el.hidden = false; resT = performance.now() + 3200;
+  }
+  P.onBomb = (b, prev) => {
+    if (!b) return; const pl = P.player();
+    if (b.st === 'planted' && (!prev || prev.st !== 'planted')) { try { P.sfx.gold(); } catch (e) { /* sin sonido */ } }   // el aviso central ya lo dice
+    if (b.st === 'pause' && prev && prev.st !== 'pause') { setRes(b); if (b.why === 'explota') { const f = $('#bombFlash'); if (f) { f.classList.add('on'); setTimeout(() => f.classList.remove('on'), 60); } try { P.sfx.end(pl && pl.team === b.w); } catch (e) { /* sin sonido */ } } }
+    if (b.st === 'live' && (!prev || prev.st !== 'live')) { const r = $('#bombRes'); if (r) r.hidden = true; }
+    updateBar();
+  };
+  function drawBomb(now) {
+    const n = P.net(), b = n.bomb, h = $('#bombHud'), playing = document.body.classList.contains('playing') || document.body.classList.contains('spectating');
+    if (resT && now > resT) { resT = 0; const r = $('#bombRes'); if (r) r.hidden = true; }
+    if (n.mode !== 'bomba' || !playing) { if (bombG) bombG.visible = false; if (h) h.hidden = true; const r = $('#bombRes'); if (r && n.mode !== 'bomba') r.hidden = true; return; }
+    ensureBomb(); if (!bombG) return; bombG.visible = true;
+    const planted = !!(b && b.st === 'planted');
+    if (bombMesh) { bombMesh.visible = planted; if (planted) { bombMesh.position.set(b.x, b.y, b.z); bombLed.visible = Math.floor(now / (b.fuse <= 8 ? 120 : 400)) % 2 === 0; } }
+    const pl = P.player(); if (!h) return;
+    if (!b || !pl || n.spec || b.st === 'pause') { h.hidden = true; return; }
+    const att = pl.team === b.att, sites = (S.MAPS[P.curMap()] && S.MAPS[P.curMap()].bomb) || [], pr = n.bprog && n.bprog.p > 0 ? n.bprog : null;
+    let big = '', small = '', c = TEAMC[b.att], alarm = false;
+    if (b.st === 'live') {
+      const here = sites.find(st => Math.hypot(pl.pos.x - st.x, pl.pos.z - st.z) <= S.BOMB.R && Math.abs(pl.pos.y - (st.y || 0)) < 2.2);
+      if (att) { big = 'ATACAS'; small = here && pl.alive ? 'Mantén E para plantar la bomba en ' + here.n : 'Planta la bomba en A o B'; }
+      else { big = 'DEFIENDES'; small = 'Que no planten en A ni en B'; c = TEAMC[1 - b.att]; }
+    } else if (planted) {
+      alarm = true; c = '#ff3b48';
+      const near = Math.hypot(pl.pos.x - b.x, pl.pos.z - b.z) <= S.BOMB.DEF_R && Math.abs(pl.pos.y - b.y) < 2;
+      if (att) { big = 'BOMBA PLANTADA EN ' + b.site; small = 'Protégela hasta que explote'; }
+      else { big = '¡BOMBA EN ' + b.site + '!'; small = near && pl.alive ? 'Mantén E para desactivar la bomba' : 'Desactívala antes de que explote · a ' + Math.round(Math.hypot(pl.pos.x - b.x, pl.pos.z - b.z)) + ' m'; }
+    }
+    if (pr) small = pr.k === 'plant' ? 'Plantando…' : 'Desactivando…';
+    const key = big + '|' + small + '|' + c;
+    if (h.dataset.k !== key) { h.dataset.k = key; h.querySelector('b').textContent = big; h.querySelector('span').textContent = small; h.style.setProperty('--c', c); }
+    h.classList.toggle('prog', !!pr); h.classList.toggle('alarm', alarm); if (pr) h.querySelector('.bbar i').style.width = Math.round(pr.p * 100) + '%';
+    h.hidden = false;
   }
   P.onZone = z => { const n = P.net(); n.zoneAt = performance.now(); if (z && n.zone !== z) n.zone = z; };
   P.onMode = () => { const n = P.net(); n.zoneAt = performance.now(); updateBar(); };
@@ -160,7 +220,7 @@
   function init() {
     const mb = $('#modeBtn'); if (mb) mb.addEventListener('click', openModeModal);
     if (!S.MODES[cfg.mode]) cfg.mode = 'duelo'; initInline(); refreshButtons(); initSpec();
-    (function loop(now) { requestAnimationFrame(loop); try { drawZone(now); } catch (e) { /* la escena aún no está lista */ } })(0);
+    (function loop(now) { requestAnimationFrame(loop); try { drawZone(now); } catch (e) { /* la escena aún no está lista */ } try { drawBomb(now); } catch (e) { /* la escena aún no está lista */ } })(0);
     setInterval(updateBar, 300); setInterval(() => { if (tk()) checkReward(); else lastAcct = null; }, 2500);
   }
   init();

@@ -763,9 +763,18 @@ body.hud-compact #liveRows li:nth-child(n+4):not(.me){display:none}body.hud-comp
 .mdl-sea{margin-top:12px}.mdl-sea h4{font-size:13px;letter-spacing:.14em;opacity:.7;margin-bottom:6px}.mdl-sea p{margin:6px 0;font-size:14px}.mdl-hint{opacity:.7;font-size:13px}.mdl-big{font-size:26px;font-weight:900;color:#38e4ff}
 .mdl-sea summary{cursor:pointer;margin:8px 0;font-weight:700}.mdl-tb{width:100%;border-collapse:collapse;font-size:13px}.mdl-tb td{padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.08)}
 .mdl-top{list-style:none;padding:0;margin:6px 0}.mdl-top li{display:grid;grid-template-columns:28px 1fr auto 60px;gap:8px;padding:4px 6px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.06)}.mdl-top i{font-style:normal;font-weight:800}.mdl-top em{font-style:normal;text-align:right;opacity:.85}
-#modeBar{position:absolute;top:56px;left:50%;transform:translateX(-50%);padding:5px 16px;background:rgba(4,6,15,.88);border:1px solid #38e4ff;border-radius:99px;font:800 12px var(--hudf);letter-spacing:.14em;color:#fff;pointer-events:none;white-space:nowrap}
+#modeBar{position:absolute;top:92px;left:50%;transform:translateX(-50%);padding:5px 16px;background:rgba(4,6,15,.88);border:1px solid #38e4ff;border-radius:99px;font:800 12px var(--hudf);letter-spacing:.14em;color:#fff;pointer-events:none;white-space:nowrap}
 #zoneHud{position:absolute;top:88px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:6px 14px;background:rgba(4,6,15,.88);border:2px solid var(--c,#fff);border-radius:12px;font:800 12px var(--hudf);letter-spacing:.1em;color:#fff;pointer-events:none;white-space:nowrap}
 #zoneHud.mine{box-shadow:0 0 14px var(--c)}#zoneHud i{display:inline-block;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:18px solid var(--c,#fff);transition:transform .08s}
+/* [BOMBA] Desactivar bomba: aviso central, barra de plantar/desactivar y resultado de cada ronda */
+#bombHud{position:absolute;top:124px;left:50%;transform:translateX(-50%);min-width:280px;padding:7px 16px 9px;background:rgba(4,6,15,.88);border:2px solid var(--c,#ffd23f);border-radius:12px;text-align:center;font:800 13px var(--hudf);letter-spacing:.06em;color:#fff;pointer-events:none}
+#bombHud b{display:block;font-size:15px;color:var(--c,#ffd23f)}#bombHud span{display:block;margin-top:2px;opacity:.92}
+#bombHud .bbar{height:8px;margin-top:6px;border-radius:99px;background:rgba(255,255,255,.14);overflow:hidden;display:none}#bombHud.prog .bbar{display:block}
+#bombHud .bbar i{display:block;height:100%;width:0;background:var(--c,#ffd23f);transition:width .12s linear}
+#bombHud.alarm{animation:bombPulse .5s ease-in-out infinite alternate}@keyframes bombPulse{to{box-shadow:0 0 22px var(--c,#ff3b48)}}
+#bombRes{position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);padding:14px 30px;background:rgba(4,6,15,.9);border:3px solid var(--c,#fff);border-radius:16px;text-align:center;color:#fff;font:900 26px var(--hudf);letter-spacing:.08em;pointer-events:none;animation:scfade .2s ease-out}
+#bombRes span{display:block;margin-top:4px;font-size:15px;font-weight:800;opacity:.9;letter-spacing:.04em}
+#bombFlash{position:absolute;inset:0;background:radial-gradient(circle,#fff6d0 0,#ffb020 40%,rgba(255,80,0,0) 75%);pointer-events:none;opacity:0;transition:opacity .9s ease-out}#bombFlash.on{opacity:.85;transition:none}
 #endRank{margin-top:4px;font-weight:800;color:var(--c,#38e4ff)}#endRank small{opacity:.7;font-weight:600}
 #specPanel{position:fixed;right:12px;top:12px;z-index:30;width:min(560px,96vw);background:rgba(6,9,22,.94);border:2px solid #38e4ff;border-radius:12px;padding:10px 12px;color:#fff;font-size:13px}
 #specPanel[hidden]{display:none}.spec-h{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}.spec-h b{letter-spacing:.14em;margin-right:auto}
@@ -1066,6 +1075,8 @@ body.touch.playing:not(.dead) #touchUI{display:block}
 #touchUI #tCrouch{right:max(104px,calc(env(safe-area-inset-right) + 80px));bottom:24px}
 #touchUI #tReload{right:max(132px,calc(env(safe-area-inset-right) + 108px));bottom:92px;width:60px;height:60px;font-size:9px}
 #touchUI #tKnife{right:max(30px,env(safe-area-inset-right));bottom:230px;width:60px;height:60px;font-size:9px}
+#touchUI .tbtn[hidden]{display:none}
+#touchUI #tBomb{right:max(100px,calc(env(safe-area-inset-right) + 76px));bottom:230px;width:60px;height:60px;font-size:9px;border-color:#ffd23f;color:#ffd23f}   /* [BOMBA] mantener para plantar o desactivar */
 #touchUI .tbtn.sm{width:46px;height:46px;border-radius:12px;font-size:11px;top:max(10px,env(safe-area-inset-top))}
 #touchUI #tPause{right:max(12px,env(safe-area-inset-right))}
 #touchUI #tBoard{right:max(66px,calc(env(safe-area-inset-right) + 54px))}
@@ -1086,7 +1097,7 @@ body.touch canvas#c,body.touch #touchUI{zoom:var(--uizi,1)}
 <!-- HUD de partida -->
 <div id="hud" hidden>
   <div id="xmasHud" hidden aria-live="polite">🎁 <b>0</b><small>regalos</small></div>   <!-- [NAVIDAD] -->
-  <div id="modeBar" hidden></div><div id="zoneHud" hidden><i></i><span></span></div>
+  <div id="modeBar" hidden></div><div id="zoneHud" hidden><i></i><span></span></div><div id="bombHud" hidden><b></b><span></span><div class="bbar"><i></i></div></div><div id="bombRes" hidden><b></b><span></span></div><div id="bombFlash"></div>
   <div id="lowhp"></div>
   <div id="dmgvig"></div>
   <div id="scope" hidden>
