@@ -639,6 +639,10 @@ setInterval(() => apiHits.clear(), 60000).unref();
 /* [SEO] Dirección pública del juego para canonical, Open Graph, robots.txt y sitemap: PUBLIC_URL si está definida (recomendado),
    si no, el dominio con el que se ha pedido la página */
 const SITE_URL = String(process.env.PUBLIC_URL || '').replace(/\/+$/, '');
+/* [SEO] Verificación de propiedad para Google Search Console y Bing Webmaster Tools: se pega el código que dan (solo el valor de content="…",
+   o la etiqueta <meta> entera) en GOOGLE_SITE_VERIFICATION / BING_SITE_VERIFICATION y el servidor lo pone en la página principal. */
+const verifyToken = v => { v = String(v || '').trim(); const m = v.match(/content=["']([^"']+)["']/i); if (m) v = m[1]; return /^[A-Za-z0-9_\-]{10,100}$/.test(v) ? v : ''; };
+const VERIFY_TAGS = [['google-site-verification', verifyToken(process.env.GOOGLE_SITE_VERIFICATION)], ['msvalidate.01', verifyToken(process.env.BING_SITE_VERIFICATION)]].filter(x => x[1]).map(([n, v]) => '<meta name="' + n + '" content="' + v + '">').join('\n');
 function siteUrl(req) {
   if (SITE_URL) return SITE_URL;
   const host = String(req.headers.host || '').replace(/[^A-Za-z0-9.:\-\[\]]/g, '') || 'localhost';
@@ -714,7 +718,7 @@ const server = http.createServer((req, res) => {
     headers['Cache-Control'] = rel.startsWith('vendor') ? 'public, max-age=86400' : 'no-cache';
     if (ext === '.html') headers['Content-Security-Policy'] = CSP;
     if (rel === 'admin.html') headers['X-Robots-Tag'] = 'noindex, nofollow';
-    if (rel === 'index.html') data = Buffer.from(data.toString('utf8').split('__SITE_URL__').join(siteUrl(req)));   // [SEO] direcciones absolutas de canonical, Open Graph y Twitter
+    if (rel === 'index.html') data = Buffer.from(data.toString('utf8').split('__SITE_URL__').join(siteUrl(req)).replace('<!--__VERIFY__-->', VERIFY_TAGS));   // [SEO] direcciones absolutas de canonical, Open Graph y Twitter, y verificación de Google/Bing
     res.writeHead(200, headers);
     res.end(req.method === 'HEAD' ? undefined : data);
   });

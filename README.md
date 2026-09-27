@@ -314,6 +314,8 @@ Alternativa (o complemento) a Stripe: el jugador paga directamente a tu PayPal y
 | `ADMIN_EMAIL` | *(vacío)* | Correo del administrador: sirve para entrar y para «¿Has olvidado la contraseña?» |
 | `ADMIN_ALLOWED_IPS` | *(todas)* | Lista de IP separadas por comas que pueden usar el panel. Muy recomendable en producción |
 | `PUBLIC_URL` | *(vacío)* | Dirección pública de la web (`https://tudominio.com`). Se usa para el enlace del correo de restablecimiento |
+| `GOOGLE_SITE_VERIFICATION` | *(vacío)* | Código de verificación de Google Search Console (método «Etiqueta HTML»: el valor de `content` o la etiqueta entera) |
+| `BING_SITE_VERIFICATION` | *(vacío)* | Lo mismo para Bing Webmaster Tools (`msvalidate.01`) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_SECURE` | *(vacío)* | Correo saliente para el restablecimiento. Sin `SMTP_HOST`, el enlace sale por la consola del servidor |
 | `ADMIN_RESET_TTL_MS` | `1800000` | Validez del enlace de restablecimiento (30 min) |
 | `DATABASE_URL` | *(vacío)* | Conexión a **PostgreSQL** (`postgres://usuario:clave@host:5432/base`). Con ella, el pase de batalla usa sus tablas y las cuentas, el panel y la clasificación se guardan en la base de datos (sobreviven a reinicios). Sin ella, todo va a archivos en `DATA_DIR` |
