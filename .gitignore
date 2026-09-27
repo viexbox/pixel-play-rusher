@@ -4,3 +4,6 @@ dist/
 .env
 .env.*
 .DS_Store
+
+# datos locales del servidor (se crean al arrancarlo sin DATA_DIR): nunca al repositorio
+data/
