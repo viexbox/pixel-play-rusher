@@ -23,13 +23,14 @@ async function scenario(label, port, dir, dbUrl) {
   const TA = await reg('Mia_4', 'mia@e.com'), TB = await reg('Leo_8', 'leo@e.com');
   ok(!!TA && !!TB, 'se crean dos cuentas online');
   const LA = (await call('POST', '/api/admin/login', { user: 'Viexbox', password: APASS })).j.token;
-  const cheap = S.OUTFITS.slice().sort((a, b) => a.px - b.px)[0], pricey = S.OUTFITS.slice().sort((a, b) => b.px - a.px)[0];
+  const SHOP = S.OUTFITS.filter(o => !o.ru), cheap = SHOP.slice().sort((a, b) => a.px - b.px)[0], pricey = SHOP.slice().sort((a, b) => b.px - a.px)[0];   // los de la ruleta no se venden sueltos
   await call('POST', '/api/admin/px', { username: 'Mia_4', delta: cheap.px + 50, reason: 'prueba' }, LA);
   const px = async tk => (await call('GET', '/api/me', null, tk)).j.profile.px, bp = async tk => (await call('GET', '/api/bp', null, tk)).j.state;
   const p0 = await px(TA);
 
   ok((await call('POST', '/api/bp/outfit-buy', { id: cheap.id })).status === 401, 'sin sesión no se puede comprar');
   ok((await call('POST', '/api/bp/outfit-buy', { id: 'of_inventado' }, TA)).status === 400, 'un traje que no existe no se puede comprar');
+  ok((await call('POST', '/api/bp/outfit-buy', { id: S.OUTFITS.find(o => o.ru).id }, TA)).status === 400, 'un traje de la ruleta no se puede comprar suelto');
 
   const nomoney = await call('POST', '/api/bp/outfit-buy', { id: pricey.id }, TA);
   ok(nomoney.status === 402 && (await px(TA)) === p0, 'sin PX suficientes no se compra y no se cobra nada (' + nomoney.j.error + ')');

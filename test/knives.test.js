@@ -43,6 +43,12 @@ function clientChecks() {
   const g = new THREE.Group(); g.userData.skins = { knife: 'k_karambit_plasma' }; T.fillCharacter(g, T.TEAMS[0].c, 0, 1, 0);
   let tp = false; g.userData.knife.traverse(o => { if (o.isMesh && o.material.emissiveMap) tp = true; });
   ok(tp, 'en tercera persona el muñeco lleva el cuchillo que tiene equipado (el karambit con luces)');
+  const OR = S.OUTFITS.filter(o => o.ru);
+  for (const o of OR) { const c = new THREE.Group(); c.userData.outfit = o.id; T.fillCharacter(c, T.TEAMS[0].c, 0, 1, 0); let n = 0, fx = 0; c.traverse(x => { if (x.isMesh) { n++; if (x.material.isMeshBasicMaterial || x.material.transparent || x.material.emissiveMap) fx++; } });
+    ok(n > 15 && fx >= 2 && c.userData.legL && c.userData.head, 'traje ' + o.n + ': ' + n + ' piezas, ' + fx + ' con efecto de luz'); }
+  T.tickKnives(0.5);
+  ok(['neon', 'yakuza', 'dragon', 'spectre'].every(k => OR.some(o => o.kind === k)), 'los cuatro trajes con efectos: Neón, Oro Yakuza, Dragón Imperial y Espectro Ártico');
+  const kr = T.knifeMesh(S.KNIFE_SKINS.find(k => k.kind === 'karambit')); ok(!!kr.userData.spin, 'el karambit tiene su giro sobre la anilla al sacarlo');
   ok(!errors.length, 'sin errores en el cliente' + (errors.length ? ': ' + errors[0] : ''));
   ok(!S.KNIFE_SKINS.filter(k => k.ru).some(k => Object.values(S.BP_TIERS || {}).some(t => (t.free && t.free.id === k.id) || (t.vip && t.vip.id === k.id))), 'los cuchillos de la ruleta no salen en el pase de batalla');
 }
@@ -72,6 +78,14 @@ async function server() {
   const extra = await call('POST', '/api/bp/knife-spin', {}, TA);
   ok(extra.status === 409 && (await px(TA)) === p0 - R.px * pool.length, 'con todos, la ruleta no deja girar ni cobra (' + extra.j.error + ')');
   ok((await call('POST', '/api/bp/knife-buy', { id: pool[0].id }, TA)).status === 404, 'ya no se venden sueltos: solo por la ruleta');
+  /* ruleta de trajes: misma regla */
+  const RO = S.OUTFIT_ROULETTE, opool = S.OUTFITS.filter(o => o.ru);
+  await call('POST', '/api/admin/px', { username: 'Nora_3', delta: RO.px * opool.length, reason: 'prueba' }, LA);
+  const q0 = await px(TA), ogot = [];
+  for (let i = 0; i < opool.length; i++) { const r = await call('POST', '/api/bp/outfit-spin', {}, TA); if (r.status === 200) ogot.push(r.j.item); }
+  ok(ogot.length === opool.length && new Set(ogot).size === opool.length && (await px(TA)) === q0 - RO.px * opool.length, 'ruleta de trajes: ' + opool.length + ' tiradas de ' + RO.px + ' PX dan los ' + opool.length + ' trajes sin repetidos (' + ogot.join(', ') + ')');
+  ok((await call('POST', '/api/bp/outfit-spin', {}, TA)).status === 409 && (await px(TA)) === q0 - RO.px * opool.length, 'con todos, la ruleta de trajes no deja girar ni cobra');
+  ok((await call('POST', '/api/bp/equip', { slot: 'outfit', item: 'of_dragon' }, TA)).status === 200, 'el traje de la ruleta se puede poner');
   const K = S.KNIFE_SKINS.find(k => k.id === 'k_mariposa_aurora');
   ok((await call('POST', '/api/bp/equip', { slot: 'knife', item: K.id }, TB)).status === 403, 'no se puede equipar un cuchillo que no tienes');
   const eq = await call('POST', '/api/bp/equip', { slot: 'knife', item: K.id }, TA);
