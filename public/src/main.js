@@ -65,7 +65,9 @@ export function bootstrap(opts = {}) {
   app.ui.register('lobby', { mount() {}, show() {}, hide() {} }); // el lobby ya está en la página; aquí solo se marca como activo
 
   const restored = app.auth.restoreSession();
-  if (restored) enter(restored); else app.ui.show('auth');
+  if (restored) enter(restored);
+  else if (globalThis.PPR_PORTAL) { const g = app.auth.guest(); if (g.ok) enter(g.session); else app.ui.show('auth'); }   // [PORTALES] en CrazyGames/Poki no hay pantalla de acceso propia: se entra como invitado
+  else app.ui.show('auth');
   app.legacy = legacy;
   return app;
 }

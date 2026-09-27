@@ -70,8 +70,31 @@ const wsTry = origin => new Promise(res => { const ws = new WebSocket('ws://127.
     ok(posts[0] && posts[0].portal === 'crazygames', 'el servidor recibe de qué portal viene el anuncio');
     T.renderStore(); await sleep(50); ok(/se consiguen jugando/.test($('#storeBox').textContent) && !$('#storeBox button'), 'la tienda de PX no ofrece pagos con dinero dentro del portal');
     const css = [...w.document.querySelectorAll('style')].map(s => s.textContent).join('\n');
-    ok(/html\.portal #discordBtn,html\.portal \[data-tab="store"\],html\.portal \.pt-ref\{display:none!important\}/.test(css), 'y se esconden el enlace a Discord, la pestaña Tienda y las invitaciones (enlaces externos)');
+    ok(/html\.portal #discordBtn,html\.portal \[data-tab="store"\],html\.portal \.pt-ref,html\.portal #logoutBtn\{display:none!important\}/.test(css), 'y se esconden el enlace a Discord, la pestaña Tienda, las invitaciones (enlaces externos) y «Cerrar sesión» (no hay inicio de sesión propio)');
     ok(errors.length === 0, 'sin errores de JavaScript ' + JSON.stringify(errors.slice(0, 2)));
+    w.close();
+  }
+
+  console.log('\n=== Sin pantalla de acceso propia (CrazyGames no permite inicio de sesión externo) ===');
+  {
+    globalThis.__PPR_MANUAL_BOOT__ = true;
+    const { pathToFileURL } = require('url'), M = await import(pathToFileURL(path.join(__dirname, '..', 'public', 'src', 'main.js')).href);
+    const mem = () => { const m = new Map(); return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) }; };
+    const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8').replace(/<script[^>]*src[^>]*><\/script>/g, '').replace(/<link[^>]*(fonts|stylesheet)[^>]*>/g, '');
+    const boot = portal => { globalThis.PPR_PORTAL = portal; const w = new JSDOM(html, { pretendToBeVisual: true, url: 'https://ejemplo.test/' }).window; M.bootstrap({ document: w.document, storages: { local: mem(), session: mem() }, config: { auth: true } }); const r = { auth: w.document.querySelector('#auth'), name: (w.document.querySelector('#sessName') || {}).textContent || '' }; delete globalThis.PPR_PORTAL; return r; };
+    const pr = boot({ name: 'crazygames' }), normal = boot(null);
+    ok((!pr.auth || pr.auth.hidden) && /Invitado/.test(pr.name), 'en el portal se entra directamente como invitado, sin pantalla de registro ni de inicio de sesión (' + pr.name + ')');
+    ok(normal.auth && !normal.auth.hidden, 'fuera del portal sigue saliendo la pantalla de acceso de siempre');
+  }
+  console.log('\n=== Términos y Privacidad desde otra web ===');
+  {
+    const PUB = path.join(__dirname, '..', 'public'), root = path.join(__dirname, '..');
+    execFileSync('node', [path.join(root, 'scripts', 'build-portal.js'), 'crazygames', 'https://krunxa.up.railway.app'], { cwd: root, stdio: 'ignore' });
+    const h = fs.readFileSync(path.join(root, 'dist', 'crazygames', 'index.html'), 'utf8'); fs.rmSync(path.join(root, 'dist', 'crazygames'), { recursive: true, force: true });
+    const w = new JSDOM(h.replace(/<script>[\s\S]*?<\/script>/g, s => (/VOLT_CONFIG|three|shared|client|PPR_PORTAL_NAME/.test(s) ? s : '')).replace(/<link[^>]*fonts[^>]*>/g, ''), { runScripts: 'outside-only', pretendToBeVisual: true, url: 'https://files.crazygames.com/krunxa/index.html' }).window;
+    ok(/<a href="terminos"/.test(h) && /window\.VOLT_CONFIG\.server = "https:\/\/krunxa\.up\.railway\.app"/.test(h), 'el paquete lleva los enlaces legales y la dirección del servidor');
+    const cl = fs.readFileSync(path.join(PUB, 'client.js'), 'utf8');
+    ok(/if \(CFG_SERVER\) document\.querySelectorAll\('\.legal a\[href\]'\)/.test(cl), 'y el juego los reescribe para que apunten al servidor (https://krunxa.up.railway.app/terminos) aunque la página esté en CrazyGames');
     w.close();
   }
 

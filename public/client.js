@@ -4124,5 +4124,6 @@ Object.assign(window.PPR_BP, { partyInvite, petSvg, unlockedColors: () => unlock
   limit: () => teamLimit, cfg, saveCfg, net: () => net, netSend, sfx, curMap: () => curMap, player: () => player, camera: () => camera, scene: () => scene, THREE, startSpectate, stopSpectate, specCycle, setSpecView: v => { net.specView = v; }, gunsOK, setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
   rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); setPreviewPet(); updatePreview(); if ($('#petsBox')) renderPets(); if ($('#outfitsBox')) renderOutfits(); if ($('#knivesBox')) renderKnives(); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
 requestAnimationFrame(frame);
+if (CFG_SERVER) document.querySelectorAll('.legal a[href]').forEach(a => { const h = a.getAttribute('href'); if (!/^[a-z]+:/i.test(h)) a.href = apiUrl(h); });   // [PORTALES] Términos y Privacidad apuntan al servidor aunque la página esté en otra web
 if (window.PPR_PORTAL) window.PPR_PORTAL.loadingDone();   // [PORTALES] el juego ya está listo
 })();
