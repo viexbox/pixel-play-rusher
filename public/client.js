@@ -2100,11 +2100,44 @@ function respawn(f) {
 }
 
 /* --- Jugador --- */
+/* [TUTORIAL] Primera partida: pasos cortos que avanzan solos al hacerlos (moverse, mirar, disparar, saltar, deslizarse, cuchillo).
+   Se ve una vez (cfg.tutDone); se puede saltar (T o el botón) y repetir desde Ajustes. Con pantalla táctil, los textos hablan de los botones. */
+const TUT = { i: -1, shots: 0, x: 0, z: 0, yaw: 0, look: 0, t: 0, el: null };
+const TUT_STEPS = [
+  { pc: 'Muévete con W A S D', tc: 'Muévete con el joystick (pulgar izquierdo)', ok: p => Math.hypot(p.pos.x - TUT.x, p.pos.z - TUT.z) > 4 },
+  { pc: 'Mira alrededor moviendo el ratón', tc: 'Arrastra el dedo por la derecha para mirar', ok: () => TUT.look > 1.2 },
+  { pc: 'Dispara con clic izquierdo', tc: 'Mantén pulsado DISPARAR', ok: () => TUT.shots >= 3 || !gunsOK() },   // en «Solo cuchillos» no hay armas: se salta
+  { pc: 'Salta con Espacio', tc: 'Pulsa SALTAR', ok: p => !p.onGround && p.vel.y > 1 },
+  { pc: 'Corre hacia delante y pulsa Mayús para deslizarte', tc: 'Corre y pulsa AGACHAR para deslizarte', ok: p => p.slide > 0 },
+  { pc: 'Saca el cuchillo con Q (o 2) y golpea con clic', tc: 'Pulsa CUCHILLO para sacarlo', ok: () => slot === 1 },
+  { pc: '¡Listo! Juega online para ganar PX: tienda, ruletas y pase de batalla', tc: '¡Listo! Juega online para ganar PX: tienda, ruletas y pase de batalla', end: true }
+];
+function startTutorial(force) {
+  if (!force && cfg.tutDone) return;
+  TUT.i = 0; TUT.shots = 0; TUT.look = 0; TUT.t = 0; TUT.x = player ? player.pos.x : 0; TUT.z = player ? player.pos.z : 0; TUT.yaw = player ? player.yaw : 0;
+  if (!TUT.el) { const d = document.createElement('div'); d.id = 'tutBox'; d.setAttribute('role', 'status'); hud.appendChild(d); TUT.el = d; d.addEventListener('click', e => { if (e.target.closest('[data-tskip]')) endTutorial(); }); }
+  drawTutorial();
+}
+function endTutorial() { TUT.i = -1; cfg.tutDone = true; saveCfg(); if (TUT.el) TUT.el.hidden = true; }
+function drawTutorial() {
+  const st = TUT_STEPS[TUT.i]; if (!st || !TUT.el) return; TUT.el.hidden = false;
+  TUT.el.innerHTML = '<small>' + (st.end ? 'Tutorial completado' : 'Tutorial · paso ' + (TUT.i + 1) + ' de ' + (TUT_STEPS.length - 1)) + '</small><b>' + (TOUCH ? st.tc : st.pc) + '</b>' +
+    (st.end ? '' : '<button type="button" data-tskip>' + (TOUCH ? 'Saltar tutorial' : 'Saltar (T)') + '</button>');
+  TUT.el.classList.remove('tut-ok'); void TUT.el.offsetWidth; TUT.el.classList.add('tut-in');
+}
+function tickTutorial() {
+  if (TUT.i < 0 && !cfg.tutDone && !TUT.started && player && player.alive) { TUT.started = true; startTutorial(); }   // la primera partida, sea de entrenamiento u online
+  if (TUT.i < 0 || !player || !player.alive) return;
+  let d = player.yaw - TUT.yaw; TUT.yaw = player.yaw; if (Math.abs(d) < 1) TUT.look += Math.abs(d);
+  const st = TUT_STEPS[TUT.i]; TUT.t += 1 / 60;
+  if (st.end) { if (TUT.t > 6) endTutorial(); return; }
+  if (st.ok(player)) { sfx.gold(); TUT.i++; TUT.t = 0; if (TUT.i === 2) TUT.shots = 0; drawTutorial(); if (TUT.el) TUT.el.classList.add('tut-ok'); }
+}
 function playerShoot() {
   const p = player, w = WEAPONS[p.wi];
   if (p.reload > 0 || p.fireCd > 0 || knifeT > 0) return;
   if (p.ammo <= 0) { startReload(); return; }
-  p.ammo--; p.fireCd = w.interval;
+  p.ammo--; p.fireCd = w.interval; TUT.shots++;   // TUT: para el tutorial
   const base = aimDirOf(p);   // [NUEVO] la bala sale de donde apuntas (p.yaw/p.pitch), no de la cámara: el retroceso visual no la desvía
   const scoped = !!scopeKind(w) && p.aim > 0.85, tight = scoped && w.scopedSpread != null;
   let sp = tight ? w.scopedSpread : w.spread;
@@ -3071,6 +3104,24 @@ async function syncRemote() {
     } catch (e) { /* sin conexión: se conserva el último perfil */ }
   }
   lobbyRefresh(); if (!$('#tab-store').hidden) renderStore(); if (!$('#tab-ranks').hidden) renderRanks();
+  if (remote && remote.daily && !remote.daily.claimed && !dailyShown && state === 'menu') { dailyShown = true; setTimeout(() => { if (state === 'menu') openDaily(); }, 900); }   // [DIARIO] una vez por visita
+  try { renderParty(); } catch (e) { /* aún no se ha iniciado la lobby */ }   // el botón «Premio diario» sale o se quita
+}
+/* [DIARIO] Premio por entrar cada día: 7 casillas con el premio de cada día de la racha; el servidor decide y paga */
+let dailyShown = false;
+function openDaily() {
+  if (!remote || !remote.daily) return;
+  const box = $('#dailyModal') || (() => { const d = document.createElement('div'); d.id = 'dailyModal'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true'); d.innerHTML = '<div id="dailyBox"></div>'; document.body.appendChild(d); d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-dx]')) d.hidden = true; }); return d; })();
+  const D = remote.daily, inner = $('#dailyBox'); box.hidden = false;
+  inner.innerHTML = '<h2>📅 Premio diario</h2><p>Entra cada día para subir la racha: el día ' + D.rewards.length + ' es el mejor. Si un día no entras, vuelve a empezar.</p>' +
+    '<div class="dl-days">' + D.rewards.map((px, i) => { const n = i + 1, done = D.claimed ? n <= D.day : n < D.day, today = n === D.day; return '<div class="dl-day' + (done ? ' done' : '') + (today ? ' today' : '') + '"><small>Día ' + n + '</small><b>' + fmtKr(px) + '</b><span>PX</span>' + (done ? '<i>✓</i>' : '') + '</div>'; }).join('') + '</div>' +
+    (D.claimed ? '<p class="dl-msg">✓ Ya has recogido el premio de hoy. ¡Vuelve mañana para el día ' + (D.day % D.rewards.length + 1) + '!</p><button type="button" class="dl-x" data-dx>Cerrar</button>'
+      : '<button type="button" id="dailyGo" class="dl-go">Recoger ' + fmtKr(D.px) + ' PX</button> <button type="button" class="dl-x" data-dx>Luego</button>');
+  const go = $('#dailyGo'); if (go) go.addEventListener('click', async () => {
+    go.disabled = true;
+    try { const j = await acctPost('api/me/daily', {}); remote = j.profile; renderKr(); sfx.gold(); toast('📅 +' + fmtKr(j.px) + ' PX · racha de ' + j.daily.streak + (j.daily.streak === 1 ? ' día' : ' días')); openDaily(); renderParty(); }
+    catch (e) { toast(e.message); go.disabled = false; }
+  });
 }
 const krTotal = () => (remote ? Math.max(0, remote.px | 0) : Math.max(0, store.get(K.kr, 0) | 0));
 const fmtKr = n => Number(n).toLocaleString('es-ES');
@@ -3577,7 +3628,7 @@ function partyInvite(name) { if (!acctToken()) return toast('Inicia sesión con 
 const partyIsLead = () => !!(partyC.st && partyC.st.id && partyC.st.lead === cfg.name);
 function renderParty() {
   const box = $('#partyBox'); if (!box) return; const p = partyC.st;
-  if (!p || !p.id) { box.innerHTML = '<button type="button" class="pt-inv" data-pt="friends">＋ Jugar con amigos</button> <button type="button" class="pt-inv pt-ref" data-pt="ref">🎁 Invita y gana PX</button>'; box.classList.remove('on'); return; }
+  if (!p || !p.id) { box.innerHTML = '<button type="button" class="pt-inv" data-pt="friends">＋ Jugar con amigos</button> <button type="button" class="pt-inv pt-ref" data-pt="ref">🎁 Invita y gana PX</button>' + (remote && remote.daily && !remote.daily.claimed ? ' <button type="button" class="pt-inv pt-ref pt-daily" data-pt="daily">📅 Premio diario</button>' : ''); box.classList.remove('on'); return; }
   box.classList.add('on');
   const lead = partyIsLead(), me = (p.members.find(x => x.u === cfg.name) || {});
   box.innerHTML = '<div class="pt-head"><b>Grupo</b><span>' + p.members.length + '/' + p.max + '</span></div><div class="pt-list">' +
@@ -3704,6 +3755,7 @@ function initMenu() {
     i.addEventListener('input', () => { cfg[key] = +i.value; o.textContent = fmt(cfg[key]); saveCfg(); if (key === 'vol' && master) master.gain.value = cfg.vol; });
   };
   bind('sens', 'sens', v => v.toFixed(2)); bind('fov', 'fov', v => v + '°'); bind('vol', 'vol', v => Math.round(v * 100) + '%');
+  const ta = $('#tutAgain'); if (ta) ta.addEventListener('click', () => { cfg.tutDone = false; TUT.started = false; saveCfg(); toast('El tutorial saldrá en tu próxima partida'); });   // [TUTORIAL]
   const hq = $('#hq'); if (hq) { hq.checked = HQ; $('#hqO').textContent = HQ ? 'Sí' : 'No'; hq.addEventListener('change', () => { cfg.hq = hq.checked; $('#hqO').textContent = hq.checked ? 'Sí' : 'No'; saveCfg(); toast('Se aplica al recargar la página'); }); }   // [GRÁFICOS]
   const sh = $('#shadows'); sh.checked = !!cfg.shadows; $('#shadowsO').textContent = cfg.shadows ? 'Sí' : 'No';
   sh.addEventListener('change', () => { cfg.shadows = sh.checked; cfg.shadowsSet = true; $('#shadowsO').textContent = cfg.shadows ? 'Sí' : 'No'; saveCfg(); applyShadows(); });
@@ -3746,6 +3798,7 @@ function initMenu() {
   $('#partyBox').addEventListener('click', e => { const b = e.target.closest('[data-pt]'); if (!b) return; const a = b.dataset.pt;
     if (a === 'friends') { if (!acctToken()) return toast('Inicia sesión con una cuenta online para jugar en grupo con tus amigos.'); return showTab('profile'); }
     if (a === 'ref') return openReferral();   // [INVITACIONES]
+    if (a === 'daily') return openDaily();   // [DIARIO]
     if (a === 'leave') return lobbySend({ t: 'pleave' });
     if (a === 'kick') return lobbySend({ t: 'pkick', u: b.dataset.u });
     if (a === 'ready') { const me = partyC.st && partyC.st.members.find(x => x.u === cfg.name); return lobbySend({ t: 'pready', r: !(me && me.ready) }); }
@@ -3830,6 +3883,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'KeyC' && player.alive && performance.now() - spawnAt < QUICK_SWAP_MS && !quickSwapMode) openQuickSwap();   // [NUEVO] cambio rápido de arma, solo los primeros segundos tras reaparecer
   // [NUEVO] el arma para el próximo respawn se elige y se paga en la tienda (#shop); ya no se cambia gratis con 1-9 al morir.
   if (e.code === 'KeyV') playerMelee();
+  if (e.code === 'KeyT' && TUT.i >= 0) endTutorial();   // [TUTORIAL] saltar
   if (e.code === 'KeyF' && player.alive && slot === 1 && slashT === 0 && knifeT === 0 && inspectT === 0) inspectT = 0.0001;   // [CUCHILLOS] inspeccionar el cuchillo
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Tab') el.board.hidden = true; });
@@ -4002,7 +4056,7 @@ function frame(now) {
   if (state === 'playing') {
     let rem = dt; while (rem > 1e-5) { const s = Math.min(rem, 1 / 60); step(s); rem -= s; if (state !== 'playing') break; }
     if (state === 'playing') {
-      hudAcc += dt; updateHudFast();
+      hudAcc += dt; updateHudFast(); tickTutorial();   // [TUTORIAL]
       if (hudAcc > 0.4) { hudAcc = 0; updateHudSlow(); }
       if (player && !player.alive && deathLook) {   // [NUEVO] cámara de muerte: se ve a quien te eliminó desde detrás, con suavidad, hasta reaparecer
         const k = deathLook, tp = new THREE.Vector3(k.pos.x + Math.sin(k.yaw || 0) * 3.4, k.pos.y + 2.2, k.pos.z + Math.cos(k.yaw || 0) * 3.4);

@@ -68,6 +68,20 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     log('Invitación premiada: ' + inv.username + ' (+' + REF_PX_INVITER + ') → ' + u.username + ' (+' + REF_PX_FRIEND + ')');
     return { px: REF_PX_FRIEND, by: inv.username };
   }
+  /* [DIARIO] Premio por entrar cada día (cuentas online): racha de 7 días con premio creciente; si un día no entras, la racha vuelve a 1.
+     El día es el de UTC. DAILY_PX (lista separada por comas) cambia los premios. */
+  const DAILY = (() => { const l = String(env.DAILY_PX || '').split(',').map(x => Math.trunc(+x)).filter(x => x > 0 && x <= 100000); return l.length ? l.slice(0, 14) : [50, 75, 100, 125, 150, 200, 400]; })();
+  const dayStr = (off = 0) => new Date(Date.now() + off * 86400000).toISOString().slice(0, 10);
+  function dailyInfo(u) {
+    const d = u.daily || { last: '', streak: 0 }, claimed = d.last === dayStr(), alive = claimed || d.last === dayStr(-1);
+    const streak = alive ? d.streak : 0, next = claimed ? streak : streak + 1;   // next: el día de la racha que toca (o que ya se cobró hoy)
+    return { claimed, streak, day: ((next - 1) % DAILY.length) + 1, rewards: DAILY, px: DAILY[(next - 1) % DAILY.length] };
+  }
+  function dailyClaim(u) {
+    const i = dailyInfo(u); if (i.claimed) return err(409, 'Ya has recogido el premio de hoy. ¡Vuelve mañana!');
+    const streak = i.streak + 1; u.daily = { last: dayStr(), streak }; grant(u, i.px, 'Premio diario (día ' + i.day + ')');
+    return { ok: true, px: i.px, daily: dailyInfo(u), profile: pub(u) };
+  }
   const hooks = { onRename: null };   // server.js lo usa para mantener la clasificación al día cuando alguien cambia de nombre
   const NAME_CHANGE_MS = (+env.NAME_CHANGE_DAYS >= 0 ? +env.NAME_CHANGE_DAYS : 7) * 86400000;   // espera entre cambios de nombre (el primero es libre)
   const REQUIRE_TERMS = env.REQUIRE_TERMS !== '0';   // [NUEVO] para crear una cuenta hay que aceptar los términos y la privacidad (REQUIRE_TERMS=0 lo desactiva, solo para pruebas)
@@ -114,7 +128,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
 
   /* ---------- Cuentas y sesiones ---------- */
   const fails = new Map(), regHits = new Map();
-  const pub = u => (syncRankColors(u), { id: u.id, username: u.username, px: u.px, credits: u.credits | 0, stats: u.stats, unlocked: u.unlocked, colorTs: u.colorTs || {}, claimed: u.claimed, createdAt: u.createdAt, email: mask(u.email), emailVerified: !!u.emailVerified, deleteAt: u.deleteAt || 0, echange: u.echange ? mask(u.echange.email) : '' });   // [NUEVO] correo (enmascarado), si está verificado y si la cuenta está en plazo de eliminación
+  const pub = u => (syncRankColors(u), { id: u.id, username: u.username, daily: dailyInfo(u), px: u.px, credits: u.credits | 0, stats: u.stats, unlocked: u.unlocked, colorTs: u.colorTs || {}, claimed: u.claimed, createdAt: u.createdAt, email: mask(u.email), emailVerified: !!u.emailVerified, deleteAt: u.deleteAt || 0, echange: u.echange ? mask(u.echange.email) : '' });   // [NUEVO] correo (enmascarado), si está verificado y si la cuenta está en plazo de eliminación
   function newSession(u) {
     const token = hex(32), t = now();
     D.sessions[sha(token)] = { uid: u.id, exp: t + SESSION_MS };
@@ -356,6 +370,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
         else if (key === 'POST /api/me/claim') out = claimRank(u, b.i);
         else if (key === 'POST /api/me/rename') out = rename(u, b.username, ip);   // [NUEVO]
         else if (key === 'GET /api/me/referral') out = refInfo(u);   // [INVITACIONES]
+        else if (key === 'POST /api/me/daily') out = dailyClaim(u);   // [DIARIO]
         else if (key === 'POST /api/store/checkout') out = await checkout(u, String(b.pack || ''));
         else if (key === 'POST /api/store/paypal') out = paypalOrder(u, String(b.pack || ''));   // [PAYPAL]
         else { send(req, res, 404, { error: 'No encontrado.' }); return true; }
