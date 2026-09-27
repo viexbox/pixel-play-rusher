@@ -163,14 +163,14 @@ class Bot {
 Bot.n = 20;
 (async () => {
   fs.rmSync(D, { recursive: true, force: true }); fs.mkdirSync(D, { recursive: true });
-  /* la clasificación guardada trae entradas de los mapas antiguos (0, 3 y 5): al arrancar solo debe quedar la del mapa 0 */
-  fs.writeFileSync(path.join(D, 'leaderboard.json'), JSON.stringify({ entries: [{ m: 0, n: 'Ana', p: 900, k: 9, d: 1, h: 2, c: 'Ráfaga', df: -1, t: 1 }, { m: 3, n: 'Berta', p: 800, k: 8, d: 2, h: 1, c: 'Ráfaga', df: -1, t: 1 }, { m: 5, n: 'Carla', p: 700, k: 7, d: 3, h: 0, c: 'Ráfaga', df: -1, t: 1 }] }));
+  /* la clasificación guardada trae entradas de mapas que no existen (97 y 99, además del 0): al arrancar solo debe quedar la del mapa 0 */
+  fs.writeFileSync(path.join(D, 'leaderboard.json'), JSON.stringify({ entries: [{ m: 0, n: 'Ana', p: 900, k: 9, d: 1, h: 2, c: 'Ráfaga', df: -1, t: 1 }, { m: 97, n: 'Berta', p: 800, k: 8, d: 2, h: 1, c: 'Ráfaga', df: -1, t: 1 }, { m: 99, n: 'Carla', p: 700, k: 7, d: 3, h: 0, c: 'Ráfaga', df: -1, t: 1 }] }));
   const srv = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], { env: Object.assign({}, process.env, { PORT: String(PORT), DATA_DIR: D, WALL_CHECK: '0', REQUIRE_TERMS: '0', FILL_BOTS: '0', ZONE_MOVE_SECS: '1', ADMIN_PASSWORD: 'Nexus-Admin-2026xyz' }), stdio: ['ignore', 'pipe', 'pipe'] });
   let out = ''; srv.stdout.on('data', d => { out += d; }); srv.stderr.on('data', d => { out += d; });
   try {
     let up = false; for (let i = 0; i < 100 && !up; i++) { try { up = (await fetch(B + '/healthz')).ok; } catch (e) { await sleep(100); } }
     ok(up, 'el servidor arranca con el mapa único');
-    const lbj = await (await fetch(B + '/api/leaderboard')).json(), lb3 = await (await fetch(B + '/api/leaderboard?map=3')).json();
+    const lbj = await (await fetch(B + '/api/leaderboard')).json(), lb3 = await (await fetch(B + '/api/leaderboard?map=97')).json();
     ok(lbj.entries.length === 1 && lbj.entries[0].n === 'Ana' && lb3.entries.length === 1, 'la clasificación descarta las entradas de los mapas eliminados (quedan ' + lbj.entries.length + ' de 3; el aviso está en el registro: ' + /descartaron 2/.test(out) + ')');
     /* dos jugadores en el modo zona: uno de cada equipo */
     const a = new Bot('Rojo1', { mode: 'zona' }), b = new Bot('Azul1', { mode: 'zona' }); await a.connect(0); await b.connect(0);

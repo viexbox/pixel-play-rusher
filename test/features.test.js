@@ -37,7 +37,7 @@ const start = async cls => { const B = boot(); await sleep(250); B.$$('#classes 
     ok(T.state === 'playing' && hasRedGlass(T.gun), id + ': el modelo lleva el visor de punto rojo montado');
     T.setMouseR(true); settle(T, 40);
     ok($('#optic').dataset.k === 'dot' && !$('#optic').hidden, id + ': al apuntar aparece el punto rojo en pantalla');
-    const want = wp.size[1] / 2 + 0.012 + 0.033; ok(Math.abs(-T.gun.position.y - want) < 0.006, id + ': la línea de mira queda centrada al apuntar (' + (-T.gun.position.y).toFixed(3) + ' ≈ ' + want.toFixed(3) + ')');
+    const want = wp.size[1] / 2 + 0.012 + 0.033 + 0.08;   // [MIRAS KRUNKER] con punto rojo el arma queda 8 cm más baja para que no asome en la lente ok(Math.abs(-T.gun.position.y - want) < 0.006, id + ': la línea de mira queda centrada al apuntar (' + (-T.gun.position.y).toFixed(3) + ' ≈ ' + want.toFixed(3) + ')');
     T.setMouseR(false); settle(T, 30); key('KeyB'); settle(T, 5);
     ok(!hasRedGlass(T.gun) && T.cfg.optics[id] === 'hierro', id + ': con B cambia a la mira de hierro (sin visor rojo)');
     ok(errors.length === 0, id + ': sin errores de JavaScript ' + JSON.stringify(errors));
