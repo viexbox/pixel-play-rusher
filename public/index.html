@@ -4,10 +4,36 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="src/ui/auth.css">
-<title>Krunxa · Arena de disparos por bloques</title>
+<title>Krunxa · Shooter FPS online gratis en el navegador</title>
+<meta name="description" content="Juega gratis a Krunxa, un shooter FPS de bloques en el navegador: partidas online rápidas, 11 armas, modos por equipos, clasificatorio, pase de batalla y ranking global. Sin descargas.">
 <link rel="icon" href="favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="description" content="Krunxa: shooter en primera persona por bloques con partidas online, mapas, clases y clasificación global.">
+<!-- SEO: el servidor cambia __SITE_URL__ por PUBLIC_URL (o por el dominio de la petición). El archivo único (build:single) quita este bloque. -->
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="__SITE_URL__/">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0a0e1e">
+<meta name="application-name" content="Krunxa">
+<meta name="apple-mobile-web-app-title" content="Krunxa">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Krunxa">
+<meta property="og:url" content="__SITE_URL__/">
+<meta property="og:title" content="Krunxa · Shooter FPS online gratis en el navegador">
+<meta property="og:description" content="Juega gratis a Krunxa, un shooter FPS de bloques en el navegador: partidas online rápidas, 11 armas, modos por equipos, clasificatorio, pase de batalla y ranking global. Sin descargas.">
+<meta property="og:image" content="__SITE_URL__/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Krunxa: shooter FPS de bloques en el navegador">
+<meta property="og:locale" content="es_ES">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Krunxa · Shooter FPS online gratis en el navegador">
+<meta name="twitter:description" content="Juega gratis a Krunxa, un shooter FPS de bloques en el navegador: partidas online rápidas, 11 armas, modos por equipos, clasificatorio, pase de batalla y ranking global. Sin descargas.">
+<meta name="twitter:image" content="__SITE_URL__/og-image.jpg">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"VideoGame","name":"Krunxa","url":"__SITE_URL__/","image":"__SITE_URL__/og-image.jpg","description":"Juega gratis a Krunxa, un shooter FPS de bloques en el navegador: partidas online rápidas, 11 armas, modos por equipos, clasificatorio, pase de batalla y ranking global. Sin descargas.","genre":["Shooter en primera persona","Acción","Multijugador"],"gamePlatform":"Navegador web","applicationCategory":"Game","operatingSystem":"Windows, macOS, Linux, ChromeOS","playMode":["MultiPlayer","SinglePlayer"],"inLanguage":["es","en"],"isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"}}
+</script>
+<!-- /SEO -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Bungee&family=Exo+2:ital,wght@0,600;0,700;0,800;1,700;1,800;1,900&display=swap" rel="stylesheet">
@@ -788,6 +814,11 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
 .pack .ptag{position:absolute;top:-8px;right:-6px;background:var(--red,#ff3b56);color:#fff;font-size:11px;font-weight:900;padding:2px 7px}
 .pack button{margin-top:8px;width:100%;padding:8px 6px;border:0;background:var(--volt);color:#141200;font:inherit;font-weight:900;letter-spacing:.06em;cursor:pointer}
 .pack button:disabled{opacity:.4;cursor:not-allowed}
+.pack button.ppbtn{background:#0070ba;color:#fff}   /* [PAYPAL] */
+#ppBox{margin:10px 0;padding:12px 14px;background:rgba(0,112,186,.14);border:1px solid rgba(0,156,222,.5);user-select:text;-webkit-user-select:text}
+#ppBox h3{font-size:15px;letter-spacing:.06em;margin-bottom:6px}#ppBox ol{padding-left:20px;display:grid;gap:6px;font-size:14px}
+#ppBox .ppmail,#ppBox .ppcode{color:var(--volt)}#ppBox a{color:var(--ice);font-weight:800}
+#ppBox .ppcopy{margin-left:4px;padding:2px 8px;font-size:12px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08)}
 .note.warn{color:#ffb4c1;font-weight:700}.note.small{font-size:12.5px;opacity:.7}
 .endmaps{margin:10px 0}.endmaps h3{font-size:14px;letter-spacing:.14em;text-transform:uppercase;opacity:.8;margin-bottom:6px}
 .endmapbtns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -960,6 +991,7 @@ body:not(.playing):not(.tabopen):not(.eqopen) #partyBox{display:block}
 </style>
 </head>
 <body>
+<noscript><div style="max-width:720px;margin:40px auto;padding:0 16px;line-height:1.6"><h1>Krunxa: shooter FPS online gratis en el navegador</h1><p>Shooter en primera persona de bloques con partidas online rápidas, 11 armas, modos por equipos (Duelo, Capturar zona, Solo cuchillos, Carrera de armas), clasificatorio con ligas, pase de batalla y ranking global. Se juega gratis en el navegador del ordenador, sin descargas.</p><p>Para jugar necesitas activar JavaScript. <a href="/privacidad">Privacidad</a> · <a href="/terminos">Términos</a></p></div></noscript>
 <canvas id="c"></canvas>
 
 <!-- HUD de partida -->

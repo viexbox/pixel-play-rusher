@@ -44,7 +44,7 @@ function createAdminPlus({ admin, accounts, S, log, env, getStatus, onVerified }
     return {
       currency: main, storeOn: accounts.storeOn(),
       revenue: { today: sum(paid.filter(o => dayKey(o.ts) === today)), d7: sum(since(7 * 86400000)), d30: sum(since(30 * 86400000)), all: sum(paid) },
-      orders: { paid: paid.filter(o => o.status === 'paid').length, manual: paid.filter(o => o.status === 'manual').length, pending: D.orders.filter(o => o.status === 'pending').length, refunded: D.orders.filter(o => o.status === 'refunded').length, other: D.orders.filter(o => !['paid', 'manual', 'pending', 'refunded'].includes(o.status)).length },
+      orders: { paid: paid.filter(o => o.status === 'paid').length, manual: paid.filter(o => o.status === 'manual').length, pending: D.orders.filter(o => o.status === 'pending' || o.status === 'paypal').length, refunded: D.orders.filter(o => o.status === 'refunded').length, other: D.orders.filter(o => !['paid', 'manual', 'pending', 'paypal', 'cancelled', 'refunded'].includes(o.status)).length },
       pxSold: paid.reduce((a, o) => a + (o.px || 0), 0), average: paid.length ? Math.round(paid.reduce((a, o) => a + (o.amount || 0), 0) / paid.length) : 0,
       byDay, top: [...buyers.values()].sort((a, b) => b.amount - a.amount).slice(0, 5),
       circulation: { px: users.reduce((a, u) => a + u.px, 0), cr: users.reduce((a, u) => a + (u.credits | 0), 0), accounts: users.length },
@@ -97,11 +97,25 @@ function createAdminPlus({ admin, accounts, S, log, env, getStatus, onVerified }
       D.orders.unshift(o); if (D.orders.length > 2000) D.orders.length = 2000; accounts.flush(); admin.audit(s.user, 'venta-manual', u.username + ' · ' + px + ' PX · ' + (amount / 100).toFixed(2) + ' ' + cur.toUpperCase());
       return { ok: true, order: o };
     },
+    /* [PAYPAL] Pedido de PayPal pendiente: tras comprobar el pago (importe y código en el concepto), se entregan los PX o se cancela */
+    'POST /orders/deliver': ({ b, s }) => {
+      const o = D.orders.find(x => x.id === String(b.id || '')); if (!o) return err(404, 'No existe ese pedido.'); if (o.status !== 'paypal') return err(400, 'Ese pedido no está pendiente de PayPal.');
+      const u = accounts.find(o.user); if (!u) return err(404, 'La cuenta de ese pedido ya no existe.');
+      const r = accounts.adjustPx(u.username, o.px, 'PayPal ' + o.id, s.user); if (r && r.error) return err(400, r.error);
+      o.status = 'manual'; o.by = s.user; o.note = 'PayPal ' + o.id; o.deliveredAt = now(); accounts.flush();
+      admin.audit(s.user, 'paypal-entregado', o.user + ' · ' + o.id + ' · ' + o.px + ' PX · ' + (o.amount / 100).toFixed(2) + ' ' + String(o.currency).toUpperCase());
+      return { ok: true, order: o };
+    },
+    'POST /orders/cancel': ({ b, s }) => {
+      const o = D.orders.find(x => x.id === String(b.id || '')); if (!o) return err(404, 'No existe ese pedido.'); if (o.status !== 'paypal') return err(400, 'Solo se pueden cancelar pedidos de PayPal pendientes.');
+      o.status = 'cancelled'; o.cancelledBy = s.user; o.cancelledAt = now(); accounts.flush(); admin.audit(s.user, 'paypal-cancelado', o.user + ' · ' + o.id);
+      return { ok: true };
+    },
     'POST /orders/refund': ({ b, s }) => {
       const o = D.orders.find(x => x.id === String(b.id || '')); if (!o) return err(404, 'No existe ese pedido.'); if (o.status !== 'paid' && o.status !== 'manual') return err(400, 'Solo se pueden reembolsar pedidos pagados o manuales.');
       const u = accounts.find(o.user); let removed = 0; if (u && b.takePx !== false) { const r = accounts.adjustPx(u.username, -o.px, 'reembolso del pedido ' + o.id, s.user); removed = r.error ? 0 : -r.applied; }
       o.status = 'refunded'; o.refundedAt = now(); o.refundedBy = s.user; o.pxRemoved = removed; accounts.flush(); admin.audit(s.user, 'reembolso', o.user + ' · ' + o.id + ' · ' + (o.amount / 100).toFixed(2) + ' ' + String(o.currency).toUpperCase() + ' · −' + removed + ' PX');
-      return { ok: true, removed, note: o.id.startsWith('manual-') ? 'Pedido manual marcado como reembolsado.' : 'Marcado como reembolsado y PX retirados. Recuerda devolver el dinero desde tu panel de pagos (Stripe): esto no lo hace por ti.' };
+      return { ok: true, removed, note: o.id.startsWith('KX-') ? 'Marcado como reembolsado y PX retirados. Recuerda devolver el dinero desde PayPal: esto no lo hace por ti.' : o.id.startsWith('manual-') ? 'Pedido manual marcado como reembolsado.' : 'Marcado como reembolsado y PX retirados. Recuerda devolver el dinero desde tu panel de pagos (Stripe): esto no lo hace por ti.' };
     },
 
     /* ----- Antes de lanzar ----- */

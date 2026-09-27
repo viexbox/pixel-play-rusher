@@ -165,6 +165,8 @@ Cada cuenta se guarda con un **UUID permanente**; el nombre de usuario es solo u
 
 **Antitrampas: paredes** (`WALL_CHECK`, activo por defecto). Además de la velocidad, los saltos y los límites, el servidor rechaza cualquier posición que deje el cuerpo dentro de un muro o que lo atraviese en un solo paso (comprobado con la misma física del cliente: jugadores legítimos en tres mapas, 0 correcciones; saltos a través de un muro de 2 m, 12 de 12 rechazados). Al tramposo se le devuelve a su sitio (no se le expulsa: un lag legítimo no debe echar a nadie); cada corrección cuenta en «Corr.» del espectador y queda una línea en el registro cada 25 intentos.
 
+**Antitrampas: ping y puntería.** El ping que se usa para compensar la latencia lo mide el servidor (ping del protocolo WebSocket cada 2 s); el que declara el cliente se ignora, así nadie puede fingir más latencia para acertar «en el pasado». Además, cada disparo se compara con la mira del jugador: los que salen fuera del cono máximo del arma (por ejemplo, disparar a la espalda sin girar la cámara) se cuentan en el registro (`Posible disparo fuera de la mira`) y en la vista de espectador. Por defecto solo se vigila; cuando compruebes que no hay falsos positivos, activa `AIM_CHECK=1` para descartarlos.
+
 **Clasificatorio con poca gente** (`RANKED_WIDEN_SECS`, 30). Una sala con menos de 2 jugadores acepta ligas cada vez más lejanas cuanto más espera (+1 liga cada 30 s, hasta 6), y entre las salas válidas se elige la de liga más cercana. Una sala con 2 o más jugadores no se ensancha.
 
 **Copias de seguridad automáticas** (`server/backup.js`). Cada `BACKUP_EVERY_HOURS` (24; 0 = desactivadas) se guarda una copia completa en `BACKUP_DIR` (por defecto `DATA_DIR/backups`), conservando `BACKUP_KEEP` (7). Con PostgreSQL vuelca todas las tablas (y el valor de cada contador de ids); con archivos, todo `DATA_DIR`. `BACKUP_PASSPHRASE` las cifra (AES-256-GCM). Panel → *Copias de seguridad*: crear, descargar (auditado) y borrar. Restaurar con el servidor parado: `node scripts/restore-backup.js <copia> --yes` (`DATABASE_URL` para PostgreSQL o `DATA_DIR` para archivos). Una copia en el mismo servidor no protege si ese servidor se pierde: usa otro volumen o descarga copias.
@@ -188,6 +190,8 @@ Cada cuenta se guarda con un **UUID permanente**; el nombre de usuario es solo u
 | `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASS` `SMTP_FROM` | (vacío) | Correo para códigos de verificación y recuperación |
 | `FILL_BOTS` / `BOT_SKILL` | `4` / `0.5` | Bots de relleno en salas no clasificatorias |
 | `WALL_CHECK` | `1` | Rechazar movimientos que atraviesan paredes (0 = desactivar, solo para pruebas con bots) |
+| `AIM_CHECK` | `0` | Descartar los disparos que salen fuera del cono del arma respecto a la mira (1 = activar). Con 0 solo se cuentan en el registro y en la vista de espectador |
+| `AIM_TURN_RATE` | `25` | Giro máximo (rad/s) que se tolera entre el último estado del jugador y su disparo |
 | `RANKED_WIDEN_SECS` | `30` | Segundos de espera para ampliar una liga el emparejamiento clasificatorio |
 | `BACKUP_EVERY_HOURS` / `BACKUP_KEEP` / `BACKUP_DIR` / `BACKUP_PASSPHRASE` | `24` / `7` / `DATA_DIR/backups` / (vacío) | Copias de seguridad automáticas |
 
@@ -272,6 +276,25 @@ También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con co
 2. En el servidor define `ALLOWED_ORIGINS=https://www.midominio.com` (la dirección desde la que se verá la web; varias separadas por comas).
 3. Edita `public/config.js`: `window.VOLT_CONFIG = { server: 'https://juego.midominio.com' };`
 4. Sube el contenido de `public/` a tu hosting (normalmente a `public_html`).
+
+## 5a. Pago por PayPal con ticket en Discord
+
+Alternativa (o complemento) a Stripe: el jugador paga directamente a tu PayPal y un administrador le entrega los PX.
+
+- **Variables (Railway → Variables):** `PAYPAL_EMAIL` (tu correo de PayPal; no lo pongas en el código), `PAYPAL_ME` (opcional: tu usuario de PayPal.me para que el enlace ya lleve el importe) y `DISCORD_TICKET_URL` (opcional: enlace al canal de tickets; por defecto, la invitación del botón de Discord).
+- **El jugador** (con cuenta online) pulsa «PayPal» en un paquete y ve: el correo de PayPal, el importe, un código de pedido `KX-XXXXXX` para la nota del pago y el botón para abrir el ticket en Discord. Máximo 3 pedidos pendientes por cuenta; si repite el mismo paquete le sale el mismo código.
+- **Tú**, en el panel → Monedas y ventas → Pedidos, ves el pedido como «PayPal pendiente». Comprueba en PayPal que ha llegado el importe con ese código y pulsa **Entregar PX** (o **Cancelar**). Queda en la auditoría y cuenta en los ingresos.
+- Si Stripe también está activo, cada paquete muestra los dos botones. Para dejar solo PayPal, quita `STRIPE_SECRET_KEY`.
+- Con PayPal no hay protección automática: si alguien abre una disputa y le devuelven el dinero, quítale los PX con **Reembolsar**.
+
+## 5b. Buscadores y redes sociales (SEO)
+
+- **Define `PUBLIC_URL`** con tu dominio (`https://tudominio.com`, sin barra final). Con ella el servidor rellena la dirección canónica, las etiquetas Open Graph/Twitter (vista previa al compartir en WhatsApp, Discord, X…), `robots.txt` y `sitemap.xml`. Sin ella usa el dominio con el que se pide la página.
+- `/robots.txt` deja indexar el juego y bloquea `/admin` y `/api/`. `/sitemap.xml` lista la portada y las páginas legales.
+- Imagen al compartir: `public/og-image.jpg` (1200×630). Si cambias el mapa o el logo, sustitúyela por otra del mismo tamaño.
+- `public/manifest.webmanifest` e `icon-192.png`/`icon-512.png` permiten instalar el juego como aplicación desde Chrome/Edge.
+- Después de publicar: da de alta el dominio en **Google Search Console** y **Bing Webmaster Tools** y envía `https://tudominio.com/sitemap.xml`. Para probar la vista previa usa el [depurador de Facebook](https://developers.facebook.com/tools/debug/) o pega el enlace en Discord.
+- Las etiquetas están en `public/index.html` entre `<!-- SEO:` y `<!-- /SEO -->`; el archivo único (`build:single`) quita ese bloque.
 
 ## 6. Variables de entorno
 

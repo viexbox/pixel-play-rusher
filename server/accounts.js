@@ -66,7 +66,26 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
   const rawMethods = String(env.STRIPE_PAYMENT_METHODS || 'card,paypal').trim().toLowerCase();
   const PAY_METHODS = rawMethods === 'auto' ? [] : [...new Set(rawMethods.split(',').map(s => s.trim()).filter(s => /^[a-z0-9_]{2,30}$/.test(s)))].slice(0, 6);
   let payFallback = false;   // true si Stripe rechazó algún método (p. ej. PayPal sin activar en tu cuenta): se cobra solo con tarjeta hasta reiniciar
-  const storeInfo = () => ({ enabled: storeOn(), currency: CURRENCY, packs: PACKS.map(p => ({ id: p.id, px: p.px, price: p.price, tag: p.tag || '' })), methods: payFallback ? ['card'] : PAY_METHODS, reason: storeOn() ? '' : 'El dueño de la web aún no ha activado los pagos.' });
+  /* [PAYPAL] Pago manual por PayPal: el jugador ve el correo (y el enlace de PayPal.me si lo hay), paga con un código de pedido en el concepto
+     y abre un ticket en Discord; un administrador comprueba el pago y entrega los PX desde el panel (Monedas y ventas → Entregar PX). */
+  const PAYPAL_EMAIL = validEmail(String(env.PAYPAL_EMAIL || '').trim()) ? String(env.PAYPAL_EMAIL).trim() : '';
+  const PAYPAL_ME = /^[A-Za-z0-9]{1,40}$/.test(String(env.PAYPAL_ME || '').trim()) ? String(env.PAYPAL_ME).trim() : '';
+  const DISCORD_TICKET_URL = /^https:\/\/[^\s"'<>]{4,200}$/.test(String(env.DISCORD_TICKET_URL || '')) ? String(env.DISCORD_TICKET_URL) : 'https://discord.gg/UbfC5bBcp';
+  const paypalInfo = () => (PAYPAL_EMAIL ? { email: PAYPAL_EMAIL, me: PAYPAL_ME, discord: DISCORD_TICKET_URL } : null);
+  function paypalOrder(u, packId) {
+    if (!PAYPAL_EMAIL) return err(503, 'El pago por PayPal no está activado.');
+    const pack = PACKS.find(p => p.id === packId); if (!pack) return err(400, 'Paquete no válido.');
+    const mine = D.orders.filter(o => o.uid === u.id && o.status === 'paypal');
+    const same = mine.find(o => o.pack === pack.id); if (same) return { ok: true, order: paypalOut(same) };   // el mismo paquete pendiente: se reutiliza el código
+    if (mine.length >= 3) return err(429, 'Tienes 3 pedidos de PayPal pendientes. Abre un ticket en Discord para que te los revisen.');
+    let id; do { id = 'KX-' + crypto.randomBytes(3).toString('hex').toUpperCase(); } while (D.orders.some(o => o.id === id));
+    const o = { id, uid: u.id, user: u.username, pack: pack.id, px: pack.px, amount: pack.price, currency: CURRENCY, status: 'paypal', ts: now() };
+    D.orders.unshift(o); if (D.orders.length > 2000) D.orders.length = 2000; db.flush();
+    log('Pedido PayPal ' + id + ': ' + u.username + ' · ' + pack.px + ' PX · ' + (pack.price / 100).toFixed(2) + ' ' + CURRENCY.toUpperCase());
+    return { ok: true, order: paypalOut(o) };
+  }
+  const paypalOut = o => Object.assign({ code: o.id, px: o.px, amount: o.amount, currency: o.currency }, paypalInfo());
+  const storeInfo = () => ({ enabled: storeOn(), paypal: paypalInfo(), currency: CURRENCY, packs: PACKS.map(p => ({ id: p.id, px: p.px, price: p.price, tag: p.tag || '' })), methods: payFallback ? ['card'] : PAY_METHODS, reason: storeOn() ? '' : 'El dueño de la web aún no ha activado los pagos.' });
 
   /* ---------- Cuentas y sesiones ---------- */
   const fails = new Map(), regHits = new Map();
@@ -309,6 +328,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
         else if (key === 'POST /api/me/claim') out = claimRank(u, b.i);
         else if (key === 'POST /api/me/rename') out = rename(u, b.username, ip);   // [NUEVO]
         else if (key === 'POST /api/store/checkout') out = await checkout(u, String(b.pack || ''));
+        else if (key === 'POST /api/store/paypal') out = paypalOrder(u, String(b.pack || ''));   // [PAYPAL]
         else { send(req, res, 404, { error: 'No encontrado.' }); return true; }
       }
       send(req, res, out.code || 200, out.error ? { error: out.error, suggestions: out.suggestions } : out);
