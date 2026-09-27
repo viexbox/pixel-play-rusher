@@ -650,8 +650,30 @@ const KNIFE_SKINS = [
   { id: 'k_lava', n: 'Lava', r: 'epico', blade: '#ff6a1a', edge: '#ffe08a', guard: '#2b1a1a', handle: '#4a1a10' },
   { id: 'k_neon', n: 'Neón', r: 'epico', blade: '#39ffd9', edge: '#e9fffb', guard: '#ff2bd6', handle: '#1a1030' },
   { id: 'k_oro', n: 'Oro real', r: 'leyenda', blade: '#ffd23a', edge: '#fff6c8', guard: '#c4161f', handle: '#3a2a08' },
-  { id: 'k_vacio', n: 'Vacío', r: 'leyenda', blade: '#2a1f45', edge: '#b56cff', guard: '#7a3cff', handle: '#0d0820' }
+  { id: 'k_vacio', n: 'Vacío', r: 'leyenda', blade: '#2a1f45', edge: '#b56cff', guard: '#7a3cff', handle: '#0d0820' },
+  /* [CUCHILLOS] Cuchillos de la ruleta (ru: 1): cada «kind» es un modelo distinto y los que llevan «fx» tienen luces
+     que recorren la hoja (fx.pat: 'ola' franjas que suben, 'pulso' brillo que late, 'rayo' zigzag eléctrico) */
+  { id: 'k_machete', kind: 'machete', n: 'Machete', r: 'poco', ru: 1, blade: '#c7ced8', edge: '#f4f7fb', guard: '#2b2b30', handle: '#5a3a1e' },
+  { id: 'k_bayoneta', kind: 'bayonet', n: 'Bayoneta', r: 'poco', ru: 1, blade: '#b9c2cf', edge: '#ffffff', guard: '#3a3f4b', handle: '#23272f' },
+  { id: 'k_daga', kind: 'dagger', n: 'Daga', r: 'raro', ru: 1, blade: '#dfe6f2', edge: '#ffffff', guard: '#c9973a', handle: '#3a1a14' },
+  { id: 'k_mariposa', kind: 'butterfly', n: 'Mariposa', r: 'raro', ru: 1, blade: '#d8e0ec', edge: '#ffffff', guard: '#8a93a8', handle: '#2a3148' },
+  { id: 'k_karambit', kind: 'karambit', n: 'Karambit', r: 'raro', ru: 1, blade: '#cfd6e2', edge: '#ffffff', guard: '#1c1f28', handle: '#1f6b4a' },
+  { id: 'k_machete_brasas', kind: 'machete', n: 'Machete Brasas', r: 'epico', ru: 1, blade: '#2a1510', edge: '#ffb070', guard: '#1a0d0a', handle: '#3a140c', fx: { col: '#ff5a1a', pat: 'pulso' } },
+  { id: 'k_bayoneta_rayo', kind: 'bayonet', n: 'Bayoneta Rayo', r: 'epico', ru: 1, blade: '#141a2e', edge: '#fff4a8', guard: '#0b0f1c', handle: '#1b2340', fx: { col: '#ffe23a', pat: 'rayo' } },
+  { id: 'k_daga_sombra', kind: 'dagger', n: 'Daga Sombra', r: 'epico', ru: 1, blade: '#1a1028', edge: '#e2c4ff', guard: '#3a1f5c', handle: '#0d0818', fx: { col: '#b25cff', pat: 'ola' } },
+  { id: 'k_mariposa_aurora', kind: 'butterfly', n: 'Mariposa Aurora', r: 'leyenda', ru: 1, blade: '#0c1a24', edge: '#c8fff0', guard: '#1a3a4a', handle: '#08131c', fx: { col: '#3dffc4', pat: 'ola' } },
+  { id: 'k_karambit_plasma', kind: 'karambit', n: 'Karambit Plasma', r: 'leyenda', ru: 1, blade: '#1c0a22', edge: '#ffc4f6', guard: '#12061a', handle: '#2a0d33', fx: { col: '#ff3df0', pat: 'pulso' } }
 ];
+/* [RULETA] Evento de la ruleta de cuchillos: cada tirada cuesta PX y SIEMPRE da un cuchillo que aún no tienes (nunca repetidos,
+   así que con 10 tiradas tienes todos). Probabilidad por rareza; dentro de una rareza, todos igual. Si ya tienes todos los de una
+   rareza, su parte se reparte entre las demás. Las probabilidades se enseñan en la tienda. */
+const KNIFE_ROULETTE = { px: 2500, weights: { poco: 40, raro: 30, epico: 20, leyenda: 10 } };
+function rouletteOdds(owned) {   // owned: Set o lista de ids que ya tiene → [{ id, p }] con p en 0..1 (suma 1), o [] si ya los tiene todos
+  const has = new Set(owned || []), pool = KNIFE_SKINS.filter(k => k.ru && !has.has(k.id)), byR = {};
+  for (const k of pool) (byR[k.r] = byR[k.r] || []).push(k);
+  const tot = Object.keys(byR).reduce((a, r) => a + (KNIFE_ROULETTE.weights[r] || 0), 0); if (!tot) return [];
+  return pool.map(k => ({ id: k.id, p: (KNIFE_ROULETTE.weights[k.r] || 0) / tot / byR[k.r].length }));
+}
 const BANNERS = [{ id: 's1', n: 'Temporada 1', r: 'leyenda', c1: '#ffb020', c2: '#ff3b48', c3: '#1a1030', tag: 'S1' }];
 const BP_LEVELS = 50;
 const bpXpToNext = l => 250 + 20 * (l - 1);                                              // XP para pasar del nivel l al l+1
@@ -877,7 +899,7 @@ function viewmodelSight(pose, sight) {
   return { x: x + pose.px, y: y + pose.py, z: z + pose.pz };
 }
 
-const api = { PETS, OUTFITS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
+const api = { KNIFE_ROULETTE, rouletteOdds, PETS, OUTFITS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

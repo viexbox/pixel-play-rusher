@@ -1421,7 +1421,7 @@ function fillCharacter(g, color, wi, seed, skinIdx, opticId, accent) {
   if (w.dual) { guns.push(gunModel(w, 0.32, undefined, skn)); guns.push(gunModel(w, -0.14, undefined, skn)); } else guns.push(gunModel(w, 0.12, opticId, skn));
   guns.forEach(gm => { gm.position.y = -0.04; gm.position.z = -0.3; gm.traverse(o => { if (o.isMesh && o.material.color && o !== gm.userData.flash) o.castShadow = true; }); aim.add(gm); });
   const kn = new THREE.Group(); kn.visible = false; kn.position.set(0.1, -0.02, -0.34);
-  { const kb = (x, y, z, px, py, pz, col) => { const m = new THREE.Mesh(BG(x, y, z), mat(col)); m.position.set(px, py, pz); kn.add(m); }; kb(0.03, 0.09, 0.42, 0, 0, -0.24, '#dfe8f7'); kb(0.11, 0.06, 0.04, 0, 0, 0, '#c9973a'); kb(0.05, 0.06, 0.16, 0, 0, 0.1, '#4a2f18'); }
+  kn.add(knifeMesh(S.KNIFE_SKINS.find(k => k.id === (g.userData.skins || {}).knife)));   // [CUCHILLOS] el cuchillo que lleva equipado (lo manda el servidor)
   aim.add(kn); g.userData.knife = kn; g.userData.guns = guns;
   g.userData.legL = legL; g.userData.legR = legR; g.userData.aim = aim; g.userData.head = head; g.userData.flash = guns[0].userData.flash; g.userData.wi = wi;
 }
@@ -1478,20 +1478,138 @@ window.PPR_BP = window.PPR_BP || { equipped: {} };   // lo que lleva puesto la c
 const mySkin = wid => window.PPR_BP.equipped['weapon:' + wid] || '';
 const gun = new THREE.Group(); camera.add(gun);
 const viewmodel = S.createViewmodel();   // [NUEVO] posición y giro del arma en primera persona (vaivén y apuntado)
+/* [CUCHILLOS] Modelos de cuchillo: la hoja mira a −z, la guarda está en z=0 y el mango va hacia +z (ancho de la hoja en y, grosor en x).
+   Las hojas son perfiles 2D extruidos con bisel (punta y filo de verdad, no cajas). Cada «kind» es un modelo: clásico, bayoneta,
+   daga, mariposa (los mangos giran al sacarla), karambit (hoja curva y anilla) y machete. Con «fx», la hoja lleva luces que la
+   recorren (emissiveMap animada), un filo que brilla y un halo que late: los materiales se comparten y se animan una vez por fotograma. */
+const KGEO = {};
+const kgeo = (key, f) => KGEO[key] || (KGEO[key] = f());
+const BLADES = {   // perfil de la hoja (s = distancia desde la guarda, y = alto) y el del filo (una tira fina por el lado que corta)
+  classic: { b: [['m', 0, -0.03], ['l', 0.3, -0.03], ['q', 0.4, -0.026, 0.45, 0.018], ['l', 0.36, 0.034], ['l', 0, 0.034]],
+    e: [['m', 0, -0.03], ['l', 0.3, -0.03], ['q', 0.4, -0.026, 0.45, 0.018], ['l', 0.43, 0.012], ['q', 0.39, -0.014, 0.3, -0.019], ['l', 0, -0.019]] },
+  bayonet: { b: [['m', 0, -0.034], ['l', 0.36, -0.034], ['q', 0.47, -0.03, 0.5, 0.004], ['l', 0.4, 0.036], ['l', 0.26, 0.036], ['l', 0.25, 0.046], ['l', 0.23, 0.036], ['l', 0.21, 0.046], ['l', 0.19, 0.036], ['l', 0.17, 0.046], ['l', 0.15, 0.036], ['l', 0.13, 0.046], ['l', 0.11, 0.036], ['l', 0, 0.036]],
+    e: [['m', 0, -0.034], ['l', 0.36, -0.034], ['q', 0.47, -0.03, 0.5, 0.004], ['l', 0.48, 0.002], ['q', 0.45, -0.02, 0.36, -0.022], ['l', 0, -0.022]] },
+  dagger: { b: [['m', 0, -0.03], ['q', 0.26, -0.036, 0.46, 0], ['q', 0.26, 0.036, 0, 0.03]],
+    e: [['m', 0.02, -0.004], ['l', 0.43, -0.001], ['l', 0.43, 0.001], ['l', 0.02, 0.004]] },
+  butterfly: { b: [['m', 0, -0.022], ['l', 0.26, -0.022], ['q', 0.33, -0.02, 0.36, 0.01], ['l', 0.29, 0.024], ['l', 0, 0.024]],
+    e: [['m', 0, -0.022], ['l', 0.26, -0.022], ['q', 0.33, -0.02, 0.36, 0.01], ['l', 0.345, 0.006], ['q', 0.32, -0.012, 0.26, -0.013], ['l', 0, -0.013]] },
+  karambit: { b: [['m', 0, 0.03], ['q', 0.22, 0.05, 0.3, -0.1], ['q', 0.15, -0.006, 0, -0.022]],
+    e: [['m', 0.3, -0.1], ['q', 0.15, -0.006, 0, -0.022], ['l', 0, -0.01], ['q', 0.14, 0.008, 0.285, -0.08]] },
+  machete: { b: [['m', 0, -0.028], ['l', 0.46, -0.05], ['q', 0.56, -0.052, 0.57, 0.0], ['l', 0.5, 0.042], ['l', 0, 0.03]],
+    e: [['m', 0, -0.028], ['l', 0.46, -0.05], ['q', 0.56, -0.052, 0.57, 0.0], ['l', 0.555, 0.0], ['q', 0.545, -0.036, 0.46, -0.038], ['l', 0, -0.018]] }
+};
+const BLADE_LEN = { classic: 1.16, bayonet: 1.02, dagger: 1.08, butterfly: 1.25, karambit: 1.35, machete: 0.95 };   // hojas de 0,50–0,55 m; karambit (curvo) ~0,40
+function bladeGeo(cmds, thick, key) {
+  return kgeo(key, () => {
+    const sh = new THREE.Shape();
+    for (const c of cmds) { if (c[0] === 'm') sh.moveTo(c[1], c[2]); else if (c[0] === 'l') sh.lineTo(c[1], c[2]); else sh.quadraticCurveTo(c[1], c[2], c[3], c[4]); }
+    const bev = Math.min(0.004, thick * 0.4);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: Math.max(0.001, thick - 2 * bev), bevelEnabled: true, bevelThickness: bev, bevelSize: bev * 0.6, bevelSegments: 1, curveSegments: 8 });
+    g.translate(0, 0, -(thick - 2 * bev) / 2); g.rotateY(Math.PI / 2); g.computeVertexNormals(); return g;   // x del perfil → −z; grosor → x
+  });
+}
+const KMAT = {}, KFX = [];
+const kMetal = c => KMAT['m' + c] || (KMAT['m' + c] = new THREE.MeshPhongMaterial({ color: c, specular: 0x8a96aa, shininess: 70 }));
+function knifeFxTex(pat) {   // franjas / degradado / zigzag en blanco sobre negro; se repite a lo largo de la hoja y se desplaza cada fotograma
+  const c = document.createElement('canvas'); c.width = 64; c.height = 16; const x = c.getContext && c.getContext('2d');
+  if (x) {
+    x.fillStyle = '#000'; x.fillRect(0, 0, 64, 16); x.fillStyle = '#fff'; x.strokeStyle = '#fff';
+    if (pat === 'ola') for (let i = 0; i < 2; i++) { x.globalAlpha = 1; x.fillRect(i * 32, 0, 7, 16); x.globalAlpha = 0.45; x.fillRect(i * 32 + 7, 0, 6, 16); x.globalAlpha = 0.18; x.fillRect(i * 32 + 13, 0, 6, 16); }
+    else if (pat === 'rayo') { x.lineWidth = 2.5; x.beginPath(); const ys = [8, 2, 13, 4, 12, 3, 14, 6, 11, 2, 12, 8]; ys.forEach((y, i) => { const px = i * 64 / (ys.length - 1); if (i) x.lineTo(px, y); else x.moveTo(px, y); }); x.stroke(); x.globalAlpha = 0.35; x.lineWidth = 6; x.stroke(); }
+    else { const gr = x.createLinearGradient && x.createLinearGradient(0, 0, 64, 0); if (gr && gr.addColorStop) { gr.addColorStop(0, '#000'); gr.addColorStop(0.5, '#fff'); gr.addColorStop(1, '#000'); x.fillStyle = gr; } x.fillRect(0, 0, 64, 16); }
+    x.globalAlpha = 1;
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 4); return t;
+}
+function knifeMats(K) {   // materiales de una skin (compartidos): hoja, filo y, si tiene efecto, halo animado
+  if (KMAT[K.id]) return KMAT[K.id];
+  const out = { blade: kMetal(K.blade), edge: kMetal(K.edge), fx: null };
+  if (K.fx) {
+    const tex = knifeFxTex(K.fx.pat), col = new THREE.Color(K.fx.col);
+    out.blade = new THREE.MeshPhongMaterial({ color: K.blade, specular: 0x6a7488, shininess: 60, emissive: col, emissiveMap: tex, emissiveIntensity: 1 });
+    out.edge = new THREE.MeshBasicMaterial({ color: col.clone().lerp(new THREE.Color('#ffffff'), 0.35) });
+    out.halo = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false });
+    out.fx = { tex, pat: K.fx.pat, t: Math.random() * 10 }; KFX.push(out);
+  }
+  return (KMAT[K.id] = out);
+}
+function tickKnives(dt) {   // mueve las luces de las hojas con efecto (una vez por fotograma, para todas las que se han creado)
+  for (const m of KFX) {
+    const f = m.fx; f.t += dt;
+    if (f.pat === 'ola') { f.tex.offset.x -= dt * 0.9; m.blade.emissiveIntensity = 0.9 + Math.sin(f.t * 3) * 0.15; m.halo.opacity = 0.18 + Math.sin(f.t * 3) * 0.06; }
+    else if (f.pat === 'rayo') { f.tex.offset.x -= dt * 2.2; if (Math.random() < dt * 14) f.tex.offset.y = Math.random(); const fl = Math.random() < 0.08 ? 1.6 : 1; m.blade.emissiveIntensity = fl; m.halo.opacity = 0.14 + (fl - 1) * 0.3 + Math.random() * 0.05; }
+    else { const p = 0.5 + 0.5 * Math.sin(f.t * 4.2); f.tex.offset.x -= dt * 0.5; m.blade.emissiveIntensity = 0.55 + p * 0.9; m.halo.opacity = 0.1 + p * 0.22; }
+  }
+}
+function knifeMesh(K) {   // devuelve un grupo con el cuchillo completo (sin guante); userData.bfly = partes que giran en la mariposa
+  K = K || S.KNIFE_SKINS[0];
+  const kind = K.kind || 'classic', BL = BLADES[kind] || BLADES.classic, M = knifeMats(K), g = new THREE.Group();
+  const thick = kind === 'machete' ? 0.012 : kind === 'butterfly' ? 0.012 : 0.016;
+  let tgt = g, swing = null;   // mariposa: la hoja y el mango suelto cuelgan del pivote del mango que se agarra (así giran alrededor de la mano)
+  if (kind === 'butterfly') { swing = new THREE.Group(); swing.position.set(0, -0.018, 0.004); g.add(swing); tgt = new THREE.Group(); tgt.position.set(0, 0.018, -0.004); swing.add(tgt); }
+  const add = (geo, m, x, y, z, rx, ry, rz, p) => { const o = new THREE.Mesh(geo, m); o.position.set(x || 0, y || 0, z || 0); o.rotation.set(rx || 0, ry || 0, rz || 0); (p || tgt).add(o); return o; };
+  const box = (w, h, d, c, x, y, z, p) => add(chamferGeo(w, h, d, Math.min(w, h, d) * 0.25), typeof c === 'string' ? mat(c) : c, x, y, z, 0, 0, 0, p);
+  const sl = BLADE_LEN[kind] || 1, bl = new THREE.Group(); bl.scale.set(1, 1 + (sl - 1) * 0.5, sl); tgt.add(bl);   // [CUCHILLOS] largo de la hoja por modelo (el clásico, como el de antes: ~0,52)
+  const blade = add(bladeGeo(BL.b, thick, kind + 'b'), M.blade, 0, 0, 0, 0, 0, 0, bl);
+  add(bladeGeo(BL.e, thick + 0.003, kind + 'e'), M.edge, 0, 0, 0, 0, 0, 0, bl);
+  if (!K.fx && kind !== 'karambit' && kind !== 'dagger') box(thick + 0.002, 0.007, kind === 'machete' ? 0.3 : 0.2, K.base ? '#8ea0bf' : K.edge, 0, kind === 'butterfly' ? 0.008 : 0.014, -0.16, bl);   // canal (vaciado) de la hoja
+  if (M.halo) { const h = add(blade.geometry, M.halo, 0, 0, 0.006, 0, 0, 0, bl); h.scale.set(2.6, 1.35, 1.04); h.renderOrder = 2; }
+  const H = K.handle, G = K.guard;
+  if (kind === 'classic') {
+    box(0.03, 0.1, 0.025, G, 0, 0.002, 0); box(0.038, 0.05, 0.16, H, 0, -0.002, 0.095);
+    for (const z of [0.05, 0.1, 0.145]) box(0.042, 0.054, 0.012, G, 0, -0.002, z);
+    box(0.044, 0.058, 0.025, G, 0, -0.002, 0.185);
+  } else if (kind === 'bayonet') {
+    box(0.03, 0.11, 0.028, G, 0, 0.008, 0); add(kgeo('bring', () => new THREE.TorusGeometry(0.022, 0.006, 6, 14)), mat(G), 0, 0.074, 0.004);
+    box(0.036, 0.052, 0.17, H, 0, -0.004, 0.1); for (let i = 0; i < 6; i++) box(0.04, 0.056, 0.006, '#11141b', 0, -0.004, 0.035 + i * 0.024);
+    box(0.042, 0.062, 0.03, G, 0, 0.0, 0.195); box(0.012, 0.02, 0.032, '#11141b', 0.022, 0.012, 0.195);
+  } else if (kind === 'dagger') {
+    box(0.028, 0.17, 0.022, G, 0, 0, 0); for (const y of [-0.09, 0.09]) add(kgeo('ball', () => new THREE.SphereGeometry(0.016, 10, 8)), mat(G), 0, y, 0);
+    add(cylGeo(0.02, 0.024, 0.15, 10), mat(H), 0, 0, 0.087); for (const z of [0.04, 0.075, 0.11, 0.145]) add(cylGeo(0.026, 0.026, 0.008, 10), mat(G), 0, 0, z);
+    add(kgeo('pom', () => new THREE.SphereGeometry(0.026, 12, 10)), mat(G), 0, 0, 0.18);
+    box(thick + 0.004, 0.006, 0.36, M.edge, 0, 0, -0.2, bl);   // arista central
+  } else if (kind === 'butterfly') {   // dos mangos con pivote en la espiga: al sacarla (o con F) la hoja da la vuelta alrededor de la mano
+    const halves = [];
+    for (const sgn of [1, -1]) {
+      const pv = new THREE.Group(); pv.position.set(0, sgn * 0.018, 0.004); (sgn > 0 ? tgt : g).add(pv); halves.push(pv);
+      box(0.03, 0.02, 0.3, H, 0, sgn * 0.011, 0.15, pv);   // mangos casi tan largos como la hoja: cerrada, la tapan entera
+      for (let i = 0; i < 5; i++) box(0.032, 0.008, 0.03, '#0a0d16', 0, sgn * 0.011, 0.045 + i * 0.05, pv);   // ventanas del mango
+      add(cylGeo(0.007, 0.007, 0.036, 8), mat(G), 0, 0, 0, 0, Math.PI / 2, 0, pv);   // pasador del pivote
+      box(0.034, 0.024, 0.02, G, 0, sgn * 0.011, 0.295, pv);
+      if (sgn < 0) box(0.012, 0.012, 0.05, G, 0, sgn * 0.022, 0.315, pv);   // pestillo
+    }
+    box(0.016, 0.05, 0.012, G, 0, 0, 0.0); g.userData.bfly = { swing, top: halves[0] };
+  } else if (kind === 'karambit') {
+    const hd = new THREE.Group(); hd.rotation.x = 0.28; g.add(hd);
+    box(0.034, 0.05, 0.13, H, 0, 0, 0.07, hd); for (const z of [0.03, 0.1]) add(cylGeo(0.008, 0.008, 0.04, 8), mat(G), 0, 0, z, 0, Math.PI / 2, 0, hd);
+    box(0.03, 0.056, 0.02, G, 0, 0.004, 0.0);
+    add(kgeo('kring', () => new THREE.TorusGeometry(0.036, 0.009, 8, 20)), mat(G), 0, 0, 0.17, 0, Math.PI / 2, 0, hd);
+  } else {   // machete
+    box(0.024, 0.07, 0.02, G, 0, 0.002, 0); box(0.04, 0.056, 0.19, H, 0, -0.004, 0.105);
+    for (const z of [0.05, 0.1, 0.15]) add(cylGeo(0.008, 0.008, 0.044, 8), mat('#d6a64a'), 0, -0.004, z, 0, Math.PI / 2, 0);
+    box(0.044, 0.064, 0.03, H, 0, -0.01, 0.2);
+  }
+  return g;
+}
+/* Mariposa: k = 0 cerrada (la hoja dentro de los mangos, junto a la mano), 1 abierta. Primero sale la hoja y luego la sigue el mango suelto */
+function setButterfly(g, k) {
+  const bf = g && g.userData.bfly; if (!bf) return;
+  const a = clamp(k * 1.6, 0, 1), b = clamp(k * 1.6 - 0.6, 0, 1);
+  bf.swing.rotation.x = Math.PI * (1 - ease01(a)); bf.top.rotation.x = Math.PI * (1 - ease01(b));
+}
 /* Cuchillo en primera persona: el arma baja, el cuchillo sube, corta en diagonal y todo vuelve (0,62 s) */
 const knifeG = new THREE.Group(); camera.add(knifeG); knifeG.visible = false;
-function buildKnifeModel() {   // hoja, guarda y mango según la skin de cuchillo equipada (por defecto, acero clásico)
+let knifeModel = null;
+function buildKnifeModel() {   // el cuchillo de la skin equipada (por defecto, acero clásico) con el guante y la manga
   while (knifeG.children.length) knifeG.remove(knifeG.children[0]);
   const K = S.KNIFE_SKINS.find(k => k.id === window.PPR_BP.equipped.knife) || S.KNIFE_SKINS[0];
-  { const kb = (x, y, z, px, py, pz, col, rx) => { const m = new THREE.Mesh(BG(x, y, z), mat(col)); m.position.set(px, py, pz); if (rx) m.rotation.x = rx; knifeG.add(m); return m; };
-  kb(0.022, 0.07, 0.42, 0, 0, -0.27, K.blade); kb(0.024, 0.014, 0.42, 0, 0.03, -0.27, K.edge);   // hoja de acero y su filo brillante
-  kb(0.022, 0.05, 0.05, 0, -0.005, -0.5, K.blade, 0.5); kb(0.02, 0.02, 0.12, 0, 0.032, -0.4, K.base ? '#8ea0bf' : K.edge);   // punta y canal
-  kb(0.09, 0.05, 0.03, 0, 0, 0.0, K.guard); kb(0.04, 0.05, 0.16, 0, -0.005, 0.11, K.handle); kb(0.044, 0.02, 0.03, 0, 0.02, 0.09, K.guard); kb(0.044, 0.02, 0.03, 0, 0.02, 0.15, K.guard);   // guarda, mango y remaches
-  kb(0.085, 0.085, 0.12, 0, -0.01, 0.12, '#1c2236'); kb(0.1, 0.1, 0.4, 0.01, -0.06, 0.4, '#ff7b00'); }   // guante y manga
+  knifeModel = knifeMesh(K); knifeModel.rotation.z = -1.25; knifeG.add(knifeModel);   // girado sobre su eje para que se vea la cara de la hoja, no el lomo
+  const gl = new THREE.Mesh(BG(0.085, 0.085, 0.12), mat('#1c2236')); gl.position.set(0, -0.01, 0.12); knifeG.add(gl);
+  const sl = new THREE.Mesh(BG(0.1, 0.1, 0.4), mat('#ff7b00')); sl.position.set(0.01, -0.06, 0.4); knifeG.add(sl);   // guante y manga
 }
 buildKnifeModel();
 knifeG.scale.setScalar(1.5);
-let knifeT = 0, pendingMelee = 0, slideK = 0;   // slideK: 0..1 suaviza la cámara y el arma durante el deslizamiento
+let knifeT = 0, pendingMelee = 0, slideK = 0, knifeFlip = 1, inspectT = 0;   // [CUCHILLOS] knifeFlip: 0..1 apertura de la mariposa al sacarla; inspectT: 0..1 inspección con F   // slideK: 0..1 suaviza la cámara y el arma durante el deslizamiento
 
 /* =====================================================================
    [NUEVO] Ranuras de arma: 0 = arma principal, 1 = cuchillo en mano
@@ -1562,7 +1680,7 @@ const SLOT_TIME = 0.11, WHEEL_STEP = 30, WHEEL_LOCK_MS = 140;
 function setSlot(s) {
   if (!gunsOK()) s = 1;   // [NUEVO] en «Solo cuchillos» y en el último nivel de la Carrera solo hay cuchillo
   const p = player; if (!p || !p.alive || state !== 'playing' || s === slot) return;
-  slot = s; p.reload = 0; pendingMelee = 0; sfx.draw(); updateSlotHud();
+  slot = s; p.reload = 0; pendingMelee = 0; inspectT = 0; if (s === 1) knifeFlip = 0; sfx.draw(); updateSlotHud();
 }
 function resetSlot() { slot = gunsOK() ? 0 : 1; slotK = 0; slashT = 0; if (typeof updateSlotHud === 'function' && el.slots) updateSlotHud(); }
 /* Rueda: normaliza el tamaño del giro (ratón clásico, ratón libre o trackpad), cambia en cuanto se supera un pequeño umbral y
@@ -1922,7 +2040,7 @@ function playerMelee() {
   const p = player;
   if (!p.alive || p.meleeCd > 0) return;
   if (slot === 1) { p.meleeCd = 0.55; slashT = 0.0001; pendingMelee = 0.1; sfx.draw(); return; }   // [NUEVO] cuchillo en mano: el golpe empieza ya (0.55 s entre golpes: el servidor pide 0.48 s)
-  p.meleeCd = 0.62; knifeT = 0.0001; pendingMelee = 0.22; p.reload = 0; sfx.draw();   // el golpe llega cuando el cuchillo ya está en mano
+  p.meleeCd = 0.62; knifeT = 0.0001; pendingMelee = 0.22; inspectT = 0; if (slot !== 1) knifeFlip = 0; p.reload = 0; sfx.draw();   // el golpe llega cuando el cuchillo ya está en mano
 }
 function meleeHit() {
   const p = player; sfx.melee();
@@ -1996,8 +2114,12 @@ function updatePlayer(dt) {
     const sl = slashT > 0 ? (slashT < 0.5 ? ease01(slashT / 0.5) : 1 - ease01((slashT - 0.5) / 0.5)) : ease01((knifeT - 0.26) / 0.36), arc = Math.sin(sl * Math.PI);
     const idle = held > 0.5 && slashT === 0 && knifeT === 0 ? Math.sin(simTime * 9) * 0.004 * Math.min(1, Math.hypot(p.vel.x, p.vel.z) / 5) : 0;   // el cuchillo en mano se balancea al andar
     knifeG.visible = true;
-    knifeG.position.set(0.26 - sl * 0.5, -0.66 + sw * 0.4 + arc * 0.05 + idle, -0.4 - arc * 0.1);
-    knifeG.rotation.set(0.3 - sl * 0.85 + arc * 0.2, 0.2 + sl * 0.45, 0.9 - sl * 1.8);
+    if (knifeFlip < 1) knifeFlip = Math.min(1, knifeFlip + dt / 0.38);
+    if (inspectT > 0) { inspectT += dt / 2.2; if (inspectT >= 1 || slashT > 0 || knifeT > 0 || slot !== 1) inspectT = 0; }   // [CUCHILLOS] inspección (F): gira el cuchillo para enseñarlo
+    const ins = inspectT > 0 ? Math.sin(Math.PI * ease01(inspectT * 1.15)) : 0, spin = inspectT > 0 && !(knifeModel && knifeModel.userData.bfly) ? ease01((inspectT - 0.35) / 0.4) * Math.PI * 2 : 0;
+    setButterfly(knifeModel, inspectT > 0 ? 0.5 + 0.5 * Math.cos(inspectT * Math.PI * 4) : knifeFlip);
+    knifeG.position.set(0.26 - sl * 0.5 - ins * 0.12, -0.66 + sw * 0.4 + arc * 0.05 + idle + ins * 0.1, -0.4 - arc * 0.1 - ins * 0.05);
+    knifeG.rotation.set(0.3 - sl * 0.85 + arc * 0.2 + (1 - ease01(knifeFlip)) * 0.6, 0.2 + sl * 0.45 + ins * 0.7, 0.9 - sl * 1.8 - ins * 0.7 + spin);
   } else knifeG.visible = false;
   gun.visible = gun.visible && sw < 0.98;
   reloadAnim = Math.max(0, reloadAnim - dt / Math.max(0.5, w.reload));
@@ -3048,7 +3170,7 @@ async function renderStore() {
     (pp ? '<button type="button" class="ppbtn" data-pp="' + esc(p.id) + '"' + (canPP ? '' : ' disabled') + '>' + (info.enabled ? 'PayPal' : fmt.format(p.price / 100) + ' · PayPal') + '</button>' : '');
   box.innerHTML = '<div class="storehead"><b>Tienda de PX</b><span>Saldo: <em id="storeBal">' + fmtKr(krTotal()) + ' PX</em></span></div>' + (why ? '<p class="note warn">' + esc(why) + '</p>' : '') +
     '<div class="packs">' + info.packs.map(p => '<div class="pack"><div class="pxn">' + fmtKr(p.px) + '<small>PX</small></div>' + (p.tag ? '<span class="ptag">' + esc(p.tag) + '</span>' : '') + btns(p) + '</div>').join('') + '</div>' +
-    '<div id="ppBox" hidden></div><div id="outfitsBox"></div><div id="petsBox"></div>' +
+    '<div id="ppBox" hidden></div><div id="knivesBox"></div><div id="outfitsBox"></div><div id="petsBox"></div>' +
     '<p class="note small">' + (info.enabled ? 'El pago con tarjeta se hace en la página segura de Stripe; nunca guardamos tus datos de pago. ' : '') + (pp ? 'Con PayPal pagas tú directamente y un administrador te entrega los PX por ticket en Discord. ' : '') + 'Los PX solo sirven dentro del juego (colores y recompensas).</p><p id="storeMsg" class="note" role="status"></p>';
   for (const b of box.querySelectorAll('[data-pack]')) b.addEventListener('click', async () => {
     b.disabled = true; $('#storeMsg').textContent = 'Abriendo el pago seguro…';
@@ -3059,6 +3181,7 @@ async function renderStore() {
     try { const j = await acctPost('api/store/paypal', { pack: b.dataset.pp }); showPaypalOrder(j.order, fmt); } catch (e) { $('#storeMsg').textContent = e.message; }
     b.disabled = false;
   });
+  renderKnives();   // [CUCHILLOS]
   renderOutfits();   // [TRAJES]
   renderPets();   // [MASCOTAS]
 }
@@ -3099,13 +3222,80 @@ const OUTFIT_THUMB = {}; let thumbR = null;
 function outfitThumb(def) {
   if (OUTFIT_THUMB[def.id]) return OUTFIT_THUMB[def.id];
   try {
-    if (!thumbR) { thumbR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); thumbR.setSize(120, 150); }
+    if (!thumbR) thumbR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     if (!thumbR.domElement || !thumbR.domElement.toDataURL) return '';
+    thumbR.setSize(120, 150);
     const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xffffff, 0xa9b6ff, 1.3)); const d = new THREE.DirectionalLight(0xfff1c9, 1.1); d.position.set(3, 5, -4); sc.add(d);
     const g = new THREE.Group(); g.userData.outfit = def.id; fillCharacter(g, TEAMS[0].c, 0, 3, 0); g.userData.guns.forEach(x => { x.visible = false; }); g.rotation.y = 0.45; sc.add(g);
     const cam = new THREE.PerspectiveCamera(30, 120 / 150, 0.1, 20); cam.position.set(0, 1.1, -4.2); cam.lookAt(0, 0.95, 0);
     thumbR.render(sc, cam); return (OUTFIT_THUMB[def.id] = thumbR.domElement.toDataURL());
   } catch (e) { return ''; }
+}
+/* [RULETA] Evento de la ruleta de cuchillos: la tirada la resuelve el servidor (cobra y elige); aquí solo se anima la cinta hasta el premio */
+const KNIFE_THUMB = {};
+function knifeThumb(def) {
+  if (KNIFE_THUMB[def.id]) return KNIFE_THUMB[def.id];
+  try {
+    if (!thumbR) thumbR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    if (!thumbR.domElement || !thumbR.domElement.toDataURL) return '';
+    thumbR.setSize(150, 96);
+    const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xffffff, 0x8a96c8, 1.1)); const d = new THREE.DirectionalLight(0xffffff, 1.2); d.position.set(4, 3, 2); sc.add(d);
+    const k = knifeMesh(def); k.rotation.set(0, Math.PI / 2, -0.35); sc.add(k);   // de perfil, con la punta hacia la derecha y algo inclinado
+    const cam = new THREE.PerspectiveCamera(30, 150 / 96, 0.05, 10); cam.position.set(0.05, 0.02, 1.25); cam.lookAt(0.05, 0.02, 0);
+    thumbR.render(sc, cam); return (KNIFE_THUMB[def.id] = thumbR.domElement.toDataURL());
+  } catch (e) { return ''; }
+}
+let roulBusy = false;
+function renderKnives() {
+  const box = $('#knivesBox'); if (!box || roulBusy) return;
+  const P = window.PPR_BP, st = P.state, eq = (P.equipped || {}).knife || '', px = krTotal(), R = S.KNIFE_ROULETTE;
+  const all = S.KNIFE_SKINS.filter(k => k.ru), own = new Set(st && st.inventory ? st.inventory.filter(i => i.t === 'kskin').map(i => i.id) : []);
+  const odds = S.rouletteOdds(remote ? [...own] : []), pOf = id => (odds.find(o => o.id === id) || {}).p || 0, left = all.filter(k => !own.has(k.id)).length;
+  const pct = p => (p * 100 >= 10 ? Math.round(p * 100) : (p * 100).toFixed(1).replace('.', ',')) + ' %';
+  const item = k => '<div class="ritem" style="--rc:' + (S.RARITY[k.r] || { c: '#9aa4b8' }).c + '"><img src="' + knifeThumb(k) + '" width="110" height="70" alt=""><span>' + esc(k.n) + '</span></div>';
+  const spinBtn = !remote ? '<button type="button" id="roulSpin" disabled>Girar · ' + fmtKr(R.px) + ' PX</button>'
+    : !left ? '<button type="button" id="roulSpin" disabled>¡Los tienes todos!</button>'
+    : '<button type="button" id="roulSpin"' + (px < R.px ? ' disabled title="Te faltan ' + (R.px - px) + ' PX"' : '') + '>Girar · ' + fmtKr(R.px) + ' PX</button>';
+  box.innerHTML = '<div class="storehead"><b><em class="evtag">Evento</em> Ruleta de cuchillos</b><span>Siempre un cuchillo nuevo: nunca repetidos.</span></div>' +
+    (!remote ? '<p class="note warn">Inicia sesión con una cuenta online para girar la ruleta.</p>' : '') +
+    '<div class="roul"><div class="roul-reel" id="roulReel">' + all.filter(k => !own.has(k.id) || !left).map(item).join('') + '</div><i class="roul-mark"></i></div>' +
+    '<div class="roul-act">' + spinBtn + (remote ? '<span>Tienes ' + (all.length - left) + ' de ' + all.length + '</span>' : '') + '</div><div id="roulWin" role="status"></div>' +
+    '<div class="pets outfits">' + all.map(k => {
+      const rar = S.RARITY[k.r] || { n: '', c: '#9aa4b8' }, has = own.has(k.id), on = eq === k.id;
+      const btn = !remote || !has ? '<button type="button" disabled>' + (remote ? 'Probabilidad: ' + pct(pOf(k.id)) : pct(pOf(k.id))) + '</button>'
+        : on ? '<button type="button" class="on" data-kq="' + k.id + '">Equipado ✓</button>' : '<button type="button" data-ke="' + k.id + '">Equipar</button>';
+      return '<div class="petcard' + (on ? ' on' : '') + (k.fx ? ' kfx' : '') + (remote && !has ? ' locked' : '') + '" style="--rc:' + rar.c + (k.fx ? ';--kc:' + k.fx.col : '') + '"><span class="prar">' + esc(rar.n) + '</span><img src="' + knifeThumb(k) + '" width="120" height="77" alt=""><b>' + esc(k.n) + '</b>' + btn + '</div>';
+    }).join('') + '</div><p class="note small">Las probabilidades son las de tu próxima tirada y cambian según los cuchillos que te faltan: ' +
+    Object.entries(R.weights).map(([r, w]) => (S.RARITY[r] || { n: r }).n + ' ' + w + ' %').join(' · ') + ' (repartido entre los que te faltan de cada rareza). Con ' + all.length + ' tiradas los consigues todos.</p><p class="note small">Pulsa F con el cuchillo en la mano para inspeccionarlo.</p><p id="knifeMsg" class="note" role="status"></p>';
+  const msg = t => { const m = $('#knifeMsg'); if (m) m.textContent = t; };
+  const run = async (path, body, okMsg) => {
+    try { const j = await acctPost(path, body); if (j.state && P.applyState) P.applyState(j.state); renderKnives(); if (okMsg) toast(okMsg); } catch (e) { msg(e.message); }
+  };
+  for (const b of box.querySelectorAll('[data-ke]')) b.addEventListener('click', () => run('api/bp/equip', { slot: 'knife', item: b.dataset.ke }, 'Cuchillo equipado'));
+  for (const b of box.querySelectorAll('[data-kq]')) b.addEventListener('click', () => run('api/bp/equip', { slot: 'knife', item: null }, 'Vuelves al cuchillo clásico'));
+  const sb = $('#roulSpin'); if (sb && !sb.disabled) sb.addEventListener('click', async () => {
+    if (!window.confirm('¿Girar la ruleta por ' + fmtKr(R.px) + ' PX?')) return;
+    sb.disabled = true; msg(''); roulBusy = true;
+    let j; try { j = await acctPost('api/bp/knife-spin', {}); } catch (e) { roulBusy = false; msg(e.message); sb.disabled = false; return; }
+    const win = S.KNIFE_SKINS.find(k => k.id === j.knife), pool = all.filter(k => !own.has(k.id)), reel = $('#roulReel');
+    const W = 118, AT = 36, strip = []; for (let i = 0; i < AT + 4; i++) strip.push(i === AT ? win : pool[Math.floor(Math.random() * pool.length)]);   // cinta de relleno con el premio en la posición AT
+    const done = () => {
+      if (!roulBusy) return; roulBusy = false;
+      if (j.state && P.applyState) P.applyState(j.state); const bal = $('#storeBal'); if (bal) bal.textContent = fmtKr(krTotal()) + ' PX';
+      renderKnives(); sfx.gold();
+      const wb = $('#roulWin'); if (wb) { wb.innerHTML = '<div class="roul-win' + (win.fx ? ' kfx' : '') + '" style="--rc:' + S.RARITY[win.r].c + (win.fx ? ';--kc:' + win.fx.col : '') + '"><img src="' + knifeThumb(win) + '" width="150" height="96" alt=""><div><small>' + esc(S.RARITY[win.r].n) + '</small><b>¡Te ha tocado ' + esc(win.n) + '!</b><button type="button" data-ke2="' + win.id + '">Equipar ahora</button></div></div>';
+        const eb = wb.querySelector('[data-ke2]'); if (eb) eb.addEventListener('click', () => run('api/bp/equip', { slot: 'knife', item: win.id }, 'Cuchillo equipado')); }
+      toast('¡Te ha tocado ' + win.n + '!');
+    };
+    if (!reel) return done();
+    reel.innerHTML = strip.map(item).join(''); reel.style.transition = 'none'; reel.style.transform = 'translateX(0)';
+    const vw = (reel.parentNode && reel.parentNode.clientWidth) || 600, reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches, T = reduce ? 0.6 : 4.6;
+    void reel.offsetWidth;
+    reel.style.transition = 'transform ' + T + 's cubic-bezier(.1,.75,.18,1)';
+    reel.style.transform = 'translateX(' + -(AT * W + W / 2 - vw / 2 + (Math.random() - 0.5) * W * 0.6) + 'px)';
+    let tick = 0; const tk = setInterval(() => { if (!roulBusy || ++tick > T * 9) return clearInterval(tk); if (tick % 2 === 0 || tick < T * 5) sfx.draw(); }, 110);   // «clic» de la ruleta que se va frenando
+    setTimeout(done, T * 1000 + 250);
+  });
 }
 function renderOutfits() {
   const box = $('#outfitsBox'); if (!box) return;
@@ -3504,6 +3694,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'KeyC' && player.alive && performance.now() - spawnAt < QUICK_SWAP_MS && !quickSwapMode) openQuickSwap();   // [NUEVO] cambio rápido de arma, solo los primeros segundos tras reaparecer
   // [NUEVO] el arma para el próximo respawn se elige y se paga en la tienda (#shop); ya no se cambia gratis con 1-9 al morir.
   if (e.code === 'KeyV') playerMelee();
+  if (e.code === 'KeyF' && player.alive && slot === 1 && slashT === 0 && knifeT === 0 && inspectT === 0) inspectT = 0.0001;   // [CUCHILLOS] inspeccionar el cuchillo
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Tab') el.board.hidden = true; });
 window.addEventListener('blur', () => { Object.keys(keys).forEach(k => keys[k] = false); mouseL = mouseR = false; if (state === 'playing') pauseGame(); });
@@ -3589,6 +3780,7 @@ function frame(now) {
   requestAnimationFrame(frame);
   const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
   adaptQuality(raw);
+  tickKnives(dt);   // [CUCHILLOS] luces que recorren las hojas con efecto
   fpsAcc += raw; fpsN++; if (fpsAcc >= 0.5) { el.fps.textContent = Math.round(fpsN / fpsAcc) + ' FPS'; fpsAcc = 0; fpsN = 0; }
   if (online && state === 'paused') stepOnline(dt);
   if (state === 'playing') {
@@ -3627,6 +3819,6 @@ buildMap(cfg.map); applyShadows(); initMenu(); resize(); setInterval(() => { if 
 Object.assign(window.PPR_BP, { partyInvite, petSvg, unlockedColors: () => unlocked(), pickColor, currentColor: () => cfg.look.col,   // [INVENTARIO]
   gunPreview: (wid, skinId) => { const w = WEAPONS.find(x => x.id === wid); return w ? gunModel(w, 0, null, skinId) : null; },   // [3D] el arma con su skin, igual que en la partida
   limit: () => teamLimit, cfg, saveCfg, net: () => net, player: () => player, camera: () => camera, scene: () => scene, THREE, startSpectate, stopSpectate, specCycle, setSpecView: v => { net.specView = v; }, gunsOK, setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
-  rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); setPreviewPet(); updatePreview(); if ($('#petsBox')) renderPets(); if ($('#outfitsBox')) renderOutfits(); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
+  rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); setPreviewPet(); updatePreview(); if ($('#petsBox')) renderPets(); if ($('#outfitsBox')) renderOutfits(); if ($('#knivesBox')) renderKnives(); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
 requestAnimationFrame(frame);
 })();

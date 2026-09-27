@@ -6,6 +6,7 @@
    Rutas: GET /api/bp · POST /api/bp/{claim,claim-all,buy,gift,skip,equip} · en el panel: /api/admin/bp/{user,grant}. */
 
 const path = require('path');
+const crypto = require('crypto');
 const { Store } = require('./admin.js');
 
 const SEASON = 1;
@@ -319,6 +320,17 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
       catch (e) { accounts.grant(u, def.px, 'reembolso traje'); log('Traje: ' + e.message); return err(500, 'No se pudo completar la compra. No se ha cobrado nada.'); }
       return { ok: true, outfit: def.id, state: await view(u) };
     },
+    async knifeSpin(u) {   // [RULETA] tirada de la ruleta de cuchillos: cobra en el servidor, el azar lo pone el servidor y nunca da uno repetido
+      const st = await store.state(u.id), odds = S.rouletteOdds(st.inventory.filter(i => i.t === 'kskin').map(i => i.id));
+      if (!odds.length) return err(409, 'Ya tienes todos los cuchillos de la ruleta.');
+      const cost = S.KNIFE_ROULETTE.px; if (!accounts.spend(u, cost, 'Ruleta de cuchillos')) return err(402, 'Te faltan ' + (cost - u.px) + ' PX.');
+      let x = crypto.randomInt(1e9) / 1e9, pick = odds[odds.length - 1].id;
+      for (const o of odds) { if (x < o.p) { pick = o.id; break; } x -= o.p; }
+      try { if (!(await store.grantItem(u.id, 'kskin', pick, 'ruleta'))) { accounts.grant(u, cost, 'reembolso ruleta'); return err(409, 'No se pudo completar la tirada. No se ha cobrado nada.'); } }
+      catch (e) { accounts.grant(u, cost, 'reembolso ruleta'); log('Ruleta: ' + e.message); return err(500, 'No se pudo completar la tirada. No se ha cobrado nada.'); }
+      log('Ruleta: ' + u.username + ' → ' + pick);
+      return { ok: true, knife: pick, state: await view(u) };
+    },
     async equip(u, b) {
       const slot = String(b.slot || ''), item = b.item ? String(b.item) : null; if (!SLOT_RE.test(slot)) return err(400, 'Ranura no válida.');
       const type = slot === 'knife' ? 'kskin' : slot === 'banner' ? 'banner' : slot === 'pet' ? 'pet' : slot === 'avatar' ? 'avatar' : slot === 'outfit' ? 'outfit' : 'wskin';
@@ -345,7 +357,7 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
       let out;
       if (key === 'GET /api/bp') out = { ok: true, state: await view(u) };
       else if (req.method === 'POST' && url.pathname.startsWith('/api/bp/')) {
-        const op = { '/api/bp/claim': ops.claim, '/api/bp/claim-all': ops.claimAll, '/api/bp/buy': ops.buy, '/api/bp/gift': ops.gift, '/api/bp/skip': ops.skip, '/api/bp/equip': ops.equip, '/api/bp/pet-buy': ops.petBuy, '/api/bp/outfit-buy': ops.outfitBuy }[url.pathname];
+        const op = { '/api/bp/claim': ops.claim, '/api/bp/claim-all': ops.claimAll, '/api/bp/buy': ops.buy, '/api/bp/gift': ops.gift, '/api/bp/skip': ops.skip, '/api/bp/equip': ops.equip, '/api/bp/pet-buy': ops.petBuy, '/api/bp/outfit-buy': ops.outfitBuy, '/api/bp/knife-spin': ops.knifeSpin }[url.pathname];
         out = op ? await lock(u.id, () => op(u, b)) : err(404, 'No encontrado.');
       } else out = err(404, 'No encontrado.');
       send(req, res, out.code || 200, out.error ? { error: out.error } : out);
@@ -370,6 +382,8 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
   const equippedLook = async uid => { try { const st = await store.state(uid), out = {};
     for (const [slot, id] of Object.entries(st.equipped || {})) { if (!slot.startsWith('weapon:')) continue; const wid = slot.slice(7), k = S.WEAPON_SKINS.find(x => x.id === id && x.w === wid);
       if (k && st.inventory.some(i => i.t === 'wskin' && i.id === id)) out[wid] = id; }
+    const kid = (st.equipped || {}).knife;   // [CUCHILLOS] también el cuchillo, para que los demás lo vean al acuchillar
+    if (kid && S.KNIFE_SKINS.some(k => k.id === kid) && st.inventory.some(i => i.t === 'kskin' && i.id === kid)) out.knife = kid;
     return out; } catch (e) { return {}; } };
   return { equippedLook, equippedOutfit: async uid => { try { const st = await store.state(uid), id = st.equipped.outfit; return id && S.OUTFITS.some(o => o.id === id) && st.inventory.some(i => i.t === 'outfit' && i.id === id) ? id : ''; } catch (e) { return ''; } }, equippedPet: async uid => { try { const st = await store.state(uid), id = st.equipped.pet; return id && S.PETS.some(p => p.id === id) && st.inventory.some(i => i.t === 'pet' && i.id === id) ? id : ''; } catch (e) { return ''; } }, handles, handleHttp, awardMatch, view, store, lock, S, prices: { vip: VIP_PX, skip: SKIP_PX }, flush: () => (store.flush ? store.flush() : undefined) };
 }

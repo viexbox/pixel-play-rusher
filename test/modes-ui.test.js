@@ -80,7 +80,8 @@ function bot(mode, extra) { return new Promise(res => { const ws = new WebSocket
     ok(/ZONA · CENTRAL COURTYARD · /.test(Z.$('#zoneHud').textContent), 'y con el nombre de la zona («' + Z.$('#zoneHud span').textContent.split(' · ').slice(0, 2).join(' · ') + '»)');
     const sc = Z.w.PPR_BP.scene(); const rings = sc.children.filter(c => c.geometry && c.geometry.type === 'CylinderGeometry' && c.material && c.material.transparent && c.visible);
     ok(rings.length === 1 && Math.abs(rings[0].position.x - Z.T.net.zone.x) < 1e-6 && rings[0].scale.x === S.ZONE.R, 'se dibuja el cilindro de la zona en el mapa (radio ' + S.ZONE.R + ' m)');
-    Z.T.net.sendAcc = -1e9; /* sin enviar posiciones: así el servidor no «corrige» el teletransporte de la prueba */ Z.T.player.pos.set(Z.T.net.zone.x, Z.T.net.zone.y || 0, Z.T.net.zone.z); ok(await until(() => /¡estás dentro!/.test(Z.$('#zoneHud').textContent), 3000), 'al entrar en la zona el HUD avisa «¡estás dentro!»');
+    Z.T.net.sendAcc = -1e9; /* sin enviar posiciones: así el servidor no «corrige» el teletransporte de la prueba */ ok(await until(() => { Z.T.player.pos.set(Z.T.net.zone.x, Z.T.net.zone.y || 0, Z.T.net.zone.z); return /¡estás dentro!/.test(Z.$('#zoneHud').textContent); }, 3000),   // se recoloca en cada intento: si el «spawn» del servidor llega después, lo devolvería a su punto de aparición
+      'al entrar en la zona el HUD avisa «¡estás dentro!»');
     Z.T.net.zone = Object.assign({}, Z.T.net.zone, { o: 2 }); ok(await until(() => /DISPUTADA/.test(Z.$('#zoneHud').textContent), 3000) && rings[0].material.color.getHex() === 0xffb020, 'si se disputa, el texto y el color de la zona cambian (naranja)');
     Z.T.net.zone = Object.assign({}, Z.T.net.zone, { o: Z.T.player.team }); ok(await until(() => /ZONA · (.+ · )?(AZUL|ROJO)/.test(Z.$('#zoneHud').textContent) && Z.$('#zoneHud').classList.contains('mine'), 3000), 'si la controla tu equipo se resalta');
     Z.w.close(); await sleep(400);
