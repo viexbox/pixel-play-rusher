@@ -2771,6 +2771,7 @@ function onNetBoard(m) {
 }
 function onNetAward(m) { // el servidor ha repartido PX y progreso a esta cuenta
   if (!remote) return;
+  if (m.ref && m.ref.px) toast('🎁 ¡Bono de invitación! +' + fmtKr(m.ref.px) + ' PX (te invitó ' + m.ref.by + ')');   // [INVITACIONES]
   remote.px = m.balance; remote.stats = m.stats; net.prevBest = m.prevBest; lastReward = { kr: m.px, mult: m.mult, notes: [] }; if (m.ev && m.ev.length) lastReward.notes.push('Evento: ' + m.ev.join(' · '));
   if (m.crBalance != null) { remote.credits = m.crBalance; renderCr(); const ec = $('#endCr'); if (ec) { ec.hidden = !(m.cr > 0); ec.textContent = '+' + fmtKr(m.cr | 0) + ' Créditos'; } }   // [NUEVO]
 }
@@ -3032,6 +3033,27 @@ const claimedNow = () => (remote ? remote.claimed : cfg.rankClaimed);
 async function acctPost(path, body) {
   const r = await fetch(apiUrl(path), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + acctToken() }, body: JSON.stringify(body || {}) });
   const j = await r.json().catch(() => ({})); if (!r.ok) { const e = new Error(j.error || 'Error ' + r.status); e.suggestions = j.suggestions; throw e; } return j;   // [MEJORA] conserva las sugerencias de nombre libres
+}
+/* [INVITACIONES] Invita a un amigo: tu enlace (?ref=CÓDIGO), cuántos se han apuntado y cuántos ya jugaron. El premio lo da el servidor
+   cuando el invitado juega sus primeras partidas online. El código de quien te invitó se guarda al entrar por su enlace y se manda al registrarse. */
+(function keepRef() { try { const r = new URLSearchParams(location.search).get('ref'); if (r && /^[A-Za-z0-9]{4,12}$/.test(r) && !localStorage.getItem('ppr.ref')) localStorage.setItem('ppr.ref', r.toUpperCase()); } catch (e) { /* sin almacenamiento */ } })();
+async function openReferral() {
+  const box = $('#refModal') || (() => { const d = document.createElement('div'); d.id = 'refModal'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true'); d.innerHTML = '<div id="refBox"></div>'; document.body.appendChild(d); d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-rx]')) d.hidden = true; }); return d; })();
+  const inner = $('#refBox'); box.hidden = false;
+  if (!acctToken()) { inner.innerHTML = '<h2>🎁 Invita a tus amigos</h2><p>Crea una cuenta online (Registro) para tener tu enlace de invitación y ganar PX por cada amigo que venga a jugar.</p><button type="button" class="ref-x" data-rx>Cerrar</button>'; return; }
+  inner.innerHTML = '<h2>🎁 Invita a tus amigos</h2><p>Cargando…</p>';
+  let d; try { const r = await fetch(apiUrl('api/me/referral'), { headers: { Authorization: 'Bearer ' + acctToken() }, cache: 'no-store' }); d = await r.json(); if (!r.ok) throw new Error(d.error || 'Error'); }
+  catch (e) { inner.innerHTML = '<h2>🎁 Invita a tus amigos</h2><p>' + esc(e.message || 'Sin conexión con el servidor.') + '</p><button type="button" class="ref-x" data-rx>Cerrar</button>'; return; }
+  const link = location.origin + '/?ref=' + d.refCode, msg = '¡Juega conmigo a Krunxa, un shooter gratis en el navegador (también en el móvil)! ' + link;
+  inner.innerHTML = '<h2>🎁 Invita a tus amigos</h2>' +
+    '<p class="ref-how">Por cada amigo que se cree una cuenta con tu enlace y juegue ' + d.games + ' partidas online: tú ganas ' + fmtKr(d.pxInviter) + ' PX y tu amigo ' + fmtKr(d.pxFriend) + ' PX.</p>' +
+    '<div class="ref-link"><input id="refLink" readonly value="' + esc(link) + '" aria-label="Tu enlace de invitación"><button type="button" id="refCopy">Copiar</button></div>' +
+    '<div class="ref-share"><button type="button" id="refShare">Compartir…</button><a href="https://wa.me/?text=' + encodeURIComponent(msg) + '" target="_blank" rel="noopener">WhatsApp</a><a href="https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent('¡Juega conmigo a Krunxa!') + '" target="_blank" rel="noopener">Telegram</a></div>' +
+    '<div class="ref-stats"><div><b>' + d.invited + '</b><span>apuntados</span></div><div><b>' + d.done + '</b><span>ya juegan</span></div><div><b>' + fmtKr(d.earned) + '</b><span>PX ganados</span></div></div>' +
+    (d.friends.length ? '<ul class="ref-list">' + d.friends.map(f => '<li><span>' + esc(f.name) + '</span><em>' + (f.done ? '✓ premio entregado' : f.blocked ? 'sin premio' : f.games + '/' + d.games + ' partidas') + '</em></li>').join('') + '</ul>' : '<p class="note small">Aún no se ha apuntado nadie con tu enlace. ¡Pásalo por WhatsApp, Discord o tus redes!</p>') +
+    '<p class="note small">Solo cuentan las partidas online con al menos 2 jugadores reales, y no vale invitarte a ti mismo con otra cuenta.</p><button type="button" class="ref-x" data-rx>Cerrar</button>';
+  $('#refCopy').addEventListener('click', () => { const i = $('#refLink'); i.select(); try { navigator.clipboard.writeText(link).then(() => toast('Enlace copiado'), () => { document.execCommand('copy'); toast('Enlace copiado'); }); } catch (e) { document.execCommand('copy'); toast('Enlace copiado'); } });
+  const sh = $('#refShare'); if (!navigator.share) sh.hidden = true; else sh.addEventListener('click', () => { navigator.share({ title: 'Krunxa', text: '¡Juega conmigo a Krunxa!', url: link }).catch(() => {}); });
 }
 /* [NUEVO] El nombre de la cuenta manda el servidor (puede haber cambiado desde otro dispositivo): se refleja en el lobby y se muestra el botón de renombrar */
 function applyAccountName() {
@@ -3555,7 +3577,7 @@ function partyInvite(name) { if (!acctToken()) return toast('Inicia sesión con 
 const partyIsLead = () => !!(partyC.st && partyC.st.id && partyC.st.lead === cfg.name);
 function renderParty() {
   const box = $('#partyBox'); if (!box) return; const p = partyC.st;
-  if (!p || !p.id) { box.innerHTML = '<button type="button" class="pt-inv" data-pt="friends">＋ Jugar con amigos</button>'; box.classList.remove('on'); return; }
+  if (!p || !p.id) { box.innerHTML = '<button type="button" class="pt-inv" data-pt="friends">＋ Jugar con amigos</button> <button type="button" class="pt-inv pt-ref" data-pt="ref">🎁 Invita y gana PX</button>'; box.classList.remove('on'); return; }
   box.classList.add('on');
   const lead = partyIsLead(), me = (p.members.find(x => x.u === cfg.name) || {});
   box.innerHTML = '<div class="pt-head"><b>Grupo</b><span>' + p.members.length + '/' + p.max + '</span></div><div class="pt-list">' +
@@ -3723,6 +3745,7 @@ function initMenu() {
   });
   $('#partyBox').addEventListener('click', e => { const b = e.target.closest('[data-pt]'); if (!b) return; const a = b.dataset.pt;
     if (a === 'friends') { if (!acctToken()) return toast('Inicia sesión con una cuenta online para jugar en grupo con tus amigos.'); return showTab('profile'); }
+    if (a === 'ref') return openReferral();   // [INVITACIONES]
     if (a === 'leave') return lobbySend({ t: 'pleave' });
     if (a === 'kick') return lobbySend({ t: 'pkick', u: b.dataset.u });
     if (a === 'ready') { const me = partyC.st && partyC.st.members.find(x => x.u === cfg.name); return lobbySend({ t: 'pready', r: !(me && me.ready) }); }

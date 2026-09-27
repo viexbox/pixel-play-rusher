@@ -989,6 +989,16 @@ body:not(.playing) #chatTab{left:8px;right:auto}
 /* [GRUPOS] el grupo va en el centro, encima de los modos y bajo el botón ONLINE, con los miembros uno al lado del otro (como en Krunker) */
 #partyBox{position:absolute;left:50%;bottom:calc(16px + 132px);transform:translateX(-50%);width:min(640px,calc(100vw - 2*max(318px,23vw)));min-width:420px;z-index:7;display:none;text-align:center}
 body:not(.playing):not(.tabopen):not(.eqopen) #partyBox{display:block}
+#partyBox .pt-ref{border-color:rgba(255,210,63,.7);color:#ffd23f}
+#refModal{position:fixed;inset:0;z-index:72;display:grid;place-items:center;background:rgba(3,5,14,.8)}#refModal[hidden]{display:none}
+#refBox{width:min(520px,94vw);max-height:90vh;overflow:auto;background:#111733;border:2px solid #ffd23f;border-radius:12px;padding:18px 20px;color:#fff}
+#refBox h2{margin:0 0 8px;font-size:22px}#refBox .ref-how{line-height:1.4}
+#refBox .ref-link{display:flex;gap:6px;margin:10px 0}#refBox .ref-link input{flex:1;min-width:0;padding:8px;font:600 14px monospace;color:#fff;background:#0a0f24;border:1px solid rgba(255,255,255,.25)}
+#refBox .ref-link button,#refBox .ref-share button,#refBox .ref-share a,#refBox .ref-x{padding:8px 14px;font-weight:800;color:#12142a;background:#ffd23f;border:0;border-radius:6px;text-decoration:none;cursor:pointer}
+#refBox .ref-share{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}#refBox .ref-share a{background:#2ecc71;color:#08140c}#refBox .ref-share a+a{background:#38a8e4}
+#refBox .ref-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}#refBox .ref-stats div{background:rgba(255,255,255,.06);padding:8px;text-align:center;border-radius:8px}#refBox .ref-stats b{display:block;font-size:22px;color:#ffd23f}#refBox .ref-stats span{font-size:12px;opacity:.8}
+#refBox .ref-list{list-style:none;padding:0;margin:8px 0;max-height:160px;overflow:auto}#refBox .ref-list li{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.08)}#refBox .ref-list em{font-style:normal;opacity:.8}
+#refBox .ref-x{margin-top:8px;background:rgba(255,255,255,.14);color:#fff}
 #partyBox .pt-inv{height:32px;padding:0 18px;font-family:'Bungee',var(--hudf);font-size:12px;color:#fff;background:rgba(5,6,14,.6);border:2px dashed rgba(255,255,255,.35)}
 #partyBox .pt-inv:hover{border-color:var(--volt);color:var(--volt)}
 #partyBox.on{background:rgba(5,6,14,.8);border:2px solid rgba(255,255,255,.18);padding:6px 8px;text-align:left}

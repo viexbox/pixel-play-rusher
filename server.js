@@ -450,7 +450,7 @@ class Room {
     rows.forEach((p, i) => { // progreso y PX de las cuentas online (mínimo 2 jugadores y algo de actividad)
       if (!p.acctUser || !rewarded || p.kills + p.deaths + p.points === 0) return;
       const r = accounts.awardMatch(p.acctUser, { points: p.points, kills: p.kills, deaths: p.deaths, won: winner >= 0 && p.team === winner, cls: p.cls, bestStreak: p.bestStreak, ev: events.multFor({ mode: this.mode, cls: p.cls }) });
-      p.send(JSON.stringify({ t: 'award', px: r.px, balance: r.balance, prevBest: r.prevBest, stats: r.stats, mult: r.mult, cr: r.cr, crBalance: r.crBalance, ev: r.ev }));
+      p.send(JSON.stringify({ t: 'award', px: r.px, balance: r.balance, prevBest: r.prevBest, stats: r.stats, mult: r.mult, cr: r.cr, crBalance: r.crBalance, ev: r.ev, ref: r.ref || undefined }));   // ref: bono de invitación
       bp.awardMatch(p.acctUser, { points: p.points, won: winner >= 0 && p.team === winner }).then(x => { if (x) p.send(JSON.stringify({ t: 'bpxp', xp: x.added, total: x.xp, level: x.level, up: x.leveledUp })); }).catch(e => log('XP del pase: ' + e.message));
     });
     this.votes = new Map();
