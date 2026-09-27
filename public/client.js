@@ -123,10 +123,14 @@ const cloudRoot = new THREE.Group(); sky.add(cloudRoot);
   }
 })();
 
+/* [GRÁFICOS] Calidad alta (por defecto, salvo en equipos sin tarjeta gráfica): sombras más nítidas y texturas al doble de resolución.
+   Se cambia en Ajustes → «Calidad gráfica alta» y se aplica al recargar. El ajuste automático de rendimiento sigue funcionando igual. */
+const HQ = cfg.hq != null ? !!cfg.hq : !(renderer && isSoftwareGL());
 const hemi = new THREE.HemisphereLight(0xffffff, 0x9fb0ff, 0.66); scene.add(hemi);
 const sunLight = new THREE.DirectionalLight(0xfff1c9, 0.88);
 sunLight.position.set(52, 92, 34); scene.add(sunLight, sunLight.target);
-sunLight.shadow.mapSize.set(2048, 2048);
+sunLight.shadow.mapSize.set(HQ ? 4096 : 2048, HQ ? 4096 : 2048);
+const fillLight = new THREE.DirectionalLight(0xbfd4ff, 0.22); fillLight.position.set(-40, 30, -60); scene.add(fillLight);   // [GRÁFICOS] luz de relleno fría desde el lado contrario al sol: las caras en sombra ya no quedan planas
 Object.assign(sunLight.shadow.camera, { left: -78, right: 78, top: 78, bottom: -78, near: 10, far: 280 });
 sunLight.shadow.bias = -0.0004; sunLight.shadow.normalBias = 0.06;
 function isSoftwareGL() {
@@ -323,11 +327,17 @@ const TEX = {
     g.restore(); speckle(g, S, R, 250, 0.07);
   } }
 };
+/* [GRÁFICOS] grano fino (poros, arena, desgaste) y manchas grandes muy suaves: rompe la repetición de la textura sin cambiar su dibujo */
+function grain(g, S, R) {
+  for (let i = 0; i < 8; i++) { const x = R() * S, y = R() * S, r = S * (0.08 + R() * 0.16), gr = g.createRadialGradient && g.createRadialGradient(x, y, 0, x, y, r); if (!gr || !gr.addColorStop) break; gr.addColorStop(0, R() < 0.5 ? 'rgba(0,0,0,.07)' : 'rgba(255,255,255,.06)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
+  const n = S * S / 90; for (let i = 0; i < n; i++) { const a = R(); g.fillStyle = a < 0.5 ? 'rgba(0,0,0,' + (0.03 + R() * 0.07) + ')' : 'rgba(255,255,255,' + (0.03 + R() * 0.06) + ')'; g.fillRect(R() * S | 0, R() * S | 0, 1, 1); }
+}
 const texCache = {};
 function getTex(name, arg) {
   const key = name + (arg || ''); if (texCache[key]) return texCache[key];
-  const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
-  TEX[name].draw(c.getContext('2d'), S, rngSeed(strHash(key)), arg);
+  const S = HQ ? 512 : 256, c = document.createElement('canvas'); c.width = c.height = S;
+  const R = rngSeed(strHash(key)); TEX[name].draw(c.getContext('2d'), S, R, arg);
+  if (TEX[name].tile > 1 && !TEX[name].raw) grain(c.getContext('2d'), S, R);   // [GRÁFICOS] grano fino y manchas suaves en las texturas del mapa
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping;
   if (renderer) t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   return (texCache[key] = t);
@@ -433,7 +443,7 @@ function addMesh(cx, y0, cz, w, h, d, color, solid, tag) {
   const geo = new THREE.BoxGeometry(w, h, d), c = colorOf(color);
   if (!solid) { shadeBox(geo, 0.55, c); geo.deleteAttribute('uv'); geo.translate(cx, y0 + h / 2, cz); queueBox(vcMat('far'), false, false, geo); return; }
   const type = tag && TEX[tag] ? tag : pickType(curLook, cx, y0, cz, w, h, d);   // [NUEVO] el mapa puede fijar la textura de una caja (cristal, helipuerto…)
-  worldUV(geo, w, h, d, TEX[type].tile, TEX[type].raw ? [0, 0] : [uvR(), uvR()]); shadeBox(geo, 0.8, (type === 'awning' || TEX[type].raw) ? WHITE : c);
+  worldUV(geo, w, h, d, TEX[type].tile, TEX[type].raw ? [0, 0] : [uvR(), uvR()]); shadeBox(geo, y0 <= 0.05 ? 0.6 : 0.8, (type === 'awning' || TEX[type].raw) ? WHITE : c);   // [GRÁFICOS] lo que toca el suelo se oscurece más abajo (sombra de contacto)
   geo.translate(cx, y0 + h / 2, cz); queueBox(vcMat('tex', type, color), true, true, geo);
 }
 function floorTex(type, worldSize) {
@@ -446,11 +456,28 @@ function setFloor(m, L) {
   outMesh.material.map = floorTex(L.outFloor || L.floor, 700); outMesh.material.color.set(m.out); outMesh.material.needsUpdate = true;
 }
 const decoBox = (cx, y0, cz, w, h, d, color, basic, noCast) => {   // [NUEVO] va a un lote (una malla por material y sombra), no a una malla propia
-  const geo = new THREE.BoxGeometry(w, h, d); shadeBox(geo, 1, colorOf(color)); geo.deleteAttribute('uv'); geo.translate(cx, y0 + h / 2, cz);
+  const geo = new THREE.BoxGeometry(w, h, d); shadeBox(geo, !basic && y0 <= 0.05 && h > 0.3 ? 0.7 : 1, colorOf(color)); geo.deleteAttribute('uv'); geo.translate(cx, y0 + h / 2, cz);
   queueBox(vcMat(basic ? 'basic' : 'lit'), !basic && !noCast && h > 0.9, false, geo);
 };
+/* [GRÁFICOS] Pieza decorativa que proyecta y RECIBE sombra (molduras, ventanas, losas del suelo): así no brilla cuando le cae la sombra de una casa */
+const decoRecv = (cx, y0, cz, w, h, d, color) => { const geo = new THREE.BoxGeometry(w, h, d); shadeBox(geo, y0 <= 0.05 && h > 0.3 ? 0.75 : 1, colorOf(color)); geo.deleteAttribute('uv'); geo.translate(cx, y0 + h / 2, cz); queueBox(vcMat('lit'), true, true, geo); };
+/* [GRÁFICOS] Detalle arquitectónico automático: cada edificio macizo del mapa recibe zócalo, moldura y cornisa (solo decoración, sin colisión) */
+function archDetail(L, half) {
+  if (!L.trimBase) return; const T = { base: L.trimBase, top: L.trimTop };
+  for (const c of colliders) {
+    const w = c.maxX - c.minX, d = c.maxZ - c.minZ, h = c.maxY - c.minY;
+    if (c.minY > 0.05 || h < 2.8 || Math.min(w, d) < 2.5 || Math.max(w, d) > half * 1.9) continue;
+    const cx = (c.minX + c.maxX) / 2, cz = (c.minZ + c.maxZ) / 2, top = c.maxY;
+    decoRecv(cx, 0, cz, w + 0.14, 0.4, d + 0.14, T.base);                 // zócalo
+    decoRecv(cx, top - 0.44, cz, w + 0.14, 0.1, d + 0.14, T.base);        // moldura
+    const e = 0.4;   // cornisa: un borde alrededor del tejado (no tapa la textura de arriba)
+    decoRecv(cx, top - 0.26, c.minZ + e / 2 - 0.15, w + 0.3, 0.3, e, T.top); decoRecv(cx, top - 0.26, c.maxZ - e / 2 + 0.15, w + 0.3, 0.3, e, T.top);
+    decoRecv(c.minX + e / 2 - 0.15, top - 0.26, cz, e, 0.3, d - 0.5, T.top); decoRecv(c.maxX - e / 2 + 0.15, top - 0.26, cz, e, 0.3, d - 0.5, T.top);
+  }
+}
 function decorate(L, m) {
   const half = m.half, R = rngSeed(strHash(m.name));
+  archDetail(L, half);
   const wallTop = (color, step) => { // almenas sobre el muro perimetral
     const y = L.wallH;
     for (let s = -half + 1; s <= half - 1; s += step) {
@@ -497,7 +524,13 @@ function decorate(L, m) {
       const y = 5.5 * s; decoBox(x, y, z, 0.8 * s, 0.6 * s, 0.8 * s, '#5a3a1e', false, true); for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { decoBox(x + dx * 1.3 * s, y + 0.2 * s, z + dz * 1.3 * s, dx ? 2.6 * s : 0.7 * s, 0.14 * s, dz ? 2.6 * s : 0.7 * s, '#3faa3a', false, true); decoBox(x + dx * 2.5 * s, y - 0.3 * s, z + dz * 2.5 * s, dx ? 0.9 * s : 0.6 * s, 0.4 * s, dz ? 0.9 * s : 0.6 * s, '#2f8f2f', false, true); } };
     [[-41, -41], [41, -41], [-41, 41], [41, 41], [-31, 33], [31, 33], [-35, -33], [35, -33], [-16, 8.5], [16, -8.5]].forEach(([x, z]) => palm(x, z, 0.9 + R() * 0.3));
     for (let i = 0; i < 26; i++) { const t = (R() - 0.5) * (half * 2 - 6), e = (half - 2 - R() * 2) * (R() < 0.5 ? 1 : -1), x = i % 2 ? t : e, z = i % 2 ? e : t; if (free(x, z, 0.9)) decoBox(x, 0, z, 0.6 + R() * 0.5, 0.35 + R() * 0.4, 0.6 + R() * 0.5, R() < 0.5 ? '#c98b52' : '#d9a066'); }   // piedras y dunas pequeñas junto al muro
-    const win = (x, y, z, alongX) => { decoBox(x, y, z, alongX ? 1.1 : 0.08, 1.2, alongX ? 0.08 : 1.1, '#3a2a1e', false, true); decoBox(x, y - 0.12, z, alongX ? 1.4 : 0.14, 0.14, alongX ? 0.14 : 1.4, '#c9a26a', false, true); };
+    const win = (x, y, z, alongX) => {   // [GRÁFICOS] ventana con marco, reja, alféizar, dintel y postigos
+      const W = (a, b) => (alongX ? a : b), sh = ['#3f7fbf', '#3f9f6a', '#b3542f'][Math.abs(Math.round(x + z)) % 3];
+      decoRecv(x, y - 0.1, z, W(1.4, 0.1), 1.45, W(0.1, 1.4), '#e9d3a8'); decoRecv(x, y, z, W(1.1, 0.12), 1.2, W(0.12, 1.1), '#2a1d14');
+      decoRecv(x, y + 0.55, z, W(1.1, 0.14), 0.06, W(0.14, 1.1), '#5a3a1e'); decoRecv(x, y, z, W(0.06, 0.14), 1.2, W(0.14, 0.06), '#5a3a1e');
+      decoRecv(x, y - 0.18, z, W(1.6, 0.26), 0.12, W(0.26, 1.6), '#c9a26a'); decoRecv(x, y + 1.25, z, W(1.6, 0.18), 0.16, W(0.18, 1.6), '#b89868');
+      for (const k of [-1, 1]) decoRecv(x + (alongX ? k * 0.85 : 0), y - 0.05, z + (alongX ? 0 : k * 0.85), W(0.55, 0.14), 1.3, W(0.14, 0.55), sh);
+    };
     for (const sx of [-1, 1]) {
       for (const a of [8, 11, 20, 23]) win(sx * a, 1.8, -11.95, true);   // fachadas de la plaza
       for (const a of [7, 17, 21]) win(sx * a, 1.8, 11.95, true);
@@ -507,6 +540,9 @@ function decorate(L, m) {
       for (const z of [-24, 24]) { decoBox(sx * 3.8, 0, z, 0.5, 0.7, 0.5, '#b86a3a'); decoBox(sx * 3.8, 0.7, z, 0.34, 0.22, 0.34, '#9a5226'); }   // tinajas
     }
     for (const z of [-22, 23]) { decoBox(0, 3.9, z, 44, 0.04, 0.04, '#5a3a1e', false, true); for (let x = -20; x <= 20; x += 2.5) decoBox(x, 3.35, z, 0.9, 0.55, 0.05, ['#ff4d6d', '#ffd23f', '#3fb8e6', '#ffffff', '#8ae234'][Math.round((x + 20) / 2.5 + (z > 0 ? 2 : 0)) % 5], false, true); }   // ropa tendida
+    /* [GRÁFICOS] suelo: losas de piedra alrededor del pozo, calzada del mercado */
+    for (let x = -9.5; x <= 9.5; x += 1) for (let z = -9.5; z <= 9.5; z += 1) { const r = Math.hypot(x, z); if (r < 2.3 || r > 9.2 || !free(x, z, 0.3)) continue; decoRecv(x + (R() - 0.5) * 0.08, 0, z + (R() - 0.5) * 0.08, 0.86 + R() * 0.08, 0.025, 0.86 + R() * 0.08, ['#cdbb97', '#bfae8c', '#d8c7a3', '#b5a483'][Math.floor(R() * 4)]); }
+    for (let x = -30; x <= 30; x += 1.2) for (const z of [22.8, 24, 25.2]) if (free(x, z, 0.3)) decoRecv(x, 0, z + (R() - 0.5) * 0.1, 1.08, 0.022, 1.08, ['#c8b48f', '#b9a582', '#d3c09a'][Math.floor(R() * 3)]);
     for (const [x, z] of [[-6, -12.2], [6, -12.2], [-6, 12.2], [6, 12.2], [0, 36.8], [-14, 36.2], [14, 36.2]]) { decoBox(x, 3.2, z, 0.06, 0.5, 0.06, '#3a2a1e', false, true); decoBox(x, 2.75, z, 0.4, 0.45, 0.4, '#ffb347', true); }   // farolillos
   } else if (L.decor === 'villa') {   // [MAPAS 2] villa de verano: fondo de la piscina, sombrillas, palmeras, ventanas y guirnalda de luces
     wallTop('#ffffff', 3);
@@ -521,7 +557,11 @@ function decorate(L, m) {
     for (const x of [-18, -12, 12, 18]) { decoBox(x, 0.8, -21.95, 1.8, 2, 0.08, '#8fd8ff', false, true); decoBox(x, 0.7, -21.95, 2.1, 0.12, 0.12, '#ffffff', false, true); }   // ventanas de la planta baja
     decoBox(0, 0, -21.95, 2.6, 2.8, 0.1, '#7a4a25', false, true);
     for (let x = -23; x <= 23; x += 1) decoBox(x, 4.9 - Math.abs(Math.sin(x * 0.55)) * 0.3, -22.3, 0.16, 0.16, 0.16, ['#ffd23f', '#ff7a59', '#3fb8e6', '#8ae234'][(x + 23) % 4], true);   // guirnalda de luces
-    for (let i = 0; i < 40; i++) { const x = (R() - 0.5) * 70, z = 18 + R() * 20; if (free(x, z, 0.5)) decoBox(x, 0, z, 0.3, 0.35, 0.3, ['#ff4d6d', '#ffd23f', '#ffffff', '#b388ff'][i % 4]); }   // flores del jardín
+    /* [GRÁFICOS] jardín con césped en franjas, camino de losas hasta el bar y marcos en las ventanas */
+    for (let x = -38; x < 38; x += 4) decoRecv(x + 2, 0, 28.5, 4, 0.02, 22.6, (x / 4) % 2 ? '#5fbf4a' : '#57b344');
+    for (let z = 8.5; z <= 26; z += 1.6) decoRecv((R() - 0.5) * 0.3, 0, z, 1.3, 0.035, 0.9, ['#d9d2c3', '#c9c1b0', '#e6dfd0'][Math.floor(R() * 3)]);
+    for (const x of [-18, -12, 12, 18]) { decoRecv(x, 0.62, -21.9, 2.1, 0.12, 0.14, '#ffffff'); decoRecv(x, 2.8, -21.9, 2.1, 0.12, 0.14, '#ffffff'); decoRecv(x - 1.02, 0.7, -21.9, 0.1, 2.1, 0.14, '#ffffff'); decoRecv(x + 1.02, 0.7, -21.9, 0.1, 2.1, 0.14, '#ffffff'); }
+    for (let i = 0; i < 60; i++) { const x = (R() - 0.5) * 70, z = 18 + R() * 20; if (free(x, z, 0.5)) { decoBox(x, 0, z, 0.08, 0.3, 0.08, '#2f8f2f'); decoBox(x, 0.28, z, 0.26, 0.2, 0.26, ['#ff4d6d', '#ffd23f', '#ffffff', '#b388ff', '#ff9f1c'][i % 5]); } }   // flores del jardín
   } else if (L.decor === 'nexus') {
     wallTop('#9aa3b2', 6);
     /* Alrededores (solo decoración, sin colisión): colinas verdes escalonadas, casas de píxeles y árboles fuera del muro, como en el croquis */
@@ -548,6 +588,7 @@ function buildMap(i) {
   const u = sky.material.uniforms, top = new THREE.Color(m.sky[0]), hor = new THREE.Color(m.sky[1]);
   u.top.value.copy(top); u.hor.value.copy(hor); u.mid.value.copy(top).lerp(hor, 0.42); u.bot.value.copy(hor).multiplyScalar(0.86);
   u.sunCol.value.set(L.sun); sunLight.color.set(L.sun); scene.fog.color.set(m.fog);
+  hemi.color.set(top).lerp(new THREE.Color('#ffffff'), 0.72); hemi.groundColor.set(m.floor[0]).lerp(new THREE.Color('#9fb0ff'), 0.45);   // [GRÁFICOS] el rebote de luz toma el color del suelo de cada mapa
   setFloor(m, L);
   const world = S.buildWorld(i, addMesh);
   colliders = world.colliders; waypoints = world.waypoints; curSpawns = world.spawns; curNav = world.nav;
@@ -748,17 +789,20 @@ const SKINS = ['#f2c9a0', '#e2ac7d', '#c98d60', '#8d5a3b', '#ffdcbc'];
 const PANTS = ['#26325c', '#3a2a55', '#1f3341', '#4a3a2a', '#2d4a3e'];
 
 const faceCache = {};
-function faceTex(skin, seed) {
+function faceTex(skin, seed) {   // [GRÁFICOS] cara a 64 px: sombras de mandíbula y mejillas, cejas, ojos con iris y brillo, nariz y labios
   const key = skin + (seed % 3); if (faceCache[key]) return faceCache[key];
-  const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d');
-  g.fillStyle = skin; g.fillRect(0, 0, 32, 32);
-  g.fillStyle = 'rgba(0,0,0,.08)'; g.fillRect(0, 26, 32, 6);
-  g.fillStyle = '#3b2a20'; g.fillRect(6, 10, 7, 2); g.fillRect(19, 10, 7, 2);
-  g.fillStyle = '#ffffff'; g.fillRect(7, 13, 6, 5); g.fillRect(19, 13, 6, 5);
-  g.fillStyle = seed % 3 === 0 ? '#2a6df4' : seed % 3 === 1 ? '#5a3a1e' : '#1f9d55'; g.fillRect(9, 14, 3, 4); g.fillRect(21, 14, 3, 4);
-  g.fillStyle = '#0b0b12'; g.fillRect(10, 15, 2, 2); g.fillRect(22, 15, 2, 2);
-  g.fillStyle = 'rgba(0,0,0,.14)'; g.fillRect(15, 18, 2, 4);
-  g.fillStyle = '#7a2e2e'; g.fillRect(11, 25, 10, 2); g.fillStyle = 'rgba(255,255,255,.65)'; g.fillRect(12, 25, 8, 1);
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = skin; g.fillRect(0, 0, 64, 64);
+  const gr = g.createLinearGradient && g.createLinearGradient(0, 0, 0, 64); if (gr && gr.addColorStop) { gr.addColorStop(0, 'rgba(255,255,255,.08)'); gr.addColorStop(0.6, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.16)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); }
+  g.fillStyle = 'rgba(0,0,0,.08)'; g.fillRect(0, 0, 4, 64); g.fillRect(60, 0, 4, 64);
+  g.fillStyle = 'rgba(255,90,90,.16)'; g.fillRect(8, 38, 10, 6); g.fillRect(46, 38, 10, 6);   // mejillas
+  const brow = seed % 3 === 2 ? '#2a1d14' : '#3b2a20'; g.fillStyle = brow; g.fillRect(11, 19, 15, 4); g.fillRect(38, 19, 15, 4); g.fillRect(11, 18, 5, 2); g.fillRect(48, 18, 5, 2);
+  g.fillStyle = '#ffffff'; g.fillRect(13, 25, 12, 10); g.fillRect(39, 25, 12, 10);
+  const iris = seed % 3 === 0 ? '#2a6df4' : seed % 3 === 1 ? '#6b4423' : '#1f9d55'; g.fillStyle = iris; g.fillRect(17, 26, 7, 9); g.fillRect(43, 26, 7, 9);
+  g.fillStyle = '#0b0b12'; g.fillRect(19, 28, 4, 5); g.fillRect(45, 28, 4, 5); g.fillStyle = '#ffffff'; g.fillRect(19, 28, 2, 2); g.fillRect(45, 28, 2, 2);   // pupila y brillo
+  g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(13, 25, 12, 2); g.fillRect(39, 25, 12, 2);   // párpado
+  g.fillStyle = 'rgba(0,0,0,.14)'; g.fillRect(29, 34, 6, 9); g.fillStyle = 'rgba(0,0,0,.2)'; g.fillRect(27, 42, 10, 3);   // nariz
+  g.fillStyle = '#8a3434'; g.fillRect(22, 50, 20, 4); g.fillStyle = '#b85a5a'; g.fillRect(24, 53, 16, 2); g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(24, 50, 16, 1);   // labios
   const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter;
   return (faceCache[key] = t);
 }
@@ -1272,6 +1316,11 @@ function outfitFace(of) {   // cara de los trajes que no enseñan la del jugador
     }
   });
 }
+function headExtras(head, skin, mk) {   // [GRÁFICOS] orejas y nariz para las cabezas con cara
+  const dk = '#' + new THREE.Color(skin).multiplyScalar(0.86).getHexString();
+  for (const x of [-0.215, 0.215]) mk(head, 0.04, 0.11, 0.09, dk, x, 0.19, 0.02);
+  mk(head, 0.07, 0.08, 0.05, skin, 0, 0.16, -0.215);
+}
 function outfitBody(g, of, team, seed, mk) {
   const k = of.kind, side = new THREE.MeshLambertMaterial({ color: of.camo ? '#ffffff' : of.main, map: of.camo ? outfitCanvas('camo|' + of.id, 32, (c, n) => camoDraw(c, n, of, 5)) : null });
   const mkT = (p, w, h, d, tex, x, y, z) => { const m = new THREE.Mesh(BG(w, h, d), new THREE.MeshLambertMaterial({ map: tex })); m.position.set(x, y, z); m.castShadow = true; p.add(m); return m; };
@@ -1321,7 +1370,7 @@ function outfitBody(g, of, team, seed, mk) {
     return { legL, legR, head, sleeve: of.main, cuff: team, gl: '#2a2a22' };
   }
   const hm = new THREE.Mesh(BG(0.4, 0.4, 0.4), headMat(skin, seed)); hm.position.y = 0.2; hm.castShadow = true; head.add(hm);
-  H(0.1, 0.1, 0.1, skin, 0, -0.02, 0);
+  H(0.1, 0.1, 0.1, skin, 0, -0.02, 0); headExtras(head, skin, mk);
   if (k === 'firefighter') { H(0.5, 0.2, 0.5, of.helm, 0, 0.37, 0); H(0.52, 0.04, 0.34, of.helm, 0, 0.27, 0.18); H(0.12, 0.13, 0.03, '#ffd23a', 0, 0.37, -0.26, true); H(0.06, 0.12, 0.44, of.helm, 0, 0.5, 0.02); H(0.46, 0.1, 0.03, '#bfe9ff', 0, 0.3, -0.255); }
   else { H(0.48, 0.18, 0.48, of.helm, 0, 0.37, 0); H(0.52, 0.04, 0.54, of.helm, 0, 0.29, -0.01); H(0.46, 0.05, 0.05, '#1c1a16', 0, 0.33, -0.245); H(0.12, 0.05, 0.02, '#9fe8ff', -0.1, 0.33, -0.27, true); H(0.12, 0.05, 0.02, '#9fe8ff', 0.1, 0.33, -0.27, true); }
   return { legL, legR, head, sleeve: of.camo ? of.dark : of.main, cuff: team, gl: '#2a2a22' };
@@ -1345,6 +1394,8 @@ function fillCharacter(g, color, wi, seed, skinIdx, opticId, accent) {
   head = new THREE.Group(); head.position.set(0, 1.4, 0); g.add(head);
   const hm = new THREE.Mesh(BG(0.4, 0.4, 0.4), headMat(skin, seed)); hm.position.y = 0.2; hm.castShadow = true; head.add(hm);
   mk(head, 0.1, 0.1, 0.1, skin, 0, -0.02, 0); // cuello
+  headExtras(head, skin, mk);   // [GRÁFICOS] orejas y nariz
+  mk(g, 0.38, 0.07, 0.3, dark, 0, 1.42, 0); for (const x of [-0.19, 0.19]) mk(g, 0.1, 0.1, 0.06, '#3b2f2a', x, 0.88, -0.18);   // cuello de la camisa y bolsillos del cinturón
   const H = (w, h, d, c, x, y, z, basic) => mk(head, w, h, d, c, x, y, z, basic);
   const hair = ['#2b1d14', '#5a3a1e', '#c9a25a', '#151515', '#7a3b1e'][seed % 5];
   switch (wi) {
@@ -3329,6 +3380,7 @@ function initMenu() {
     i.addEventListener('input', () => { cfg[key] = +i.value; o.textContent = fmt(cfg[key]); saveCfg(); if (key === 'vol' && master) master.gain.value = cfg.vol; });
   };
   bind('sens', 'sens', v => v.toFixed(2)); bind('fov', 'fov', v => v + '°'); bind('vol', 'vol', v => Math.round(v * 100) + '%');
+  const hq = $('#hq'); if (hq) { hq.checked = HQ; $('#hqO').textContent = HQ ? 'Sí' : 'No'; hq.addEventListener('change', () => { cfg.hq = hq.checked; $('#hqO').textContent = hq.checked ? 'Sí' : 'No'; saveCfg(); toast('Se aplica al recargar la página'); }); }   // [GRÁFICOS]
   const sh = $('#shadows'); sh.checked = !!cfg.shadows; $('#shadowsO').textContent = cfg.shadows ? 'Sí' : 'No';
   sh.addEventListener('change', () => { cfg.shadows = sh.checked; cfg.shadowsSet = true; $('#shadowsO').textContent = cfg.shadows ? 'Sí' : 'No'; saveCfg(); applyShadows(); });
   /* [NUEVO] Ajustes de la rueda del ratón y de la sacudida de pantalla */

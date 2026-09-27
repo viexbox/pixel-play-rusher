@@ -79,7 +79,7 @@ const MAPS = [
     name: 'Nexus Outpost', half: 58,   // [MAPA] antes 50: 116 × 116 m, con un anillo exterior de casetas en las que se puede entrar
     desc: 'Complejo táctico amurallado de 4 niveles: plaza elevada con torre de francotiradores, patio central, reactor en alto, red de tejados con helipuertos, centro tecnológico, armería y un punto de captura en la azotea.',
     sky: ['#2a86ff', '#cfe6ff'], fog: '#cfe6ff', floor: ['#7f8898', '#6f7888'], out: '#62c94a', pal: ['#aab2be', '#ff8a1f', '#3fd15a', '#3a9bff', '#ffd23f'],
-    look: { floor: 'concfloor', outFloor: 'grass', wall: 'concrete', block: 'concrete', metal: 'metal', crate: 'crate', plat: 'concfloor', sun: '#fff4d6', decor: 'nexus', wallH: 8.5 },
+    look: { floor: 'concfloor', outFloor: 'grass', wall: 'concrete', block: 'concrete', metal: 'metal', crate: 'crate', plat: 'concfloor', sun: '#fff4d6', decor: 'nexus', wallH: 8.5, trimBase: '#6f7889', trimTop: '#c3c9d3' },
     /* Apariciones por equipo (equipo 1 = ROJO, equipo 0 = AZUL): [x, z] */
     spawns: {
       /* [MAPA] cada equipo en la otra punta del mapa, en el anillo exterior de su lado (antes a x ±40, a mitad de camino desde que el mapa creció a 116 m) */
@@ -245,7 +245,7 @@ const MAPS = [
     name: 'Pueblo Duna', half: 44,
     desc: 'Pueblo del desierto: plaza del pozo, callejón con balcón en alto y mercado de toldos. Cuidado con las gallinas.',
     sky: ['#3b8fe0', '#ffe2b0'], fog: '#f3d9a6', floor: ['#e8c890', '#d9b67a'], out: '#d9b67a', pal: ['#e3c28a', '#c98b52', '#b3542f', '#3f9fd6', '#ffd23f'],
-    look: { floor: 'sandfloor', outFloor: 'sandfloor', wall: 'sand', block: 'sand', crate: 'crate', plat: 'sand', awning: 'awning', sun: '#ffe7b8', decor: 'duna', wallH: 7 },
+    look: { floor: 'sandfloor', outFloor: 'sandfloor', wall: 'sand', block: 'sand', crate: 'crate', plat: 'sand', awning: 'awning', sun: '#ffe7b8', decor: 'duna', wallH: 7, trimBase: '#a88b5c', trimTop: '#e9cf9c' },
     spawns: {
       1: [[-40, -10], [-41, -6], [-40, -2], [-41, 2], [-40, 6], [-41, 10], [-38, 0]],
       0: [[40, -10], [41, -6], [40, -2], [41, 2], [40, 6], [41, 10], [38, 0]]
@@ -309,7 +309,7 @@ const MAPS = [
     name: 'Villa Piscina', half: 40,
     desc: 'Villa de verano: piscina en el centro, terraza en alto, cabañas y jardín con bar. Se puede entrar en la piscina.',
     sky: ['#2f9dff', '#d6f0ff'], fog: '#d6f0ff', floor: ['#efe3cf', '#e2d4bb'], out: '#5fcf5a', pal: ['#f5efe3', '#3fb8e6', '#ff7a59', '#5fcf5a', '#ffd23f'],
-    look: { floor: 'tile', outFloor: 'grass', wall: 'concrete', block: 'concrete', crate: 'crate', plat: 'tile', awning: 'awning', sun: '#fff4d6', decor: 'villa', wallH: 6, water: { x0: -14, x1: 14, z0: -7, z1: 7, y: 0.38 } },
+    look: { floor: 'tile', outFloor: 'grass', wall: 'concrete', block: 'concrete', crate: 'crate', plat: 'tile', awning: 'awning', sun: '#fff4d6', decor: 'villa', wallH: 6, trimBase: '#c9bfae', trimTop: '#ffffff', water: { x0: -14, x1: 14, z0: -7, z1: 7, y: 0.38 } },
     spawns: {
       1: [[-36, -8], [-37, -4], [-36, 0], [-37, 4], [-36, 8], [-34, -2], [-34, 2]],
       0: [[36, -8], [37, -4], [36, 0], [37, 4], [36, 8], [34, -2], [34, 2]]
