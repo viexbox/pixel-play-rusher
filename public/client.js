@@ -2041,7 +2041,7 @@ function kill(victim, attacker, head, weaponName) {
   const c = new THREE.Vector3(victim.pos.x, victim.pos.y + 1, victim.pos.z);
   burst(c, victim.isPlayer ? '#ff5a5f' : victim.color, 16, 5);
   if (victim === player) {
-    el.death.hidden = false; document.body.classList.add('dead'); if (document.exitPointerLock) document.exitPointerLock();   // [CORREGIDO] «dead» hace visible el cursor (antes quedaba invisible aunque se liberase el bloqueo)
+    el.death.hidden = false; document.body.classList.add('dead'); if (document.exitPointerLock) document.exitPointerLock(); onDeathAds();   // [ANUNCIOS]   // [CORREGIDO] «dead» hace visible el cursor (antes quedaba invisible aunque se liberase el bloqueo)
     el.deathBy.textContent = attacker && attacker !== victim ? 'Te eliminó ' + attacker.name + ' con ' + weaponName : 'Has caído';
     deathLook = attacker && attacker !== victim ? attacker : null; renderDeathPick();
     mouseL = false; mouseR = false; gun.visible = false; el.cross.style.opacity = 0; el.scope.hidden = true; el.optic.hidden = true;
@@ -2395,6 +2395,7 @@ function setNetMsg(t) { const e = $('#netMsg'); e.textContent = t || ''; e.hidde
 
 function setServer(ok, j) {
   const first = ok && !serverOK;
+  if (ok && j) initAds(j.ads);   // [ANUNCIOS]
   serverOK = ok; if (ok) lobbyConnect(); else lobbyClose();
   { const pl = $('#lobbyPlay'); if (pl) pl.classList.toggle('srvok', !!ok); }   // punto verde/rojo del botón «Servidor»
   setTimeout(() => { const oi = $('#onlineInfo'); if (oi) oi.title = oi.textContent; }, 0);   // el aviso se recorta a 4 líneas: el texto completo sale al pasar el ratón
@@ -2767,7 +2768,7 @@ function onNetKill(m) {
   }
   if (v === player) {
     player.streak = 0; player.hp = 0;
-    el.death.hidden = false; document.body.classList.add('dead'); if (document.exitPointerLock) document.exitPointerLock();   // [CORREGIDO] «dead» hace visible el cursor (antes quedaba invisible aunque se liberase el bloqueo)
+    el.death.hidden = false; document.body.classList.add('dead'); if (document.exitPointerLock) document.exitPointerLock(); onDeathAds();   // [ANUNCIOS]   // [CORREGIDO] «dead» hace visible el cursor (antes quedaba invisible aunque se liberase el bloqueo)
     el.deathBy.textContent = k && k !== v ? 'Te eliminó ' + k.name + ' con ' + m.w + (m.h ? ' (cabeza)' : '') + (m.ds != null ? ' · a ' + m.ds + ' m' : '') + (m.ah != null ? ' · le quedan ' + m.ah + ' de vida' : '') : 'Has caído';
     deathLook = k && k !== v ? k : null; net.respawnAt = performance.now() + (m.rs || 3) * 1000;
     renderDeathPick(); mouseL = mouseR = false; el.scope.hidden = true; el.optic.hidden = true; gun.visible = false; el.cross.style.opacity = 0;
@@ -3106,6 +3107,55 @@ async function syncRemote() {
   lobbyRefresh(); if (!$('#tab-store').hidden) renderStore(); if (!$('#tab-ranks').hidden) renderRanks();
   if (remote && remote.daily && !remote.daily.claimed && !dailyShown && state === 'menu') { dailyShown = true; setTimeout(() => { if (state === 'menu') openDaily(); }, 900); }   // [DIARIO] una vez por visita
   try { renderParty(); } catch (e) { /* aún no se ha iniciado la lobby */ }   // el botón «Premio diario» sale o se quita
+}
+/* [ANUNCIOS] Como en Krunker: en la pantalla de muerte, un banner y el botón «Ver anuncio · +PX» (vídeo con recompensa). Con Google (H5 Games
+   Ads) se usa adBreak({ type: 'reward' }); en modo de prueba sale un anuncio falso de 5 s. El premio lo pide el cliente al acabar y lo decide el
+   servidor (tope diario y espera entre anuncios). Sin ADS_PROVIDER en el servidor no se carga nada. */
+let ADS = null, adsLoaded = false, adBusy = false, adLeft = null;
+function initAds(a) {
+  ADS = a && a.provider ? a : null; if (!ADS || ADS.provider !== 'h5' || adsLoaded) return; adsLoaded = true;
+  window.adsbygoogle = window.adsbygoogle || []; window.adBreak = window.adConfig = function (o) { window.adsbygoogle.push(o); };
+  const sc = document.createElement('script'); sc.async = true; sc.crossOrigin = 'anonymous'; sc.setAttribute('data-ad-frequency-hint', '60s');
+  sc.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + encodeURIComponent(ADS.client); document.head.appendChild(sc);
+  window.adConfig({ preloadAdBreaks: 'on', sound: 'on' });
+}
+function onDeathAds() {
+  const head = $('#deathHead'); if (!ADS || !head) return;
+  let b = $('#adReward'); if (!b) { b = document.createElement('button'); b.type = 'button'; b.id = 'adReward'; head.appendChild(b); b.addEventListener('click', watchAd); }
+  b.hidden = !remote || adLeft === 0; b.disabled = adBusy; b.textContent = adBusy ? 'Cargando anuncio…' : '📺 Ver anuncio · +' + fmtKr(ADS.px) + ' PX';
+  if (!$('#adBanner') && (ADS.slot || ADS.provider === 'test')) {   // el banner se crea una vez y se queda (no se recarga en cada muerte)
+    const bx = document.createElement('div'); bx.id = 'adBanner'; head.appendChild(bx);   // debajo del botón, antes de la tienda de armas
+    if (ADS.provider === 'test') bx.innerHTML = '<div class="ad-fake">Anuncio<br><small>(modo de prueba: aquí irá un banner de 300 × 250)</small></div>';
+    else { bx.innerHTML = '<ins class="adsbygoogle" style="display:inline-block;width:300px;height:250px" data-ad-client="' + esc(ADS.client) + '" data-ad-slot="' + esc(ADS.slot) + '"></ins>'; try { window.adsbygoogle.push({}); } catch (e) { /* bloqueador de anuncios */ } }
+  }
+}
+async function claimAd() {
+  try { const j = await acctPost('api/me/adreward', {}); remote = j.profile; renderKr(); adLeft = j.left; sfx.gold(); toast('📺 +' + fmtKr(j.px) + ' PX por ver el anuncio · te quedan ' + j.left + ' hoy'); }
+  catch (e) { toast(e.message); if (/todos los anuncios/.test(e.message)) adLeft = 0; }
+  adBusy = false; onDeathAds();
+}
+function adSound(on) { try { if (!AC) return; if (on) AC.resume(); else AC.suspend(); } catch (e) { /* sin audio */ } }
+function watchAd() {
+  if (adBusy || !ADS || !remote) return; adBusy = true; onDeathAds();
+  const fail = msg => { adBusy = false; onDeathAds(); if (msg) toast(msg); };
+  if (ADS.provider === 'test') return testAd(ok => (ok ? claimAd() : fail('Tienes que ver el anuncio entero para ganar el premio.')));
+  let shown = false;
+  try {
+    window.adBreak({ type: 'reward', name: 'muerte',
+      beforeAd: () => adSound(false), afterAd: () => adSound(true),
+      beforeReward: show => { shown = true; show(); },
+      adDismissed: () => fail('Tienes que ver el anuncio entero para ganar el premio.'),
+      adViewed: () => claimAd(),
+      adBreakDone: info => { if (!shown) fail('Ahora mismo no hay anuncios disponibles. Prueba más tarde.'); else if (info && info.breakStatus !== 'viewed' && info.breakStatus !== 'dismissed') fail(''); } });
+  } catch (e) { fail('No se pudo cargar el anuncio (¿bloqueador de anuncios?).'); }
+}
+function testAd(done) {   // anuncio falso para probar el flujo sin red de anuncios
+  const d = document.createElement('div'); d.id = 'adTest'; let n = 5;
+  d.innerHTML = '<div class="ad-test-box"><small>ANUNCIO DE PRUEBA</small><b>Aquí saldrá un vídeo de verdad cuando actives la red de anuncios</b><p class="ad-left"></p><button type="button" data-ad="x">Cerrar sin premio</button><button type="button" data-ad="ok" hidden>Recoger premio</button></div>';
+  const left = d.querySelector('.ad-left'), draw = () => { left.textContent = n > 0 ? 'El premio se desbloquea en ' + n + ' s' : ''; left.hidden = n <= 0; d.querySelector('[data-ad="x"]').hidden = n <= 0; d.querySelector('[data-ad="ok"]').hidden = n > 0; };
+  draw(); document.body.appendChild(d); adSound(false);
+  const t = setInterval(() => { n--; draw(); if (n <= 0) clearInterval(t); }, 1000);   // solo cambia el texto: los botones no se vuelven a crear
+  d.addEventListener('click', e => { const b = e.target.closest('[data-ad]'); if (!b) return; clearInterval(t); d.remove(); adSound(true); done(b.dataset.ad === 'ok'); });
 }
 /* [DIARIO] Premio por entrar cada día: 7 casillas con el premio de cada día de la racha; el servidor decide y paga */
 let dailyShown = false;

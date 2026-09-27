@@ -621,7 +621,18 @@ setInterval(() => {
    ===================================================================== */
 const MIME = { '.webmanifest': 'application/manifest+json; charset=utf-8', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8' };
 let CDN_ORIGIN = ''; try { if (process.env.AVATAR_CDN_URL) CDN_ORIGIN = ' ' + new URL(process.env.AVATAR_CDN_URL).origin; } catch (e) { /* dirección no válida: se ignora */ }   // [NUEVO] el CDN de las fotos de perfil también puede servir imágenes
-const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:" + CDN_ORIGIN + "; connect-src 'self' ws: wss:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+/* [ANUNCIOS] Anuncios como en Krunker: banner en la pantalla de muerte y vídeo con recompensa (PX). Apagados salvo que se configuren:
+   ADS_PROVIDER=h5 (Google AdSense · H5 Games Ads) con ADS_CLIENT=ca-pub-… (y ADS_SLOT para el banner), o ADS_PROVIDER=test (anuncio falso
+   para probar). El premio lo da el servidor (accounts.js: ADS_REWARD_PX, ADS_PER_DAY, ADS_COOLDOWN_S). Con H5 se abren en la CSP los dominios de Google. */
+const ADS = (() => {
+  const prov = String(process.env.ADS_PROVIDER || '').toLowerCase(), client = /^ca-pub-\d{10,20}$/.test(String(process.env.ADS_CLIENT || '')) ? process.env.ADS_CLIENT : '';
+  const slot = /^\d{6,20}$/.test(String(process.env.ADS_SLOT || '')) ? process.env.ADS_SLOT : '';
+  if (prov === 'test') return { on: true, provider: 'test', client: '', slot: '' };
+  if (prov === 'h5' && client) return { on: true, provider: 'h5', client, slot };
+  return { on: false, provider: '', client: '', slot: '' };
+})();
+const ADS_HOSTS = ADS.provider === 'h5' ? ' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.googleadservices.com https://*.doubleclick.net https://*.gstatic.com https://*.adtrafficquality.google' : '';
+const CSP = "default-src 'self'; script-src 'self'" + ADS_HOSTS + "; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:" + CDN_ORIGIN + (ADS_HOSTS ? ' https:' : '') + "; connect-src 'self' ws: wss:" + ADS_HOSTS + ";" + (ADS_HOSTS ? " frame-src 'self'" + ADS_HOSTS + ";" : '') + " base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 
 function isPrivateAddr(a) {
   a = String(a || '').replace(/^::ffff:/, '');
@@ -664,7 +675,7 @@ const EPHEMERAL_HOST = PGDB ? '' : ON_RAILWAY ? (railVolOk() ? '' : 'RAILWAY_ENV
   : !process.env.DATA_DIR ? ['RENDER', 'DYNO', 'FLY_APP_NAME', 'K_SERVICE', 'VERCEL', 'NETLIFY'].find(k => process.env[k]) || '' : '';
 if (EPHEMERAL_HOST) console.log(new Date().toISOString(), '¡ATENCIÓN! Detectada la plataforma (' + EPHEMERAL_HOST + ') sin DATABASE_URL ni un disco persistente montado en ' + DATA_DIR + ': las cuentas, los PX y las compras se guardan en un disco que allí se BORRA al reiniciar o redesplegar. Configura DATABASE_URL (PostgreSQL) o un disco persistente con DATA_DIR.');
 function status() {
-  return { mail: accounts.mailOn(), terms: process.env.REQUIRE_TERMS !== '0', storage: { mode: PGDB ? 'postgres' : 'archivos', warn: !!EPHEMERAL_HOST, platform: EPHEMERAL_HOST }, protocol: PROTOCOL, admin: admin.adminUser, accounts: true, store: accounts.storeInfo().enabled, bp: true, market: true, social: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
+  return { ads: ADS.on ? { provider: ADS.provider, client: ADS.client, slot: ADS.slot, px: accounts.adsCfg.px, perDay: accounts.adsCfg.perDay } : null, mail: accounts.mailOn(), terms: process.env.REQUIRE_TERMS !== '0', storage: { mode: PGDB ? 'postgres' : 'archivos', warn: !!EPHEMERAL_HOST, platform: EPHEMERAL_HOST }, protocol: PROTOCOL, admin: admin.adminUser, accounts: true, store: accounts.storeInfo().enabled, bp: true, market: true, social: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
 }
 
 const server = http.createServer((req, res) => {

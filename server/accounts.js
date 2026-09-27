@@ -82,6 +82,17 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     const streak = i.streak + 1; u.daily = { last: dayStr(), streak }; grant(u, i.px, 'Premio diario (día ' + i.day + ')');
     return { ok: true, px: i.px, daily: dailyInfo(u), profile: pub(u) };
   }
+  /* [ANUNCIOS] Premio por ver un anuncio con recompensa: lo pide el cliente al acabar el vídeo. No se puede comprobar que se vio de verdad,
+     así que tiene tope diario y espera entre anuncios, y solo va si los anuncios están activados (ADS_PROVIDER). */
+  const adsCfg = { on: ['h5', 'test'].includes(String(env.ADS_PROVIDER || '').toLowerCase()), px: Math.max(1, Math.min(1000, +env.ADS_REWARD_PX || 25)), perDay: Math.max(1, Math.min(100, +env.ADS_PER_DAY || 10)), cool: Math.max(0, +env.ADS_COOLDOWN_S >= 0 ? +env.ADS_COOLDOWN_S : 45) };
+  function adReward(u) {
+    if (!adsCfg.on) return err(404, 'Los anuncios no están activados.');
+    const d = dayStr(); if (!u.ads || u.ads.d !== d) u.ads = { d, n: 0, t: 0 };
+    if (u.ads.n >= adsCfg.perDay) return err(429, 'Ya has visto todos los anuncios con premio de hoy. ¡Vuelve mañana!');
+    const wait = Math.ceil((u.ads.t + adsCfg.cool * 1000 - now()) / 1000); if (wait > 0) return err(429, 'Espera ' + wait + ' s para el siguiente anuncio con premio.');
+    u.ads.n++; u.ads.t = now(); grant(u, adsCfg.px, 'Anuncio visto');
+    return { ok: true, px: adsCfg.px, left: adsCfg.perDay - u.ads.n, profile: pub(u) };
+  }
   const hooks = { onRename: null };   // server.js lo usa para mantener la clasificación al día cuando alguien cambia de nombre
   const NAME_CHANGE_MS = (+env.NAME_CHANGE_DAYS >= 0 ? +env.NAME_CHANGE_DAYS : 7) * 86400000;   // espera entre cambios de nombre (el primero es libre)
   const REQUIRE_TERMS = env.REQUIRE_TERMS !== '0';   // [NUEVO] para crear una cuenta hay que aceptar los términos y la privacidad (REQUIRE_TERMS=0 lo desactiva, solo para pruebas)
@@ -371,6 +382,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
         else if (key === 'POST /api/me/rename') out = rename(u, b.username, ip);   // [NUEVO]
         else if (key === 'GET /api/me/referral') out = refInfo(u);   // [INVITACIONES]
         else if (key === 'POST /api/me/daily') out = dailyClaim(u);   // [DIARIO]
+        else if (key === 'POST /api/me/adreward') out = adReward(u);   // [ANUNCIOS]
         else if (key === 'POST /api/store/checkout') out = await checkout(u, String(b.pack || ''));
         else if (key === 'POST /api/store/paypal') out = paypalOrder(u, String(b.pack || ''));   // [PAYPAL]
         else { send(req, res, 404, { error: 'No encontrado.' }); return true; }
@@ -414,7 +426,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     const applied = d > 0 ? d : -Math.min(u.credits, -d); if (applied > 0) grantCr(u, applied, 'ajuste admin: ' + clean(reason, 80)); else if (applied < 0) spendCr(u, -applied, 'ajuste admin: ' + clean(reason, 80));
     return { ok: true, username: u.username, applied, credits: u.credits };
   }
-  return { deleteDays: sec.deleteDays, doc: D, adjustPx: adjust, adjustCr, vcfg, setVcfg, flush: () => db.flush(), storeOn, mailOn: sec.mailOn, onRemove: sec.onRemove, removeUser: sec.removeUser, purgeDue: sec.purgeDue, eco: () => Object.assign({}, D.eco || {}), markActive, takeColor, giveColor, touch, allUsers, handleHttp, handles, fromToken, nameTaken, awardMatch, profile: pub, flush: () => db.flush(), adjust, register, storeInfo, spend, grant, spendCr, grantCr, find, findById, rename, suggest, hooks, legacyPending, legacyDone, http: { send, readJson } };
+  return { adsCfg, deleteDays: sec.deleteDays, doc: D, adjustPx: adjust, adjustCr, vcfg, setVcfg, flush: () => db.flush(), storeOn, mailOn: sec.mailOn, onRemove: sec.onRemove, removeUser: sec.removeUser, purgeDue: sec.purgeDue, eco: () => Object.assign({}, D.eco || {}), markActive, takeColor, giveColor, touch, allUsers, handleHttp, handles, fromToken, nameTaken, awardMatch, profile: pub, flush: () => db.flush(), adjust, register, storeInfo, spend, grant, spendCr, grantCr, find, findById, rename, suggest, hooks, legacyPending, legacyDone, http: { send, readJson } };
 }
 
 module.exports = { createAccounts, ukey };
