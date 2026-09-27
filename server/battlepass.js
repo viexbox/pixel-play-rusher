@@ -129,6 +129,11 @@ function pgStore(pool, S) {
       const r = await pool.query('INSERT INTO bp_inventory (user_id, item_type, item_id, source) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING', [uid, t, id, source]);
       return r.rowCount > 0;
     },
+    async takeItem(uid, t, id) {   // [REGALOS ADMIN] quitar un objeto (y desequiparlo): false si no lo tenía
+      const r = await pool.query('DELETE FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3', [uid, t, id]);
+      if (r.rowCount) await pool.query('DELETE FROM bp_equipped WHERE user_id = $1 AND item_id = $2', [uid, id]);
+      return r.rowCount > 0;
+    },
     async equip(uid, slot, itemId, itemType) {
       if (!itemId) { await pool.query('DELETE FROM bp_equipped WHERE user_id = $1 AND slot = $2', [uid, slot]); return true; }
       const has = await pool.query('SELECT 1 FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3', [uid, itemType, itemId]);
@@ -218,6 +223,10 @@ function fileStore(dataDir, log, S) {
     async grantItem(uid, t, id, source) {   // [NUEVO] mascotas y canjes del evento: false si ya lo tenía
       const u = U(uid), k = t + ':' + id; if (u.inventory[k]) return false;
       u.inventory[k] = { t, id, source, ts: Date.now() }; st.save(); return true;
+    },
+    async takeItem(uid, t, id) {   // [REGALOS ADMIN] ver la versión de PostgreSQL
+      const u = U(uid), k = t + ':' + id; if (!u.inventory[k]) return false;
+      delete u.inventory[k]; for (const [slot, v] of Object.entries(u.equipped)) if (v === id) delete u.equipped[slot]; st.save(); return true;
     },
     async equip(uid, slot, itemId, itemType) {
       const u = U(uid); if (!itemId) { delete u.equipped[slot]; st.save(); return true; }
@@ -374,8 +383,34 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
       const what = []; if (vip) { const g = await lock(u.id, () => store.grantVip(u.id, 'administración')); what.push(g ? 'Pase VIP' : 'ya tenía VIP'); }
       if (xp > 0) { const r = await lock(u.id, () => store.addXp(u.id, xp)); what.push('+' + r.added + ' XP'); }
       admin.audit(s.user, 'pase-conceder', u.username + ': ' + what.join(', ')); return { ok: true, username: u.username, applied: what, state: await view(u) };
-    }
+    },
+    /* [REGALOS ADMIN] Regalar o quitar objetos (cuchillos de la ruleta y del pase, trajes, mascotas, skins, banners) a una cuenta */
+    'GET /bp/items': async () => ({ groups: GIFT_GROUPS() }),
+    'POST /bp/give': async ({ b, s }) => giftOp(b, s, true),
+    'POST /bp/take': async ({ b, s }) => giftOp(b, s, false)
   });
+  function GIFT_GROUPS() {
+    const it = (t, x, extra) => ({ t, id: x.id, n: x.n + (extra ? ' · ' + extra : ''), r: x.r || '' });
+    const wname = id => (S.WEAPONS.find(w => w.id === id) || {}).name || id;
+    return [
+      { n: 'Cuchillos de la ruleta', items: S.KNIFE_SKINS.filter(k => k.ru).map(k => it('kskin', k)) },
+      { n: 'Cuchillos del pase', items: S.KNIFE_SKINS.filter(k => !k.ru && !k.base).map(k => it('kskin', k)) },
+      { n: 'Trajes', items: S.OUTFITS.map(o => it('outfit', o)) },
+      { n: 'Mascotas', items: S.PETS.map(p => it('pet', p)) },
+      { n: 'Skins de arma', items: S.WEAPON_SKINS.map(w => it('wskin', w, wname(w.w))) },
+      { n: 'Banners', items: S.BANNERS.map(x => it('banner', x)) }
+    ];
+  }
+  async function giftOp(b, s, give) {
+    const u = accounts.find(String(b.username || '')); if (!u) return err(404, 'No existe esa cuenta.');
+    const t = String(b.t || ''), id = String(b.id || ''), def = ['kskin', 'wskin', 'outfit', 'pet', 'banner'].includes(t) ? S.bpFind({ t, id }) : null;
+    if (!def || def.base) return err(400, 'Objeto no válido.');
+    const why = String(b.reason || '').slice(0, 80);
+    const done = await lock(u.id, () => (give ? store.grantItem(u.id, t, id, 'regalo admin') : store.takeItem(u.id, t, id)));
+    if (!done) return err(409, give ? u.username + ' ya tiene ' + def.n + '.' : u.username + ' no tiene ' + def.n + '.');
+    admin.audit(s.user, give ? 'objeto-regalado' : 'objeto-quitado', u.username + ': ' + def.n + ' (' + t + ')' + (why ? ' · ' + why : ''));
+    return { ok: true, username: u.username, item: def.n, state: await view(u) };
+  }
 
   /* [SKINS VISIBLES] Las skins de arma equipadas, para que los demás jugadores las vean. Solo las que de verdad tiene en el inventario
      y que son de esa arma: el cliente no puede enseñar una skin que no tiene. */
