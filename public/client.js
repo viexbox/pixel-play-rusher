@@ -1498,6 +1498,7 @@ const BLADES = {   // perfil de la hoja (s = distancia desde la guarda, y = alto
   machete: { b: [['m', 0, -0.028], ['l', 0.46, -0.05], ['q', 0.56, -0.052, 0.57, 0.0], ['l', 0.5, 0.042], ['l', 0, 0.03]],
     e: [['m', 0, -0.028], ['l', 0.46, -0.05], ['q', 0.56, -0.052, 0.57, 0.0], ['l', 0.555, 0.0], ['q', 0.545, -0.036, 0.46, -0.038], ['l', 0, -0.018]] }
 };
+const BLADE_LEN = { classic: 1.16, bayonet: 1.02, dagger: 1.08, butterfly: 1.25, karambit: 1.35, machete: 0.95 };   // hojas de 0,50–0,55 m; karambit (curvo) ~0,40
 function bladeGeo(cmds, thick, key) {
   return kgeo(key, () => {
     const sh = new THREE.Shape();
@@ -1548,10 +1549,11 @@ function knifeMesh(K) {   // devuelve un grupo con el cuchillo completo (sin gua
   if (kind === 'butterfly') { swing = new THREE.Group(); swing.position.set(0, -0.018, 0.004); g.add(swing); tgt = new THREE.Group(); tgt.position.set(0, 0.018, -0.004); swing.add(tgt); }
   const add = (geo, m, x, y, z, rx, ry, rz, p) => { const o = new THREE.Mesh(geo, m); o.position.set(x || 0, y || 0, z || 0); o.rotation.set(rx || 0, ry || 0, rz || 0); (p || tgt).add(o); return o; };
   const box = (w, h, d, c, x, y, z, p) => add(chamferGeo(w, h, d, Math.min(w, h, d) * 0.25), typeof c === 'string' ? mat(c) : c, x, y, z, 0, 0, 0, p);
-  const blade = add(bladeGeo(BL.b, thick, kind + 'b'), M.blade);
-  add(bladeGeo(BL.e, thick + 0.003, kind + 'e'), M.edge);
-  if (!K.fx && kind !== 'karambit' && kind !== 'dagger') box(thick + 0.002, 0.007, kind === 'machete' ? 0.3 : 0.2, K.base ? '#8ea0bf' : K.edge, 0, kind === 'butterfly' ? 0.008 : 0.014, -0.16);   // canal (vaciado) de la hoja
-  if (M.halo) { const h = add(blade.geometry, M.halo); h.scale.set(2.6, 1.35, 1.04); h.position.z = 0.006; h.renderOrder = 2; }
+  const sl = BLADE_LEN[kind] || 1, bl = new THREE.Group(); bl.scale.set(1, 1 + (sl - 1) * 0.5, sl); tgt.add(bl);   // [CUCHILLOS] largo de la hoja por modelo (el clásico, como el de antes: ~0,52)
+  const blade = add(bladeGeo(BL.b, thick, kind + 'b'), M.blade, 0, 0, 0, 0, 0, 0, bl);
+  add(bladeGeo(BL.e, thick + 0.003, kind + 'e'), M.edge, 0, 0, 0, 0, 0, 0, bl);
+  if (!K.fx && kind !== 'karambit' && kind !== 'dagger') box(thick + 0.002, 0.007, kind === 'machete' ? 0.3 : 0.2, K.base ? '#8ea0bf' : K.edge, 0, kind === 'butterfly' ? 0.008 : 0.014, -0.16, bl);   // canal (vaciado) de la hoja
+  if (M.halo) { const h = add(blade.geometry, M.halo, 0, 0, 0.006, 0, 0, 0, bl); h.scale.set(2.6, 1.35, 1.04); h.renderOrder = 2; }
   const H = K.handle, G = K.guard;
   if (kind === 'classic') {
     box(0.03, 0.1, 0.025, G, 0, 0.002, 0); box(0.038, 0.05, 0.16, H, 0, -0.002, 0.095);
@@ -1565,16 +1567,16 @@ function knifeMesh(K) {   // devuelve un grupo con el cuchillo completo (sin gua
     box(0.028, 0.17, 0.022, G, 0, 0, 0); for (const y of [-0.09, 0.09]) add(kgeo('ball', () => new THREE.SphereGeometry(0.016, 10, 8)), mat(G), 0, y, 0);
     add(cylGeo(0.02, 0.024, 0.15, 10), mat(H), 0, 0, 0.087); for (const z of [0.04, 0.075, 0.11, 0.145]) add(cylGeo(0.026, 0.026, 0.008, 10), mat(G), 0, 0, z);
     add(kgeo('pom', () => new THREE.SphereGeometry(0.026, 12, 10)), mat(G), 0, 0, 0.18);
-    box(thick + 0.004, 0.006, 0.36, M.edge, 0, 0, -0.2);   // arista central
+    box(thick + 0.004, 0.006, 0.36, M.edge, 0, 0, -0.2, bl);   // arista central
   } else if (kind === 'butterfly') {   // dos mangos con pivote en la espiga: al sacarla (o con F) la hoja da la vuelta alrededor de la mano
     const halves = [];
     for (const sgn of [1, -1]) {
       const pv = new THREE.Group(); pv.position.set(0, sgn * 0.018, 0.004); (sgn > 0 ? tgt : g).add(pv); halves.push(pv);
-      box(0.03, 0.02, 0.22, H, 0, sgn * 0.011, 0.11, pv);
-      for (let i = 0; i < 4; i++) box(0.032, 0.008, 0.028, '#0a0d16', 0, sgn * 0.011, 0.04 + i * 0.045, pv);   // ventanas del mango
+      box(0.03, 0.02, 0.3, H, 0, sgn * 0.011, 0.15, pv);   // mangos casi tan largos como la hoja: cerrada, la tapan entera
+      for (let i = 0; i < 5; i++) box(0.032, 0.008, 0.03, '#0a0d16', 0, sgn * 0.011, 0.045 + i * 0.05, pv);   // ventanas del mango
       add(cylGeo(0.007, 0.007, 0.036, 8), mat(G), 0, 0, 0, 0, Math.PI / 2, 0, pv);   // pasador del pivote
-      box(0.034, 0.024, 0.02, G, 0, sgn * 0.011, 0.215, pv);
-      if (sgn < 0) box(0.012, 0.012, 0.05, G, 0, sgn * 0.022, 0.235, pv);   // pestillo
+      box(0.034, 0.024, 0.02, G, 0, sgn * 0.011, 0.295, pv);
+      if (sgn < 0) box(0.012, 0.012, 0.05, G, 0, sgn * 0.022, 0.315, pv);   // pestillo
     }
     box(0.016, 0.05, 0.012, G, 0, 0, 0.0); g.userData.bfly = { swing, top: halves[0] };
   } else if (kind === 'karambit') {
@@ -2117,7 +2119,7 @@ function updatePlayer(dt) {
     const ins = inspectT > 0 ? Math.sin(Math.PI * ease01(inspectT * 1.15)) : 0, spin = inspectT > 0 && !(knifeModel && knifeModel.userData.bfly) ? ease01((inspectT - 0.35) / 0.4) * Math.PI * 2 : 0;
     setButterfly(knifeModel, inspectT > 0 ? 0.5 + 0.5 * Math.cos(inspectT * Math.PI * 4) : knifeFlip);
     knifeG.position.set(0.26 - sl * 0.5 - ins * 0.12, -0.66 + sw * 0.4 + arc * 0.05 + idle + ins * 0.1, -0.4 - arc * 0.1 - ins * 0.05);
-    knifeG.rotation.set(0.3 - sl * 0.85 + arc * 0.2 + (1 - ease01(knifeFlip)) * 0.6, 0.2 + sl * 0.45 + ins * 1.1, 0.9 - sl * 1.8 - ins * 0.7 + spin);
+    knifeG.rotation.set(0.3 - sl * 0.85 + arc * 0.2 + (1 - ease01(knifeFlip)) * 0.6, 0.2 + sl * 0.45 + ins * 0.7, 0.9 - sl * 1.8 - ins * 0.7 + spin);
   } else knifeG.visible = false;
   gun.visible = gun.visible && sw < 0.98;
   reloadAnim = Math.max(0, reloadAnim - dt / Math.max(0.5, w.reload));
@@ -3229,7 +3231,7 @@ function outfitThumb(def) {
     thumbR.render(sc, cam); return (OUTFIT_THUMB[def.id] = thumbR.domElement.toDataURL());
   } catch (e) { return ''; }
 }
-/* [CUCHILLOS] Tienda de cuchillos: los de precio (px) se compran con PX; los del pase y del mercado se ven en el inventario */
+/* [RULETA] Evento de la ruleta de cuchillos: la tirada la resuelve el servidor (cobra y elige); aquí solo se anima la cinta hasta el premio */
 const KNIFE_THUMB = {};
 function knifeThumb(def) {
   if (KNIFE_THUMB[def.id]) return KNIFE_THUMB[def.id];
@@ -3243,30 +3245,57 @@ function knifeThumb(def) {
     thumbR.render(sc, cam); return (KNIFE_THUMB[def.id] = thumbR.domElement.toDataURL());
   } catch (e) { return ''; }
 }
+let roulBusy = false;
 function renderKnives() {
-  const box = $('#knivesBox'); if (!box) return;
-  const P = window.PPR_BP, st = P.state, eq = (P.equipped || {}).knife || '', px = krTotal();
-  const own = new Set(st && st.inventory ? st.inventory.filter(i => i.t === 'kskin').map(i => i.id) : []);
-  box.innerHTML = '<div class="storehead"><b>Cuchillos</b><span>Mariposa, karambit, bayoneta… Los de luces tienen efectos que se mueven. Pulsa F con el cuchillo en la mano para inspeccionarlo.</span></div>' +
-    (!remote ? '<p class="note warn">Inicia sesión con una cuenta online para tener cuchillos.</p>' : '') +
-    '<div class="pets outfits">' + S.KNIFE_SKINS.filter(k => k.px > 0).map(k => {
-      const rar = S.RARITY[k.r] || { n: '', c: '#9aa4b8' }, has = own.has(k.id), on = eq === k.id, img = knifeThumb(k);
-      const btn = !remote ? '<button type="button" disabled>' + fmtKr(k.px) + ' PX</button>'
-        : on ? '<button type="button" class="on" data-kq="' + k.id + '">Equipado ✓</button>'
-        : has ? '<button type="button" data-ke="' + k.id + '">Equipar</button>'
-        : '<button type="button" data-kb="' + k.id + '"' + (px < k.px ? ' disabled title="Te faltan ' + (k.px - px) + ' PX"' : '') + '>Comprar · ' + fmtKr(k.px) + ' PX</button>';
-      return '<div class="petcard' + (on ? ' on' : '') + (k.fx ? ' kfx' : '') + '" style="--rc:' + rar.c + (k.fx ? ';--kc:' + k.fx.col : '') + '"><span class="prar">' + esc(rar.n) + '</span>' + (img ? '<img src="' + img + '" width="120" height="77" alt="">' : '') + '<b>' + esc(k.n) + '</b>' + btn + '</div>';
-    }).join('') + '</div><p id="knifeMsg" class="note" role="status"></p>';
+  const box = $('#knivesBox'); if (!box || roulBusy) return;
+  const P = window.PPR_BP, st = P.state, eq = (P.equipped || {}).knife || '', px = krTotal(), R = S.KNIFE_ROULETTE;
+  const all = S.KNIFE_SKINS.filter(k => k.ru), own = new Set(st && st.inventory ? st.inventory.filter(i => i.t === 'kskin').map(i => i.id) : []);
+  const odds = S.rouletteOdds(remote ? [...own] : []), pOf = id => (odds.find(o => o.id === id) || {}).p || 0, left = all.filter(k => !own.has(k.id)).length;
+  const pct = p => (p * 100 >= 10 ? Math.round(p * 100) : (p * 100).toFixed(1).replace('.', ',')) + ' %';
+  const item = k => '<div class="ritem" style="--rc:' + (S.RARITY[k.r] || { c: '#9aa4b8' }).c + '"><img src="' + knifeThumb(k) + '" width="110" height="70" alt=""><span>' + esc(k.n) + '</span></div>';
+  const spinBtn = !remote ? '<button type="button" id="roulSpin" disabled>Girar · ' + fmtKr(R.px) + ' PX</button>'
+    : !left ? '<button type="button" id="roulSpin" disabled>¡Los tienes todos!</button>'
+    : '<button type="button" id="roulSpin"' + (px < R.px ? ' disabled title="Te faltan ' + (R.px - px) + ' PX"' : '') + '>Girar · ' + fmtKr(R.px) + ' PX</button>';
+  box.innerHTML = '<div class="storehead"><b><em class="evtag">Evento</em> Ruleta de cuchillos</b><span>Siempre un cuchillo nuevo: nunca repetidos.</span></div>' +
+    (!remote ? '<p class="note warn">Inicia sesión con una cuenta online para girar la ruleta.</p>' : '') +
+    '<div class="roul"><div class="roul-reel" id="roulReel">' + all.filter(k => !own.has(k.id) || !left).map(item).join('') + '</div><i class="roul-mark"></i></div>' +
+    '<div class="roul-act">' + spinBtn + (remote ? '<span>Tienes ' + (all.length - left) + ' de ' + all.length + '</span>' : '') + '</div><div id="roulWin" role="status"></div>' +
+    '<div class="pets outfits">' + all.map(k => {
+      const rar = S.RARITY[k.r] || { n: '', c: '#9aa4b8' }, has = own.has(k.id), on = eq === k.id;
+      const btn = !remote || !has ? '<button type="button" disabled>' + (remote ? 'Probabilidad: ' + pct(pOf(k.id)) : pct(pOf(k.id))) + '</button>'
+        : on ? '<button type="button" class="on" data-kq="' + k.id + '">Equipado ✓</button>' : '<button type="button" data-ke="' + k.id + '">Equipar</button>';
+      return '<div class="petcard' + (on ? ' on' : '') + (k.fx ? ' kfx' : '') + (remote && !has ? ' locked' : '') + '" style="--rc:' + rar.c + (k.fx ? ';--kc:' + k.fx.col : '') + '"><span class="prar">' + esc(rar.n) + '</span><img src="' + knifeThumb(k) + '" width="120" height="77" alt=""><b>' + esc(k.n) + '</b>' + btn + '</div>';
+    }).join('') + '</div><p class="note small">Las probabilidades son las de tu próxima tirada y cambian según los cuchillos que te faltan: ' +
+    Object.entries(R.weights).map(([r, w]) => (S.RARITY[r] || { n: r }).n + ' ' + w + ' %').join(' · ') + ' (repartido entre los que te faltan de cada rareza). Con ' + all.length + ' tiradas los consigues todos.</p><p class="note small">Pulsa F con el cuchillo en la mano para inspeccionarlo.</p><p id="knifeMsg" class="note" role="status"></p>';
+  const msg = t => { const m = $('#knifeMsg'); if (m) m.textContent = t; };
   const run = async (path, body, okMsg) => {
-    try { const j = await acctPost(path, body); if (j.state && P.applyState) P.applyState(j.state); renderKnives(); const bal = $('#storeBal'); if (bal) bal.textContent = fmtKr(krTotal()) + ' PX'; if (okMsg) toast(okMsg); }
-    catch (e) { const m = $('#knifeMsg'); if (m) m.textContent = e.message; }
+    try { const j = await acctPost(path, body); if (j.state && P.applyState) P.applyState(j.state); renderKnives(); if (okMsg) toast(okMsg); } catch (e) { msg(e.message); }
   };
-  for (const b of box.querySelectorAll('[data-kb]')) b.addEventListener('click', () => {
-    const d = S.KNIFE_SKINS.find(k => k.id === b.dataset.kb); if (!d || !window.confirm('¿Comprar el cuchillo ' + d.n + ' por ' + fmtKr(d.px) + ' PX?')) return;
-    b.disabled = true; run('api/bp/knife-buy', { id: d.id }, '¡Cuchillo ' + d.n + ' comprado! Pulsa «Equipar» para llevarlo.');
-  });
   for (const b of box.querySelectorAll('[data-ke]')) b.addEventListener('click', () => run('api/bp/equip', { slot: 'knife', item: b.dataset.ke }, 'Cuchillo equipado'));
   for (const b of box.querySelectorAll('[data-kq]')) b.addEventListener('click', () => run('api/bp/equip', { slot: 'knife', item: null }, 'Vuelves al cuchillo clásico'));
+  const sb = $('#roulSpin'); if (sb && !sb.disabled) sb.addEventListener('click', async () => {
+    if (!window.confirm('¿Girar la ruleta por ' + fmtKr(R.px) + ' PX?')) return;
+    sb.disabled = true; msg(''); roulBusy = true;
+    let j; try { j = await acctPost('api/bp/knife-spin', {}); } catch (e) { roulBusy = false; msg(e.message); sb.disabled = false; return; }
+    const win = S.KNIFE_SKINS.find(k => k.id === j.knife), pool = all.filter(k => !own.has(k.id)), reel = $('#roulReel');
+    const W = 118, AT = 36, strip = []; for (let i = 0; i < AT + 4; i++) strip.push(i === AT ? win : pool[Math.floor(Math.random() * pool.length)]);   // cinta de relleno con el premio en la posición AT
+    const done = () => {
+      if (!roulBusy) return; roulBusy = false;
+      if (j.state && P.applyState) P.applyState(j.state); const bal = $('#storeBal'); if (bal) bal.textContent = fmtKr(krTotal()) + ' PX';
+      renderKnives(); sfx.gold();
+      const wb = $('#roulWin'); if (wb) { wb.innerHTML = '<div class="roul-win' + (win.fx ? ' kfx' : '') + '" style="--rc:' + S.RARITY[win.r].c + (win.fx ? ';--kc:' + win.fx.col : '') + '"><img src="' + knifeThumb(win) + '" width="150" height="96" alt=""><div><small>' + esc(S.RARITY[win.r].n) + '</small><b>¡Te ha tocado ' + esc(win.n) + '!</b><button type="button" data-ke2="' + win.id + '">Equipar ahora</button></div></div>';
+        const eb = wb.querySelector('[data-ke2]'); if (eb) eb.addEventListener('click', () => run('api/bp/equip', { slot: 'knife', item: win.id }, 'Cuchillo equipado')); }
+      toast('¡Te ha tocado ' + win.n + '!');
+    };
+    if (!reel) return done();
+    reel.innerHTML = strip.map(item).join(''); reel.style.transition = 'none'; reel.style.transform = 'translateX(0)';
+    const vw = (reel.parentNode && reel.parentNode.clientWidth) || 600, reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches, T = reduce ? 0.6 : 4.6;
+    void reel.offsetWidth;
+    reel.style.transition = 'transform ' + T + 's cubic-bezier(.1,.75,.18,1)';
+    reel.style.transform = 'translateX(' + -(AT * W + W / 2 - vw / 2 + (Math.random() - 0.5) * W * 0.6) + 'px)';
+    let tick = 0; const tk = setInterval(() => { if (!roulBusy || ++tick > T * 9) return clearInterval(tk); if (tick % 2 === 0 || tick < T * 5) sfx.draw(); }, 110);   // «clic» de la ruleta que se va frenando
+    setTimeout(done, T * 1000 + 250);
+  });
 }
 function renderOutfits() {
   const box = $('#outfitsBox'); if (!box) return;

@@ -797,7 +797,7 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
 #teamBanner em{display:block;font-style:normal;font-size:13px;letter-spacing:.12em;opacity:.85;margin-top:4px}
 #teamBanner.t0 b{color:#5c9bff;text-shadow:0 0 22px rgba(47,123,255,.9)}#teamBanner.t1 b{color:#ff6b75;text-shadow:0 0 22px rgba(255,59,72,.9)}
 /* Tienda de PX y selector de mapa al terminar */
-.storehead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-size:18px;letter-spacing:.05em}
+.storehead{display:flex;flex-wrap:wrap;gap:2px 12px;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-size:18px;letter-spacing:.05em}
 .storehead em{font-style:normal;color:var(--volt);font-weight:900}
 .pets{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:10px 0 14px}
 .petcard{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:22px 8px 10px;background:linear-gradient(160deg,color-mix(in srgb,var(--rc) 18%,transparent),rgba(8,11,24,.8));border:1px solid color-mix(in srgb,var(--rc) 55%,transparent);text-align:center}
@@ -812,7 +812,22 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
 .petcard.kfx::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(100deg,transparent 30%,color-mix(in srgb,var(--kc) 30%,transparent) 50%,transparent 70%);background-size:250% 100%;animation:kfxSweep 2.4s linear infinite}
 @keyframes kfxGlow{50%{filter:drop-shadow(0 0 8px var(--kc)) brightness(1.25)}}
 @keyframes kfxSweep{from{background-position:120% 0}to{background-position:-120% 0}}
-@media (prefers-reduced-motion:reduce){.petcard.kfx img,.petcard.kfx::after{animation:none}}
+.petcard.locked img{filter:saturate(.55) brightness(.8)}
+.storehead .evtag{display:inline-block;margin-right:6px;padding:1px 7px;font-style:normal;font-size:11px;letter-spacing:.1em;text-transform:uppercase;vertical-align:middle;background:#ff3b48;color:#fff}
+.roul{position:relative;overflow:hidden;margin:8px 0;padding:8px 0;background:linear-gradient(90deg,rgba(8,11,24,.95),rgba(30,39,69,.8) 50%,rgba(8,11,24,.95));border:1px solid rgba(255,210,63,.45)}
+.roul-reel{display:flex;gap:8px;padding:0 8px;will-change:transform}
+.ritem{flex:0 0 110px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;background:linear-gradient(180deg,color-mix(in srgb,var(--rc) 25%,transparent),rgba(8,11,24,.6));border-bottom:3px solid var(--rc);font-size:11px;font-weight:800;white-space:nowrap}
+.roul-mark{position:absolute;top:0;bottom:0;left:50%;width:3px;margin-left:-1.5px;background:#ffd23f;box-shadow:0 0 10px #ffd23f;pointer-events:none}
+.roul-act{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.roul-act button{padding:10px 22px;font-size:16px;font-weight:900;background:linear-gradient(180deg,#ffd23f,#ff9f1a);color:#1a1030;border:2px solid #000}
+.roul-act button:disabled{opacity:.5;cursor:not-allowed}
+.roul-win{position:relative;display:flex;align-items:center;gap:14px;margin:0 0 10px;padding:10px;background:linear-gradient(120deg,color-mix(in srgb,var(--rc) 35%,transparent),rgba(8,11,24,.85));border:2px solid var(--rc);animation:roulPop .45s ease-out}
+.roul-win small{display:block;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--rc)}
+.roul-win b{display:block;font-size:18px;margin:2px 0 6px}
+.roul-win button{padding:6px 14px;font-weight:800;background:var(--rc);color:#0a0a12;border:1px solid #000}
+.roul-win.kfx img{animation:kfxGlow 1.6s ease-in-out infinite}
+@keyframes roulPop{from{transform:scale(.85);opacity:0}}
+@media (prefers-reduced-motion:reduce){.petcard.kfx img,.petcard.kfx::after,.roul-win,.roul-win.kfx img{animation:none}}
 .packs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:10px 0}
 .pack{position:relative;padding:12px 10px 10px;background:linear-gradient(160deg,rgba(255,220,58,.14),rgba(8,11,24,.75));border:1px solid rgba(255,220,58,.35);text-align:center}
 .pack .pxn{font-size:26px;font-weight:900;font-style:italic;color:#fff}.pack .pxn small{display:block;font-size:12px;letter-spacing:.2em;color:var(--volt);font-style:normal}

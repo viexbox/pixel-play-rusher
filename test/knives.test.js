@@ -1,5 +1,5 @@
 'use strict';
-/* Cuchillos de tienda: se compran con PX en el servidor (precio exacto, sin saldo no, dos veces no, los del pase no se venden),
+/* Cuchillos de la ruleta: cada tirada cuesta PX (lo cobra el servidor, que también pone el azar) y nunca da repetidos;
    se equipan solo si los tienes y los demás jugadores ven tu cuchillo. En el cliente (jsdom): cada modelo se construye,
    la mariposa se abre y se cierra, y las hojas con efecto mueven sus luces cada fotograma. */
 const { spawn } = require('child_process'); const path = require('path'); const fs = require('fs'); const WebSocket = require('ws'); const { JSDOM } = require('jsdom');
@@ -44,11 +44,11 @@ function clientChecks() {
   let tp = false; g.userData.knife.traverse(o => { if (o.isMesh && o.material.emissiveMap) tp = true; });
   ok(tp, 'en tercera persona el muñeco lleva el cuchillo que tiene equipado (el karambit con luces)');
   ok(!errors.length, 'sin errores en el cliente' + (errors.length ? ': ' + errors[0] : ''));
-  ok(!S.KNIFE_SKINS.filter(k => k.px).some(k => Object.values(S.BP_TIERS || {}).some(t => (t.free && t.free.id === k.id) || (t.vip && t.vip.id === k.id))), 'los cuchillos de tienda no salen en el pase de batalla');
+  ok(!S.KNIFE_SKINS.filter(k => k.ru).some(k => Object.values(S.BP_TIERS || {}).some(t => (t.free && t.free.id === k.id) || (t.vip && t.vip.id === k.id))), 'los cuchillos de la ruleta no salen en el pase de batalla');
 }
 
 async function server() {
-  console.log('\n=== Servidor: compra y visibilidad ===');
+  console.log('\n=== Servidor: ruleta y visibilidad ===');
   const port = 3951, B = 'http://127.0.0.1:' + port, dir = fs.mkdtempSync('/tmp/ppr-knives-');
   const srv = spawn('node', [path.join(__dirname, '..', 'server.js')], { env: Object.assign({}, process.env, { PORT: port, DATA_DIR: dir, ADMIN_PASSWORD: APASS, REQUIRE_TERMS: '0', FILL_BOTS: '0', DATABASE_URL: '' }), stdio: 'ignore' }); procs.push(srv);
   const call = async (m, p, b, tk) => { const r = await fetch(B + p, { method: m, headers: Object.assign({ 'Content-Type': 'application/json', 'X-Forwarded-For': ip() }, tk ? { Authorization: 'Bearer ' + tk } : {}), body: b ? JSON.stringify(b) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
@@ -56,15 +56,23 @@ async function server() {
   const reg = async (u, e) => (await call('POST', '/api/auth/register', { username: u, email: e, password: 'Clave-Segura-77', terms: true })).j.token;
   const TA = await reg('Nora_3', 'nora@e.com'), TB = await reg('Iker_5', 'iker@e.com');
   const LA = (await call('POST', '/api/admin/login', { user: 'Viexbox', password: APASS })).j.token;
-  const K = S.KNIFE_SKINS.find(k => k.id === 'k_mariposa_aurora'), cheap = S.KNIFE_SKINS.filter(k => k.px).sort((a, b) => a.px - b.px)[0];
-  await call('POST', '/api/admin/px', { username: 'Nora_3', delta: K.px + 10, reason: 'prueba' }, LA);
+  const R = S.KNIFE_ROULETTE, pool = S.KNIFE_SKINS.filter(k => k.ru);
+  await call('POST', '/api/admin/px', { username: 'Nora_3', delta: R.px * pool.length + 10, reason: 'prueba' }, LA);
   const px = async tk => (await call('GET', '/api/me', null, tk)).j.profile.px, p0 = await px(TA);
-  ok((await call('POST', '/api/bp/knife-buy', { id: K.id })).status === 401, 'sin sesión no se compra');
-  ok((await call('POST', '/api/bp/knife-buy', { id: 'k_oro' }, TA)).status === 400, 'un cuchillo del pase (sin precio) no está a la venta');
-  ok((await call('POST', '/api/bp/knife-buy', { id: cheap.id }, TB)).status === 402, 'sin PX suficientes no se compra');
-  const buy = await call('POST', '/api/bp/knife-buy', { id: K.id }, TA);
-  ok(buy.status === 200 && (await px(TA)) === p0 - K.px && buy.j.state.inventory.some(i => i.t === 'kskin' && i.id === K.id), 'comprar «' + K.n + '» cobra exactamente ' + K.px + ' PX y queda en el inventario');
-  ok((await call('POST', '/api/bp/knife-buy', { id: K.id }, TA)).status === 409 && (await px(TA)) === p0 - K.px, 'comprarlo otra vez no se permite ni cobra');
+  const odds = S.rouletteOdds([]); ok(odds.length === pool.length && Math.abs(odds.reduce((a, o) => a + o.p, 0) - 1) < 1e-9, 'probabilidades de la ruleta: ' + pool.length + ' cuchillos y suman 100 %');
+  const leg = odds.filter(o => S.KNIFE_SKINS.find(k => k.id === o.id).r === 'leyenda').reduce((a, o) => a + o.p, 0);
+  ok(Math.abs(leg - R.weights.leyenda / 100) < 1e-9, 'los legendarios salen un ' + (leg * 100) + ' % de las veces');
+  ok(S.rouletteOdds(pool.map(k => k.id)).length === 0 && S.rouletteOdds(pool.slice(1).map(k => k.id))[0].p === 1, 'si solo te falta uno, sale ese seguro; si los tienes todos, no hay tirada');
+  ok((await call('POST', '/api/bp/knife-spin', {})).status === 401, 'sin sesión no se gira');
+  ok((await call('POST', '/api/bp/knife-spin', {}, TB)).status === 402, 'sin PX suficientes no se gira');
+  const got = [];
+  for (let i = 0; i < pool.length; i++) { const r = await call('POST', '/api/bp/knife-spin', {}, TA); if (r.status === 200) got.push(r.j.knife); }
+  ok(got.length === pool.length && new Set(got).size === pool.length && got.every(id => pool.some(k => k.id === id)), pool.length + ' tiradas dan los ' + pool.length + ' cuchillos, sin ningún repetido (' + got.join(', ') + ')');
+  ok((await px(TA)) === p0 - R.px * pool.length, 'cada tirada cobra exactamente ' + R.px + ' PX');
+  const extra = await call('POST', '/api/bp/knife-spin', {}, TA);
+  ok(extra.status === 409 && (await px(TA)) === p0 - R.px * pool.length, 'con todos, la ruleta no deja girar ni cobra (' + extra.j.error + ')');
+  ok((await call('POST', '/api/bp/knife-buy', { id: pool[0].id }, TA)).status === 404, 'ya no se venden sueltos: solo por la ruleta');
+  const K = S.KNIFE_SKINS.find(k => k.id === 'k_mariposa_aurora');
   ok((await call('POST', '/api/bp/equip', { slot: 'knife', item: K.id }, TB)).status === 403, 'no se puede equipar un cuchillo que no tienes');
   const eq = await call('POST', '/api/bp/equip', { slot: 'knife', item: K.id }, TA);
   ok(eq.status === 200 && eq.j.state.equipped.knife === K.id, 'el tuyo sí se equipa');
