@@ -3,6 +3,7 @@
    Cuentas online: perfil propio y ajeno, foto (16 predefinidas o imagen propia reducida a 128×128), estado, amigos, bloqueos, denuncias y mercado con Créditos. */
 (function () {
   'use strict';
+  if (window.__PPR_SHELL) return;   // [MÓVIL] esta página solo es el marco: el juego corre dentro (shell.js)
   const P = window.PPR_BP; if (!P || !P.S || !P.describe) return;
   const S = P.S, esc = P.esc, $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)], fmt = n => Number(n).toLocaleString('es-ES');
   const tk = () => P.acctToken();

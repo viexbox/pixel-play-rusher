@@ -2,6 +2,7 @@
    El servidor decide todo (códigos, plazos, límites); aquí solo se piden los datos y se enseñan los mensajes. */
 (function () {
   'use strict';
+  if (window.__PPR_SHELL) return;   // [MÓVIL] esta página solo es el marco: el juego corre dentro (shell.js)
   const P = window.PPR_BP; if (!P || !P.apiUrl) return;
   const $ = s => document.querySelector(s), esc = P.esc;
   const tk = () => P.acctToken();

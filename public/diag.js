@@ -1,6 +1,7 @@
 /* Aviso visible si el juego no llega a cargar bien (así no hace falta abrir la consola del navegador). */
 (function () {
   'use strict';
+  if (window.__PPR_SHELL) return;   // [MÓVIL] esta página solo es el marco: el juego corre dentro (shell.js)
   var box = null;
   function show(msg) {
     if (!box) {

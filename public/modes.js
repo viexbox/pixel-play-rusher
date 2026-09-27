@@ -2,6 +2,7 @@
    Usa window.PPR_BP (puente con client.js). El servidor manda; aquí solo se elige, se dibuja y se avisa. */
 (function () {
   'use strict';
+  if (window.__PPR_SHELL) return;   // [MÓVIL] esta página solo es el marco: el juego corre dentro (shell.js)
   const P = window.PPR_BP; if (!P || !P.S || !P.net || !P.S.MODES) return;
   const S = P.S, esc = P.esc, $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)], fmt = n => Number(n).toLocaleString('es-ES');
   const tk = () => P.acctToken();

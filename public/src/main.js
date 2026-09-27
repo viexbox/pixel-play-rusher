@@ -71,7 +71,7 @@ export function bootstrap(opts = {}) {
 }
 
 // En el navegador arranca solo; en pruebas se importa sin efectos y se llama a bootstrap() a mano.
-if (typeof document !== 'undefined' && !globalThis.__PPR_MANUAL_BOOT__) {
+if (typeof document !== 'undefined' && !globalThis.__PPR_MANUAL_BOOT__ && !globalThis.__PPR_SHELL) {   // [MÓVIL] en el marco para móviles el juego va dentro del iframe
   const start = () => { globalThis.__ppr = bootstrap(); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 }
