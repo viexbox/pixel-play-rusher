@@ -44,6 +44,57 @@ const wsTry = origin => new Promise(res => { const ws = new WebSocket('ws://127.
   } catch (e) { ok(false, 'excepción: ' + e.stack); }
   srv.kill();
 
+  console.log('\n=== Cuenta de CrazyGames (token firmado) ===');
+  {
+    const crypto = require('crypto'), { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const pem = publicKey.export({ type: 'spki', format: 'pem' }), b64 = x => Buffer.from(x).toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+    const jwt = (body, key) => { const h = b64(JSON.stringify({ alg: 'RS256', typ: 'JWT' })), p = b64(JSON.stringify(body)), s = crypto.sign('RSA-SHA256', Buffer.from(h + '.' + p), key || privateKey); return h + '.' + p + '.' + s.toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_'); };
+    const P2 = 3350, B2 = 'http://127.0.0.1:' + P2, now = Math.floor(Date.now() / 1000);
+    const srv2 = spawn('node', [path.join(__dirname, '..', 'server.js')], { env: Object.assign({}, process.env, { PORT: P2, DATA_DIR: fs.mkdtempSync('/tmp/ppr-cg-'), FILL_BOTS: '0', REQUIRE_TERMS: '0', DATABASE_URL: '', CRAZYGAMES_PUBLIC_KEY: pem.replace(/\n/g, '\\n') }), stdio: 'ignore' });
+    try {
+      for (let k = 0; k < 60; k++) { try { if ((await fetch(B2 + '/healthz')).ok) break; } catch (e) { await sleep(150); } }
+      const post = async (u, b, tk) => { const r = await fetch(B2 + u, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json', Origin: 'https://games.crazygames.com' }, tk ? { Authorization: 'Bearer ' + tk } : {}), body: JSON.stringify(b) }); return { status: r.status, h: r.headers, j: await r.json().catch(() => ({})) }; };
+      let r = await post('/api/auth/crazygames', { token: jwt({ userId: 'cg-123', username: 'SuperTirador', gameId: 'krunxa', iat: now, exp: now + 3600 }) });
+      ok(r.status === 200 && r.j.token && r.j.profile.username === 'SuperTirador' && r.h.get('access-control-allow-origin') === 'https://games.crazygames.com', 'con el token de CrazyGames se crea una cuenta del servidor con su mismo nombre (' + (r.j.profile && r.j.profile.username) + ')');
+      const tk1 = r.j.token, id1 = r.j.profile.id;
+      r = await post('/api/me/adreward', { portal: 'crazygames' }, tk1); ok(r.status === 200 && r.j.px > 0, 'y esa cuenta ya guarda PX en el servidor (anuncio con premio: +' + r.j.px + ')');
+      r = await post('/api/auth/crazygames', { token: jwt({ userId: 'cg-123', username: 'OtroNombre', iat: now, exp: now + 3600 }) });
+      ok(r.status === 200 && r.j.profile.id === id1 && r.j.profile.px > 0, 'al volver otro día con el mismo usuario de CrazyGames entra en la MISMA cuenta, con su progreso');
+      r = await post('/api/auth/crazygames', { token: jwt({ userId: 'cg-456', username: 'SuperTirador', iat: now, exp: now + 3600 }) });
+      ok(r.status === 200 && r.j.profile.id !== id1 && r.j.profile.username !== 'SuperTirador', 'otro usuario con un nombre ya cogido recibe un nombre libre (' + (r.j.profile && r.j.profile.username) + ')');
+      const bad = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey;
+      ok((await post('/api/auth/crazygames', { token: jwt({ userId: 'cg-123', username: 'X', exp: now + 3600 }, bad) })).status === 401, 'un token falsificado (firmado con otra clave) se rechaza');
+      ok((await post('/api/auth/crazygames', { token: jwt({ userId: 'cg-123', username: 'X', exp: now - 3600 }) })).status === 401, 'un token caducado se rechaza');
+      ok((await post('/api/auth/crazygames', { token: 'nada.de.nada' })).status === 401 && (await post('/api/auth/crazygames', {})).status === 401, 'basura o sin token: rechazado');
+      ok((await post('/api/auth/login', { identifier: 'SuperTirador', password: '' })).status === 401, 'la cuenta de CrazyGames no tiene contraseña: no se puede entrar a ella con usuario y contraseña');
+    } catch (e) { ok(false, 'excepción: ' + e.stack); }
+    srv2.kill();
+  }
+
+  console.log('\n=== Cliente: entra con la cuenta de CrazyGames ===');
+  {
+    globalThis.__PPR_MANUAL_BOOT__ = true;
+    const { pathToFileURL } = require('url'), M = await import(pathToFileURL(path.join(__dirname, '..', 'public', 'src', 'main.js')).href);
+    const mem = () => { const m = new Map(); return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) }; };
+    const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8').replace(/<script[^>]*src[^>]*><\/script>/g, '').replace(/<link[^>]*(fonts|stylesheet)[^>]*>/g, '');
+    const posted = []; const oldFetch = globalThis.fetch;
+    globalThis.fetch = async (u, o) => { posted.push([String(u), o && o.body]); return { ok: true, status: 200, json: async () => ({ ok: true, token: 'tok-srv', profile: { username: 'SuperTirador', id: 'x' } }) }; };
+    let user = { username: 'SuperTirador' }, authFn = null; const readyQ = [];
+    globalThis.PPR_PORTAL = { name: 'crazygames', onReady: f => readyQ.push(f), accountAvailable: () => true, account: async () => (user ? { token: 'jwt-cg', username: user.username } : null), login: async () => { user = { username: 'SuperTirador' }; return true; }, onAuth: f => { authFn = f; } };
+    let w = new JSDOM(html, { pretendToBeVisual: true, url: 'https://ejemplo.test/' }).window; const stA = { local: mem(), session: mem() };
+    M.bootstrap({ document: w.document, storages: stA, config: { auth: true } }); readyQ.forEach(f => f()); await sleep(50);
+    ok(posted.some(([u, b]) => /api\/auth\/crazygames$/.test(u) && /jwt-cg/.test(b)) && /Cuenta online · SuperTirador/.test(w.document.querySelector('#sessName').textContent) && stA.local.getItem('ppr.acct') === 'tok-srv', 'con sesión en CrazyGames, el juego entra solo con su cuenta del servidor (' + w.document.querySelector('#sessName').textContent + ')');
+    ok(w.document.querySelector('#cgLinkBtn').hidden, 'y no enseña «Guardar progreso»');
+    user = null; posted.length = 0; readyQ.length = 0;
+    w = new JSDOM(html, { pretendToBeVisual: true, url: 'https://ejemplo.test/' }).window; const stB = { local: mem(), session: mem() };
+    M.bootstrap({ document: w.document, storages: stB, config: { auth: true } }); readyQ.forEach(f => f()); await sleep(50);
+    const bt = w.document.querySelector('#cgLinkBtn');
+    ok(/Invitado/.test(w.document.querySelector('#sessName').textContent) && !bt.hidden, 'sin sesión en CrazyGames se juega como invitado y aparece «Guardar progreso»');
+    bt.click(); await sleep(80);
+    ok(/Cuenta online · SuperTirador/.test(w.document.querySelector('#sessName').textContent) && bt.hidden, 'al pulsarlo se abre el acceso de CrazyGames y, al entrar, pasa a la cuenta del servidor con el progreso guardado');
+    delete globalThis.PPR_PORTAL; globalThis.fetch = oldFetch;
+  }
+
   console.log('\n=== Cliente con CrazyGames (SDK falso) ===');
   {
     const PUB = path.join(__dirname, '..', 'public');

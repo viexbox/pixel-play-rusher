@@ -44,6 +44,8 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 
 - Portales **CrazyGames/Poki**: `public/portal.js` (solo con `?portal=` o `PPR_PORTAL_NAME`): SDK, `gameplay()` desde el bucle `frame`, anuncio entre partidas (`portalBreak`) y con premio (ADS provider 'portal'), esconde Discord/Tienda/invitaciones (`html.portal`). Servidor: `portalOrigin()`, `PORTAL_ANCESTORS`, `CSP_PORTAL`, `portalAds` en `/api/status`. Paquete: `node scripts/build-portal.js poki|crazygames https://servidor` → `dist/`. Test `portal.test.js`.
 
+- CrazyGames: cuenta del portal = cuenta del servidor (`POST /api/auth/crazygames`, `cgLogin` en accounts.js, JWT RS256 con `CRAZYGAMES_PUBLIC_KEY`; `P.account()` en portal.js, `link()` y botón `#cgLinkBtn` «Guardar progreso» en src/main.js). Test en `portal.test.js`.
+
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).
 - (Dueño) Dar de alta el juego en CrazyGames y Poki (pasos en README). Estadísticas de jugadores en el panel.

@@ -53,7 +53,7 @@
       'Mensaje de chat': 'Chat message', 'Mercado': 'Market', 'Mi cuenta': 'My account', 'Mira': 'Sight', 'Mis anuncios': 'My listings',
       'Mis partidas (este navegador)': 'My matches (this browser)', 'Modo de juego': 'Game mode', 'Modos de juego': 'Game modes',
       'Mostrar el chat': 'Show chat', 'Motivo': 'Reason', 'Moverte': 'Move', 'Muertes': 'Deaths', 'Más recientes': 'Newest',
-      'Invitar amigos': 'Invite friends', 'Más secciones': 'More sections', 'NIVEL': 'LEVEL', 'NUEVO': 'NEW', 'Castillo Real': 'Castillo Real', 'Barrio Arcoíris': 'Barrio Arcoíris',
+      'Invitar amigos': 'Invite friends', 'Guardar progreso': 'Save progress', 'Más secciones': 'More sections', 'NIVEL': 'LEVEL', 'NUEVO': 'NEW', 'Castillo Real': 'Castillo Real', 'Barrio Arcoíris': 'Barrio Arcoíris',
       'Castillo Real y Barrio Arcoíris, mapas nuevos': 'Castillo Real and Barrio Arcoíris, new maps', 'Nivel 1': 'Level 1', 'Nombre nuevo': 'New name',
       'Nombre ofensivo': 'Offensive name', 'Normal': 'Normal', 'Noticias': 'News', 'Nv 1': 'Lv 1', 'ONLINE': 'ONLINE',
       'Ocultar el chat': 'Hide chat', 'Ocultar ✕': 'Hide ✕', 'Orden': 'Sort by', 'Otro': 'Other', 'PASE DE BATALLA': 'BATTLE PASS',
