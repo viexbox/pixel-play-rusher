@@ -991,6 +991,34 @@ body:not(.playing) #chatTab{left:8px;right:auto}
 #partyBox{position:absolute;left:50%;bottom:calc(16px + 132px);transform:translateX(-50%);width:min(640px,calc(100vw - 2*max(318px,23vw)));min-width:420px;z-index:7;display:none;text-align:center}
 body:not(.playing):not(.tabopen):not(.eqopen) #partyBox{display:block}
 #partyBox .pt-ref{border-color:rgba(255,210,63,.7);color:#ffd23f}
+#tutBox{position:absolute;left:50%;top:132px;transform:translateX(-50%);z-index:9;min-width:320px;max-width:min(560px,90vw);padding:10px 18px 12px;text-align:center;color:#fff;background:rgba(8,11,24,.82);border:2px solid #38e4ff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.4);pointer-events:auto}
+#tutBox[hidden]{display:none}#tutBox small{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#38e4ff;font-weight:800}
+#tutBox b{display:block;font-size:20px;margin:4px 0 6px}#tutBox button{padding:4px 10px;font-size:11px;font-weight:800;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);border-radius:6px;cursor:pointer}
+#tutBox.tut-in{animation:tutIn .35s ease-out}#tutBox.tut-ok{border-color:#2ecc71}
+@keyframes tutIn{from{opacity:0;transform:translate(-50%,-10px)}}
+@media (prefers-reduced-motion:reduce){#tutBox.tut-in{animation:none}}
+#adReward{display:block;margin:10px auto 0;padding:10px 18px;font-weight:900;font-size:15px;color:#12142a;background:linear-gradient(180deg,#ffd23f,#ff9f1a);border:2px solid #000;border-radius:6px;cursor:pointer}#adReward[hidden]{display:none}#adReward:disabled{opacity:.6;cursor:wait}
+#adBanner{width:300px;min-height:250px;margin:10px auto 0}
+#adBanner .ad-fake{display:grid;place-items:center;height:250px;color:#9aa4b8;background:rgba(255,255,255,.06);border:2px dashed rgba(255,255,255,.25);font-weight:800;text-align:center}
+#adTest{position:fixed;inset:0;z-index:90;display:grid;place-items:center;background:rgba(0,0,0,.92)}
+#adTest .ad-test-box{width:min(520px,90vw);padding:24px;text-align:center;color:#fff;background:#1a1f33;border:2px solid #ffd23f;border-radius:12px}
+#adTest small{letter-spacing:.14em;color:#ffd23f;font-weight:800}#adTest b{display:block;font-size:20px;margin:10px 0}
+#adTest button{padding:10px 18px;font-weight:800;border:0;border-radius:6px;cursor:pointer;background:#ffd23f;color:#12142a}#adTest button[data-ad="x"]{background:rgba(255,255,255,.15);color:#fff}
+#dailyModal{position:fixed;inset:0;z-index:72;display:grid;place-items:center;background:rgba(3,5,14,.8)}#dailyModal[hidden]{display:none}
+#dailyBox{width:min(620px,94vw);max-height:90vh;overflow:auto;background:#111733;border:2px solid #38e4ff;border-radius:12px;padding:18px 20px;color:#fff;text-align:center}
+#dailyBox h2{margin:0 0 6px;font-size:24px}#dailyBox p{opacity:.9}
+#dailyBox .dl-days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:12px 0}
+#dailyBox .dl-day{position:relative;padding:8px 2px;border-radius:8px;background:rgba(255,255,255,.06);border:2px solid transparent}
+#dailyBox .dl-day small{display:block;font-size:11px;opacity:.8}#dailyBox .dl-day b{display:block;font-size:18px;color:#ffd23f}#dailyBox .dl-day span{font-size:10px;opacity:.8}
+#dailyBox .dl-day.today{border-color:#38e4ff;background:rgba(56,228,255,.14);animation:dlPulse 1.4s ease-in-out infinite}
+#dailyBox .dl-day.done{opacity:.55}#dailyBox .dl-day i{position:absolute;top:2px;right:6px;font-style:normal;color:#2ecc71;font-weight:900}
+#dailyBox .dl-day:last-child b{font-size:20px;color:#ff9f1a}
+#dailyBox .dl-go{padding:10px 24px;font-size:16px;font-weight:900;color:#12142a;background:linear-gradient(180deg,#ffd23f,#ff9f1a);border:2px solid #000;border-radius:6px;cursor:pointer}
+#dailyBox .dl-x{padding:10px 18px;font-weight:800;color:#fff;background:rgba(255,255,255,.14);border:0;border-radius:6px;cursor:pointer}
+#dailyBox .dl-msg{color:#2ecc71;font-weight:800}
+@keyframes dlPulse{50%{box-shadow:0 0 14px #38e4ff}}
+@media (prefers-reduced-motion:reduce){#dailyBox .dl-day.today{animation:none}}
+#partyBox .pt-daily{border-color:rgba(56,228,255,.8);color:#38e4ff}
 #refModal{position:fixed;inset:0;z-index:72;display:grid;place-items:center;background:rgba(3,5,14,.8)}#refModal[hidden]{display:none}
 #refBox{width:min(520px,94vw);max-height:90vh;overflow:auto;background:#111733;border:2px solid #ffd23f;border-radius:12px;padding:18px 20px;color:#fff}
 #refBox h2{margin:0 0 8px;font-size:22px}#refBox .ref-how{line-height:1.4}
@@ -1293,6 +1321,7 @@ body.touch canvas#c,body.touch #touchUI{zoom:var(--uizi,1)}
       <div class="set"><label for="vol">Volumen</label><input type="range" id="vol" min="0" max="1" step="0.05"><output id="volO"></output></div>
       <div class="set"><label for="shadows">Sombras</label><input type="checkbox" id="shadows"><output id="shadowsO"></output></div>
       <div class="set"><label for="hq">Calidad gráfica alta</label><input type="checkbox" id="hq"><output id="hqO"></output></div>   <!-- [GRÁFICOS] -->
+      <div class="set"><label for="tutAgain">Tutorial</label><button type="button" id="tutAgain">Repetir en la próxima partida</button></div>   <!-- [TUTORIAL] -->
       <div class="set"><label for="wheelSwap">Cambiar arma con la rueda</label><input type="checkbox" id="wheelSwap"><output id="wheelSwapO"></output></div>   <!-- [NUEVO] -->
       <div class="set"><label for="shake">Sacudida de pantalla</label><input type="range" id="shake" min="0" max="100" step="5"><output id="shakeO"></output></div>   <!-- [NUEVO] 0 % = sin sacudida -->
       <div class="set"><label for="recoilCam">Retroceso de cámara</label><input type="range" id="recoilCam" min="0" max="100" step="5"><output id="recoilCamO"></output></div>   <!-- [NUEVO] retroceso visual al disparar (no desvía la puntería) -->

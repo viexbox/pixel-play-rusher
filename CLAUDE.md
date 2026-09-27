@@ -31,8 +31,10 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 - Móvil: `public/shell.js` (en `<head>`) convierte la página en un marco: el juego va en un iframe `?embed=1` de al menos 720 px de alto, escalado y girado 90° si el móvil está en vertical. La página de fuera no arranca el juego (`window.__PPR_SHELL`: cada script lo comprueba). No se usa con ratón ni para buscadores. Test `shell.test.js`.
 - Invitaciones: botón «🎁 Invita y gana PX» (`openReferral()` en client.js), enlace `?ref=CÓDIGO` que se guarda en `ppr.ref` y se manda al registrarse; `GET /api/me/referral`; premio en `awardMatch` al jugar `REF_GAMES` (3) partidas con premio: `REF_PX_INVITER` (300) y `REF_PX_FRIEND` (200). No cuenta con la misma conexión ni más de `REF_DAY_MAX` (5) al día. Test `referral.test.js`.
 - SEO: `GOOGLE_SITE_VERIFICATION` / `BING_SITE_VERIFICATION` ponen la etiqueta de verificación en la página (marcador `<!--__VERIFY__-->` en index.html). Test `seo-verify.test.js`. Ahora mismo la web pública es `https://krunxa.up.railway.app` (hasta pagar Railway Hobby para krunxa.com).
+- Premio diario (`dailyInfo/dailyClaim` en accounts.js, `POST /api/me/daily`, `DAILY_PX`; ventana `openDaily()` al entrar) y tutorial de la primera partida (`TUT`, `tickTutorial()` en client.js; `cfg.tutDone`, se repite desde Ajustes). Test `daily-tutorial.test.js`.
+- Anuncios (`ADS_PROVIDER=h5|test`, `ADS_CLIENT`, `ADS_SLOT`): banner y botón «Ver anuncio · +PX» en la pantalla de muerte (`onDeathAds()`/`watchAd()` en client.js; H5 Games Ads `adBreak({type:'reward'})`); premio en `POST /api/me/adreward` con tope diario y espera. La CSP abre los dominios de Google solo con `h5`. Test `ads.test.js`. Para activarlo de verdad hace falta dominio propio + cuenta de AdSense aprobada.
 
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).
-- Tutorial para jugadores nuevos, adaptar a CrazyGames/Poki, modo "plantar la bomba", estadísticas de jugadores en el panel.
+- Adaptar a CrazyGames/Poki, modo "plantar la bomba", estadísticas de jugadores en el panel.
 - Los `.glb` de `public/models/weapons` y `scripts/generate_weapons.py` ya no se usan.
