@@ -147,7 +147,7 @@ class Player {
     ws.send(str);
   }
   pub() {
-    return { pt: this.pet || '', sk: this.sk || undefined, id: this.id, n: this.name, c: this.cls, lk: this.lk, k: this.kills, d: this.deaths, p: this.points, alive: this.alive, rl: this.role || 0, tm: this.team, x: r3(this.x), y: r3(this.y), z: r3(this.z), yaw: r3(this.yaw), pitch: r3(this.pitch), h: this.h };
+    return { pt: this.pet || '', of: this.outfit || '', sk: this.sk || undefined, id: this.id, n: this.name, c: this.cls, lk: this.lk, k: this.kills, d: this.deaths, p: this.points, alive: this.alive, rl: this.role || 0, tm: this.team, x: r3(this.x), y: r3(this.y), z: r3(this.z), yaw: r3(this.yaw), pitch: r3(this.pitch), h: this.h };
   }
 }
 
@@ -894,6 +894,7 @@ function onMessage(ws, m, now) {
     } else joinedRoom = findRoom(map, mode, wantRanked, S.leagueIdx(p.mmr));
     joinedRoom.add(p);
     if (acct && bp && bp.equippedLook) bp.equippedLook(acct.id).then(sk => { if (!sk || !Object.keys(sk).length || !p.room) return; p.sk = sk; p.room.broadcast({ t: 'look', id: p.id, sk }); }).catch(() => {});   // [SKINS VISIBLES] las skins las decide el inventario, no el cliente
+    if (acct && bp && bp.equippedOutfit) bp.equippedOutfit(acct.id).then(of => { if (!of || !p.room) return; p.outfit = of; p.room.broadcast({ t: 'outfit', id: p.id, of }); }).catch(() => {});   // [TRAJES] el traje lo decide el inventario de la cuenta, no el cliente
     if (acct && bp && bp.equippedPet) bp.equippedPet(acct.id).then(pet => { if (!pet || !p.room) return; p.pet = pet; p.room.broadcast({ t: 'pet', id: p.id, pt: pet }); }).catch(() => {});   // [NUEVO] mascota: la decide el inventario de la cuenta, no el cliente
     if (renamedNote) ws.send(JSON.stringify({ t: 'notice', kind: 'sys', m: renamedNote }));
     return;

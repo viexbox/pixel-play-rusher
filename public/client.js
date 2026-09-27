@@ -1051,19 +1051,133 @@ function buildGun(w) {
 }
 
 /* Personaje: piernas con botas, torso con textura, cabeza con cara, brazos con el arma de su clase y equipo propio de cada clase */
+/* ===== [TRAJES] Trajes de personaje (S.OUTFITS): militar, camuflaje, bombero, antibombas, alienígena y hombre lobo.
+   Mismas medidas que el muñeco normal (piernas en y=0,78, torso en 1,15, cabeza en 1,4) para que las animaciones sirvan igual. ===== */
+const outfitDef = id => (id ? S.OUTFITS.find(o => o.id === id) : null) || null;
+const OUTFIT_TEX = {};
+function outfitCanvas(key, size, draw) {
+  if (OUTFIT_TEX[key]) return OUTFIT_TEX[key];
+  const c = document.createElement('canvas'); c.width = c.height = size; draw(c.getContext('2d'), size);
+  const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; return (OUTFIT_TEX[key] = t);
+}
+function camoDraw(g, n, of, seed) {   // manchas de camuflaje en 3 tonos
+  g.fillStyle = of.main; g.fillRect(0, 0, n, n); let r = seed || 11; const R = () => (r = (r * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 38; i++) { g.fillStyle = ['#39432a', '#8a8a55', '#2a2f1f'][i % 3]; const x = R() * n, y = R() * n, w = 4 + R() * 12, h = 3 + R() * 8; g.fillRect(x, y, w, h); g.fillRect(x + w * 0.3, y - h * 0.4, w * 0.5, h * 0.6); }
+}
+function outfitFront(of) {   // pecho del traje (cara −z del torso)
+  return outfitCanvas('front|' + of.id, 64, (g, n) => {
+    if (of.camo) camoDraw(g, n, of, 7); else { g.fillStyle = of.main; g.fillRect(0, 0, n, n); }
+    g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(0, 0, n, 3); g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, n - 5, n, 5);
+    if (of.kind === 'soldier') {
+      g.fillStyle = of.dark; g.fillRect(6, 6, 52, 46);                                        // chaleco
+      if (of.camo) { g.globalAlpha = 0.35; camoDraw(g, n, of, 3); g.globalAlpha = 1; g.fillStyle = 'rgba(40,46,28,.55)'; g.fillRect(6, 6, 52, 46); }
+      g.fillStyle = 'rgba(0,0,0,.35)'; [9, 24, 39].forEach(x => { g.fillRect(x, 30, 14, 18); }); g.fillStyle = 'rgba(255,255,255,.18)'; [9, 24, 39].forEach(x => g.fillRect(x, 30, 14, 2));   // bolsillos
+      g.fillStyle = of.acc; g.fillRect(10, 12, 18, 6); g.fillStyle = '#e9edf5'; g.fillRect(36, 12, 16, 10); g.fillStyle = of.main; g.fillRect(36, 12, 16, 3);   // cinta de nombre y bandera
+      g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(30, 6, 3, 46);
+    } else if (of.kind === 'firefighter') {
+      g.fillStyle = of.dark; g.fillRect(30, 0, 4, n);                                            // cierre
+      for (const y of [18, 44]) { g.fillStyle = of.acc; g.fillRect(0, y, n, 3); g.fillStyle = '#e9edf5'; g.fillRect(0, y + 3, n, 3); g.fillStyle = of.acc; g.fillRect(0, y + 6, n, 3); }   // bandas reflectantes
+      g.fillStyle = '#2a2a22'; [8, 30].forEach(y => { g.fillRect(24, y, 5, 3); g.fillRect(35, y, 5, 3); });
+    } else if (of.kind === 'eod') {
+      g.fillStyle = of.dark; g.fillRect(8, 4, 48, 40); g.fillStyle = 'rgba(255,255,255,.1)'; g.fillRect(8, 4, 48, 3);   // placa de pecho
+      g.fillStyle = of.acc; g.font = 'bold 13px sans-serif'; g.textAlign = 'center'; g.fillText('EOD', 32, 30);
+      g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(4, 48, 56, 10); g.fillStyle = '#2a2a22'; g.fillRect(12, 0, 5, 48); g.fillRect(47, 0, 5, 48);
+    } else if (of.kind === 'alien') {
+      g.fillStyle = 'rgba(0,0,0,.12)'; for (let x = 0; x < n; x += 8) g.fillRect(x, 0, 1, n);
+      g.fillStyle = of.dark; g.fillRect(0, 50, n, 6); g.fillStyle = of.acc; g.beginPath(); g.moveTo(32, 12); g.lineTo(46, 28); g.lineTo(32, 44); g.lineTo(18, 28); g.closePath(); g.fill();
+      g.fillStyle = '#0b1020'; g.beginPath(); g.moveTo(32, 20); g.lineTo(38, 28); g.lineTo(32, 36); g.lineTo(26, 28); g.closePath(); g.fill();
+    } else if (of.kind === 'wolf') {
+      let r = 5; const R = () => (r = (r * 16807) % 2147483647) / 2147483647;
+      for (let i = 0; i < 90; i++) { g.fillStyle = i % 2 ? of.dark : '#8a7560'; g.fillRect(R() * n, R() * n, 2, 5 + R() * 5); }
+      g.fillStyle = '#b8a48c'; g.beginPath(); g.moveTo(18, 10); g.lineTo(46, 10); g.lineTo(40, 50); g.lineTo(24, 50); g.closePath(); g.fill();   // pecho claro
+      g.fillStyle = '#3b4a6b'; g.fillRect(0, 54, n, 10); g.fillStyle = '#b8a48c'; for (let x = 2; x < n; x += 9) g.fillRect(x, 52, 4, 5);   // camisa rota
+    }
+  });
+}
+function outfitFace(of) {   // cara de los trajes que no enseñan la del jugador (alienígena y lobo)
+  return outfitCanvas('face|' + of.id, 32, (g) => {
+    if (of.kind === 'alien') {
+      g.fillStyle = of.helm; g.fillRect(0, 0, 32, 32); g.fillStyle = 'rgba(0,0,0,.1)'; g.fillRect(0, 26, 32, 6);
+      g.fillStyle = '#0b1020'; g.beginPath(); g.ellipse(9, 15, 6, 8, -0.5, 0, TAU); g.fill(); g.beginPath(); g.ellipse(23, 15, 6, 8, 0.5, 0, TAU); g.fill();
+      g.fillStyle = 'rgba(160,255,200,.8)'; g.fillRect(7, 11, 2, 2); g.fillRect(21, 11, 2, 2); g.fillStyle = '#2b5a20'; g.fillRect(13, 26, 6, 1);
+    } else {
+      g.fillStyle = of.main; g.fillRect(0, 0, 32, 32); g.fillStyle = of.dark; for (let i = 0; i < 20; i++) g.fillRect((i * 7) % 30, (i * 11) % 30, 2, 4);
+      g.fillStyle = '#b8a48c'; g.fillRect(8, 18, 16, 14); g.fillStyle = '#0b0b12'; g.fillRect(5, 10, 8, 2); g.fillRect(19, 10, 8, 2);
+      g.fillStyle = of.acc; g.fillRect(7, 12, 6, 4); g.fillRect(19, 12, 6, 4); g.fillStyle = '#0b0b12'; g.fillRect(9, 13, 2, 3); g.fillRect(21, 13, 2, 3);
+    }
+  });
+}
+function outfitBody(g, of, team, seed, mk) {
+  const k = of.kind, side = new THREE.MeshLambertMaterial({ color: of.camo ? '#ffffff' : of.main, map: of.camo ? outfitCanvas('camo|' + of.id, 32, (c, n) => camoDraw(c, n, of, 5)) : null });
+  const mkT = (p, w, h, d, tex, x, y, z) => { const m = new THREE.Mesh(BG(w, h, d), new THREE.MeshLambertMaterial({ map: tex })); m.position.set(x, y, z); m.castShadow = true; p.add(m); return m; };
+  const camoT = of.camo ? outfitCanvas('camo|' + of.id, 32, (c, n) => camoDraw(c, n, of, 5)) : null;
+  const legL = new THREE.Group(), legR = new THREE.Group(); legL.position.set(-0.14, 0.78, 0); legR.position.set(0.14, 0.78, 0);
+  const bulky = k === 'eod', lw = bulky ? 0.3 : 0.25;
+  [legL, legR].forEach((l, i) => {
+    if (camoT) mkT(l, lw, 0.6, 0.28, camoT, 0, -0.3, 0); else mk(l, lw, 0.6, bulky ? 0.32 : 0.28, of.pants, 0, -0.3, 0);
+    if (k === 'wolf') { mk(l, 0.29, 0.14, 0.34, of.main, 0, -0.6, -0.02); mk(l, 0.3, 0.12, 0.42, of.dark, 0, -0.72, -0.06); for (const x of [-0.08, 0, 0.08]) mk(l, 0.04, 0.04, 0.06, '#f2ede0', x, -0.74, -0.29); }   // patas con garras
+    else {
+      mk(l, lw + 0.02, bulky ? 0.2 : 0.07, bulky ? 0.36 : 0.3, of.dark, 0, bulky ? -0.46 : -0.52, -0.01);                // rodilleras / espinilleras
+      mk(l, 0.28, k === 'firefighter' ? 0.28 : 0.2, 0.37, k === 'alien' ? of.dark : '#1c1a16', 0, k === 'firefighter' ? -0.64 : -0.68, -0.035); mk(l, 0.29, 0.03, 0.39, '#0d101c', 0, -0.775, -0.035);
+      if (k === 'firefighter') { mk(l, 0.27, 0.035, 0.3, of.acc, 0, -0.38, 0); mk(l, 0.27, 0.035, 0.3, '#e9edf5', 0, -0.345, 0); }
+      if (k === 'soldier' && i === 1) mk(l, 0.07, 0.14, 0.14, of.dark, 0.15, -0.22, 0);   // bolsillo del muslo
+    }
+    g.add(l);
+  });
+  if (camoT) mkT(g, 0.58, 0.16, 0.33, camoT, 0, 0.82, 0); else mk(g, 0.58, 0.16, bulky ? 0.38 : 0.33, k === 'wolf' ? '#3b4a6b' : of.pants, 0, 0.82, 0);
+  mk(g, 0.6, 0.07, 0.35, k === 'alien' ? of.acc : '#2a2a22', 0, 0.91, 0, k === 'alien'); mk(g, 0.1, 0.08, 0.02, k === 'alien' ? '#ffffff' : of.acc, 0, 0.91, -0.18, true);   // cinturón
+  const tw = bulky ? 0.74 : k === 'wolf' ? 0.68 : 0.62, th = bulky ? 0.6 : 0.52, td = bulky ? 0.46 : 0.38;
+  const back = new THREE.MeshLambertMaterial({ color: new THREE.Color(of.camo ? of.main : of.main).multiplyScalar(0.82) });
+  const torso = new THREE.Mesh(BG(tw, th, td), [side, side, side, mat(of.dark), back, new THREE.MeshLambertMaterial({ map: outfitFront(of) })]); torso.position.y = 1.15 + (bulky ? 0.02 : 0); torso.castShadow = true; g.add(torso);
+  for (const x of [-1, 1]) mk(g, bulky ? 0.24 : 0.2, bulky ? 0.16 : 0.12, bulky ? 0.48 : 0.4, team, x * (tw / 2 - 0.06), 1.36 + (bulky ? 0.02 : 0), 0);   // hombreras del color del equipo
+  if (k === 'soldier') { for (const x of [-0.14, 0, 0.14]) mk(g, 0.12, 0.13, 0.06, of.dark, x, 1.02, -0.21); mk(g, 0.42, 0.48, 0.18, of.dark, 0, 1.15, 0.27); mk(g, 0.03, 0.4, 0.03, '#1c1a16', 0.15, 1.5, 0.3); }   // bolsillos, mochila y antena
+  else if (k === 'firefighter') { const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.5, 12), mat('#ffd23a')); tank.position.set(0, 1.15, 0.28); tank.castShadow = true; g.add(tank); mk(g, 0.08, 0.06, 0.08, '#8a93b8', 0, 1.43, 0.28); mk(g, 0.64, 0.05, 0.4, '#2a2a22', 0, 1.26, 0); }
+  else if (bulky) { mk(g, 0.64, 0.16, 0.54, of.dark, 0, 1.46, 0); mk(g, 0.4, 0.22, 0.06, of.dark, 0, 0.8, -0.2); }   // cuello protector y placa de ingle
+  else if (k === 'alien') { mk(g, 0.5, 0.05, 0.4, of.acc, 0, 1.3, 0, true); }
+  else if (k === 'wolf') { const tail = mk(g, 0.12, 0.12, 0.38, of.main, 0, 0.92, 0.3); tail.rotation.x = -0.6; mk(g, 0.1, 0.1, 0.1, of.dark, 0, 0.8, 0.46); mk(g, 0.62, 0.14, 0.34, of.main, 0, 1.43, 0.02); }
+  const head = new THREE.Group(); head.position.set(0, 1.4, 0); g.add(head);
+  const H = (w, h, d, c, x, y, z, basic) => mk(head, w, h, d, c, x, y, z, basic);
+  const skin = SKINS[seed % SKINS.length];
+  if (k === 'alien' || k === 'wolf') {
+    const hs = k === 'alien' ? [0.46, 0.5, 0.46] : [0.42, 0.42, 0.42], hc = k === 'alien' ? of.helm : of.main;
+    const hm = new THREE.Mesh(BG(hs[0], hs[1], hs[2]), [mat(hc), mat(hc), mat(hc), mat(hc), mat(hc), new THREE.MeshLambertMaterial({ map: outfitFace(of) })]); hm.position.y = hs[1] / 2; hm.castShadow = true; head.add(hm);
+    if (k === 'alien') { for (const x of [-1, 1]) { const an = H(0.03, 0.22, 0.03, of.helm, x * 0.12, 0.6, 0); an.rotation.z = -x * 0.35; H(0.07, 0.07, 0.07, of.acc, x * 0.17, 0.72, 0, true); } H(0.1, 0.1, 0.1, of.helm, 0, -0.02, 0); }
+    else {
+      H(0.2, 0.14, 0.2, '#b8a48c', 0, 0.12, -0.28); H(0.08, 0.05, 0.04, '#0b0b12', 0, 0.18, -0.39);   // hocico y nariz
+      for (const x of [-0.05, 0.05]) H(0.03, 0.05, 0.02, '#f2ede0', x, 0.04, -0.38);                    // colmillos
+      for (const x of [-1, 1]) { const ear = H(0.1, 0.16, 0.06, of.main, x * 0.13, 0.48, 0.02); ear.rotation.z = -x * 0.2; H(0.05, 0.09, 0.02, '#b8a48c', x * 0.13, 0.47, -0.01); }
+      for (const x of [-0.1, 0.1]) H(0.07, 0.04, 0.01, of.acc, x, 0.29, -0.215, true);                  // ojos que brillan
+      H(0.1, 0.1, 0.1, of.main, 0, -0.02, 0);
+    }
+    return { legL, legR, head, sleeve: k === 'alien' ? of.main : of.main, cuff: team, gl: k === 'alien' ? of.helm : of.dark };
+  }
+  if (bulky) {   // casco antibombas: grande, sin cara, visera oscura con reflejo
+    H(0.56, 0.56, 0.56, of.helm, 0, 0.24, 0.02); H(0.46, 0.26, 0.03, '#15232c', 0, 0.26, -0.265, true); H(0.08, 0.2, 0.031, '#9fe8ff', -0.12, 0.3, -0.27, true); H(0.6, 0.06, 0.6, of.dark, 0, 0.0, 0.02);
+    return { legL, legR, head, sleeve: of.main, cuff: team, gl: '#2a2a22' };
+  }
+  const hm = new THREE.Mesh(BG(0.4, 0.4, 0.4), headMat(skin, seed)); hm.position.y = 0.2; hm.castShadow = true; head.add(hm);
+  H(0.1, 0.1, 0.1, skin, 0, -0.02, 0);
+  if (k === 'firefighter') { H(0.5, 0.2, 0.5, of.helm, 0, 0.37, 0); H(0.52, 0.04, 0.34, of.helm, 0, 0.27, 0.18); H(0.12, 0.13, 0.03, '#ffd23a', 0, 0.37, -0.26, true); H(0.06, 0.12, 0.44, of.helm, 0, 0.5, 0.02); H(0.46, 0.1, 0.03, '#bfe9ff', 0, 0.3, -0.255); }
+  else { H(0.48, 0.18, 0.48, of.helm, 0, 0.37, 0); H(0.52, 0.04, 0.54, of.helm, 0, 0.29, -0.01); H(0.46, 0.05, 0.05, '#1c1a16', 0, 0.33, -0.245); H(0.12, 0.05, 0.02, '#9fe8ff', -0.1, 0.33, -0.27, true); H(0.12, 0.05, 0.02, '#9fe8ff', 0.1, 0.33, -0.27, true); }
+  return { legL, legR, head, sleeve: of.camo ? of.dark : of.main, cuff: team, gl: '#2a2a22' };
+}
 function fillCharacter(g, color, wi, seed, skinIdx, opticId, accent) {
   while (g.children.length) g.remove(g.children[0]);
   const shirt = new THREE.Color(color), dark = '#' + shirt.clone().multiplyScalar(0.5).getHexString(), light = '#' + shirt.clone().lerp(new THREE.Color('#ffffff'), 0.45).getHexString();
   const skin = SKINS[(skinIdx == null ? seed : skinIdx) % SKINS.length], pants = PANTS[seed % PANTS.length], boot = '#1c2033', glove = '#1c2236';
   const mk = (p, w, h, d, c, x, y, z, basic) => { const m = new THREE.Mesh(BG(w, h, d), basic ? basicMat(c) : mat(c)); m.position.set(x, y, z); m.castShadow = !basic; p.add(m); return m; };
-  const legL = new THREE.Group(), legR = new THREE.Group();
+  const of = outfitDef(g.userData.outfit);   // [TRAJES] con traje, el cuerpo entero sale del traje (el color del equipo va en hombreras y brazaletes)
+  let legL, legR, head, sleeve = color, cuff = dark, gl = glove;
+  if (of) ({ legL, legR, head, sleeve, cuff, gl } = outfitBody(g, of, color, seed, mk));
+  else {
+  legL = new THREE.Group(); legR = new THREE.Group();
   legL.position.set(-0.14, 0.78, 0); legR.position.set(0.14, 0.78, 0);
   [legL, legR].forEach(l => { mk(l, 0.25, 0.6, 0.28, pants, 0, -0.3, 0); mk(l, 0.27, 0.06, 0.3, '#3d4566', 0, -0.52, -0.01); mk(l, 0.28, 0.2, 0.37, boot, 0, -0.68, -0.035); mk(l, 0.29, 0.03, 0.39, '#0d101c', 0, -0.775, -0.035); g.add(l); });
   mk(g, 0.58, 0.16, 0.33, pants, 0, 0.82, 0); mk(g, 0.6, 0.07, 0.35, '#3b2f2a', 0, 0.91, 0); mk(g, 0.1, 0.08, 0.02, '#ffdc3a', 0, 0.91, -0.18);
   const style = wi === 8 ? 2 : wi;
   const torso = new THREE.Mesh(BG(0.62, 0.52, 0.36), torsoMat(color, style)); torso.position.y = 1.15; torso.castShadow = true; g.add(torso);
   mk(g, 0.7, 0.12, 0.4, accent || dark, 0, 1.36, 0); // hombreras (con el color elegido en el lobby)
-  const head = new THREE.Group(); head.position.set(0, 1.4, 0); g.add(head);
+  head = new THREE.Group(); head.position.set(0, 1.4, 0); g.add(head);
   const hm = new THREE.Mesh(BG(0.4, 0.4, 0.4), headMat(skin, seed)); hm.position.y = 0.2; hm.castShadow = true; head.add(hm);
   mk(head, 0.1, 0.1, 0.1, skin, 0, -0.02, 0); // cuello
   const H = (w, h, d, c, x, y, z, basic) => mk(head, w, h, d, c, x, y, z, basic);
@@ -1080,9 +1194,10 @@ function fillCharacter(g, color, wi, seed, skinIdx, opticId, accent) {
     default: H(0.08, 0.18, 0.4, '#ff4d9a', 0, 0.47, 0); H(0.44, 0.07, 0.04, '#111111', 0, 0.22, -0.22); H(0.44, 0.06, 0.05, hair, 0, 0.41, -0.2);
   }
   if (wi === 0 || wi === 3 || wi === 2) mk(g, 0.4, 0.46, 0.16, wi === 3 ? '#3a6136' : wi === 2 ? '#3b4258' : dark, 0, 1.15, 0.26); // mochila
+  }
   const aim = new THREE.Group(); aim.position.set(0, 1.25, 0); g.add(aim);
   const w = WEAPONS[wi] || WEAPONS[0];
-  const arm = (x, ry, len) => { const a = new THREE.Group(); a.position.set(x, 0, 0); a.rotation.y = ry; mk(a, 0.16, 0.16, len, color, 0, 0, -len / 2 + 0.05); mk(a, 0.17, 0.17, 0.08, dark, 0, 0, -len * 0.55); mk(a, 0.14, 0.14, 0.14, glove, 0, 0, -len + 0.08); aim.add(a); };
+  const arm = (x, ry, len) => { const a = new THREE.Group(); a.position.set(x, 0, 0); a.rotation.y = ry; mk(a, 0.16, 0.16, len, sleeve, 0, 0, -len / 2 + 0.05); mk(a, 0.17, 0.17, 0.08, cuff, 0, 0, -len * 0.55); mk(a, 0.14, 0.14, 0.14, gl, 0, 0, -len + 0.08); aim.add(a); };
   arm(0.38, 0.35, 0.56);
   if (!w.dual) arm(-0.38, -0.5, 0.66); else arm(-0.38, -0.2, 0.56);
   const guns = [];
@@ -1100,6 +1215,9 @@ function buildBot(color, wi, seed, skinIdx, accent) {
 }
 /* [SKINS VISIBLES] aplica las skins de otro jugador y redibuja su arma */
 function applyLook(f, sk) { if (!f || !f.mesh) return; f.mesh.userData.skins = sk || {}; const wi = f.mesh.userData.wi; if (wi == null) return; f.mesh.userData.wi = -1; setOutfit(f, wi); }
+/* [TRAJES] el traje de un jugador (lo manda el servidor según su inventario) o de un bot del entrenamiento: se redibuja el muñeco */
+function setCharOutfit(f, id) { if (!f || !f.mesh) return; f.outfit = outfitDef(id) ? id : ''; f.mesh.userData.outfit = f.outfit; const wi = f.mesh.userData.wi; if (wi == null) return; f.mesh.userData.wi = -1; setOutfit(f, wi); }
+const BOT_OUTFITS = S.OUTFITS.filter(o => o.r !== 'leyenda').map(o => o.id);
 const setOutfit = (f, wi) => { if (f.mesh && f.mesh.userData.wi !== wi) fillCharacter(f.mesh, f.color, wi, f.seed || 0, f.skin, undefined, f.accent); };
 function poseChar(f, sp, dt) {
   const u = f.mesh.userData; if (!u.legL) return;
@@ -1928,6 +2046,7 @@ function netHandle(m) {
     case 'join': return addRemote(m.p);
     case 'party': case 'pinvite': case 'pnote': case 'pgo': onPartyMsg(m); return;   // [GRUPOS] también en partida
     case 'pet': { const pf = net.remotes.get(m.id); if (pf) setPet(pf, m.pt); return; }
+    case 'outfit': { const of = net.remotes.get(m.id); if (of) setCharOutfit(of, m.of); return; }   // [TRAJES]
     case 'look': return applyLook(net.remotes.get(m.id), m.sk);   // [SKINS VISIBLES] alguien entra con skins equipadas   // [MASCOTAS] alguien equipó su mascota al entrar
     case 'leave': return removeRemote(m.id);
     case 'spawn': return onNetSpawn(m);
@@ -2016,6 +2135,7 @@ function addRemote(p) {
     f.mesh.visible = true; f.label.visible = true; f.mesh.position.copy(f.pos); f.mesh.rotation.y = f.yaw;
   }
   net.remotes.set(p.id, f); fighters.push(f); setPet(f, p.pt);   // [MASCOTAS]
+  if (p.of) setCharOutfit(f, p.of);   // [TRAJES]
   if (p.sk) applyLook(f, p.sk);   // [SKINS VISIBLES]
   updateHudSlow();
 }
@@ -2201,6 +2321,7 @@ function onNetTeam(m) { // el servidor equilibra los equipos entre rondas
   const f = net.remotes.get(m.id); if (!f || f.team === m.tm) return;
   f.team = m.tm; f.color = TEAMS[m.tm].c; scene.remove(f.mesh); scene.remove(f.label);
   f.mesh = buildBot(f.color, f.wi, f.seed, f.skin, f.accent); f.label = makeLabel(f.name, f.rl, f.team); f.mesh.visible = f.alive; f.label.visible = f.alive;
+  if (f.outfit) setCharOutfit(f, f.outfit);   // [TRAJES] al cambiar de equipo se conserva el traje
   scene.add(f.mesh); scene.add(f.label); updateHudSlow();
 }
 function onNetBoard(m) {
@@ -2378,6 +2499,7 @@ function startMatch() {
   for (let i = 0; i < BOT_NAMES.length; i++) {
     const b = newFighter(BOT_NAMES[i], false, BOT_COLORS[i]); b.team = tm[i + 1]; b.color = TEAMS[b.team].c;
     b.seed = i + 1; b.wi = BOT_WEAPONS[i % BOT_WEAPONS.length]; b.mesh = buildBot(b.color, b.wi, b.seed); b.label = makeLabel(b.name, 0, b.team);
+    if (i % 2 === 0) setCharOutfit(b, BOT_OUTFITS[(i / 2 + irand(0, 9)) % BOT_OUTFITS.length]);   // [TRAJES] la mitad de los bots del entrenamiento lleva un traje (nunca los de leyenda)
     scene.add(b.mesh); scene.add(b.label);
     b.ai = null; b.mesh.visible = false; b.label.visible = false;
     fighters.push(b); bots.push(b);
@@ -2710,7 +2832,7 @@ async function renderStore() {
     (pp ? '<button type="button" class="ppbtn" data-pp="' + esc(p.id) + '"' + (canPP ? '' : ' disabled') + '>' + (info.enabled ? 'PayPal' : fmt.format(p.price / 100) + ' · PayPal') + '</button>' : '');
   box.innerHTML = '<div class="storehead"><b>Tienda de PX</b><span>Saldo: <em id="storeBal">' + fmtKr(krTotal()) + ' PX</em></span></div>' + (why ? '<p class="note warn">' + esc(why) + '</p>' : '') +
     '<div class="packs">' + info.packs.map(p => '<div class="pack"><div class="pxn">' + fmtKr(p.px) + '<small>PX</small></div>' + (p.tag ? '<span class="ptag">' + esc(p.tag) + '</span>' : '') + btns(p) + '</div>').join('') + '</div>' +
-    '<div id="ppBox" hidden></div><div id="petsBox"></div>' +
+    '<div id="ppBox" hidden></div><div id="outfitsBox"></div><div id="petsBox"></div>' +
     '<p class="note small">' + (info.enabled ? 'El pago con tarjeta se hace en la página segura de Stripe; nunca guardamos tus datos de pago. ' : '') + (pp ? 'Con PayPal pagas tú directamente y un administrador te entrega los PX por ticket en Discord. ' : '') + 'Los PX solo sirven dentro del juego (colores y recompensas).</p><p id="storeMsg" class="note" role="status"></p>';
   for (const b of box.querySelectorAll('[data-pack]')) b.addEventListener('click', async () => {
     b.disabled = true; $('#storeMsg').textContent = 'Abriendo el pago seguro…';
@@ -2721,6 +2843,7 @@ async function renderStore() {
     try { const j = await acctPost('api/store/paypal', { pack: b.dataset.pp }); showPaypalOrder(j.order, fmt); } catch (e) { $('#storeMsg').textContent = e.message; }
     b.disabled = false;
   });
+  renderOutfits();   // [TRAJES]
   renderPets();   // [MASCOTAS]
 }
 /* [PAYPAL] Instrucciones del pedido: correo de PayPal (y PayPal.me si lo hay), importe, código para la nota del pago y ticket en Discord */
@@ -2754,6 +2877,44 @@ function petSvg(def) {
   else if (k === 'dragon') x = '<rect x="20" y="22" width="24" height="24" fill="' + b + '"/><rect x="6" y="24" width="14" height="4" fill="' + a + '" transform="rotate(-20 13 26)"/><rect x="44" y="24" width="14" height="4" fill="' + a + '" transform="rotate(20 51 26)"/><rect x="24" y="16" width="4" height="7" fill="' + a + '"/><rect x="36" y="16" width="4" height="7" fill="' + a + '"/>';
   const ey = k === 'drone' ? 33 : k === 'fox' || k === 'dragon' ? 27 : 32;
   return '<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">' + x + '<rect x="' + (k === 'drone' ? 29 : 25) + '" y="' + ey + '" width="' + (k === 'drone' ? 6 : 4) + '" height="5" fill="' + e + '"/>' + (k === 'drone' ? '' : '<rect x="35" y="' + ey + '" width="4" height="5" fill="' + e + '"/>') + '</svg>';
+}
+/* [TRAJES] Tienda de trajes: miniatura 3D de cada traje (se dibuja una vez con un renderizador pequeño y se guarda) */
+const OUTFIT_THUMB = {}; let thumbR = null;
+function outfitThumb(def) {
+  if (OUTFIT_THUMB[def.id]) return OUTFIT_THUMB[def.id];
+  try {
+    if (!thumbR) { thumbR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); thumbR.setSize(120, 150); }
+    if (!thumbR.domElement || !thumbR.domElement.toDataURL) return '';
+    const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xffffff, 0xa9b6ff, 1.3)); const d = new THREE.DirectionalLight(0xfff1c9, 1.1); d.position.set(3, 5, -4); sc.add(d);
+    const g = new THREE.Group(); g.userData.outfit = def.id; fillCharacter(g, TEAMS[0].c, 0, 3, 0); g.userData.guns.forEach(x => { x.visible = false; }); g.rotation.y = 0.45; sc.add(g);
+    const cam = new THREE.PerspectiveCamera(30, 120 / 150, 0.1, 20); cam.position.set(0, 1.1, -4.2); cam.lookAt(0, 0.95, 0);
+    thumbR.render(sc, cam); return (OUTFIT_THUMB[def.id] = thumbR.domElement.toDataURL());
+  } catch (e) { return ''; }
+}
+function renderOutfits() {
+  const box = $('#outfitsBox'); if (!box) return;
+  const P = window.PPR_BP, st = P.state, eq = (P.equipped || {}).outfit || '', px = krTotal();
+  const own = new Set(st && st.inventory ? st.inventory.filter(i => i.t === 'outfit').map(i => i.id) : []);
+  box.innerHTML = '<div class="storehead"><b>Trajes</b><span>Cambian tu personaje y todos lo ven.</span></div>' +
+    (!remote ? '<p class="note warn">Inicia sesión con una cuenta online para tener trajes.</p>' : '') +
+    '<div class="pets outfits">' + S.OUTFITS.map(o => {
+      const rar = S.RARITY[o.r] || { n: '', c: '#9aa4b8' }, has = own.has(o.id), on = eq === o.id, img = outfitThumb(o);
+      const btn = !remote ? '<button type="button" disabled>' + fmtKr(o.px) + ' PX</button>'
+        : on ? '<button type="button" class="on" data-oq="' + o.id + '">Puesto ✓</button>'
+        : has ? '<button type="button" data-oe="' + o.id + '">Ponerme</button>'
+        : '<button type="button" data-ob="' + o.id + '"' + (px < o.px ? ' disabled title="Te faltan ' + (o.px - px) + ' PX"' : '') + '>Comprar · ' + fmtKr(o.px) + ' PX</button>';
+      return '<div class="petcard' + (on ? ' on' : '') + '" style="--rc:' + rar.c + '"><span class="prar">' + esc(rar.n) + '</span>' + (img ? '<img src="' + img + '" width="96" height="120" alt="">' : '') + '<b>' + esc(o.n) + '</b>' + btn + '</div>';
+    }).join('') + '</div><p id="outfitMsg" class="note" role="status"></p>';
+  const run = async (path, body, okMsg) => {
+    try { const j = await acctPost(path, body); if (j.state && P.applyState) P.applyState(j.state); renderOutfits(); updatePreview(); const bal = $('#storeBal'); if (bal) bal.textContent = fmtKr(krTotal()) + ' PX'; if (okMsg) toast(okMsg); }
+    catch (e) { const m = $('#outfitMsg'); if (m) m.textContent = e.message; }
+  };
+  for (const b of box.querySelectorAll('[data-ob]')) b.addEventListener('click', () => {
+    const d = outfitDef(b.dataset.ob); if (!d || !window.confirm('¿Comprar el traje ' + d.n + ' por ' + fmtKr(d.px) + ' PX?')) return;
+    b.disabled = true; run('api/bp/outfit-buy', { id: d.id }, '¡Traje ' + d.n + ' comprado! Pulsa «Ponerme» para llevarlo.');
+  });
+  for (const b of box.querySelectorAll('[data-oe]')) b.addEventListener('click', () => run('api/bp/equip', { slot: 'outfit', item: b.dataset.oe }, 'Traje puesto'));
+  for (const b of box.querySelectorAll('[data-oq]')) b.addEventListener('click', () => run('api/bp/equip', { slot: 'outfit', item: null }, 'Traje quitado'));
 }
 function renderPets() {
   const box = $('#petsBox'); if (!box) return;
@@ -2811,7 +2972,7 @@ function lobbyRefresh() { renderMenuStats(); renderEvent(); renderDaily(); build
 
 /* --- Vista previa 3D del personaje (se dibuja en la misma pantalla, sobre el hueco del panel) --- */
 const pv = { scene: null, cam: null, mesh: null, ang: Math.PI + 0.5, drag: false, lastX: 0, on: false };
-function updatePreview() { if (pv.mesh) pv.mesh.userData.skins = Object.fromEntries(WEAPONS.map(w => [w.id, mySkin(w.id)]));   // [SKINS VISIBLES] tu personaje de la lobby lleva tus skins
+function updatePreview() { if (pv.mesh) { pv.mesh.userData.skins = Object.fromEntries(WEAPONS.map(w => [w.id, mySkin(w.id)])); pv.mesh.userData.outfit = (window.PPR_BP.equipped || {}).outfit || ''; }   // [TRAJES] tu traje en la lobby   // [SKINS VISIBLES] tu personaje de la lobby lleva tus skins
   if (pv.mesh) fillCharacter(pv.mesh, COLORS[cfg.look.col].c, cfg.cls, 1, cfg.look.skin, cfg.optics[WEAPONS[cfg.cls].id]); updateEquip(); }
 function initPreview() {
   if (!renderer || !renderer.setScissorTest) return;
@@ -3248,6 +3409,6 @@ buildMap(cfg.map); applyShadows(); initMenu(); resize(); setInterval(() => { if 
 Object.assign(window.PPR_BP, { partyInvite, petSvg, unlockedColors: () => unlocked(), pickColor, currentColor: () => cfg.look.col,   // [INVENTARIO]
   gunPreview: (wid, skinId) => { const w = WEAPONS.find(x => x.id === wid); return w ? gunModel(w, 0, null, skinId) : null; },   // [3D] el arma con su skin, igual que en la partida
   limit: () => teamLimit, cfg, saveCfg, net: () => net, player: () => player, camera: () => camera, scene: () => scene, THREE, startSpectate, stopSpectate, specCycle, setSpecView: v => { net.specView = v; }, gunsOK, setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
-  rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); setPreviewPet(); updatePreview(); if ($('#petsBox')) renderPets(); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
+  rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); setPreviewPet(); updatePreview(); if ($('#petsBox')) renderPets(); if ($('#outfitsBox')) renderOutfits(); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
 requestAnimationFrame(frame);
 })();

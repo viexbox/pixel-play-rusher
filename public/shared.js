@@ -566,7 +566,19 @@ const PETS = [
   { id: 'pet_pajaro', n: 'Pico Azul', r: 'raro', px: 1800, kind: 'bird', body: '#3aa0ff', acc: '#ffb020', eye: '#1b2038' },
   { id: 'pet_platillo', n: 'Platillo Volador', r: 'leyenda', px: 7500, kind: 'ufo', body: '#c9d1e4', acc: '#8dff5a', eye: '#3dff9a' }
 ];
-const bpFind = r => (r.t === 'wskin' ? WEAPON_SKINS : r.t === 'kskin' ? KNIFE_SKINS : r.t === 'banner' ? BANNERS : r.t === 'pet' ? PETS : r.t === 'avatar' ? (typeof AVATARS !== 'undefined' ? AVATARS : []) : []).find(x => x.id === r.id) || null;
+/* [TRAJES] Trajes de personaje: cambian el muñeco entero (casco, chaleco, cara…) y lo ven todos. Solo se compran con PX en la
+   tienda (ni pase ni mercado); el servidor comprueba que lo tienes antes de dejarte ponerlo. kind = forma en client.js.
+   El color del equipo se sigue viendo en hombreras y brazaletes. */
+const OUTFITS = [
+  { id: 'of_mil_azul', n: 'Militar Azul', r: 'poco', px: 1200, kind: 'soldier', main: '#2f5bb0', dark: '#1b3368', acc: '#9fc2ff', pants: '#233a6b', helm: '#27457f' },
+  { id: 'of_mil_rojo', n: 'Militar Rojo', r: 'poco', px: 1200, kind: 'soldier', main: '#b0322f', dark: '#661b1a', acc: '#ffb0a8', pants: '#6b2523', helm: '#7f2927' },
+  { id: 'of_camuflaje', n: 'Camuflaje', r: 'raro', px: 1800, kind: 'soldier', camo: true, main: '#5b6b3a', dark: '#39432a', acc: '#c9c28a', pants: '#4a5530', helm: '#4e5a33' },
+  { id: 'of_bombero', n: 'Bombero', r: 'epico', px: 2600, kind: 'firefighter', main: '#c9a45a', dark: '#6b5530', acc: '#e8ff4a', pants: '#b8944f', helm: '#d6282b' },
+  { id: 'of_antibombas', n: 'Antibombas', r: 'epico', px: 3200, kind: 'eod', main: '#5d6b45', dark: '#343c27', acc: '#ffcf3a', pants: '#56633f', helm: '#4f5b3a' },
+  { id: 'of_alien', n: 'Alienígena', r: 'leyenda', px: 9000, kind: 'alien', main: '#c9d1e4', dark: '#6b7390', acc: '#6dff4a', pants: '#a9b2c9', helm: '#7bdc5a' },
+  { id: 'of_lobo', n: 'Hombre Lobo', r: 'leyenda', px: 9000, kind: 'wolf', main: '#6b5a4a', dark: '#3a2f27', acc: '#ffd23a', pants: '#3b4a6b', helm: '#7a6856' }
+];
+const bpFind = r => (r.t === 'wskin' ? WEAPON_SKINS : r.t === 'kskin' ? KNIFE_SKINS : r.t === 'banner' ? BANNERS : r.t === 'pet' ? PETS : r.t === 'outfit' ? OUTFITS : r.t === 'avatar' ? (typeof AVATARS !== 'undefined' ? AVATARS : []) : []).find(x => x.id === r.id) || null;
 /* Nombre y rareza de cualquier recompensa (los PX se clasifican por cantidad) */
 const bpInfo = r => {
   if (r.t === 'px') return { n: r.n + ' PX', r: r.n >= 400 ? 'epico' : r.n >= 200 ? 'raro' : r.n >= 100 ? 'poco' : 'comun' };
@@ -743,7 +755,7 @@ function viewmodelSight(pose, sight) {
   return { x: x + pose.px, y: y + pose.py, z: z + pose.pz };
 }
 
-const api = { PETS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
+const api = { PETS, OUTFITS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
