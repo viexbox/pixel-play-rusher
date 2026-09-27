@@ -3,6 +3,7 @@
    El servidor manda: aquí solo se dibuja el estado que devuelve /api/bp y se piden las acciones. */
 (function () {
   'use strict';
+  if (window.__PPR_SHELL) return;   // [MÓVIL] esta página solo es el marco: el juego corre dentro (shell.js)
   const P = window.PPR_BP; if (!P || !P.S) return;
   const S = P.S, esc = P.esc, $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const fmt = n => Number(n).toLocaleString('es-ES');

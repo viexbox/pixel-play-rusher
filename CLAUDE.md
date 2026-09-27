@@ -28,6 +28,7 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 - Panel admin → Cuentas → «Objetos»: regalar o quitar cuchillos, trajes, mascotas, skins y banners (`/api/admin/bp/items|give|take`, queda en la auditoría).
 - Trajes con efectos (`OUTFITS` con `ru: 1`: Neón, Oro Yakuza, Dragón Imperial, Espectro Ártico; `fxOutfitBody()`/`fxMats()` en client.js) en la **Ruleta de trajes** (`S.OUTFIT_ROULETTE`, `/api/bp/outfit-spin`). Las dos ruletas usan `spin()` en battlepass.js y `renderRoulette(kind)` en el cliente. El karambit gira sobre la anilla al sacarlo (`setKnifeDraw`).
 - Móvil: controles táctiles (`TOUCH`, `initTouch()` en client.js: joystick, mirar arrastrando, botones; sin bloqueo de puntero) y la interfaz se reduce con `zoom` (`--uiz`) para que quepa. Test `touch.test.js`.
+- Móvil: `public/shell.js` (en `<head>`) convierte la página en un marco: el juego va en un iframe `?embed=1` de al menos 720 px de alto, escalado y girado 90° si el móvil está en vertical. La página de fuera no arranca el juego (`window.__PPR_SHELL`: cada script lo comprueba). No se usa con ratón ni para buscadores. Test `shell.test.js`.
 
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).

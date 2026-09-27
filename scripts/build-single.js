@@ -34,7 +34,7 @@ function replaceOnce(html, from, to) {
   return html.split(from).join(to);
 }
 function build(opts = {}) {
-  let html = read('index.html').replace('<script src="diag.js"></script>\n', '');   // el aviso de errores de carga solo hace falta con servidor
+  let html = read('index.html').replace('<script src="diag.js"></script>\n', '').replace(/<script src="shell\.js"><\/script>[^\n]*\n/, '');   // el aviso de errores de carga y el marco para móviles ([MÓVIL]) solo hacen falta con servidor
   html = html.replace(/<!-- SEO:[\s\S]*?<!-- \/SEO -->\n/, '');   // canonical, Open Graph y manifiesto solo tienen sentido servidos desde el dominio
   if (html.includes('__SITE_URL__')) throw new Error('Quedan marcadores __SITE_URL__ fuera del bloque SEO de index.html');
   const guard = (name, code) => { if (/<\/script/i.test(code)) throw new Error('«</script» dentro de ' + name); return code; };

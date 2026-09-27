@@ -1,5 +1,7 @@
 (function () {
 'use strict';
+if (window.__PPR_SHELL) return;   // [MÓVIL] esta página solo es el marco: el juego corre dentro (shell.js)
+
 
 /* =====================================================================
    Utilidades y almacenamiento
@@ -3813,8 +3815,13 @@ document.addEventListener('keyup', e => { keys[e.code] = false; if (e.code === '
    cuchillo, marcador y pausa. Solo se ve en partida y con el jugador vivo (CSS: body.touch.playing:not(.dead)). */
 function initTouch() {
   document.body.classList.add('touch');
-  const fit = () => { const z = Math.max(0.4, Math.min(1, window.innerHeight / 760, window.innerWidth / 1280)), r = document.documentElement.style; r.setProperty('--uiz', z.toFixed(3)); r.setProperty('--uizi', (Math.max(0.7, Math.min(1, window.innerHeight / 470)) / z).toFixed(4)); };   // los botones táctiles, algo más pequeños en pantallas muy bajas
+  let shellS = 1;   // escala del marco para móviles (shell.js): 1 px del juego = shellS px de la pantalla
+  const fit = () => {
+    const z = Math.max(0.4, Math.min(1, window.innerHeight / 760, window.innerWidth / 1280)), tz = Math.max(0.7, Math.min(1, window.innerHeight * shellS / 470)), r = document.documentElement.style;
+    r.setProperty('--uiz', z.toFixed(3)); r.setProperty('--uizi', (tz / (z * shellS)).toFixed(4));   // los botones táctiles miden lo mismo en la pantalla real, se escale como se escale el juego
+  };
   fit(); window.addEventListener('resize', fit);   // la interfaz se reduce para que quepa como en una pantalla de 1280×760
+  window.addEventListener('message', e => { if (e.origin === location.origin && e.data && e.data.t === 'ppr-shell' && e.data.s > 0) { shellS = +e.data.s; fit(); } });
   const ui = document.createElement('div'); ui.id = 'touchUI';
   const B = (id, txt, cls) => '<button type="button" id="' + id + '" class="tbtn ' + (cls || '') + '">' + txt + '</button>';
   ui.innerHTML = '<div class="tzone tz-move"></div><div class="tzone tz-look"></div><div class="tjoy" hidden><i></i></div>' +
@@ -3845,7 +3852,8 @@ function initTouch() {
       const b = t.target.closest && t.target.closest('.tbtn');
       if (b) { act[t.identifier] = { kind: 'btn', id: b.id, x: t.clientX, y: t.clientY }; b.classList.add('down'); press(b.id, true); continue; }
       if (t.target.classList.contains('tz-move') && !Object.values(act).some(a => a.kind === 'joy')) {
-        act[t.identifier] = { kind: 'joy', x0: t.clientX, y0: t.clientY }; joy.hidden = false; joy.style.left = t.clientX + 'px'; joy.style.top = t.clientY + 'px'; knob.style.transform = ''; continue;
+        const zi = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--uizi')) || 1, zb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--uiz')) || 1, k = zi * zb;   // de píxeles de la página a los del panel táctil
+        act[t.identifier] = { kind: 'joy', x0: t.clientX, y0: t.clientY, k }; joy.hidden = false; joy.style.left = t.clientX / k + 'px'; joy.style.top = t.clientY / k + 'px'; knob.style.transform = ''; continue;
       }
       act[t.identifier] = { kind: 'look', x: t.clientX, y: t.clientY };
     }
@@ -3855,7 +3863,7 @@ function initTouch() {
     for (const t of e.changedTouches) {
       const a = act[t.identifier]; if (!a) continue;
       if (a.kind === 'joy') {
-        let dx = t.clientX - a.x0, dy = t.clientY - a.y0; const l = Math.hypot(dx, dy); if (l > R) { dx *= R / l; dy *= R / l; }
+        let dx = (t.clientX - a.x0) / a.k, dy = (t.clientY - a.y0) / a.k; const l = Math.hypot(dx, dy); if (l > R) { dx *= R / l; dy *= R / l; }
         knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
         const m = Math.hypot(dx, dy) / R; touchMove.x = m > 0.22 ? dx / R : 0; touchMove.y = m > 0.22 ? dy / R : 0;   // zona muerta para no andar sin querer
       } else if (a.kind === 'look' || (a.kind === 'btn' && a.id === 'tFire')) look(t, a);   // desde el botón de disparar también se puede apuntar arrastrando
@@ -3878,6 +3886,7 @@ function initTouch() {
 /* [MÓVIL] Al empezar a jugar en el móvil se pide pantalla completa y horizontal (si el navegador lo permite) */
 function touchFullscreen() {
   if (!TOUCH) return;
+  if (window.parent !== window) { try { window.parent.postMessage({ t: 'ppr-fs' }, location.origin); } catch (e) { /* nada */ } return; }   // dentro del marco para móviles: la pantalla completa la pide el marco
   try { const d = document.documentElement, f = d.requestFullscreen || d.webkitRequestFullscreen; if (f && !document.fullscreenElement) { const r = f.call(d); if (r && r.catch) r.catch(() => {}); } } catch (e) { /* no se puede */ }
   try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* no se puede */ }
 }
