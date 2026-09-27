@@ -668,11 +668,13 @@ const KNIFE_SKINS = [
    así que con 10 tiradas tienes todos). Probabilidad por rareza; dentro de una rareza, todos igual. Si ya tienes todos los de una
    rareza, su parte se reparte entre las demás. Las probabilidades se enseñan en la tienda. */
 const KNIFE_ROULETTE = { px: 2500, weights: { poco: 40, raro: 30, epico: 20, leyenda: 10 } };
-function rouletteOdds(owned) {   // owned: Set o lista de ids que ya tiene → [{ id, p }] con p en 0..1 (suma 1), o [] si ya los tiene todos
-  const has = new Set(owned || []), pool = KNIFE_SKINS.filter(k => k.ru && !has.has(k.id)), byR = {};
+const OUTFIT_ROULETTE = { px: 4500, weights: { epico: 60, leyenda: 40 } };   // [RULETA TRAJES] misma regla: nunca repetidos
+const rouletteDef = kind => (kind === 'outfit' ? { R: OUTFIT_ROULETTE, list: () => OUTFITS, t: 'outfit' } : { R: KNIFE_ROULETTE, list: () => KNIFE_SKINS, t: 'kskin' });
+function rouletteOdds(owned, kind) {   // owned: Set o lista de ids que ya tiene → [{ id, p }] con p en 0..1 (suma 1), o [] si ya los tiene todos
+  const D = rouletteDef(kind), has = new Set(owned || []), pool = D.list().filter(k => k.ru && !has.has(k.id)), byR = {};
   for (const k of pool) (byR[k.r] = byR[k.r] || []).push(k);
-  const tot = Object.keys(byR).reduce((a, r) => a + (KNIFE_ROULETTE.weights[r] || 0), 0); if (!tot) return [];
-  return pool.map(k => ({ id: k.id, p: (KNIFE_ROULETTE.weights[k.r] || 0) / tot / byR[k.r].length }));
+  const tot = Object.keys(byR).reduce((a, r) => a + (D.R.weights[r] || 0), 0); if (!tot) return [];
+  return pool.map(k => ({ id: k.id, p: (D.R.weights[k.r] || 0) / tot / byR[k.r].length }));
 }
 const BANNERS = [{ id: 's1', n: 'Temporada 1', r: 'leyenda', c1: '#ffb020', c2: '#ff3b48', c3: '#1a1030', tag: 'S1' }];
 const BP_LEVELS = 50;
@@ -720,7 +722,12 @@ const OUTFITS = [
   { id: 'of_bombero', n: 'Bombero', r: 'epico', px: 2600, kind: 'firefighter', main: '#c9a45a', dark: '#6b5530', acc: '#e8ff4a', pants: '#b8944f', helm: '#d6282b' },
   { id: 'of_antibombas', n: 'Antibombas', r: 'epico', px: 3200, kind: 'eod', main: '#5d6b45', dark: '#343c27', acc: '#ffcf3a', pants: '#56633f', helm: '#4f5b3a' },
   { id: 'of_alien', n: 'Alienígena', r: 'leyenda', px: 9000, kind: 'alien', main: '#c9d1e4', dark: '#6b7390', acc: '#6dff4a', pants: '#a9b2c9', helm: '#7bdc5a' },
-  { id: 'of_lobo', n: 'Hombre Lobo', r: 'leyenda', px: 9000, kind: 'wolf', main: '#6b5a4a', dark: '#3a2f27', acc: '#ffd23a', pants: '#3b4a6b', helm: '#7a6856' }
+  { id: 'of_lobo', n: 'Hombre Lobo', r: 'leyenda', px: 9000, kind: 'wolf', main: '#6b5a4a', dark: '#3a2f27', acc: '#ffd23a', pants: '#3b4a6b', helm: '#7a6856' },
+  /* [RULETA TRAJES] Trajes con efectos (ru: 1): solo salen en la ruleta de trajes, no se venden sueltos */
+  { id: 'of_neon', n: 'Neón', r: 'epico', ru: 1, kind: 'neon', main: '#16181f', dark: '#0e1016', acc: '#ff2bd6', acc2: '#2ee6ff', pants: '#101218', helm: '#1b1d25' },
+  { id: 'of_yakuza', n: 'Oro Yakuza', r: 'epico', ru: 1, kind: 'yakuza', main: '#151515', dark: '#0b0b0b', acc: '#d9a43a', acc2: '#e0342a', pants: '#121212', helm: '#1a1a1a' },
+  { id: 'of_dragon', n: 'Dragón Imperial', r: 'leyenda', ru: 1, kind: 'dragon', main: '#c42f14', dark: '#8a1f0e', acc: '#e8b43a', acc2: '#ffcf5a', pants: '#7a1c10', helm: '#a3290f' },
+  { id: 'of_espectro', n: 'Espectro Ártico', r: 'leyenda', ru: 1, kind: 'spectre', main: '#5a6f7c', dark: '#3f515c', acc: '#d8f4ff', acc2: '#9fe8ff', pants: '#51656f', helm: '#62757f' }
 ];
 const bpFind = r => (r.t === 'wskin' ? WEAPON_SKINS : r.t === 'kskin' ? KNIFE_SKINS : r.t === 'banner' ? BANNERS : r.t === 'pet' ? PETS : r.t === 'outfit' ? OUTFITS : r.t === 'avatar' ? (typeof AVATARS !== 'undefined' ? AVATARS : []) : []).find(x => x.id === r.id) || null;
 /* Nombre y rareza de cualquier recompensa (los PX se clasifican por cantidad) */
@@ -899,7 +906,7 @@ function viewmodelSight(pose, sight) {
   return { x: x + pose.px, y: y + pose.py, z: z + pose.pz };
 }
 
-const api = { KNIFE_ROULETTE, rouletteOdds, PETS, OUTFITS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
+const api = { KNIFE_ROULETTE, OUTFIT_ROULETTE, rouletteDef, rouletteOdds, PETS, OUTFITS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

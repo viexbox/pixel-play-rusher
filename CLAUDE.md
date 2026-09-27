@@ -26,6 +26,7 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 - Salas: `findRoom` une a un jugador con una sala del mismo modo aunque haya elegido otro mapa, si no hay nadie en el suyo.
 - Cuchillos nuevos (`KNIFE_SKINS` con `kind`, `ru` y `fx`): mariposa, karambit, bayoneta, daga, machete; `knifeMesh()` en client.js (perfiles extruidos, largo por modelo en `BLADE_LEN`), luces animadas en `tickKnives()`, inspección con F. Se consiguen en el **evento de la ruleta** (`S.KNIFE_ROULETTE`: precio por tirada y peso por rareza; `S.rouletteOdds()`; `/api/bp/knife-spin`, nunca repetidos). Los demás ven tu cuchillo (`equippedLook().knife`).
 - Panel admin → Cuentas → «Objetos»: regalar o quitar cuchillos, trajes, mascotas, skins y banners (`/api/admin/bp/items|give|take`, queda en la auditoría).
+- Trajes con efectos (`OUTFITS` con `ru: 1`: Neón, Oro Yakuza, Dragón Imperial, Espectro Ártico; `fxOutfitBody()`/`fxMats()` en client.js) en la **Ruleta de trajes** (`S.OUTFIT_ROULETTE`, `/api/bp/outfit-spin`). Las dos ruletas usan `spin()` en battlepass.js y `renderRoulette(kind)` en el cliente. El karambit gira sobre la anilla al sacarlo (`setKnifeDraw`).
 
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).

@@ -322,24 +322,15 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
       return { ok: true, pet: def.id, state: await view(u) };
     },
     async outfitBuy(u, b) {   // [TRAJES] igual que las mascotas: se cobra en el servidor y se reembolsa si algo falla
-      const def = S.OUTFITS.find(p => p.id === String(b.id || '')); if (!def) return err(400, 'Ese traje no existe.');
+      const def = S.OUTFITS.find(p => p.id === String(b.id || '') && !p.ru && p.px > 0); if (!def) return err(400, 'Ese traje no existe.');   // los de la ruleta no se venden sueltos
       const st = await store.state(u.id); if (st.inventory.some(i => i.t === 'outfit' && i.id === def.id)) return err(409, 'Ya tienes ese traje.');
       if (!accounts.spend(u, def.px, 'Traje ' + def.n)) return err(402, 'Te faltan ' + (def.px - u.px) + ' PX.');
       try { if (!(await store.grantItem(u.id, 'outfit', def.id, 'tienda'))) { accounts.grant(u, def.px, 'reembolso traje'); return err(409, 'Ya tienes ese traje.'); } }
       catch (e) { accounts.grant(u, def.px, 'reembolso traje'); log('Traje: ' + e.message); return err(500, 'No se pudo completar la compra. No se ha cobrado nada.'); }
       return { ok: true, outfit: def.id, state: await view(u) };
     },
-    async knifeSpin(u) {   // [RULETA] tirada de la ruleta de cuchillos: cobra en el servidor, el azar lo pone el servidor y nunca da uno repetido
-      const st = await store.state(u.id), odds = S.rouletteOdds(st.inventory.filter(i => i.t === 'kskin').map(i => i.id));
-      if (!odds.length) return err(409, 'Ya tienes todos los cuchillos de la ruleta.');
-      const cost = S.KNIFE_ROULETTE.px; if (!accounts.spend(u, cost, 'Ruleta de cuchillos')) return err(402, 'Te faltan ' + (cost - u.px) + ' PX.');
-      let x = crypto.randomInt(1e9) / 1e9, pick = odds[odds.length - 1].id;
-      for (const o of odds) { if (x < o.p) { pick = o.id; break; } x -= o.p; }
-      try { if (!(await store.grantItem(u.id, 'kskin', pick, 'ruleta'))) { accounts.grant(u, cost, 'reembolso ruleta'); return err(409, 'No se pudo completar la tirada. No se ha cobrado nada.'); } }
-      catch (e) { accounts.grant(u, cost, 'reembolso ruleta'); log('Ruleta: ' + e.message); return err(500, 'No se pudo completar la tirada. No se ha cobrado nada.'); }
-      log('Ruleta: ' + u.username + ' → ' + pick);
-      return { ok: true, knife: pick, state: await view(u) };
-    },
+    async knifeSpin(u) { return spin(u, 'knife'); },
+    async outfitSpin(u) { return spin(u, 'outfit'); },   // [RULETA TRAJES]
     async equip(u, b) {
       const slot = String(b.slot || ''), item = b.item ? String(b.item) : null; if (!SLOT_RE.test(slot)) return err(400, 'Ranura no válida.');
       const type = slot === 'knife' ? 'kskin' : slot === 'banner' ? 'banner' : slot === 'pet' ? 'pet' : slot === 'avatar' ? 'avatar' : slot === 'outfit' ? 'outfit' : 'wskin';
@@ -352,6 +343,20 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
       return { ok: true, state: await view(u) };
     }
   };
+
+  /* [RULETA] Tirada de una ruleta (cuchillos o trajes): cobra en el servidor, el azar lo pone el servidor y nunca da un objeto repetido */
+  async function spin(u, kind) {
+    const D = S.rouletteDef(kind), label = kind === 'outfit' ? 'trajes' : 'cuchillos';
+    const st = await store.state(u.id), odds = S.rouletteOdds(st.inventory.filter(i => i.t === D.t).map(i => i.id), kind);
+    if (!odds.length) return err(409, 'Ya tienes todos los ' + label + ' de la ruleta.');
+    const cost = D.R.px; if (!accounts.spend(u, cost, 'Ruleta de ' + label)) return err(402, 'Te faltan ' + (cost - u.px) + ' PX.');
+    let x = crypto.randomInt(1e9) / 1e9, pick = odds[odds.length - 1].id;
+    for (const o of odds) { if (x < o.p) { pick = o.id; break; } x -= o.p; }
+    try { if (!(await store.grantItem(u.id, D.t, pick, 'ruleta'))) { accounts.grant(u, cost, 'reembolso ruleta'); return err(409, 'No se pudo completar la tirada. No se ha cobrado nada.'); } }
+    catch (e) { accounts.grant(u, cost, 'reembolso ruleta'); log('Ruleta: ' + e.message); return err(500, 'No se pudo completar la tirada. No se ha cobrado nada.'); }
+    log('Ruleta de ' + label + ': ' + u.username + ' → ' + pick);
+    return { ok: true, item: pick, knife: kind === 'knife' ? pick : undefined, outfit: kind === 'outfit' ? pick : undefined, state: await view(u) };
+  }
 
   /* ---------- HTTP ---------- */
   const handles = p => p === '/api/bp' || p.startsWith('/api/bp/');
@@ -366,7 +371,7 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
       let out;
       if (key === 'GET /api/bp') out = { ok: true, state: await view(u) };
       else if (req.method === 'POST' && url.pathname.startsWith('/api/bp/')) {
-        const op = { '/api/bp/claim': ops.claim, '/api/bp/claim-all': ops.claimAll, '/api/bp/buy': ops.buy, '/api/bp/gift': ops.gift, '/api/bp/skip': ops.skip, '/api/bp/equip': ops.equip, '/api/bp/pet-buy': ops.petBuy, '/api/bp/outfit-buy': ops.outfitBuy, '/api/bp/knife-spin': ops.knifeSpin }[url.pathname];
+        const op = { '/api/bp/claim': ops.claim, '/api/bp/claim-all': ops.claimAll, '/api/bp/buy': ops.buy, '/api/bp/gift': ops.gift, '/api/bp/skip': ops.skip, '/api/bp/equip': ops.equip, '/api/bp/pet-buy': ops.petBuy, '/api/bp/outfit-buy': ops.outfitBuy, '/api/bp/knife-spin': ops.knifeSpin, '/api/bp/outfit-spin': ops.outfitSpin }[url.pathname];
         out = op ? await lock(u.id, () => op(u, b)) : err(404, 'No encontrado.');
       } else out = err(404, 'No encontrado.');
       send(req, res, out.code || 200, out.error ? { error: out.error } : out);
@@ -395,7 +400,8 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
     return [
       { n: 'Cuchillos de la ruleta', items: S.KNIFE_SKINS.filter(k => k.ru).map(k => it('kskin', k)) },
       { n: 'Cuchillos del pase', items: S.KNIFE_SKINS.filter(k => !k.ru && !k.base).map(k => it('kskin', k)) },
-      { n: 'Trajes', items: S.OUTFITS.map(o => it('outfit', o)) },
+      { n: 'Trajes de la ruleta', items: S.OUTFITS.filter(o => o.ru).map(o => it('outfit', o)) },
+      { n: 'Trajes', items: S.OUTFITS.filter(o => !o.ru).map(o => it('outfit', o)) },
       { n: 'Mascotas', items: S.PETS.map(p => it('pet', p)) },
       { n: 'Skins de arma', items: S.WEAPON_SKINS.map(w => it('wskin', w, wname(w.w))) },
       { n: 'Banners', items: S.BANNERS.map(x => it('banner', x)) }
