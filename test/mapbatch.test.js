@@ -38,7 +38,7 @@ ok(totalMeshes <= 24 * M.MAPS.length, 'los ' + M.MAPS.length + ' mapas juntos su
 console.log('\n=== La geometría fusionada es la misma caja a caja ===');
 for (const m of S.MAPS.keys()) {
   M.buildMap(m); const pos = new Map(); for (const o of stats().filter(o => !o.userData.own)) { const P = o.geometry.attributes.position, C = o.geometry.attributes.color; for (let v = 0; v < P.count; v++) { const x = P.getX(v), y = P.getY(v), z = P.getZ(v), k = ckey(cell(x), cell(y), cell(z)); (pos.get(k) || pos.set(k, []).get(k)).push({ x, y, z, c: [C.getX(v), C.getY(v), C.getZ(v)] }); } }
-  const list = []; S.buildWorld(m, (cx, y0, cz, bw, bh, bd, color, solid) => list.push({ cx, y0, cz, bw, bh, bd, color, solid }));
+  const list = []; S.buildWorld(m, (cx, y0, cz, bw, bh, bd, color, solid, tag) => { if (!(tag && tag.startsWith('ramp:'))) list.push({ cx, y0, cz, bw, bh, bd, color, solid }); });   // [RAMPAS] las rampas son cuñas: dos esquinas bajan (se comprueban en ramps.test.js)
   let missing = 0, badColor = 0, checked = 0;
   for (const b of list) {
     const c = M.colorOf(b.color), corners = [[-1, 0], [1, 0], [-1, 1], [1, 1]];

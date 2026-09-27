@@ -448,3 +448,21 @@ Al morir aparece la tienda (`#shop` en `public/index.html`): 8 tarjetas con icon
 - **Mapas:** cada mapa declara sus puntos en `bomb` (`public/shared.js`): Castillo Real (A en la calle del mercado, B en los establos) y Barrio Arcoíris (calles norte y sur). Tiempos en `S.BOMB`; en el servidor se pueden cambiar con `BOMB_WIN`, `BOMB_ROUND`, `BOMB_FUSE` y `BOMB_PAUSE`.
 - **Bots:** los atacantes van a un punto y plantan; los defensores vigilan los puntos y, si hay bomba, van a desactivarla.
 - **Código:** servidor en `server.js` (`bombStart`, `bombTick`, `bombEnd`, mensajes `bomb` y `bprog`; el cliente manda `bact`), interfaz en `public/modes.js` (`drawBomb`: aviso central, barra de progreso, puntos A/B en 3D, bomba parpadeando y cartel de resultado). Pruebas: `test/bomb.test.js` (servidor) y `test/bomb-ui.test.js` (interfaz).
+
+## Rampas (slide hop estilo Krunker)
+
+- **Cómo se juega:** se sube andando o corriendo; cuesta abajo, **deslizándose** (Mayús) se gana velocidad hasta el tope del servidor (15,5 m/s, frente a ~11,8 en llano) y se sigue pegado a la rampa; si se **salta** al final se sale volando con todo el impulso. Deslizarse cuesta arriba frena.
+- **Dónde:** Castillo Real, dos por lado, del patio al adarve. Barrio Arcoíris, en el callejón entre las casas de cada fila, de la calle a los tejados.
+- **Código:** `b.ramp(x0, x1, z0, z1, y0, y1, dir, color, textura)` en `public/shared.js`. Para la física son escalones finos de 0,25 m (se suben solos con `CONST.STEP`, así que balas, bots y antitrampas no cambian) con `rp` = dirección de bajada y pendiente; `moveEntity` pega al jugador a la rampa al bajar y `moveStep` aplica `MOVE.RAMP_ACC` al deslizarse. El cliente la dibuja como una cuña (`rampGeo`). Prueba: `test/ramps.test.js`.
+
+## CrazyGames y Poki (portales de juegos)
+
+El juego ya está preparado para publicarse en **CrazyGames** y **Poki**: usa su SDK (avisos de carga y de cuándo se juega, anuncio entre partidas y anuncio con premio), esconde los enlaces externos (Discord, invitaciones) y la compra de PX con dinero, que los portales no permiten.
+
+- **Cómo se activa:** con `?portal=crazygames` o `?portal=poki` en la dirección, o en el paquete generado con `scripts/build-portal.js`. Sin eso el juego no cambia nada (`public/portal.js`).
+- **Paquete para subir:** `node scripts/build-portal.js crazygames https://krunxa.up.railway.app` (o `poki`) → `dist/<portal>/index.html`, un solo archivo con todo y el servidor online fijo. Se comprime en .zip y se sube en el panel de desarrolladores del portal.
+- **Servidor:** deja incrustar el juego en los dominios de los portales (`frame-ancestors`), acepta el WebSocket y la API desde ellos (`portalOrigin` en `server/accounts.js`; `PORTALS=0` lo apaga y `PORTAL_ORIGINS` / `PORTAL_ANCESTORS` añaden dominios) y abre la CSP a su SDK solo con `?portal=`. El premio del anuncio del portal (`POST /api/me/adreward` con `portal`) usa los mismos topes que los anuncios propios (`ADS_REWARD_PX`, `ADS_PER_DAY`, `ADS_COOLDOWN_S`; `PORTAL_ADS=0` lo desactiva).
+- **Pasos:**
+  - **CrazyGames:** crear la cuenta en developer.crazygames.com, «Submit game», subir el .zip de `dist/crazygames` (juego HTML5, multijugador, categoría disparos), capturas y descripción. Si piden una dirección en vez de archivos, vale `https://krunxa.up.railway.app/?portal=crazygames`.
+  - **Poki:** solicitar en poki.com/developers. Si aceptan el juego, se sube el .zip de `dist/poki` con su herramienta (Poki Inspector) para probarlo antes de publicarlo.
+- **Prueba:** `test/portal.test.js`.
