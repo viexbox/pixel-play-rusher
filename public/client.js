@@ -45,6 +45,7 @@ const OPTICS = S.OPTICS;
 const OPT_OFF = { iron: 0.031, dot: 0.033, holo: 0.043, acog: 0.038 };
 /* Altura de la línea de mira sobre el arma: sirve para centrarla en pantalla al apuntar */
 const sightH = (w, opt) => (w.id === 'ak' || opt.kind === 'scope' ? opt.h : w.size[1] / 2 + 0.012 + OPT_OFF[opt.kind]);
+const adsSightY = (w, opt) => sightH(w, opt) + (opt.kind === 'dot' || opt.kind === 'holo' ? 0.08 : 0);   // [MIRAS KRUNKER] con punto rojo/holo el arma baja un poco para que no asome dentro de la lente
 function opticOf(w, id) { if (!w.optics) return null; const k = id || (cfg.optics && cfg.optics[w.id]); return OPTICS[w.optics.includes(k) ? k : w.optics[0]]; }
 const opticIdOf = w => { const o = opticOf(w); return w.optics.find(k => OPTICS[k] === o); };
 const aimFovOf = w => { const o = opticOf(w); return o ? o.fov : w.aimFov; };
@@ -2266,7 +2267,7 @@ function updatePlayer(dt) {
      punto de mira (sightH sobre el origen del arma) caiga en el centro de la pantalla. Las demás animaciones (retroceso, recarga, cambio de arma, deslizamiento) van en `extra`. */
   const pose = viewmodel.update(dt, {
     speed: moving, onGround: p.onGround, adsTarget: !!(mouseR && slot === 0),
-    hip: { x: w.dual ? 0 : (long ? 0.17 : 0.2), y: -0.2, z: long ? -0.42 : -0.35 }, sight: opt ? { x: 0, y: sightH(w, opt), z: 0 } : null,
+    hip: { x: w.dual ? 0 : (long ? 0.17 : 0.2), y: -0.2, z: long ? -0.42 : -0.35 }, sight: opt ? { x: 0, y: adsSightY(w, opt), z: 0 } : null,
     extra: { py: -sw * 0.42 - slideK * 0.045, pz: gunKick * 0.07 + sw * 0.1, rx: gunKick * 0.06 - Math.sin(reloadAnim * Math.PI) * 0.6 - sw * 0.9, ry: sw * 0.3, rz: Math.sin(reloadAnim * Math.PI) * 0.25 + slideK * 0.12 }
   });
   gun.position.set(pose.px, pose.py, pose.pz); gun.rotation.set(pose.rx, pose.ry, pose.rz);

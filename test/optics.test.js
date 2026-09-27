@@ -49,7 +49,7 @@ const settle = (T, n) => { for (let f = 0; f < n; f++) T.step(1 / 60); T.fast();
     ok(seen.acog.scope === 'acog' && !seen.acog.vis && seen.acog.optic === '', 'ACOG: mira con retícula y bordes oscuros (el arma se oculta)');
     ok(Math.abs(seen.acog.fov - 90 * S.OPTICS.acog.fov) < 1, 'ACOG: FOV ' + seen.acog.fov.toFixed(1) + '° (zoom ' + seen.acog.zoom + ')');
     ok(seen.acog.fov < seen.holo.fov && seen.holo.fov < seen.punto.fov && seen.punto.fov < seen.hierro.fov, 'zoom creciente: hierro < punto rojo < holográfica < ACOG (' + ['hierro', 'punto', 'holo', 'acog'].map(k => seen[k].fov.toFixed(0) + '°').join(' · ') + ')');
-    ok(Math.abs(seen.hierro.gunY + S.OPTICS.hierro.h) < 0.01 && Math.abs(seen.holo.gunY + S.OPTICS.holo.h) < 0.01, 'al apuntar, el arma sube para alinear la línea de mira con el centro (' + seen.hierro.gunY.toFixed(3) + ' / ' + seen.holo.gunY.toFixed(3) + ')');
+    ok(Math.abs(seen.hierro.gunY + S.OPTICS.hierro.h) < 0.01 && Math.abs(seen.holo.gunY + S.OPTICS.holo.h + 0.08) < 0.01, 'al apuntar, el arma sube para alinear la línea de mira con el centro (' + seen.hierro.gunY.toFixed(3) + ' / ' + seen.holo.gunY.toFixed(3) + ')');
     T.player.alive = true; T.player.hp = 100; T.player.protect = 1e9; T.player.aim = 0; T.player.reload = 0;   // que los bots no interfieran con la prueba
     T.cfg.optics.ak = 'hierro'; $('#optHint'); key('KeyB'); key('KeyB', 'keyup');
     ok(T.cfg.optics.ak === 'punto' && /Punto rojo/.test($('#wtype').textContent), 'la tecla B cambia de mira en partida → ' + T.cfg.optics.ak);

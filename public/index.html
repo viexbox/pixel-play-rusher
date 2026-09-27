@@ -463,21 +463,21 @@ body.playing .chatrow:focus-within{opacity:1}
 #dmgdir.on{opacity:1;transition:none}
 
 /* Mira telescópica del francotirador */
-#scope .sc-ret.acog{display:none;filter:drop-shadow(0 0 2px rgba(255,140,0,.9))}
-#scope[data-k="acog"] .sc-ret.sniper{display:none}
-#scope[data-k="acog"] .sc-ret.acog{display:block}
-#scope[data-k="acog"] .sc-shade{background:radial-gradient(circle at 50% 50%,transparent 0,transparent 25vmin,rgba(2,4,10,.72) 26.5vmin,rgba(2,4,10,.97) 29vmin)}
-#scope[data-k="acog"] .sc-info{top:calc(50% + 27vmin)}
-#optic{position:absolute;left:50%;top:50%;width:0;height:0}
-#optic .od{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:#ff2d3b;box-shadow:0 0 6px 2px rgba(255,45,59,.85),0 0 16px 4px rgba(255,45,59,.45)}
-#optic .oh{position:absolute;left:-46px;top:-46px;width:92px;height:92px;display:none;filter:drop-shadow(0 0 3px rgba(255,45,59,.9))}
-#optic[data-k="holo"] .oh{display:block}
-#optic[data-k="iron"] .od{left:-2px;top:-2px;width:4px;height:4px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.7)}
+/* [MIRAS KRUNKER] visor: todo negro fuera de la lente y dos líneas finas que la cruzan entera; punto rojo: lente redonda con aro oscuro y el punto en el centro */
 #scope{position:absolute;inset:0;animation:scfade .14s ease-out}
-.sc-shade{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,transparent 0,transparent 43vmin,rgba(4,6,14,.6) 45vmin,#04060e 47.5vmin)}
-.sc-ret{position:absolute;left:50%;top:50%;width:94vmin;height:94vmin;transform:translate(-50%,-50%);transition:transform .1s;animation:scin .2s ease-out}
-#scope.kick .sc-ret{transform:translate(-50%,-50%) scale(1.05)}
-.sc-info{position:absolute;left:50%;top:calc(50% + 38vmin);transform:translateX(-50%);display:flex;gap:26px;padding:3px 18px;font-size:13px;font-weight:800;letter-spacing:.22em;color:#e6f0ff;background:rgba(4,6,14,.78)}
+.sc-shade{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,transparent 0,transparent 44.6vmin,#000 45vmin)}
+.sc-ret{position:absolute;left:50%;top:50%;width:90vmin;height:90vmin;transform:translate(-50%,-50%);transition:transform .1s}
+.sc-ret.acog{display:none}
+#scope.kick .sc-ret{transform:translate(-50%,-50%) scale(1.03)}
+.sc-info{display:none}
+#optic{position:absolute;left:50%;top:50%;width:0;height:0}
+#optic .orf{position:absolute;left:-13vmin;top:-13vmin;width:26vmin;height:26vmin;box-sizing:border-box;border-radius:50%;border:2.4vmin solid #1b1c21;background:radial-gradient(circle,rgba(170,220,255,.04) 55%,rgba(170,220,255,.13));box-shadow:0 0 0 .35vmin #09090b,inset 0 0 0 .35vmin #3b3d46,inset 0 0 2.5vmin rgba(0,0,0,.45)}
+#optic .orf::after{content:"";position:absolute;left:50%;top:calc(100% + .4vmin);width:14vmin;height:5vmin;transform:translateX(-50%);background:#1b1c21;border-radius:0 0 1vmin 1vmin;box-shadow:0 0 0 .35vmin #09090b}
+#optic .od{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:#ff1f2d;box-shadow:0 0 4px 1px rgba(255,31,45,.9)}
+#optic .oh{position:absolute;left:-7vmin;top:-7vmin;width:14vmin;height:14vmin;display:none;filter:drop-shadow(0 0 2px rgba(255,31,45,.9))}
+#optic[data-k="holo"] .oh{display:block}
+#optic[data-k="iron"] .orf{display:none}
+#optic[data-k="iron"] .od{left:-2px;top:-2px;width:4px;height:4px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.7)}
 @keyframes scin{from{transform:translate(-50%,-50%) scale(1.25)}to{transform:translate(-50%,-50%) scale(1)}}
 @keyframes scfade{from{opacity:0}to{opacity:1}}
 
@@ -1092,32 +1092,11 @@ body.touch canvas#c,body.touch #touchUI{zoom:var(--uizi,1)}
   <div id="scope" hidden>
     <div class="sc-shade"></div>
     <svg class="sc-ret sniper" viewBox="-100 -100 200 200" aria-hidden="true">
-      <circle r="95.6" fill="none" stroke="#04060e" stroke-width="1.4"/>
-      <g stroke="#0a0d18">
-        <path d="M-96 0H-30M30 0H96M0 -96V-30M0 30V96" stroke-width="3.4"/>
-        <path d="M-30 0H-4M4 0H30M0 -30V-4M0 30V4" stroke-width=".55"/>
-      </g>
-      <g fill="#0a0d18">
-        <circle cx="-10" cy="0" r=".85"/><circle cx="-18" cy="0" r=".85"/><circle cx="-26" cy="0" r=".85"/>
-        <circle cx="10" cy="0" r=".85"/><circle cx="18" cy="0" r=".85"/><circle cx="26" cy="0" r=".85"/>
-        <circle cx="0" cy="-10" r=".85"/><circle cx="0" cy="-18" r=".85"/><circle cx="0" cy="-26" r=".85"/>
-        <circle cx="0" cy="10" r=".85"/><circle cx="0" cy="18" r=".85"/><circle cx="0" cy="26" r=".85"/>
-      </g>
-      <circle r=".75" fill="#ff3b56"/>
-      <path d="M-70 -52A88 88 0 0 1 -38 -80" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="3" stroke-linecap="round"/>
-    </svg>
-    <svg class="sc-ret acog" viewBox="-100 -100 200 200" aria-hidden="true">
-      <circle r="55" fill="none" stroke="#04060e" stroke-width="2.4"/>
-      <g stroke="#ff9d1c" fill="none" stroke-linecap="round">
-        <path d="M-8 13L0 0L8 13" stroke-width="1.5"/>
-        <path d="M-5 22H5M-7 31H7M-9 40H9" stroke-width="1"/>
-        <path d="M-50 0H-14M14 0H50M0 -50V-14" stroke-width=".55"/>
-      </g>
-      <circle r=".9" fill="#ff9d1c"/>
+      <path d="M-100 0H100M0 -100V100" stroke="#000" stroke-width=".7" fill="none"/>
     </svg>
     <div class="sc-info"><span id="scZoom">×4</span><span id="scRange">— m</span></div>
   </div>
-  <div id="optic" hidden><i class="od"></i><svg class="oh" viewBox="0 0 92 92" aria-hidden="true"><circle cx="46" cy="46" r="40" fill="none" stroke="#ff2d3b" stroke-width="2.4"/><path d="M46 2v8M46 82v8M2 46h8M82 46h8" stroke="#ff2d3b" stroke-width="2"/></svg></div>
+  <div id="optic" hidden><div class="orf"></div><i class="od"></i><svg class="oh" viewBox="0 0 92 92" aria-hidden="true"><circle cx="46" cy="46" r="40" fill="none" stroke="#ff1f2d" stroke-width="3"/></svg></div>
   <div id="dmgdir"></div>
   <div id="crosshair"><i class="dot"></i><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i></div>
   <div id="hitmark"><i></i><i></i><i></i><i></i></div>
