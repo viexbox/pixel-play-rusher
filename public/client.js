@@ -125,7 +125,9 @@ const cloudRoot = new THREE.Group(); sky.add(cloudRoot);
 
 /* [GRÁFICOS] Calidad alta (por defecto, salvo en equipos sin tarjeta gráfica): sombras más nítidas y texturas al doble de resolución.
    Se cambia en Ajustes → «Calidad gráfica alta» y se aplica al recargar. El ajuste automático de rendimiento sigue funcionando igual. */
-const HQ = cfg.hq != null ? !!cfg.hq : !(renderer && isSoftwareGL());
+/* [MÓVIL] Pantalla táctil sin ratón (móviles y tabletas): se juega con los controles táctiles (ver initTouch) */
+const TOUCH = !!(window.matchMedia && !window.matchMedia('(any-pointer: fine)').matches && (('ontouchstart' in window) || navigator.maxTouchPoints > 0));
+const HQ = cfg.hq != null ? !!cfg.hq : !(renderer && isSoftwareGL()) && !TOUCH;   // en móvil, calidad normal por defecto (va más fluido y gasta menos batería)
 const hemi = new THREE.HemisphereLight(0xffffff, 0x9fb0ff, 0.66); scene.add(hemi);
 const sunLight = new THREE.DirectionalLight(0xfff1c9, 0.88);
 sunLight.position.set(52, 92, 34); scene.add(sunLight, sunLight.target);
@@ -749,7 +751,7 @@ const tkNow = () => (online && net.tk ? net.tk : [teamKills(0), teamKills(1)]);
 let state = 'menu';        // menu | playing | paused | ended
 let spawnAt = 0, quickSwapMode = false, quickSwapTimer = null;   // [NUEVO] tecla C: cambiar de arma los primeros segundos tras reaparecer
 let simTime = 0, timeLeft = MATCH_TIME, locked = false, fallback = false, lockTimer = 0;
-const keys = {}; let mouseL = false, mouseR = false, jumpQueued = false;   // [CONTROLES] jumpQueued: el salto se arma UNA vez por pulsación, no mientras se mantenga Espacio
+const keys = {}; let mouseL = false, mouseR = false, jumpQueued = false; const touchMove = { x: 0, y: 0 };   // [MÓVIL] touchMove: joystick táctil (−1..1)   // [CONTROLES] jumpQueued: el salto se arma UNA vez por pulsación, no mientras se mantenga Espacio
 
 const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
 function spreadDir(base, spread) {
@@ -2161,7 +2163,7 @@ function updatePlayer(dt) {
   }
   // regeneración (en línea la calcula el servidor)
   if (!online && simTime - p.lastHit > 4 && p.hp < 100) p.hp = Math.min(100, p.hp + 18 * dt);
-  const fwd = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0), str = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
+  const fwd = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0) - touchMove.y, str = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + touchMove.x;   // [MÓVIL] el joystick se suma al teclado
   const sinY = Math.sin(p.yaw), cosY = Math.cos(p.yaw);
   let wx = -sinY * fwd + cosY * str, wz = -cosY * fwd - sinY * str;
   const wl = Math.hypot(wx, wz); if (wl > 0) { wx /= wl; wz /= wl; }
@@ -2397,6 +2399,7 @@ function checkServer() {
 
 function startOnline() {
   if (!renderer || !serverOK || net.ws) return;
+  touchFullscreen();   // [MÓVIL]
   if (cfg.ranked && cfg.mode === 'duelo' && !acctToken()) { setNetMsg('El clasificatorio necesita una cuenta online. Inicia sesión o desactívalo en «Modo».'); return; }
   initAudio();
   cfg.name = sanitizeName($('#name').value) || cfg.name; saveCfg();
@@ -2917,6 +2920,7 @@ function clearFighters() {
 }
 function startMatch() {
   if (!renderer) return;
+  touchFullscreen();   // [MÓVIL]
   online = false; netDisconnect(); lobbyClose();
   botCash = S.CONST.SHOP_START_CASH;   // [NUEVO] tienda de armas: dinero de la partida
   if (curMap !== cfg.map) buildMap(cfg.map);   // p. ej. tras elegir otro mapa en la pantalla final
@@ -2948,6 +2952,7 @@ function startMatch() {
   toast('¡A por ellos!');
 }
 function requestLock() {
+  if (TOUCH) { fallback = true; return; }   // [MÓVIL] sin ratón no hay bloqueo de puntero: se mira arrastrando el dedo
   fallback = false; clearTimeout(lockTimer);
   try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { fallback = true; }); } catch (e) { fallback = true; }
   lockTimer = setTimeout(() => { if (!locked) fallback = true; }, 700);
@@ -3731,7 +3736,8 @@ function initMenu() {
   $('#toMenu').addEventListener('click', leaveToMenu);
   $('#name').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') (serverOK ? startOnline : startMatch)(); });
   $('#name').addEventListener('change', () => { cfg.name = sanitizeName($('#name').value) || cfg.name; $('#name').value = cfg.name; saveCfg(); updateLobby(); lobbyClose(); lobbyConnect(); });
-  if (!window.matchMedia('(any-pointer: fine)').matches) { $('#touchWarn').hidden = false; $('#play').disabled = true; noPointer = true; }   // sin ratón (móviles) no se puede jugar: los controles táctiles son para pantallas táctiles CON ratón conectado
+  if (TOUCH) initTouch();   // [MÓVIL] controles táctiles
+  else if (!window.matchMedia('(any-pointer: fine)').matches) { $('#touchWarn').hidden = false; $('#play').disabled = true; noPointer = true; }   // sin ratón ni pantalla táctil no se puede jugar
   if (!renderer) noPointer = true;
   $('#playOnline').disabled = true;
   initServerBtn(); renderMenuStats(); renderEvent(); renderDaily(); renderLeaderboard(); initPreview(); initChat(); checkServer();
@@ -3802,6 +3808,79 @@ document.addEventListener('keydown', e => {
   if (e.code === 'KeyF' && player.alive && slot === 1 && slashT === 0 && knifeT === 0 && inspectT === 0) inspectT = 0.0001;   // [CUCHILLOS] inspeccionar el cuchillo
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Tab') el.board.hidden = true; });
+/* [MÓVIL] Controles táctiles: joystick a la izquierda (aparece donde pongas el dedo), arrastrar en la derecha para mirar y botones
+   para disparar (también se puede arrastrar desde él para apuntar mientras disparas), apuntar, saltar, agacharse/deslizar, recargar,
+   cuchillo, marcador y pausa. Solo se ve en partida y con el jugador vivo (CSS: body.touch.playing:not(.dead)). */
+function initTouch() {
+  document.body.classList.add('touch');
+  const fit = () => { const z = Math.max(0.4, Math.min(1, window.innerHeight / 760, window.innerWidth / 1280)), r = document.documentElement.style; r.setProperty('--uiz', z.toFixed(3)); r.setProperty('--uizi', (Math.max(0.7, Math.min(1, window.innerHeight / 470)) / z).toFixed(4)); };   // los botones táctiles, algo más pequeños en pantallas muy bajas
+  fit(); window.addEventListener('resize', fit);   // la interfaz se reduce para que quepa como en una pantalla de 1280×760
+  const ui = document.createElement('div'); ui.id = 'touchUI';
+  const B = (id, txt, cls) => '<button type="button" id="' + id + '" class="tbtn ' + (cls || '') + '">' + txt + '</button>';
+  ui.innerHTML = '<div class="tzone tz-move"></div><div class="tzone tz-look"></div><div class="tjoy" hidden><i></i></div>' +
+    B('tFire', 'DISPARAR', 'big') + B('tAim', 'APUNTAR') + B('tJump', 'SALTAR') + B('tCrouch', 'AGACHAR') + B('tReload', 'RECARGAR') + B('tKnife', 'CUCHILLO') + B('tBoard', 'TAB', 'sm') + B('tPause', '❚❚', 'sm') +
+    '<div id="tRotate">Gira el móvil para jugar en horizontal</div>';
+  document.body.appendChild(ui);
+  const joy = ui.querySelector('.tjoy'), knob = joy.querySelector('i'), R = 56, act = {};   // act: qué hace cada dedo (por identificador)
+  const alive = () => state === 'playing' && player && player.alive;
+  const look = (t, a) => {   // mirar con el dedo (misma sensibilidad que el ratón, un poco más rápida para el pulgar)
+    const k = 0.0048 * cfg.sens * (player && player.aim > 0.3 ? aimFovOf(WEAPONS[player.wi]) + 0.15 : 1);
+    if (alive()) { player.yaw -= (t.clientX - a.x) * k; player.pitch -= (t.clientY - a.y) * k; }
+    a.x = t.clientX; a.y = t.clientY;
+  };
+  const press = (id, on) => {
+    if (id === 'tFire') mouseL = on;
+    else if (id === 'tCrouch') { keys.ShiftLeft = on; if (on && alive() && S.startSlide(player)) sfx.slide(); }
+    else if (id === 'tBoard') { el.board.hidden = !on; if (on) updateHudSlow(); }
+    else if (!on) return;
+    else if (id === 'tAim') { mouseR = !mouseR; ui.querySelector('#tAim').classList.toggle('on', mouseR); }
+    else if (id === 'tJump') { if (alive()) jumpQueued = true; }
+    else if (id === 'tReload') { if (alive() && slot === 0) startReload(); }
+    else if (id === 'tKnife') { if (!alive()) return; if (slot !== 1) setSlot(1); else setSlot(0); }
+    else if (id === 'tPause') pauseGame();
+  };
+  const start = e => {
+    if (state !== 'playing') return; e.preventDefault();
+    for (const t of e.changedTouches) {
+      const b = t.target.closest && t.target.closest('.tbtn');
+      if (b) { act[t.identifier] = { kind: 'btn', id: b.id, x: t.clientX, y: t.clientY }; b.classList.add('down'); press(b.id, true); continue; }
+      if (t.target.classList.contains('tz-move') && !Object.values(act).some(a => a.kind === 'joy')) {
+        act[t.identifier] = { kind: 'joy', x0: t.clientX, y0: t.clientY }; joy.hidden = false; joy.style.left = t.clientX + 'px'; joy.style.top = t.clientY + 'px'; knob.style.transform = ''; continue;
+      }
+      act[t.identifier] = { kind: 'look', x: t.clientX, y: t.clientY };
+    }
+  };
+  const move = e => {
+    if (state !== 'playing') return; e.preventDefault();
+    for (const t of e.changedTouches) {
+      const a = act[t.identifier]; if (!a) continue;
+      if (a.kind === 'joy') {
+        let dx = t.clientX - a.x0, dy = t.clientY - a.y0; const l = Math.hypot(dx, dy); if (l > R) { dx *= R / l; dy *= R / l; }
+        knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+        const m = Math.hypot(dx, dy) / R; touchMove.x = m > 0.22 ? dx / R : 0; touchMove.y = m > 0.22 ? dy / R : 0;   // zona muerta para no andar sin querer
+      } else if (a.kind === 'look' || (a.kind === 'btn' && a.id === 'tFire')) look(t, a);   // desde el botón de disparar también se puede apuntar arrastrando
+    }
+  };
+  const end = e => {
+    for (const t of e.changedTouches) {
+      const a = act[t.identifier]; if (!a) continue; delete act[t.identifier];
+      if (a.kind === 'joy') { joy.hidden = true; touchMove.x = touchMove.y = 0; }
+      else if (a.kind === 'btn') { const b = ui.querySelector('#' + a.id); if (b) b.classList.remove('down'); press(a.id, false); }
+    }
+    if (e.cancelable) e.preventDefault();
+  };
+  ui.addEventListener('touchstart', start, { passive: false }); ui.addEventListener('touchmove', move, { passive: false });
+  ui.addEventListener('touchend', end, { passive: false }); ui.addEventListener('touchcancel', end, { passive: false });
+  const reset = () => { for (const k of Object.keys(act)) delete act[k]; joy.hidden = true; touchMove.x = touchMove.y = 0; mouseL = false; keys.ShiftLeft = false; ui.querySelectorAll('.down').forEach(b => b.classList.remove('down')); };
+  window.addEventListener('blur', reset); document.addEventListener('visibilitychange', () => { if (document.hidden) { reset(); if (state === 'playing') pauseGame(); } });
+  window.PPR_TOUCH = { reset, act };
+}
+/* [MÓVIL] Al empezar a jugar en el móvil se pide pantalla completa y horizontal (si el navegador lo permite) */
+function touchFullscreen() {
+  if (!TOUCH) return;
+  try { const d = document.documentElement, f = d.requestFullscreen || d.webkitRequestFullscreen; if (f && !document.fullscreenElement) { const r = f.call(d); if (r && r.catch) r.catch(() => {}); } } catch (e) { /* no se puede */ }
+  try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* no se puede */ }
+}
 window.addEventListener('blur', () => { Object.keys(keys).forEach(k => keys[k] = false); mouseL = mouseR = false; if (state === 'playing') pauseGame(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'playing') pauseGame(); });
 
