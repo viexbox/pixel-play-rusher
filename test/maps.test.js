@@ -25,7 +25,7 @@ const allTags = new Set();
 for (let mi = 0; mi < S.MAPS.length; mi++) {
   const m = S.MAPS[mi], world = S.buildWorld(mi), cols = world.colliders, boxes = [], cfg = CFG[mi];
   S.buildWorld(mi, (cx, y0, cz, w, h, d, color, solid, tag) => boxes.push({ cx, y0, cz, w, h, d, color, solid, tag }));
-  boxes.forEach(b => { if (b.tag) allTags.add(b.tag); });
+  boxes.forEach(b => { if (b.tag) allTags.add(b.tag.startsWith('ramp:') ? b.tag.split(':')[3] || 'concrete' : b.tag); });   // las rampas llevan su textura al final: «ramp:dir:y0:textura»
   console.log('\n=== ' + m.name + ' ===');
   const wrong = Object.entries(cfg.probe).filter(([n, p]) => S.areaAt(mi, ...p) !== n);
   ok(wrong.length === 0, 'S.areaAt() reconoce cada zona con nombre (' + Object.keys(cfg.probe).join(', ') + ')' + (wrong.length ? ' — fallan: ' + wrong.map(([n, p]) => n + '→«' + S.areaAt(mi, ...p) + '»').join(', ') : ''));

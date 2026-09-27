@@ -40,6 +40,8 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 
 - Modo **Desactivar bomba** (`bomba`): rondas sin reaparecer, plantar/desactivar manteniendo E (botón BOMBA en el móvil), puntos A/B por mapa (`bomb`), `S.BOMB` (+ variables `BOMB_*`), `bombStart/bombTick/bombEnd` en server.js, `drawBomb()` en modes.js. Tests `bomb.test.js` y `bomb-ui.test.js`.
 
+- Rampas para deslizarse (`b.ramp()` en shared.js: escalones finos de 0,25 m con `rp`; `moveEntity` pega a la rampa, `moveStep` acelera con `MOVE.RAMP_ACC` hasta `MAX_H`; el cliente dibuja una cuña con `rampGeo`). Castillo: patio → adarve; Barrio: calle → tejados por el callejón. Test `ramps.test.js`.
+
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).
 - Adaptar a CrazyGames/Poki, estadísticas de jugadores en el panel.

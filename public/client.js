@@ -473,7 +473,21 @@ function flushBoxes() {
   boxBatches.clear(); return boxes;
 }
 
+/* [RAMPAS] rampa: una caja cuya cara de arriba baja hasta y0 en el extremo bajo (cuña). tag = «ramp:dir:y0[:textura]», dir = hacia dónde sube */
+function rampGeo(w, h, d, dir, low) {
+  const geo = new THREE.BoxGeometry(w, h, d), pos = geo.attributes.position, lowSide = { N: ['z', 1], S: ['z', -1], E: ['x', -1], W: ['x', 1] }[dir] || ['z', 1];
+  for (let i = 0; i < pos.count; i++) {
+    const a = lowSide[0] === 'x' ? pos.getX(i) : pos.getZ(i);
+    if (pos.getY(i) > 0 && Math.sign(a) === lowSide[1]) pos.setY(i, -h / 2 + Math.max(0.02, low));
+  }
+  geo.computeVertexNormals(); return geo;
+}
 function addMesh(cx, y0, cz, w, h, d, color, solid, tag) {
+  if (tag && tag.startsWith('ramp:')) {
+    const [, dir, low, tx] = tag.split(':'), type = tx && TEX[tx] ? tx : (curLook.plat && TEX[curLook.plat] ? curLook.plat : 'concrete'), geo = rampGeo(w, h, d, dir, +low || 0);
+    worldUV(geo, w, h, d, TEX[type].tile, [uvR(), uvR()]); shadeBox(geo, 0.72, colorOf(color)); geo.translate(cx, y0 + h / 2, cz);
+    queueBox(vcMat('tex', type, color), true, true, geo); return;
+  }
   const geo = new THREE.BoxGeometry(w, h, d), c = colorOf(color);
   if (!solid) { shadeBox(geo, 0.55, c); geo.deleteAttribute('uv'); geo.translate(cx, y0 + h / 2, cz); queueBox(vcMat('far'), false, false, geo); return; }
   const type = tag && TEX[tag] ? tag : pickType(curLook, cx, y0, cz, w, h, d);   // [NUEVO] el mapa puede fijar la textura de una caja (cristal, helipuerto…)
@@ -531,7 +545,7 @@ function decorate(L, m) {
     for (const [x, z] of [[-3, 6.2], [3, 6.2], [-3, -6.2], [3, -6.2]]) { decoBox(x, 0, z, 0.9, 0.35, 0.9, '#5a8f3a'); }                            // arbustos junto a la torre
   } else if (L.decor === 'town') {   // [MAPAS KRUNKER] Barrio Arcoíris: marcos de ventanas, farolas y pasos de cebra
     for (const [x, z] of [[-24, -18], [24, -18], [-24, 18], [24, 18], [-8, -19.5], [8, 19.5]]) { decoBox(x, 0, z, 0.22, 4.2, 0.22, '#39435a'); decoBox(x, 4.2, z, 0.8, 0.22, 0.5, '#fff3b0', true); }
-    for (const sx of [-1, 1]) for (let k = 0; k < 6; k++) { decoBox(sx * 20.5, 0, -18 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); decoBox(sx * 20.5, 0, 12 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); }
+    for (const sx of [-1, 1]) for (let k = 0; k < 6; k++) { decoBox(sx * 3, 0, -18 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); decoBox(sx * 3, 0, 12 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); }
     for (const z of [-22.08, 21.88]) for (const x of [-26, -14, 14, 26]) decoBox(x, 2.45, z + 0.1, 2.6, 0.18, 0.12, '#ffffff');                // tejadillo blanco sobre cada puerta
     for (let a = -40; a <= 40; a += 4) for (let y = 2.2; y < 6.5; y += 2.6) {   // ventanas en las fachadas altas del fondo
       decoBox(a, y, -39.96, 1.6, 1.3, 0.06, '#2d4a7a'); decoBox(a, y, 39.96, 1.6, 1.3, 0.06, '#2d4a7a');

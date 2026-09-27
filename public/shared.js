@@ -50,6 +50,19 @@ function makeBuilder(onBox, cols) {
         if (alongX) b.addBox(p, base, c, 1, top - base, w, color, true, tag); else b.addBox(c, base, p, w, top - base, 1, color, true, tag);
       }
     },
+    /* [RAMPAS] Rampa lisa que SUBE hacia dir ('N' = −z, 'S' = +z, 'E' = +x, 'W' = −x) de y0 a y1 por el rango x0..x1 × z0..z1.
+       Para la física son escalones finos de 0,25 m (se suben solos con CONST.STEP, así que balas, bots y antitrampas no cambian);
+       cada escalón lleva rp = [bajada x, bajada z, pendiente] para el impulso del deslizamiento. Se dibuja como una cuña (etiqueta «ramp:dir:y0»). */
+    ramp(xa, xb, za, zb, y0, y1, dir, color, texTag) {
+      const x0 = Math.min(xa, xb), x1 = Math.max(xa, xb), z0 = Math.min(za, zb), z1 = Math.max(za, zb);
+      const alongX = dir === 'E' || dir === 'W', a0 = alongX ? x0 : z0, a1 = alongX ? x1 : z1, len = a1 - a0, up = dir === 'E' || dir === 'S' ? 1 : -1;
+      const n = Math.max(1, Math.ceil(len / 0.25)), slope = (y1 - y0) / len, rp = [alongX ? -up : 0, alongX ? 0 : -up, slope];
+      for (let k = 0; k < n; k++) {
+        const s0 = a0 + k * len / n, s1 = a0 + (k + 1) * len / n, t = ((s0 + s1) / 2 - a0) / len, h = y0 + (up > 0 ? t : 1 - t) * (y1 - y0);   // altura en el centro del escalón
+        cols.push(alongX ? { minX: s0, maxX: s1, minY: 0, maxY: h, minZ: z0, maxZ: z1, rp } : { minX: x0, maxX: x1, minY: 0, maxY: h, minZ: s0, maxZ: s1, rp });
+      }
+      if (onBox) onBox((x0 + x1) / 2, 0, (z0 + z1) / 2, x1 - x0, y1, z1 - z0, color, false, 'ramp:' + dir + ':' + y0 + (texTag ? ':' + texTag : ''));
+    },
     perimeter(half, h, color) {
       const s = half * 2 + 4;
       b.addBox(0, 0, -half - 1, s, h, 2, color); b.addBox(0, 0, half + 1, s, h, 2, color);
@@ -124,13 +137,14 @@ const MAPS = [
         /* ---------- muralla con tres puertas y adarve (arriba a 3,6 m), almenas hacia el patio ---------- */
         P(...X(23, 25), -40, -24, 0, 3.6, ST, 'brick'); P(...X(23, 25), -20, -3, 0, 3.6, ST, 'brick'); P(...X(23, 25), 3, 20, 0, 3.6, ST, 'brick'); P(...X(23, 25), 24, 40, 0, 3.6, ST, 'brick');
         P(...X(23, 25), -24, -20, 2.8, 3.6, ST, 'brick'); P(...X(23, 25), -3, 3, 2.8, 3.6, ST, 'brick'); P(...X(23, 25), 20, 24, 2.8, 3.6, ST, 'brick');   // arcos sobre las puertas
-        for (let z = -33; z <= 33; z += 2.4) P(...X(23, 23.5), z - 0.6, z + 0.6, 3.6, 4.6, ST, 'brick');
+        for (let z = -33; z <= 33; z += 2.4) if (Math.abs(Math.abs(z) - 10.5) > 2.1) P(...X(23, 23.5), z - 0.6, z + 0.6, 3.6, 4.6, ST, 'brick');   // sin almenas donde llegan las rampas
         b.run('N', 16, sx * 26.5, 3, 9, 0, 0.4, SD, 'stone'); b.run('S', -16, sx * 26.5, 3, 9, 0, 0.4, SD, 'stone');                // escaleras al adarve desde el patio de armas
         /* torres de las esquinas con tejado rojo escalonado */
         for (const z0 of [-40, 34]) { P(...X(22, 27), z0, z0 + 6, 0, 6.4, ST, 'brick'); P(...X(21.6, 27.4), z0 - 0.4, z0 + 6.4, 6.4, 6.9, RF, 'roof'); P(...X(22.6, 26.4), z0 + 0.6, z0 + 5.4, 6.9, 7.6, RF, 'roof'); P(...X(23.6, 25.4), z0 + 1.6, z0 + 4.4, 7.6, 8.3, RF, 'roof'); }
         /* ---------- patio central: muretes y cajas ---------- */
-        P(...X(18.6, 19.2), -2.4, 2.4, 0, 1.2, ST, 'stone'); crate(sx * 12, -7); crate(sx * 12, 7); crate(sx * 13.6, 8.4, 1.4, 1.1);
-        hay(sx * 16, -10, true); hay(sx * 16, 10, true);
+        P(...X(18.6, 19.2), -2.4, 2.4, 0, 1.2, ST, 'stone'); crate(sx * 12, -7); crate(sx * 12, 7);
+        /* [RAMPAS] dos rampas por lado, del patio al adarve (3,6 m): se sube corriendo y se baja deslizándose (slide hop) */
+        for (const z of [-10.5, 10.5]) b.ramp(...X(13.5, 23), z - 1.5, z + 1.5, 0, 3.6, sx > 0 ? 'E' : 'W', '#9c9484', 'stone');
         /* muros bajos que separan el patio de la calle del mercado y de los establos (con un paso en medio de cada lado) */
         for (const z of [-15, 14]) { P(...X(8, 15), z, z + 1, 0, 2.4, ST, 'stone'); P(...X(17, 23), z, z + 1, 0, 2.4, ST, 'stone'); }
         /* ---------- calle del mercado (norte): casa de tejado rojo, hueca, con puerta y ventana; al tejado se sube por las cajas ---------- */
@@ -224,6 +238,9 @@ const MAPS = [
         tree(sx * 6, -17); tree(sx * 16, 17);
         /* calles de atrás: contenedores de basura y cajas */
         P(...X(12, 15), -39, -37.4, 0, 1.5, GN, 'metal'); crate(sx * 6, -35); crate(sx * 20, -36, 1.6, 1.6); crate(sx * 7, 36); P(...X(16, 19), 37.4, 39, 0, 1.5, '#3a86ff', 'metal');
+        /* [RAMPAS] rampa del callejón entre las dos casas: de la calle (0 m) a los tejados (4 m); arriba se pasa a cualquiera de los dos tejados
+           y hacia abajo se sale deslizándose a la plaza (slide hop) */
+        b.ramp(...X(18.2, 21.8), -23, -13, 0, 4.0, 'N', '#ff7a59', 'kfloor'); b.ramp(...X(18.2, 21.8), 13, 23, 0, 4.0, 'S', '#ff7a59', 'kfloor');
         /* base */
         crate(sx * 33, -14); crate(sx * 33, 14); crate(sx * 34.4, -15.4, 1.2, 1.1); P(...X(32.5, 33.3), -4, 4, 0, 1.2, WH, 'kblock');
       }
@@ -250,7 +267,7 @@ function overlapAt(cols, x, y, z, hw, h) {
   return null;
 }
 function moveEntity(cols, e, dt) {
-  const STEP = CONST.STEP, GRAV = CONST.GRAV;
+  const STEP = CONST.STEP, GRAV = CONST.GRAV, wasGround = e.onGround;
   let hitWall = false;
   const nx = e.pos.x + e.vel.x * dt;
   if (!overlapAt(cols, nx, e.pos.y, e.pos.z, e.hw, e.h)) e.pos.x = nx;
@@ -266,9 +283,9 @@ function moveEntity(cols, e, dt) {
   if (!overlapAt(cols, e.pos.x, ny, e.pos.z, e.hw, e.h)) e.pos.y = ny;
   else {
     if (e.vel.y <= 0) {
-      let top = -Infinity;
-      for (const c of cols) if (e.pos.x + e.hw > c.minX && e.pos.x - e.hw < c.maxX && e.pos.z + e.hw > c.minZ && e.pos.z - e.hw < c.maxZ && ny + e.h > c.minY && ny < c.maxY) top = Math.max(top, c.maxY);
-      e.pos.y = top; e.onGround = true;
+      let top = -Infinity, rp = null;
+      for (const c of cols) if (e.pos.x + e.hw > c.minX && e.pos.x - e.hw < c.maxX && e.pos.z + e.hw > c.minZ && e.pos.z - e.hw < c.maxZ && ny + e.h > c.minY && ny < c.maxY && c.maxY >= top) { if (c.maxY > top) rp = null; top = c.maxY; if (c.rp) rp = c.rp; }
+      e.pos.y = top; e.onGround = true; e.ramp = rp;
     } else {
       let bot = Infinity;
       for (const c of cols) if (e.pos.x + e.hw > c.minX && e.pos.x - e.hw < c.maxX && e.pos.z + e.hw > c.minZ && e.pos.z - e.hw < c.maxZ && ny + e.h > c.minY && ny < c.maxY) bot = Math.min(bot, c.minY);
@@ -276,7 +293,14 @@ function moveEntity(cols, e, dt) {
     }
     e.vel.y = 0;
   }
-  if (e.pos.y <= 0) { e.pos.y = 0; if (e.vel.y < 0) e.vel.y = 0; e.onGround = true; }
+  /* [RAMPAS] bajando por una rampa no se «despega» en cada escalón: si justo debajo (≤ 0,3 m) hay rampa, se pega a ella (así se puede saltar al final con toda la velocidad) */
+  if (!e.onGround && wasGround && e.vel.y <= 0 && !e.jumping) {
+    let top = -Infinity, rp = null;
+    for (const c of cols) if (c.rp && e.pos.x + e.hw > c.minX && e.pos.x - e.hw < c.maxX && e.pos.z + e.hw > c.minZ && e.pos.z - e.hw < c.maxZ && c.maxY <= e.pos.y + 1e-6 && c.maxY > top) { top = c.maxY; rp = c.rp; }
+    if (top > e.pos.y - 0.3 && !overlapAt(cols, e.pos.x, top, e.pos.z, e.hw, e.h)) { e.pos.y = top; e.vel.y = 0; e.onGround = true; e.ramp = rp; }
+  }
+  if (!e.onGround) e.ramp = null;
+  if (e.pos.y <= 0) { e.pos.y = 0; if (e.vel.y < 0) e.vel.y = 0; e.onGround = true; e.ramp = null; }
   return hitWall;
 }
 
@@ -680,7 +704,8 @@ const MOVE = {
   SLIDE_GRACE: 0.22, SLIDE_JUMP: 1.2, MAX_H: 15.5,          // salto al final del deslizamiento, multiplicador de impulso y tope de velocidad horizontal
   AIR_DRAG: 0.08, AIR_TURN: 2.6,                            // aire tras un slide hop: rozamiento (1/s) y giro máximo (rad/s)
   COYOTE: 0.1, JUMP_BUF: 0.12,                              // «coyote time» y buffer de salto (s)
-  HOP_MAX: 1.25, HOP_STEP: 0.05, HOP_DECAY: 0.8             // bunny hop normal
+  HOP_MAX: 1.25, HOP_STEP: 0.05, HOP_DECAY: 0.8,            // bunny hop normal
+  RAMP_ACC: 40                                              // [RAMPAS] aceleración al deslizarse por una rampa (× pendiente): cuesta abajo gana velocidad, cuesta arriba la pierde
 };
 /* Empieza un deslizamiento si se puede (en suelo, corriendo y sin espera). No reduce nunca la velocidad que ya llevas. Devuelve true si empezó. */
 function startSlide(p) {
@@ -699,6 +724,11 @@ function moveStep(p, inp, dt) {
   if (p.onGround && p.slide <= 0 && !(p.slideGrace > 0)) p.slideHop = false;   // al aterrizar se acaba el impulso de aire
   if (p.slide > 0) {   // deslizándose: poco rozamiento y sin control del rumbo
     const k = Math.exp(-M.SLIDE_DRAG * dt); p.vel.x *= k; p.vel.z *= k; p.slide -= dt;
+    if (p.ramp && p.onGround) {   // [RAMPAS] la pendiente empuja: cuesta abajo acelera (hasta MAX_H) y el deslizamiento no se acaba mientras baje
+      const [dx, dz, sl] = p.ramp, a = M.RAMP_ACC * sl * dt; p.vel.x += dx * a; p.vel.z += dz * a;
+      const sp0 = hs(); if (sp0 > M.MAX_H) { p.vel.x *= M.MAX_H / sp0; p.vel.z *= M.MAX_H / sp0; }
+      if (p.vel.x * dx + p.vel.z * dz > 1) p.slide = Math.max(p.slide, 0.12);
+    }
     const sp = hs(); p.slideSpeed = sp;
     if (!p.onGround) { p.slide = 0; if (sp > M.SLIDE_END) { p.slideGrace = M.SLIDE_GRACE; p.slideHop = true; } }   // se sale por un borde: conserva el impulso en el aire
     else if (sp < M.SLIDE_END) p.slide = 0;                                                                        // ya casi parado
