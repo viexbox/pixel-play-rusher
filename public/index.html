@@ -1078,7 +1078,8 @@ body.touch.playing:not(.dead) #touchUI{display:block}
 #touchUI #tKnife{right:max(30px,env(safe-area-inset-right));bottom:230px;width:60px;height:60px;font-size:9px}
 #touchUI .tbtn[hidden]{display:none}
 /* [PORTALES] dentro de CrazyGames/Poki: sin enlaces externos ni compras con dinero */
-html.portal #discordBtn,html.portal [data-tab="store"],html.portal .pt-ref{display:none!important}
+html.portal #discordBtn,html.portal [data-tab="store"],html.portal .pt-ref,html.portal #logoutBtn{display:none!important}
+html.nochat #chat,html.nochat #chatTab,html.nochat #lobbyChat{display:none!important}   /* [PORTALES] chat desactivado por el portal (p. ej. cuentas de menores) */
 #touchUI #tBomb{right:max(100px,calc(env(safe-area-inset-right) + 76px));bottom:230px;width:60px;height:60px;font-size:9px;border-color:#ffd23f;color:#ffd23f}   /* [BOMBA] mantener para plantar o desactivar */
 #touchUI .tbtn.sm{width:46px;height:46px;border-radius:12px;font-size:11px;top:max(10px,env(safe-area-inset-top))}
 #touchUI #tPause{right:max(12px,env(safe-area-inset-right))}
@@ -1374,6 +1375,7 @@ body.touch canvas#c,body.touch #touchUI{zoom:var(--uizi,1)}
     <h2 id="pauseTitle">Partida en pausa</h2>
     <p class="sub" id="pauseSub">Haz clic en Reanudar para volver a la arena.</p>
     <div class="row"><button class="play" id="resume">Reanudar</button><button class="play alt" id="quit">Abandonar</button></div>
+    <div class="row"><button class="play alt" id="inviteBtn" type="button" hidden>Invitar amigos</button></div>   <!-- [PORTALES] enlace de invitación a esta sala -->
     <div class="row"><button class="play alt" id="reportBtn" type="button" hidden>Reportar jugador</button></div>
   </div>
 </div>

@@ -53,7 +53,7 @@
       'Mensaje de chat': 'Chat message', 'Mercado': 'Market', 'Mi cuenta': 'My account', 'Mira': 'Sight', 'Mis anuncios': 'My listings',
       'Mis partidas (este navegador)': 'My matches (this browser)', 'Modo de juego': 'Game mode', 'Modos de juego': 'Game modes',
       'Mostrar el chat': 'Show chat', 'Motivo': 'Reason', 'Moverte': 'Move', 'Muertes': 'Deaths', 'Más recientes': 'Newest',
-      'Más secciones': 'More sections', 'NIVEL': 'LEVEL', 'NUEVO': 'NEW', 'Castillo Real': 'Castillo Real', 'Barrio Arcoíris': 'Barrio Arcoíris',
+      'Invitar amigos': 'Invite friends', 'Más secciones': 'More sections', 'NIVEL': 'LEVEL', 'NUEVO': 'NEW', 'Castillo Real': 'Castillo Real', 'Barrio Arcoíris': 'Barrio Arcoíris',
       'Castillo Real y Barrio Arcoíris, mapas nuevos': 'Castillo Real and Barrio Arcoíris, new maps', 'Nivel 1': 'Level 1', 'Nombre nuevo': 'New name',
       'Nombre ofensivo': 'Offensive name', 'Normal': 'Normal', 'Noticias': 'News', 'Nv 1': 'Lv 1', 'ONLINE': 'ONLINE',
       'Ocultar el chat': 'Hide chat', 'Ocultar ✕': 'Hide ✕', 'Orden': 'Sort by', 'Otro': 'Other', 'PASE DE BATALLA': 'BATTLE PASS',
@@ -95,6 +95,7 @@
   Object.assign(DICT.en, {"arrastra para girar": "drag to rotate", "Ver en 3D": "View in 3D"});   // [3D]
   Object.assign(DICT.en, {"Circuito": "Circuit", "Radiación": "Radiation", "Brasas": "Embers", "Sintonía": "Frequency", "Aurora": "Aurora", "Voltio": "Volt", "Magma": "Magma", "Hielo negro": "Black Ice", "Osario": "Ossuary", "Espectro": "Spectre", "Núcleo": "Core"});   // [NEÓN] skins del Pase VIP
   Object.assign(DICT.en, {"Los colores de rango son exclusivos: no se venden ni se intercambian.": "Rank colours are exclusive: they can’t be sold or traded.", "Maestro": "Master"});   // [RANGOS]
+  Object.assign(DICT.en, { "Enlace de invitación copiado: pásaselo a tus amigos para jugar en tu sala.": "Invite link copied: send it to your friends to play in your room.", "No se pudo crear el enlace de invitación.": "Could not create the invite link." });   // [PORTALES]
   Object.assign(DICT.en, { "En esta web los PX se consiguen jugando: premio diario, desafíos, pase de batalla y anuncios con premio.": "On this site you earn PX by playing: daily reward, challenges, battle pass and rewarded ads." });   // [PORTALES]
   Object.assign(DICT.en, { "Desactivar bomba": "Defuse the bomb", "BOMBA": "BOMB", "Por rondas y sin reaparecer: un equipo planta la bomba en A o B y el otro la desactiva. Los papeles cambian cada ronda; gana el primero en llegar a 4.": "Rounds with no respawns: one team plants the bomb at A or B and the other defuses it. Roles swap every round; first to 4 wins.",
     "ATACAS": "ATTACKING", "DEFIENDES": "DEFENDING", "Planta la bomba en A o B": "Plant the bomb at A or B", "Que no planten en A ni en B": "Don't let them plant at A or B", "Protégela hasta que explote": "Protect it until it explodes",

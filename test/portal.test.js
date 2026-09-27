@@ -34,6 +34,13 @@ const wsTry = origin => new Promise(res => { const ws = new WebSocket('ws://127.
     await call('POST', '/api/me/adreward', { portal: 'poki' }, tk); await call('POST', '/api/me/adreward', { portal: 'poki' }, tk); r = await call('POST', '/api/me/adreward', { portal: 'poki' }, tk);
     ok(r.status === 429, 'con el mismo tope diario (3 en la prueba): el cuarto se rechaza');
     ok((await call('POST', '/api/me/adreward', { portal: 'otro' }, tk)).status !== 200, 'un portal desconocido no cuenta');
+    /* invitaciones: hello con jr = sala del amigo */
+    const hello = (extra) => new Promise(res => { const ws = new WebSocket('ws://127.0.0.1:' + PORT + '/ws'); ws.on('open', () => ws.send(JSON.stringify(Object.assign({ t: 'hello', v: 1, n: 'Inv' + Math.floor(Math.random() * 900 + 100), map: 0, c: 0, mode: 'duelo' }, extra)))); ws.on('message', d => { const m = JSON.parse(d); if (m.t === 'welcome') res({ ws, room: m.room, mode: m.mode }); }); });
+    const A = await hello({}), Bz = await hello({ mode: 'zona', jr: A.room }), C = await hello({ map: 1, jr: A.room }), D = await hello({ jr: 999999 });
+    ok(C.room === A.room, 'quien llega por el enlace de invitación entra en la sala del amigo (' + A.room + '), aunque hubiera elegido otro mapa');
+    ok(Bz.room !== A.room && Bz.mode === 'zona', 'si el enlace no es de su modo, no se le mete en una sala de otro modo');
+    ok(D.ws.readyState === 1 && D.mode === 'duelo', 'una sala que ya no existe no da error: se busca partida normal');
+    [A, Bz, C, D].forEach(x => x.ws.close());
   } catch (e) { ok(false, 'excepción: ' + e.stack); }
   srv.kill();
 
@@ -70,8 +77,67 @@ const wsTry = origin => new Promise(res => { const ws = new WebSocket('ws://127.
     ok(posts[0] && posts[0].portal === 'crazygames', 'el servidor recibe de qué portal viene el anuncio');
     T.renderStore(); await sleep(50); ok(/se consiguen jugando/.test($('#storeBox').textContent) && !$('#storeBox button'), 'la tienda de PX no ofrece pagos con dinero dentro del portal');
     const css = [...w.document.querySelectorAll('style')].map(s => s.textContent).join('\n');
-    ok(/html\.portal #discordBtn,html\.portal \[data-tab="store"\],html\.portal \.pt-ref\{display:none!important\}/.test(css), 'y se esconden el enlace a Discord, la pestaña Tienda y las invitaciones (enlaces externos)');
+    ok(/html\.portal #discordBtn,html\.portal \[data-tab="store"\],html\.portal \.pt-ref,html\.portal #logoutBtn\{display:none!important\}/.test(css), 'y se esconden el enlace a Discord, la pestaña Tienda, las invitaciones (enlaces externos) y «Cerrar sesión» (no hay inicio de sesión propio)');
     ok(errors.length === 0, 'sin errores de JavaScript ' + JSON.stringify(errors.slice(0, 2)));
+    w.close();
+  }
+
+  console.log('\n=== CrazyGames: invitaciones, multijugador instantáneo y chat desactivado ===');
+  {
+    const PUB = path.join(__dirname, '..', 'public');
+    const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8').replace(/<script[^>]*src[^>]*><\/script>/g, '').replace(/<link[^>]*fonts[^>]*>/g, '');
+    const w = new JSDOM(html, { runScripts: 'outside-only', pretendToBeVisual: true, url: 'https://krunxa.test/?portal=crazygames' }).window;
+    w.matchMedia = q => ({ matches: q.includes('any-pointer'), addListener() {} }); const ctx = new Proxy({}, { get: (t, k) => (k === 'measureText' ? () => ({ width: 10 }) : () => {}), set: () => true });
+    w.HTMLCanvasElement.prototype.getContext = () => ctx; w.HTMLCanvasElement.prototype.requestPointerLock = () => {};
+    w.fetch = async u => { if (/api\/status/.test(String(u))) return { ok: true, status: 200, json: async () => ({ ok: true, players: 0, rooms: [], portalAds: { px: 25, perDay: 10 } }) }; throw new Error('sin servidor'); };
+    const sent = []; let sock = null;
+    w.WebSocket = function () { sock = this; this.readyState = 1; this.send = d => sent.push(JSON.parse(d)); this.close = () => {}; setTimeout(() => this.onopen && this.onopen(), 10); };
+    const calls = [], settings = { disableChat: true, muteAudio: false }; let setListener = null;
+    w.eval(fs.readFileSync(path.join(PUB, 'portal.js'), 'utf8'));
+    w.CrazyGames = { SDK: { init: async () => {}, game: { loadingStart() {}, loadingStop() {}, gameplayStart() {}, gameplayStop() {}, happytime() {},
+      isInstantMultiplayer: true, settings, getInviteParam: k => ({ roomId: '7', mode: 'zona' })[k] || null, addSettingsChangeListener: f => { setListener = f; },
+      inviteLink: async p => { calls.push(['link', p]); return 'https://www.crazygames.com/game/krunxa?roomId=' + p.roomId; }, showInviteButton: p => calls.push(['show', p]), hideInviteButton: () => calls.push(['hide']) }, ad: { requestAd() {} } } };
+    [...w.document.querySelectorAll('script')].find(x => /crazygames-sdk/.test(x.src)).onload(); await sleep(30);
+    w.eval(fs.readFileSync(path.join(PUB, 'vendor', 'three.min.js'), 'utf8')); w.THREE.WebGLRenderer = function () { this.capabilities = { getMaxAnisotropy: () => 1 }; this.setPixelRatio = () => {}; this.setSize = () => {}; this.render = () => {}; };
+    w.eval(fs.readFileSync(path.join(PUB, 'shared.js'), 'utf8'));
+    const c = fs.readFileSync(path.join(PUB, 'client.js'), 'utf8'), i = c.lastIndexOf('})();'), errors = []; w.addEventListener('error', e => errors.push(e.message));
+    w.eval(c.slice(0, i) + 'window.__T = { get state() { return state; }, cfg, net, leaveToMenu, copyInvite, chatAdd };\n' + c.slice(i));
+    const T = w.__T, $ = q => w.document.querySelector(q);
+    ok(await until(() => sent.some(m => m.t === 'hello'), 5000), 'multijugador instantáneo: sin tocar nada, el juego se conecta a jugar online en cuanto hay servidor');
+    const h = sent.find(m => m.t === 'hello');
+    ok(h && h.jr === 7 && h.mode === 'zona' && T.cfg.mode === 'zona', 'con la invitación (roomId 7, modo zona) pide entrar en la sala del amigo, en su modo');
+    sock.onmessage({ data: JSON.stringify({ t: 'welcome', v: 1, id: 5, n: 'Guest_1', tm: 0, lim: 160, mode: 'zona', rk: 0, zone: null, tk: [0, 0], room: 7, map: 0, players: [], tl: 300, cash: 800 }) }); await sleep(50);
+    ok(calls.some(x => x[0] === 'show' && x[1].roomId === '7' && x[1].mode === 'zona') && !$('#inviteBtn').hidden, 'dentro de la sala se enseña el botón «Invitar» de CrazyGames (con la sala y el modo) y el de «Invitar amigos» de la pausa');
+    w.navigator.clipboard = { writeText: async t => { calls.push(['copy', t]); } };
+    await T.copyInvite(); ok(calls.some(x => x[0] === 'link' && x[1].roomId === '7') && calls.some(x => x[0] === 'copy' && /roomId=7/.test(x[1])), '«Invitar amigos» pide el enlace de invitación al SDK (inviteLink) y lo copia');
+    ok(w.document.documentElement.classList.contains('nochat'), 'con el chat desactivado en CrazyGames (disableChat) el chat se esconde');
+    T.chatAdd('', 'Otro', 'hola', 0, 1); ok(!/hola/.test(($('#chatLog') || { textContent: '' }).textContent), 'y los mensajes no se muestran');
+    settings.disableChat = false; setListener && setListener(); ok(!w.document.documentElement.classList.contains('nochat'), 'si lo vuelven a activar (addSettingsChangeListener), el chat vuelve');
+    T.leaveToMenu(); ok(calls.some(x => x[0] === 'hide') && $('#inviteBtn').hidden, 'al salir de la sala se quita el botón de invitar');
+    ok(errors.length === 0, 'sin errores de JavaScript ' + JSON.stringify(errors.slice(0, 2)));
+    w.close();
+  }
+
+  console.log('\n=== Sin pantalla de acceso propia (CrazyGames no permite inicio de sesión externo) ===');
+  {
+    globalThis.__PPR_MANUAL_BOOT__ = true;
+    const { pathToFileURL } = require('url'), M = await import(pathToFileURL(path.join(__dirname, '..', 'public', 'src', 'main.js')).href);
+    const mem = () => { const m = new Map(); return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) }; };
+    const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8').replace(/<script[^>]*src[^>]*><\/script>/g, '').replace(/<link[^>]*(fonts|stylesheet)[^>]*>/g, '');
+    const boot = portal => { globalThis.PPR_PORTAL = portal; const w = new JSDOM(html, { pretendToBeVisual: true, url: 'https://ejemplo.test/' }).window; M.bootstrap({ document: w.document, storages: { local: mem(), session: mem() }, config: { auth: true } }); const r = { auth: w.document.querySelector('#auth'), name: (w.document.querySelector('#sessName') || {}).textContent || '' }; delete globalThis.PPR_PORTAL; return r; };
+    const pr = boot({ name: 'crazygames' }), normal = boot(null);
+    ok((!pr.auth || pr.auth.hidden) && /Invitado/.test(pr.name), 'en el portal se entra directamente como invitado, sin pantalla de registro ni de inicio de sesión (' + pr.name + ')');
+    ok(normal.auth && !normal.auth.hidden, 'fuera del portal sigue saliendo la pantalla de acceso de siempre');
+  }
+  console.log('\n=== Términos y Privacidad desde otra web ===');
+  {
+    const PUB = path.join(__dirname, '..', 'public'), root = path.join(__dirname, '..');
+    execFileSync('node', [path.join(root, 'scripts', 'build-portal.js'), 'crazygames', 'https://krunxa.up.railway.app'], { cwd: root, stdio: 'ignore' });
+    const h = fs.readFileSync(path.join(root, 'dist', 'crazygames', 'index.html'), 'utf8'); fs.rmSync(path.join(root, 'dist', 'crazygames'), { recursive: true, force: true });
+    const w = new JSDOM(h.replace(/<script>[\s\S]*?<\/script>/g, s => (/VOLT_CONFIG|three|shared|client|PPR_PORTAL_NAME/.test(s) ? s : '')).replace(/<link[^>]*fonts[^>]*>/g, ''), { runScripts: 'outside-only', pretendToBeVisual: true, url: 'https://files.crazygames.com/krunxa/index.html' }).window;
+    ok(/<a href="terminos"/.test(h) && /window\.VOLT_CONFIG\.server = "https:\/\/krunxa\.up\.railway\.app"/.test(h), 'el paquete lleva los enlaces legales y la dirección del servidor');
+    const cl = fs.readFileSync(path.join(PUB, 'client.js'), 'utf8');
+    ok(/if \(CFG_SERVER\) document\.querySelectorAll\('\.legal a\[href\]'\)/.test(cl), 'y el juego los reescribe para que apunten al servidor (https://krunxa.up.railway.app/terminos) aunque la página esté en CrazyGames');
     w.close();
   }
 

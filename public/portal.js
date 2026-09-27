@@ -65,6 +65,30 @@
       } catch (e) { fin(false); }
     });
   }
+  /* [PORTALES] Multijugador con amigos: enlace de invitación a la sala, botón de invitar del portal, leer la invitación al entrar,
+     multijugador instantáneo (CrazyGames: el jefe del grupo entra directo a una sala) y ajustes del portal (chat desactivado, sin sonido) */
+  P.onReady = function (fn) { when(fn); };
+  P.inviteParam = function (key) {
+    try { if (name === 'crazygames') { var s = cg(); if (s && s.game && typeof s.game.getInviteParam === 'function') { var v = s.game.getInviteParam(key); if (v) return String(v); } } } catch (e) { /* nada */ }
+    try { if (name === 'poki' && window.PokiSDK && typeof window.PokiSDK.getURLParam === 'function') { var w = window.PokiSDK.getURLParam(key); if (w) return String(w); } } catch (e) { /* nada */ }
+    try { return new URLSearchParams(location.search).get(key); } catch (e) { return null; }
+  };
+  P.inviteLink = function (params) {
+    return new Promise(function (res) {
+      when(function () {
+        try {
+          if (name === 'crazygames') { var r = cg().game.inviteLink(params); if (r && r.then) r.then(res, function () { res(null); }); else res(r || null); }
+          else if (window.PokiSDK && window.PokiSDK.shareableURL) window.PokiSDK.shareableURL(params).then(res, function () { res(null); });
+          else res(null);
+        } catch (e) { res(null); }
+      });
+    });
+  };
+  P.showInvite = function (params) { when(function () { var s = cg(); if (name === 'crazygames' && s && s.game.showInviteButton) s.game.showInviteButton(params); }); };
+  P.hideInvite = function () { when(function () { var s = cg(); if (name === 'crazygames' && s && s.game.hideInviteButton) s.game.hideInviteButton(); }); };
+  P.instant = function () { try { var s = cg(); return !!(name === 'crazygames' && s && s.game && s.game.isInstantMultiplayer); } catch (e) { return false; } };
+  P.settings = function () { try { var s = cg(), g = s && s.game && s.game.settings; return { disableChat: !!(g && g.disableChat), muteAudio: !!(g && g.muteAudio) }; } catch (e) { return { disableChat: false, muteAudio: false }; } };
+  P.onSettings = function (fn) { when(function () { var s = cg(); if (name === 'crazygames' && s && s.game.addSettingsChangeListener) s.game.addSettingsChangeListener(function () { fn(P.settings()); }); fn(P.settings()); }); };
   P.commercial = function (onStart, onEnd) { return ad('midgame', onStart, onEnd); };
   P.rewarded = function (onStart, onEnd) { return ad('rewarded', onStart, onEnd); };
 })();
