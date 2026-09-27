@@ -277,6 +277,16 @@ También hay un `Dockerfile` listo por si la plataforma o tu VPS trabajan con co
 3. Edita `public/config.js`: `window.VOLT_CONFIG = { server: 'https://juego.midominio.com' };`
 4. Sube el contenido de `public/` a tu hosting (normalmente a `public_html`).
 
+## 5a. Pago por PayPal con ticket en Discord
+
+Alternativa (o complemento) a Stripe: el jugador paga directamente a tu PayPal y un administrador le entrega los PX.
+
+- **Variables (Railway → Variables):** `PAYPAL_EMAIL` (tu correo de PayPal; no lo pongas en el código), `PAYPAL_ME` (opcional: tu usuario de PayPal.me para que el enlace ya lleve el importe) y `DISCORD_TICKET_URL` (opcional: enlace al canal de tickets; por defecto, la invitación del botón de Discord).
+- **El jugador** (con cuenta online) pulsa «PayPal» en un paquete y ve: el correo de PayPal, el importe, un código de pedido `KX-XXXXXX` para la nota del pago y el botón para abrir el ticket en Discord. Máximo 3 pedidos pendientes por cuenta; si repite el mismo paquete le sale el mismo código.
+- **Tú**, en el panel → Monedas y ventas → Pedidos, ves el pedido como «PayPal pendiente». Comprueba en PayPal que ha llegado el importe con ese código y pulsa **Entregar PX** (o **Cancelar**). Queda en la auditoría y cuenta en los ingresos.
+- Si Stripe también está activo, cada paquete muestra los dos botones. Para dejar solo PayPal, quita `STRIPE_SECRET_KEY`.
+- Con PayPal no hay protección automática: si alguien abre una disputa y le devuelven el dinero, quítale los PX con **Reembolsar**.
+
 ## 5b. Buscadores y redes sociales (SEO)
 
 - **Define `PUBLIC_URL`** con tu dominio (`https://tudominio.com`, sin barra final). Con ella el servidor rellena la dirección canónica, las etiquetas Open Graph/Twitter (vista previa al compartir en WhatsApp, Discord, X…), `robots.txt` y `sitemap.xml`. Sin ella usa el dominio con el que se pide la página.

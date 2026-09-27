@@ -2424,16 +2424,39 @@ async function renderStore() {
   try { const r = await fetch(apiUrl('api/store'), { cache: 'no-store' }); if (r.ok) info = await r.json(); } catch (e) { /* sin servidor */ }
   if (!info) { box.innerHTML = '<p class="note">La tienda necesita el servidor del juego. No está disponible en esta versión.</p>'; return; }
   const fmt = new Intl.NumberFormat('es-ES', { style: 'currency', currency: info.currency || 'eur' });
-  const can = info.enabled && !!remote, why = !remote ? 'Inicia sesión con una cuenta online (Registro) para comprar PX.' : (!info.enabled ? info.reason : '');
+  const pp = info.paypal, can = info.enabled && !!remote, canPP = !!pp && !!remote;   // [PAYPAL] pago manual por PayPal + ticket en Discord
+  const why = !remote ? 'Inicia sesión con una cuenta online (Registro) para comprar PX.' : (!info.enabled && !pp ? info.reason : '');
+  const btns = p => (info.enabled ? '<button type="button" data-pack="' + esc(p.id) + '"' + (can ? '' : ' disabled') + '>' + fmt.format(p.price / 100) + '</button>' : '') +
+    (pp ? '<button type="button" class="ppbtn" data-pp="' + esc(p.id) + '"' + (canPP ? '' : ' disabled') + '>' + (info.enabled ? 'PayPal' : fmt.format(p.price / 100) + ' · PayPal') + '</button>' : '');
   box.innerHTML = '<div class="storehead"><b>Tienda de PX</b><span>Saldo: <em id="storeBal">' + fmtKr(krTotal()) + ' PX</em></span></div>' + (why ? '<p class="note warn">' + esc(why) + '</p>' : '') +
-    '<div class="packs">' + info.packs.map(p => '<div class="pack"><div class="pxn">' + fmtKr(p.px) + '<small>PX</small></div>' + (p.tag ? '<span class="ptag">' + esc(p.tag) + '</span>' : '') + '<button type="button" data-pack="' + esc(p.id) + '"' + (can ? '' : ' disabled') + '>' + fmt.format(p.price / 100) + '</button></div>').join('') + '</div>' +
-    '<div id="petsBox"></div>' +
-    '<p class="note small">El pago se hace en la página segura de Stripe (tarjeta o PayPal); nunca guardamos tus datos de pago. Los PX solo sirven dentro del juego (colores y recompensas).</p><p id="storeMsg" class="note" role="status"></p>';
+    '<div class="packs">' + info.packs.map(p => '<div class="pack"><div class="pxn">' + fmtKr(p.px) + '<small>PX</small></div>' + (p.tag ? '<span class="ptag">' + esc(p.tag) + '</span>' : '') + btns(p) + '</div>').join('') + '</div>' +
+    '<div id="ppBox" hidden></div><div id="petsBox"></div>' +
+    '<p class="note small">' + (info.enabled ? 'El pago con tarjeta se hace en la página segura de Stripe; nunca guardamos tus datos de pago. ' : '') + (pp ? 'Con PayPal pagas tú directamente y un administrador te entrega los PX por ticket en Discord. ' : '') + 'Los PX solo sirven dentro del juego (colores y recompensas).</p><p id="storeMsg" class="note" role="status"></p>';
   for (const b of box.querySelectorAll('[data-pack]')) b.addEventListener('click', async () => {
     b.disabled = true; $('#storeMsg').textContent = 'Abriendo el pago seguro…';
     try { const j = await acctPost('api/store/checkout', { pack: b.dataset.pack }); (window.__pprNav || (u => { location.href = u; }))(j.url); } catch (e) { $('#storeMsg').textContent = e.message; b.disabled = false; }
   });
+  for (const b of box.querySelectorAll('[data-pp]')) b.addEventListener('click', async () => {
+    b.disabled = true; $('#storeMsg').textContent = '';
+    try { const j = await acctPost('api/store/paypal', { pack: b.dataset.pp }); showPaypalOrder(j.order, fmt); } catch (e) { $('#storeMsg').textContent = e.message; }
+    b.disabled = false;
+  });
   renderPets();   // [MASCOTAS]
+}
+/* [PAYPAL] Instrucciones del pedido: correo de PayPal (y PayPal.me si lo hay), importe, código para la nota del pago y ticket en Discord */
+function showPaypalOrder(o, fmt) {
+  const box = $('#ppBox'); if (!box) return;
+  const amt = fmt.format(o.amount / 100), me = o.me ? 'https://paypal.me/' + encodeURIComponent(o.me) + '/' + (o.amount / 100).toFixed(2) + String(o.currency || 'eur').toUpperCase() : '';
+  const copy = (v, label) => '<button type="button" class="ppcopy" data-copy="' + esc(v) + '">Copiar ' + label + '</button>';
+  box.innerHTML = '<h3>Pedido ' + esc(o.code) + ' · ' + fmtKr(o.px) + ' PX</h3><ol>' +
+    '<li>Envía <b>' + esc(amt) + '</b> por PayPal a <b class="ppmail">' + esc(o.email) + '</b> ' + copy(o.email, 'correo') + (me ? ' o <a href="' + esc(me) + '" target="_blank" rel="noopener noreferrer">paga con PayPal.me</a>' : '') + '</li>' +
+    '<li>En la nota del pago escribe el código <b class="ppcode">' + esc(o.code) + '</b> ' + copy(o.code, 'código') + '</li>' +
+    '<li>Abre un ticket en nuestro Discord con el código y una captura del pago: <a class="ppdisc" href="' + esc(o.discord) + '" target="_blank" rel="noopener noreferrer">Abrir Discord</a></li>' +
+    '<li>Un administrador comprueba el pago y te entrega los PX en tu cuenta.</li></ol>' +
+    '<p class="note small">Guarda el código: si vuelves a pulsar el mismo paquete te sale el mismo pedido. Nunca te pediremos tu contraseña.</p>';
+  box.hidden = false;
+  for (const c of box.querySelectorAll('[data-copy]')) c.addEventListener('click', () => { try { navigator.clipboard.writeText(c.dataset.copy).then(() => { c.textContent = '¡Copiado!'; }, () => {}); } catch (e) { /* sin portapapeles */ } });
+  box.scrollIntoView({ block: 'nearest' });
 }
 /* [MASCOTAS] Tienda de mascotas: se compran con PX (los cobra el servidor, que además comprueba que no la tengas ya) */
 function petSvg(def) {
