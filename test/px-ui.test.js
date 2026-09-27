@@ -75,7 +75,7 @@ async function register(U, name, email, pw) { U.$('#tabRegister').click(); U.$('
     ok(await until(() => !A.$('#playOnline').disabled), 'el cliente detecta el servidor'); A.$('#playOnline').click(); A.$('#eqPlay').click(); ok(await until(() => A.T.state === 'playing' && A.T.net.id != null), 'la cuenta entra a jugar online');
     const pl = (await adm('GET', '/players')).j.players.find(p => p.name === 'Zoe_7'); ok(!!pl, 'y en la sala aparece con el nombre de la cuenta (Zoe_7)');
     await adm('POST', '/rooms/action', { id: pl.room, action: 'end' });
-    ok(await until(() => !A.$('#end').hidden && A.$('#endMaps').hidden), 'al acabar la ronda aparece la pantalla final y, con un solo mapa, no hay selector para votar');
+    ok(await until(() => !A.$('#end').hidden && !A.$('#endMaps').hidden), 'al acabar la ronda aparece la pantalla final con el selector para votar el siguiente mapa');
     const cur = A.T.curMap;
     ok(await until(() => A.T.curMap === 0 && cur === 0, 3000), 'el jugador sigue en Nexus Outpost, el único mapa');
     ok(await until(() => A.$('#end').hidden, 8000), 'al acabar el descanso la nueva ronda empieza en el mismo mapa');

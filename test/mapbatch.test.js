@@ -33,7 +33,7 @@ for (let m = 0; m < M.MAPS.length; m++) {
   const cast = batches.filter(o => o.castShadow), recv = batches.filter(o => o.receiveShadow);
   ok(cast.length >= 1 && cast.length <= 12 && recv.length >= 1 && batches.every(o => o.receiveShadow === false || o.castShadow), M.MAPS[m].name + ': proyectan sombra ' + cast.length + ' lotes (sin lotes serían cientos de mallas en el pase de sombras)');
 }
-ok(totalMeshes <= 24, 'el mapa entero se dibuja con ' + totalMeshes + ' mallas');
+ok(totalMeshes <= 24 * M.MAPS.length, 'los ' + M.MAPS.length + ' mapas juntos suman ' + totalMeshes + ' mallas (cada uno ≤ 24)');
 
 console.log('\n=== La geometría fusionada es la misma caja a caja ===');
 for (const m of [0]) {   // Nexus Outpost

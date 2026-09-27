@@ -12,7 +12,7 @@ async function until(fn, ms = 8000) { const t0 = Date.now(); while (Date.now() -
 console.log('=== 1. Un único mapa: Nexus Outpost ===');
 const m = S.MAPS[0], world = S.buildWorld(0), cols = world.colliders, boxes = [];
 S.buildWorld(0, (cx, y0, cz, w, h, d, color, solid, tag) => boxes.push({ cx, y0, cz, w, h, d, color, solid, tag }));
-ok(S.MAPS.length === 1 && m.name === 'Nexus Outpost' && m.half === 58, 'solo hay un mapa (116 m desde que se añadió el anillo de casetas): «' + m.name + '» de ' + m.half * 2 + ' × ' + m.half * 2 + ' m');
+ok(S.MAPS[0] === m && m.name === 'Nexus Outpost' && m.half === 58, 'Nexus Outpost es el primer mapa (116 m desde que se añadió el anillo de casetas): «' + m.name + '» de ' + m.half * 2 + ' × ' + m.half * 2 + ' m');
 ok(!JSON.stringify(S.MAPS.map(x => x.name)).match(/Almenas|Dunas|Contenedores|Bosque|Fábrica|Cañón/), 'ningún mapa antiguo (Almenas, Dunas, Contenedores, Bosque, Fábrica, Cañón) sigue en la lista');
 const need = ['Spawn Red', 'Spawn Blue', 'South Alley', 'Tunnel Passage', 'Main Plaza', 'Sniper Perch', 'Office Block', 'Central Courtyard', 'Lower Plaza', 'Reactor Complex', 'East Roof', 'Rooftop Network', 'West Tower Roof', 'Helipad A', 'Helipad B', 'Tech Hub', 'Armory', 'Capture Point'];
 /* un punto DENTRO de cada zona (x, altura de los pies, z) */
@@ -195,15 +195,15 @@ Bot.n = 20;
   const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8').replace(/<script[^>]*src[^>]*><\/script>/g, '').replace(/<link[^>]*fonts[^>]*>/g, '');
   const three = fs.readFileSync(path.join(PUB, 'vendor', 'three.min.js'), 'utf8'), shared = fs.readFileSync(path.join(PUB, 'shared.js'), 'utf8'), client = fs.readFileSync(path.join(PUB, 'client.js'), 'utf8');
   const w = new JSDOM(html, { runScripts: 'outside-only', pretendToBeVisual: true, url: 'https://ejemplo.test/' }).window;
-  w.localStorage.setItem('voltarena.v1.cfg', JSON.stringify({ name: 'Vieja', map: 5, cls: 0 }));   // configuración guardada por una versión con 6 mapas
+  w.localStorage.setItem('voltarena.v1.cfg', JSON.stringify({ name: 'Vieja', map: 9, cls: 0 }));   // configuración guardada por una versión con 6 mapas
   w.matchMedia = q => ({ matches: q.includes('any-pointer'), addListener() {} }); const ctx = new Proxy({}, { get: (t, k) => (k === 'measureText' ? () => ({ width: 10 }) : () => {}), set: () => true });
   w.HTMLCanvasElement.prototype.getContext = () => ctx; w.HTMLCanvasElement.prototype.requestPointerLock = () => {}; w.fetch = () => Promise.reject(new Error('x'));
   w.eval(three); w.THREE.WebGLRenderer = function () { this.capabilities = { getMaxAnisotropy: () => 1 }; this.setPixelRatio = () => {}; this.setSize = () => {}; this.render = () => {}; }; w.eval(shared);
   const i = client.lastIndexOf('})();'), errors = []; w.addEventListener('error', e => errors.push(e.message));
   w.eval(client.slice(0, i) + 'window.__M = { buildMap, mapGroup, MAPS, TEX, get cfg() { return cfg; }, get curMap() { return curMap; }, get mapHalf() { return mapHalf; } };\n' + client.slice(i));
   const M = w.__M;
-  ok(M.cfg.map === 0 && errors.length === 0, 'una configuración guardada con «map: 5» (de cuando había 6 mapas) se corrige a 0 y el juego arranca sin errores (' + errors.length + ')');
-  ok(M.curMap === 0 && M.mapHalf === 58 && M.MAPS.length === 1, 'el cliente construye Nexus Outpost al arrancar');
+  ok(M.cfg.map === 0 && errors.length === 0, 'una configuración guardada con un mapa que ya no existe («map: 9») se corrige a 0 y el juego arranca sin errores (' + errors.length + ')');
+  ok(M.curMap === 0 && M.mapHalf === 58 && M.MAPS[0].name === 'Nexus Outpost', 'el cliente construye Nexus Outpost al arrancar');
   ok(M.TEX.glass && M.TEX.helipad && M.TEX.helipad.raw === true && !M.TEX.glass.raw, 'existen las texturas «glass» (se tiñe) y «helipad» (colores propios, sin teñir)');
   ok([...tags].every(t => M.TEX[t]), 'todas las etiquetas de textura que usa el mapa (' + [...tags].join(', ') + ') existen en el cliente');
   const meshes = []; M.mapGroup.traverse(o => { if (o.isMesh) meshes.push(o); });

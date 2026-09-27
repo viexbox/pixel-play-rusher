@@ -20,7 +20,10 @@ for (let m = 0; m < S.MAPS.length; m++) {
   }
   /* Nexus Outpost tiene cuatro niveles: también se simulan jugadores que EMPIEZAN sobre tejados, cubiertas, la torre, el podio y la pasarela alta del reactor (escaleras, bordes, caídas) */
   let nHigh = 0, badHigh = 0;
-  for (const [sx, sy, sz] of [[-30, 5.4, -42], [-4, 5.46, -43], [21, 5.4, -38], [40, 5.4, -40], [10, 3.6, -1], [40, 4.05, -13], [40, 3.6, 24], [-24, 1.8, -14], [6, 6.3, -17.5], [-44, 5.4, -17]]) for (const every of [3, 6, 9]) for (let k = 0; k < 4; k++) {
+  const HIGH = [[[-30, 5.4, -42], [-4, 5.46, -43], [21, 5.4, -38], [40, 5.4, -40], [10, 3.6, -1], [40, 4.05, -13], [40, 3.6, 24], [-24, 1.8, -14], [6, 6.3, -17.5], [-44, 5.4, -17]],   // Nexus Outpost
+    [[0, 2.4, -28], [4, 2.4, -26], [-4, 2.4, -30]],   // Pueblo Duna: el balcón
+    [[0, 3.6, -28], [-18, 3.6, -30], [18, 3.6, -26], [-16, 3.6, -36]]][m] || [];   // Villa Piscina: la terraza
+  for (const [sx, sy, sz] of HIGH) for (const every of [3, 6, 9]) for (let k = 0; k < 4; k++) {
     const r = rnd(7000 + Math.round(sx * 10 + sz) + every * 31 + k), e = { pos: { x: sx, y: sy, z: sz }, vel: { x: 0, y: 0, z: 0 }, hw: 0.35, h: 1.8, onGround: true };
     let tx = sx, tz = sz, t = 0, prev = { x: sx, y: sy, z: sz };
     for (let f = 1; f <= 60 * 60; f++) {
@@ -30,7 +33,7 @@ for (let m = 0; m < S.MAPS.length; m++) {
       if (f % every === 0) { const x = +e.pos.x.toFixed(3), y = +e.pos.y.toFixed(3), z = +e.pos.z.toFixed(3); nHigh++; if (S.wallViolation(cols, inset, prev, x, y, z, 1.8)) badHigh++; prev = { x, y, z }; }
     }
   }
-  ok(badHigh === 0 && nHigh > 20000, 'desde los tejados, la cubierta, la torre y el podio (10 puntos de partida a distintas alturas): ' + nHigh + ' posiciones y ' + badHigh + ' correcciones falsas');
+  ok(badHigh === 0 && nHigh > 2000 * HIGH.length, S.MAPS[m].name + ': desde las zonas altas (' + HIGH.length + ' puntos de partida a distintas alturas): ' + nHigh + ' posiciones y ' + badHigh + ' correcciones falsas');
   per.push(S.MAPS[m].name + ' ' + bad); allBad += bad; allN += n;
   ok(bad === 0, S.MAPS[m].name + ': ' + n + ' posiciones de jugadores legítimos (saltos, escaleras, esquinas y choques), ' + bad + ' correcciones');
 }
