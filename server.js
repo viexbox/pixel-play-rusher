@@ -48,6 +48,7 @@ const BREAK_SECS = +process.env.BREAK_SECS || 12;
 const TEAM_LIMIT = +process.env.TEAM_KILL_LIMIT || (process.env.KILL_LIMIT ? KILL_LIMIT : 60);   // [PARTIDAS] 40 → 60: con partidas de 5 min, que no terminen antes por bajas
 const KNIFE_LIMIT = +process.env.KNIFE_KILL_LIMIT || 40;   // [NUEVO] bajas para ganar en «Solo cuchillos»
 const ZONE_LIMIT = +process.env.ZONE_LIMIT || S.ZONE.LIMIT, ZONE_MOVE = +process.env.ZONE_MOVE_SECS || S.ZONE.MOVE_SECS;   // puntos para ganar en «Capturar zona» y cada cuánto cambia de sitio
+const BOMB = Object.assign({}, S.BOMB, { WIN: +process.env.BOMB_WIN || S.BOMB.WIN, ROUND: +process.env.BOMB_ROUND || S.BOMB.ROUND, FUSE: +process.env.BOMB_FUSE || S.BOMB.FUSE, PAUSE: +process.env.BOMB_PAUSE || S.BOMB.PAUSE });   // [BOMBA] se puede acortar para las pruebas
 const LADDER = S.GUN_LADDER.slice(0, +process.env.LADDER_LEVELS || S.GUN_LADDER.length);   // niveles de armas de la Carrera (acortable solo para pruebas)
 /* [NUEVO] Colisiones con paredes: el servidor rechaza posiciones dentro de un muro o que lo atraviesan (WALL_CHECK=0 lo desactiva; solo para pruebas con bots que caminan en línea recta) */
 const WALL_CHECK = process.env.WALL_CHECK !== '0';
@@ -81,6 +82,9 @@ const log = (...a) => { const line = new Date().toISOString() + ' ' + a.join(' '
 const LB_FILE = path.join(DATA_DIR, 'leaderboard.json');
 let lb = { entries: [] };
 try { const d = (PGDB && PGDB.get('leaderboard.json')) || JSON.parse(fs.readFileSync(LB_FILE, 'utf8')); if (d && Array.isArray(d.entries)) lb = d; } catch (e) { /* primera ejecución */ }
+/* [MAPAS KRUNKER] v2: los mapas son otros (Castillo Real, Barrio Arcoíris); las entradas guardadas antes eran de mapas viejos con los mismos números y se descartan una vez */
+const LB_VERSION = 2;
+if (lb.v !== LB_VERSION) { if (lb.entries.length) console.log('[clasificación] mapas nuevos: se reinicia la clasificación (' + lb.entries.length + ' entradas de los mapas viejos)'); lb = { v: LB_VERSION, entries: [] }; }
 { const n0 = lb.entries.length; lb.entries = lb.entries.filter(e => Number.isInteger(e.m) && e.m >= 0 && e.m < S.MAPS.length); if (lb.entries.length !== n0) console.log('[clasificación] se descartaron ' + (n0 - lb.entries.length) + ' entradas de mapas que ya no existen'); }   // [NUEVO] solo queda «Nexus Outpost»
 let lbTimer = null;
 function lbSaveSoon() {
@@ -181,7 +185,7 @@ class Room {
     for (const sp of this.specs) sp.send(s);   // los espectadores reciben todo
   }
   /* ---- [NUEVO] Modos de juego ---- */
-  limit() { return this.mode === 'navidad' ? 0 : this.mode === 'zona' ? ZONE_LIMIT : this.mode === 'cuchillos' ? KNIFE_LIMIT : this.mode === 'carrera' ? LADDER.length + 1 : TEAM_LIMIT; }
+  limit() { return this.mode === 'navidad' ? 0 : this.mode === 'bomba' ? BOMB.WIN : this.mode === 'zona' ? ZONE_LIMIT : this.mode === 'cuchillos' ? KNIFE_LIMIT : this.mode === 'carrera' ? LADDER.length + 1 : TEAM_LIMIT; }
   classFor(p) { return this.mode === 'carrera' ? LADDER[Math.min(p.gl, LADDER.length - 1)] : p.nextCls; }
   gunsAllowed(p) { return this.mode === 'cuchillos' ? false : this.mode === 'carrera' ? p.gl < LADDER.length : true; }
   /* ---- [NUEVO] Bots de relleno ---- */
@@ -205,7 +209,15 @@ class Room {
     }
     const t = b.tgt && b.tgt.alive ? b.tgt : null, w = S.WEAPONS[b.cls], knife = !this.gunsAllowed(b);
     let gx = e.pos.x, gz = e.pos.z, gy = null, speed = S.CONST.WALK * (knife ? 0.95 : 0.8), strafe = false;   // [PR3] gy: altura del objetivo (null = suelo, como antes)
-    if (t) { const d = Math.hypot(t.x - e.pos.x, t.z - e.pos.z); gx = t.x; gz = t.z; gy = t.y; if (!knife && d < 11) strafe = true; else if (!knife && d < 18 && now >= b.reactAt) speed *= 0.6; }
+    if (t) { b.bact = false; const d = Math.hypot(t.x - e.pos.x, t.z - e.pos.z); gx = t.x; gz = t.z; gy = t.y; if (!knife && d < 11) strafe = true; else if (!knife && d < 18 && now >= b.reactAt) speed *= 0.6; }
+    else if (this.mode === 'bomba' && this.bomb && (this.bomb.st === 'live' || this.bomb.st === 'planted')) {   // [BOMBA] atacantes a plantar, defensores a vigilar o a desactivar
+      const bb = this.bomb, sites = this.world.map.bomb || [];
+      if (b.siteN !== this.bn && sites.length) { b.siteN = this.bn; b.site = sites[Math.floor(R() * sites.length)]; }
+      const att = b.team === bb.att, g = bb.st === 'planted' ? [bb.x, bb.z, bb.y] : b.site ? [b.site.x + (att ? 0 : Math.cos(b.id * 2.3) * 3), b.site.z + (att ? 0 : Math.sin(b.id * 2.3) * 3), b.site.y] : [e.pos.x, e.pos.z, 0];
+      gx = g[0]; gz = g[1]; gy = g[2] || null;
+      const act = (bb.st === 'live' && att) || (bb.st === 'planted' && !att);
+      if (Math.hypot(gx - e.pos.x, gz - e.pos.z) < (act ? 1.2 : 2) && Math.abs((gy || 0) - e.pos.y) < 1) { speed = 0; b.bact = act; } else b.bact = false;
+    }
     else if (this.mode === 'zona' && this.zone) { gx = this.zone.x + Math.cos(b.id * 1.7) * 2; gz = this.zone.z + Math.sin(b.id * 1.7) * 2; gy = this.zone.y || null; if (Math.hypot(gx - e.pos.x, gz - e.pos.z) < 1.5 && Math.abs((this.zone.y || 0) - e.pos.y) < 1) speed = 0; }   // [PR3] la zona puede estar en una azotea: gy guía la subida por la escalera, y solo se para si además ya está a esa altura
     else {
       if (!b.wp || Math.hypot(b.wp[0] - e.pos.x, b.wp[1] - e.pos.z) < 2 || now > b.wpT) {
@@ -334,6 +346,7 @@ class Room {
   onKill(a, v, wname, now) {
     if (this.mode === 'navidad') { this.dropGifts(v.x, v.y, v.z, XMAS.killDrop, now); return; }   // [NAVIDAD] las bajas no suman: suman los regalos
     if (this.mode === 'zona') return;                                    // en la zona mandan los puntos de zona, no las bajas
+    if (this.mode === 'bomba') return;                                   // [BOMBA] se ganan rondas, no bajas (el final de ronda lo mira bombTick)
     if (this.mode === 'carrera') {
       const last = LADDER.length, knife = wname === 'Cuchillo';
       if (a.gl >= last && knife) { this.tk[a.team] = last + 1; this.endRound(now); return; }   // baja con el cuchillo en el último nivel: gana su equipo
@@ -364,7 +377,7 @@ class Room {
   }
   add(p) {
     p.room = this; this.assignTeam(p); this.players.set(p.id, p); this.noteLone();
-    p.send(JSON.stringify({ t: 'welcome', v: PROTOCOL, id: p.id, n: p.name, rl: p.role || 0, tm: p.team, lim: this.limit(), mode: this.mode, rk: this.ranked ? 1 : 0, zone: this.zoneMsg(), tk: this.tk, room: this.id, g: this.mode === 'navidad' ? this.giftList() : undefined, el: this.mode === 'navidad' ? [...this.elves.keys()] : undefined, map: this.map, cash: p.cash, shop: S.SHOP, tl: r3(this.tl), phase: this.phase, players: [...this.players.values()].filter(o => o !== p).map(o => o.pub()) }));
+    p.send(JSON.stringify({ t: 'welcome', v: PROTOCOL, id: p.id, n: p.name, rl: p.role || 0, tm: p.team, lim: this.limit(), mode: this.mode, rk: this.ranked ? 1 : 0, zone: this.zoneMsg(), b: this.mode === 'bomba' ? this.bombMsg() : undefined, tk: this.tk, room: this.id, g: this.mode === 'navidad' ? this.giftList() : undefined, el: this.mode === 'navidad' ? [...this.elves.keys()] : undefined, map: this.map, cash: p.cash, shop: S.SHOP, tl: r3(this.tl), phase: this.phase, players: [...this.players.values()].filter(o => o !== p).map(o => o.pub()) }));
     this.broadcast({ t: 'join', p: p.pub() }, p);
     this.spawn(p, Date.now(), 1500);
     this.sendBoard();
@@ -414,14 +427,14 @@ class Room {
     this.fillBots(now);
     if (this.phase === 'play') {
       this.wait = this.players.size < 2;
-      if (!this.wait) { this.tl -= dt; this.zoneTick(now, dt); }
+      if (!this.wait) { if (this.mode === 'bomba') this.bombTick(now, dt); else this.tl -= dt; this.zoneTick(now, dt); }
       if (this.mode === 'navidad') this.xmasTick(now, dt);   // [NAVIDAD]
       for (const p of this.players.values()) {
         if (!p.alive) { if (now >= p.respawnAt) this.spawn(p, now, 1500); }
         else if (now - p.lastHit > 4000 && p.hp < 100) p.hp = Math.min(100, p.hp + 18 * dt);
         if (p.isBot && p.alive) this.botThink(p, now, dt);
       }
-      if (this.tl <= 0) this.endRound(now);
+      if (this.tl <= 0 && this.mode !== 'bomba') this.endRound(now);
     } else {
       this.breakLeft -= dt;
       if (this.breakLeft <= 0) this.startRound(now);
@@ -460,12 +473,67 @@ class Room {
   startRound(now) {
     const votes = this.tally(), top = Math.max(...votes);          // el mapa más votado gana; en empate, al azar entre los empatados
     if (top > 0) { const win = votes.map((n, i) => (n === top ? i : -1)).filter(i => i >= 0), pick = win[Math.floor(Math.random() * win.length)]; if (pick !== this.map) { this.map = pick; this.world = worlds[pick]; this.broadcast({ t: 'map', map: pick }); } }
-    this.phase = 'play'; this.tl = MATCH_TIME; this.tk = [0, 0]; this.zs = [0, 0]; this.newZone(now, true); this.rebalance();
+    this.phase = 'play'; this.tl = MATCH_TIME; this.tk = [0, 0]; this.zs = [0, 0]; this.bomb = null; this.bn = 0; this.newZone(now, true); this.rebalance();
     if (this.mode === 'navidad') { this.tl = XMAS_TIME; this.gifts.clear(); this.broadcast({ t: 'gclr' }); this.spawnElves(now); }   // [NAVIDAD]
     for (const p of this.players.values()) { p.kills = p.deaths = p.points = p.hs = p.streak = p.bestStreak = p.gifts = 0; p.gl = 0; p.zt = 0; p.alive = false; p.roundStart = now; p.cash = S.CONST.SHOP_START_CASH; p.send(JSON.stringify({ t: 'cash', cash: p.cash })); }
     this.broadcast({ t: 'round', tl: this.tl, lim: this.limit(), zone: this.zoneMsg(), nb: this.botCount() });
     for (const p of this.players.values()) this.spawn(p, now, 4000);
     this.sendBoard();
+  }
+
+  /* ---- [BOMBA] Desactivar bomba: rondas sin reaparecer; los atacantes plantan en A o B, los defensores desactivan ---- */
+  bombMsg() { const b = this.bomb; return b ? { n: this.bn, att: b.att, st: b.st, x: r3(b.x), y: r3(b.y), z: r3(b.z), site: b.site, fuse: Math.max(0, Math.ceil(b.fuse)), w: b.win, why: b.why, tk: this.tk } : null; }
+  bombStart(now) {
+    this.bn = (this.bn || 0) + 1;
+    this.bomb = { att: this.bn % 2 === 1 ? 1 : 0, st: 'live', x: 0, y: 0, z: 0, site: '', fuse: 0 };   // la 1.ª ronda ataca ROJO; luego se alternan
+    this.tl = BOMB.ROUND;
+    for (const p of this.players.values()) { p.bprog = 0; p.bact = false; this.spawn(p, now, 2500); }
+    this.broadcast({ t: 'bomb', b: this.bombMsg() });
+  }
+  bombEnd(win, why, now) {
+    const b = this.bomb; b.st = 'pause'; b.until = now + BOMB.PAUSE * 1000; b.win = win; b.why = why; this.tk[win]++;
+    for (const p of this.players.values()) { p.bprog = 0; p.bact = false; if (p.team === win) p.points += 50; }
+    this.broadcast({ t: 'bomb', b: this.bombMsg() }); this.sendBoard();
+    if (this.tk[win] >= this.limit()) this.endRound(now);
+  }
+  bombProg(p, v, kind) {   // progreso de plantar/desactivar, solo a quien lo hace (como mucho ~7 mensajes por segundo)
+    const q = Math.round(v * 20) / 20; if (q === p.bsent && kind === p.bkind) return; p.bsent = q; p.bkind = kind;
+    p.send(JSON.stringify({ t: 'bprog', p: q, k: kind }));
+  }
+  bombTick(now, dt) {
+    const B = BOMB, b = this.bomb, sites = this.world.map.bomb || [];
+    if (!b) return this.bombStart(now);
+    if (b.st === 'pause') { if (now >= b.until) this.bombStart(now); return; }
+    const alive = [0, 0]; for (const p of this.players.values()) if (p.alive) alive[p.team]++;
+    const def = 1 - b.att;
+    for (const p of this.players.values()) {
+      const kind = b.st === 'live' ? 'plant' : 'defuse', mine = b.st === 'live' ? p.team === b.att : p.team === def;
+      let okHere = p.alive && p.bact && mine;
+      if (okHere && b.st === 'live') okHere = sites.some(s => Math.hypot(p.x - s.x, p.z - s.z) <= B.R && Math.abs(p.y - (s.y || 0)) < 2.2);
+      if (okHere && b.st === 'planted') okHere = Math.hypot(p.x - b.x, p.z - b.z) <= B.DEF_R && Math.abs(p.y - b.y) < 2;
+      if (okHere && p.bprog > 0 && Math.hypot(p.x - p.bx, p.z - p.bz) > 1) okHere = false;   // moverse cancela
+      if (!okHere) { if (p.bprog) { p.bprog = 0; this.bombProg(p, 0, kind); } continue; }
+      if (!p.bprog) { p.bx = p.x; p.bz = p.z; }
+      p.bprog += dt; const need = b.st === 'live' ? B.PLANT : B.DEFUSE; this.bombProg(p, Math.min(1, p.bprog / need), kind);
+      if (p.bprog < need) continue;
+      p.bprog = 0; p.points += 100; this.bombProg(p, 0, kind);
+      if (b.st === 'live') {
+        const site = sites.reduce((a, s) => (Math.hypot(p.x - s.x, p.z - s.z) < Math.hypot(p.x - a.x, p.z - a.z) ? s : a), sites[0]);
+        Object.assign(b, { st: 'planted', x: p.x, y: p.y, z: p.z, site: site.n, fuse: B.FUSE, by: p.id }); this.tl = B.FUSE;
+        this.broadcast({ t: 'bomb', b: this.bombMsg(), by: p.id }); log('Bomba plantada en ' + site.n + ' por ' + p.name);
+      } else return this.bombEnd(def, 'desactivada', now);
+    }
+    if (b.st === 'live') {
+      this.tl -= dt;
+      if (alive[b.att] === 0) return this.bombEnd(def, 'eliminados', now);
+      if (alive[def] === 0) return this.bombEnd(b.att, 'eliminados', now);
+      if (this.tl <= 0) return this.bombEnd(def, 'tiempo', now);
+    } else if (b.st === 'planted') {
+      b.fuse -= dt; this.tl = Math.max(0, b.fuse);
+      if (alive[def] === 0) return this.bombEnd(b.att, 'eliminados', now);
+      if (b.fuse <= 0) return this.bombEnd(b.att, 'explota', now);
+      if ((this.bombT = (this.bombT || 0) + dt) >= 1) { this.bombT = 0; this.broadcast({ t: 'bomb', b: this.bombMsg() }); }   // la cuenta atrás, una vez por segundo
+    }
   }
 
   /* --- Combate --- */
@@ -495,10 +563,10 @@ class Room {
     a.send(JSON.stringify({ t: 'hit', v: v.id, h: head ? 1 : 0, d: amount, k: killed ? 1 : 0, cash: killed ? a.cash : undefined }));
     v.send(JSON.stringify({ t: 'hurt', hp: Math.max(0, Math.round(v.hp)), d: Math.round(amount), ax: r3(a.x), az: r3(a.z) }));   // [NUEVO] d = daño recibido (para la viñeta y la sacudida)
     if (!killed) return;
-    v.alive = false; v.hp = 0; v.deaths++; v.streak = 0; v.respawnAt = now + RESPAWN_MS;
+    v.alive = false; v.hp = 0; v.deaths++; v.streak = 0; v.respawnAt = this.mode === 'bomba' ? Infinity : now + RESPAWN_MS;   // [BOMBA] sin reaparecer hasta la ronda siguiente
     a.kills++; a.streak++; if (a.streak > a.bestStreak) a.bestStreak = a.streak;
     const pts = 100 + (head ? 50 : 0); a.points += pts; if (head) { a.hs++; }
-    this.broadcast({ t: 'kill', kr: a.role || 0, k: a.id, v: v.id, w: wname, h: head ? 1 : 0, pts, streak: a.streak, rs: S.CONST.RESPAWN, ds: Math.round(Math.hypot(a.x - v.x, a.z - v.z)), ah: Math.round(a.hp) });   // ds = distancia (m) y ah = vida del autor, para la cámara de muerte
+    this.broadcast({ t: 'kill', kr: a.role || 0, k: a.id, v: v.id, w: wname, h: head ? 1 : 0, pts, streak: a.streak, rs: this.mode === 'bomba' ? 0 : S.CONST.RESPAWN, ds: Math.round(Math.hypot(a.x - v.x, a.z - v.z)), ah: Math.round(a.hp) });   // ds = distancia (m) y ah = vida del autor, para la cámara de muerte
     this.onKill(a, v, wname, now);
     this.sendBoard();
   }
@@ -959,6 +1027,7 @@ function onMessage(ws, m, now) {
     case 'st': return room.onState(p, m, now);
     case 'shoot': return room.onShoot(p, m, now);
     case 'melee': return room.onMelee(p, m, now);
+    case 'bact': p.bact = m.on === 1 && room.mode === 'bomba'; return;   // [BOMBA] mantener E: plantar o desactivar
     case 'reload': {
       if (!p.alive || now < p.reloadUntil) return;
       const w = S.WEAPONS[p.cls]; if (p.ammo >= w.mag) return;

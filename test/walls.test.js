@@ -58,20 +58,20 @@ async function walkPath(bot, path) {   // sigue el camino a 8 m/s mandando la po
     }
     /* ---------- 2) tramposo: atravesar paredes ---------- */
     console.log('\n=== Atravesar paredes ===');
-    const M = 0, WZ = 14, wall = S.buildWorld(M).colliders.find(c => Math.abs(c.minX - 26.8) < 0.01 && Math.abs(c.maxX - 29.2) < 0.01 && c.minZ < WZ && c.maxZ > WZ);   // contenedor de la Lower Plaza: 2,4 m de grosor
-    ok(!!wall && wall.maxY - wall.minY > 1.5, 'hay un contenedor de 2,4 m de grosor en Nexus Outpost para probar (x de 26,8 a 29,2)');
+    const M = 0, WZ = 18, X0 = 23, X1 = 25, wall = S.buildWorld(M).colliders.find(c => Math.abs(c.minX - X0) < 0.01 && Math.abs(c.maxX - X1) < 0.01 && c.minZ < WZ && c.maxZ > WZ && c.minY === 0);   // muralla este de Castillo Real: 2 m de grosor
+    ok(!!wall && wall.maxY - wall.minY > 1.5, 'hay un tramo de muralla de 2 m de grosor en Castillo Real para probar (x de 23 a 25)');
     const ch = new Bot('Tramposo', {}); await ch.connect(M); await until(() => ch.pos); await sleep(1800);
-    const A = { x: 26.4, z: WZ }; await walkPath(ch, groundPath(M, ch.pos, { x: 25.6, z: WZ }).concat([[A.x, A.z]])); await sleep(100);   // hasta una casilla libre y de ahí al borde del muro
+    const A = { x: X0 - 0.4, z: WZ }; await walkPath(ch, groundPath(M, ch.pos, { x: X0 - 1.2, z: WZ }).concat([[A.x, A.z]])); await sleep(100);   // hasta una casilla libre y de ahí al borde del muro
     ok(Math.hypot(ch.pos.x - A.x, ch.pos.z - A.z) < 0.4 && ch.all('fix').length === 0, 'el tramposo llega andando (por el suelo, sin trampas) junto al muro: no hay correcciones (' + ch.all('fix').length + ')');
     const fixes0 = ch.all('fix').length; let caught = 0;
-    for (let i = 0; i < 12; i++) { const before = ch.all('fix').length; await sleep(150); ch.send({ t: 'st', ep: ch.ep, x: 29.6, y: 0, z: WZ, yaw: 0, pitch: 0, h: 1.8 }); await sleep(60); if (ch.all('fix').length > before) caught++; else { ch.pos = { x: 29.6, y: 0, z: WZ }; } }
-    ok(caught === 12, 'saltar al otro lado del muro de golpe (3,2 m en 0,15 s, dentro del límite de velocidad): el servidor lo rechaza las 12 veces (' + caught + '/12)');
+    for (let i = 0; i < 12; i++) { const before = ch.all('fix').length; await sleep(150); ch.send({ t: 'st', ep: ch.ep, x: X1 + 0.4, y: 0, z: WZ, yaw: 0, pitch: 0, h: 1.8 }); await sleep(60); if (ch.all('fix').length > before) caught++; else { ch.pos = { x: X1 + 0.4, y: 0, z: WZ }; } }
+    ok(caught === 12, 'saltar al otro lado del muro de golpe (2,8 m en 0,15 s, dentro del límite de velocidad): el servidor lo rechaza las 12 veces (' + caught + '/12)');
     const lastFix = ch.last('fix'); ok(lastFix && Math.abs(lastFix.x - A.x) < 0.3 && Math.abs(lastFix.z - A.z) < 0.3, 'y lo devuelve a su sitio legítimo (' + lastFix.x.toFixed(1) + ', ' + lastFix.z.toFixed(1) + ')');
     /* meterse dentro del muro poco a poco (noclip) */
     let inside = 0; ch.pos = { x: lastFix.x, y: 0, z: lastFix.z }; ch.ep = lastFix.ep;
-    for (let i = 0; i < 10; i++) { const before = ch.all('fix').length; ch.send({ t: 'st', ep: ch.ep, x: 26.4 + 0.3 * (i + 1), y: 0, z: WZ, yaw: 0, pitch: 0, h: 1.8 }); await sleep(60); const fx = ch.last('fix'); if (ch.all('fix').length > before) { inside++; ch.pos = { x: fx.x, y: fx.y, z: fx.z }; ch.ep = fx.ep; } }
+    for (let i = 0; i < 10; i++) { const before = ch.all('fix').length; ch.send({ t: 'st', ep: ch.ep, x: A.x + 0.3 * (i + 1), y: 0, z: WZ, yaw: 0, pitch: 0, h: 1.8 }); await sleep(60); const fx = ch.last('fix'); if (ch.all('fix').length > before) { inside++; ch.pos = { x: fx.x, y: fx.y, z: fx.z }; ch.ep = fx.ep; } }
     ok(inside >= 8, 'avanzar poco a poco hacia dentro del muro (noclip) se corta en cuanto el cuerpo entra: ' + inside + ' de 10 pasos rechazados y el resto son los que aún no tocaban');
-    ok(ch.all('fix').every(f => f.x < 26.8 - 0.28 + 0.05 || f.x > 29.2), 'ninguna corrección deja al jugador dentro del muro');
+    ok(ch.all('fix').every(f => f.x < X0 - 0.28 + 0.05 || f.x > X1), 'ninguna corrección deja al jugador dentro del muro');
     const players = (await call('GET', '/api/admin/players', null, (await call('POST', '/api/admin/login', { user: 'Viexbox', password: APASS })).j.token)).j.players; ok(players.some(p => p.name === 'Tramposo'), 'el tramposo sigue conectado (se le corrige, no se le expulsa: un lag legítimo no debe echar a nadie)'); ch.close();
 
     /* ---------- 3) emparejamiento clasificatorio con espera ---------- */

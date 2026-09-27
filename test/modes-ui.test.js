@@ -26,7 +26,7 @@ function boot(opts) {
   w.eval(client.slice(0, i) + 'window.__T = { get remote() { return remote; }, get state() { return state; }, get player() { return player; }, get fighters() { return fighters; }, net, cfg, netHandle, setSlot, get slot() { return slot; }, get deathLook() { return deathLook; }, camera, get teamLimit() { return teamLimit; }, updateHudSlow };\n' + client.slice(i)); w.eval(bpjs); w.eval(sojs); w.eval(mdjs);
   return { w, T: w.__T, errors, $: s => w.document.querySelector(s), $$: s => [...w.document.querySelectorAll(s)] };
 }
-const setMode = async (C, id) => { C.$('#modeBtn').click(); await until(() => !C.$('#modeModal').hidden && C.$$('#modeBox .mdl-card').length === 4); C.$(`#modeBox [data-m="${id}"]`).click(); await until(() => C.$(`#modeBox [data-m="${id}"].on`)); };
+const setMode = async (C, id) => { C.$('#modeBtn').click(); await until(() => !C.$('#modeModal').hidden && C.$$('#modeBox .mdl-card').length >= 4); C.$(`#modeBox [data-m="${id}"]`).click(); await until(() => C.$(`#modeBox [data-m="${id}"].on`)); };
 const closeModal = C => { C.$('#mdlOk').click(); };
 async function play(C) { await until(() => !C.$('#playOnline').disabled); C.$('#playOnline').click(); C.$('#eqPlay').click(); return until(() => C.T.state === 'playing', 8000); }
 function bot(mode, extra) { return new Promise(res => { const ws = new WebSocket('ws://127.0.0.1:' + PORT + '/ws'); const b = { ws, msgs: [] }; ws.on('open', () => ws.send(JSON.stringify(Object.assign({ t: 'hello', v: 1, n: 'Bot' + Math.floor(Math.random() * 900), map: 0, c: 0, mode }, extra)))); ws.on('message', d => { const m = JSON.parse(d); b.msgs.push(m); if (m.t === 'welcome') { b.id = m.id; b.welcome = m; res(b); } }); ws.on('error', () => {}); }); }
@@ -77,7 +77,7 @@ function bot(mode, extra) { return new Promise(res => { const ws = new WebSocket
     const Z = boot(); await until(() => !Z.$('#playOnline').disabled); await setMode(Z, 'zona'); closeModal(Z); ok(await play(Z), 'entra a una sala de zona');
     ok(Z.T.net.zone && Z.T.net.zone.r === S.ZONE.R, 'el servidor manda la zona (' + Z.T.net.zone.x + ', ' + Z.T.net.zone.z + ')');
     ok(await until(() => !Z.$('#zoneHud').hidden && /ZONA · (.+ · )?LIBRE/.test(Z.$('#zoneHud').textContent)), 'el HUD enseña «ZONA · LIBRE» con la distancia y el tiempo hasta que cambie (' + Z.$('#zoneHud span').textContent + ')');
-    ok(/ZONA · CENTRAL COURTYARD · /.test(Z.$('#zoneHud').textContent), 'y con el nombre de la zona («' + Z.$('#zoneHud span').textContent.split(' · ').slice(0, 2).join(' · ') + '»)');
+    ok(new RegExp('ZONA · ' + S.MAPS[0].zones[0].n.toUpperCase() + ' · ').test(Z.$('#zoneHud').textContent), 'y con el nombre de la zona («' + Z.$('#zoneHud span').textContent.split(' · ').slice(0, 2).join(' · ') + '»)');
     const sc = Z.w.PPR_BP.scene(); const rings = sc.children.filter(c => c.geometry && c.geometry.type === 'CylinderGeometry' && c.material && c.material.transparent && c.visible);
     ok(rings.length === 1 && Math.abs(rings[0].position.x - Z.T.net.zone.x) < 1e-6 && rings[0].scale.x === S.ZONE.R, 'se dibuja el cilindro de la zona en el mapa (radio ' + S.ZONE.R + ' m)');
     Z.T.net.sendAcc = -1e9; /* sin enviar posiciones: así el servidor no «corrige» el teletransporte de la prueba */ ok(await until(() => { Z.T.player.pos.set(Z.T.net.zone.x, Z.T.net.zone.y || 0, Z.T.net.zone.z); return /¡estás dentro!/.test(Z.$('#zoneHud').textContent); }, 3000),   // se recoloca en cada intento: si el «spawn» del servidor llega después, lo devolvería a su punto de aparición

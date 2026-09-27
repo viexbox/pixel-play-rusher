@@ -75,291 +75,6 @@ function makeBuilder(onBox, cols) {
 }
 
 const MAPS = [
-  {
-    name: 'Nexus Outpost', half: 58,   // [MAPA] antes 50: 116 × 116 m, con un anillo exterior de casetas en las que se puede entrar
-    desc: 'Complejo táctico amurallado de 4 niveles: plaza elevada con torre de francotiradores, patio central, reactor en alto, red de tejados con helipuertos, centro tecnológico, armería y un punto de captura en la azotea.',
-    sky: ['#2a86ff', '#cfe6ff'], fog: '#cfe6ff', floor: ['#7f8898', '#6f7888'], out: '#62c94a', pal: ['#aab2be', '#ff8a1f', '#3fd15a', '#3a9bff', '#ffd23f'],
-    look: { floor: 'concfloor', outFloor: 'grass', wall: 'concrete', block: 'concrete', metal: 'metal', crate: 'crate', plat: 'concfloor', sun: '#fff4d6', decor: 'nexus', wallH: 8.5, trimBase: '#6f7889', trimTop: '#c3c9d3' },
-    /* Apariciones por equipo (equipo 1 = ROJO, equipo 0 = AZUL): [x, z] */
-    spawns: {
-      /* [MAPA] cada equipo en la otra punta del mapa, en el anillo exterior de su lado (antes a x ±40, a mitad de camino desde que el mapa creció a 116 m) */
-      1: [[-53, -14], [-55, -10], [-53, -6], [-55, -1], [-53, 3], [-55, 7], [-53, 10]],
-      0: [[53, -14], [55, -10], [52, -7], [55, -1], [53, 3], [55, 7], [53, 10]]
-    },
-    /* Zonas del modo «Capturar zona» (y = altura del suelo de la zona): la captura solo cuenta a quien está a esa altura (±2,6 m) */
-    zones: [
-      { n: 'Central Courtyard', x: -6, z: 28, y: 0 }, { n: 'Main Plaza', x: -24, z: -14, y: 1.8 }, { n: 'Lower Plaza', x: 25, z: 24, y: 0 },
-      { n: 'Reactor Complex', x: 10, z: -1, y: 3.6 }, { n: 'Capture Point', x: 40, z: -13, y: 3.6 }
-    ],
-    /* Nombres de las zonas del mapa (para el rótulo «estás en…»): el primero que encaje gana. y = altura de los pies. */
-    areas: [
-      { n: 'Hut', x0: 51, x1: 56, z0: -28, z1: -22, y0: 0, y1: 3 }, { n: 'Hut', x0: 51, x1: 56, z0: 14, z1: 20, y0: 0, y1: 3 }, { n: 'Hut', x0: -56, x1: -51, z0: -28, z1: -22, y0: 0, y1: 3 }, { n: 'Hut', x0: -56, x1: -51, z0: 14, z1: 20, y0: 0, y1: 3 }, { n: 'Hut', x0: -14, x1: -8, z0: 51, z1: 56, y0: 0, y1: 3 }, { n: 'Hut', x0: 20, x1: 26, z0: 51, z1: 56, y0: 0, y1: 3 }, { n: 'Hut', x0: -14, x1: -8, z0: -56, z1: -51, y0: 0, y1: 3 }, { n: 'Hut', x0: 20, x1: 26, z0: -56, z1: -51, y0: 0, y1: 3 },    // [MAPA] casetas del anillo exterior
-      
-      { n: 'Helipad A', x0: -44, x1: -35, z0: -47.5, z1: -38.5, y0: 4.5, y1: 9 }, { n: 'Helipad B', x0: -9, x1: 0, z0: -47.5, z1: -38.5, y0: 4.5, y1: 9 },
-      { n: 'Tech Hub', x0: 32, x1: 48, z0: -48, z1: -30, y0: 4.5, y1: 9 }, { n: 'West Tower Roof', x0: 16, x1: 26, z0: -48, z1: -34, y0: 4.5, y1: 9 },
-      { n: 'East Roof', x0: -46, x1: -22, z0: -48, z1: -30, y0: 4.5, y1: 9 },
-      { n: 'Reactor Complex', x0: -2, x1: 18, z0: -34, z1: 2, y0: 2.5, y1: 10 },
-      { n: 'Sniper Perch', x0: -48, x1: -33, z0: -22, z1: -8, y0: 2.2, y1: 10 },
-      { n: 'Rooftop Network', x0: -50, x1: 50, z0: -50, z1: -22, y0: 4.5, y1: 9 },
-      { n: 'Capture Point', x0: 30, x1: 48, z0: -30, z1: 0, y0: 2.5, y1: 8 },
-      { n: 'Armory', x0: 32, x1: 47, z0: 12, z1: 36, y0: -1, y1: 5 }, { n: 'Armory', x0: 24, x1: 32, z0: 29, z1: 35, y0: -1, y1: 5 }, { n: 'Tunnel Passage', x0: -8, x1: 8, z0: 40, z1: 46, y0: -1, y1: 4 },
-      { n: 'Office Block', x0: -46, x1: -22, z0: -36, z1: -24, y0: -1, y1: 4 }, { n: 'Main Plaza', x0: -41, x1: -4, z0: -30, z1: -4, y0: 1, y1: 4 },
-      { n: 'Spawn Red', x0: -58, x1: -48, z0: -18, z1: 13, y0: -1, y1: 2.5 }, { n: 'Spawn Blue', x0: 48, x1: 58, z0: -18, z1: 13, y0: -1, y1: 2.5 },
-      { n: 'South Alley', x0: -50, x1: 50, z0: 36, z1: 50, y0: -1, y1: 4 }, { n: 'Lower Plaza', x0: 17, x1: 32, z0: 2, z1: 36, y0: -1, y1: 3 },
-      { n: 'Central Courtyard', x0: -34, x1: 17, z0: 4, z1: 36, y0: -1, y1: 3 }
-    ],
-    build(b) {
-      const H1 = 1.8, H2 = 3.6, R = 5.4, ST = 0.45;
-      const GR = '#8f98a8', GD = '#6f7889', GL = '#b9c0cb', PL = '#9aa3b1', OR = '#ff8a1f', GN = '#3fd15a', BL = '#3a9bff', YL = '#ffd23f', RD = '#ff3b48', WD = '#d89a52', WT = '#5fd0ff', DK = '#39435a';
-      const P = (x0, x1, z0, z1, y0, y1, c, t) => b.box(x0, x1, z0, z1, y0, y1, c, t);          // caja maciza por rangos
-      const F = (x0, x1, z0, z1, c) => b.box(x0, x1, z0, z1, 0, 0.03, c, null, false);          // marca pintada en el suelo (sin colisión)
-      const crate = (x, z, s = 2, h = 2, y = 0) => P(x - s / 2, x + s / 2, z - s / 2, z + s / 2, y, y + h, WD, 'crate');
-      const cont = (x, z, alongX, c) => (alongX ? P(x - 3, x + 3, z - 1.2, z + 1.2, 0, 2.6, c, 'metal') : P(x - 1.2, x + 1.2, z - 3, z + 3, 0, 2.6, c, 'metal'));
-      const bar = (x, z, alongX) => (alongX ? P(x - 1.6, x + 1.6, z - 0.25, z + 0.25, 0, 1.1, WD, 'wood') : P(x - 0.25, x + 0.25, z - 1.6, z + 1.6, 0, 1.1, WD, 'wood'));   // barricada baja de madera
-      const rail = (x0, x1, z0, z1, y, c = GD) => P(x0, x1, z0, z1, y, y + 0.9, c, 'concrete');   // parapeto bajo
-
-      b.perimeter(58, 8.5, '#8d96a6');   // [MAPA] el muro exterior pasa de 50 a 58 m: todo lo de dentro queda igual
-
-      /* ================= [MAPA] ANILLO EXTERIOR · casetas de madera en las que se puede entrar =================
-         6 × 5 m, paredes de 3 m, puerta de 2 m mirando al centro del mapa (alineada con la rejilla de 1 m de la
-         navegación, para que los bots también entren y salgan), ventana en un lateral para asomarse, una caja dentro
-         para cubrirse y techo encima. */
-      const HT = 0.3, HH = 3.0, HD = 2.4, HCOL = '#b07a45', HROOF = '#5a3f2a';
-      const hut = (x0, x1, z0, z1, door, win) => {
-        const side = (sd, open) => {
-          const alongZ = sd === 'xmin' || sd === 'xmax', a0 = alongZ ? z0 : x0, a1 = alongZ ? z1 : x1, c = (a0 + a1) / 2;
-          const bx = (b0, b1, y0, y1) => alongZ
-            ? P(sd === 'xmin' ? x0 : x1 - HT, sd === 'xmin' ? x0 + HT : x1, b0, b1, y0, y1, HCOL, 'wood')
-            : P(b0, b1, sd === 'zmin' ? z0 : z1 - HT, sd === 'zmin' ? z0 + HT : z1, y0, y1, HCOL, 'wood');
-          if (!open) { bx(a0, a1, 0, HH); return; }
-          const g0 = c - open.w / 2, g1 = c + open.w / 2;
-          bx(a0, g0, 0, HH); bx(g1, a1, 0, HH); if (open.y0 > 0) bx(g0, g1, 0, open.y0); bx(g0, g1, open.y1, HH);
-        };
-        for (const sd of ['xmin', 'xmax', 'zmin', 'zmax']) side(sd, sd === door ? { w: 2, y0: 0, y1: HD } : sd === win ? { w: 1.4, y0: 1.1, y1: 2.0 } : null);
-        P(x0 - 0.2, x1 + 0.2, z0 - 0.2, z1 + 0.2, HH, HH + 0.3, HROOF, 'wood');                                   // techo
-        const bxX = door === 'xmin' ? x1 - 1.1 : door === 'xmax' ? x0 + 1.1 : (x0 + x1) / 2 + 1.6;               // caja al fondo, lejos de la puerta
-        const bxZ = door === 'zmin' ? z1 - 1.1 : door === 'zmax' ? z0 + 1.1 : (z0 + z1) / 2 + 1.6;
-        crate(bxX, bxZ, 1.2, 1.1);
-      };
-      hut(51, 56, -28, -22, 'xmin', 'zmin'); hut(51, 56, 14, 20, 'xmin', 'zmax');         // este
-      hut(-56, -51, -28, -22, 'xmax', 'zmin'); hut(-56, -51, 14, 20, 'xmax', 'zmax');     // oeste
-      hut(-14, -8, 51, 56, 'zmin', 'xmin'); hut(20, 26, 51, 56, 'zmin', 'xmax');         // sur
-      hut(-14, -8, -56, -51, 'zmax', 'xmin'); hut(20, 26, -56, -51, 'zmax', 'xmax');     // norte
-      /* [MAPA] bases de cada equipo en la otra punta del mapa: suelo pintado con bordes blancos (sin colisión) */
-      F(-57, -49, -17, 12, RD); F(-57, -49, -17, -16.5, '#ffffff'); F(-57, -49, 11.5, 12, '#ffffff');
-      F(49, 57, -17, 12, '#2f7bff'); F(49, 57, -17, -16.5, '#ffffff'); F(49, 57, 11.5, 12, '#ffffff');
-      crate(53.5, -4, 2, 1.6); crate(-53.5, 34, 2, 1.6); crate(2, 53.5, 2, 1.6); crate(-30, -53.5, 2, 1.6);   // algo de cobertura por el anillo
-
-      b.horizon(28, 78, 122, 14, 46, 8, 18, ['#8f99ad', '#a4adbf', '#7f8aa0']);   // los edificios de la ciudad al otro lado del muro
-
-      /* ================= SPAWN RED · torre de francotiradores · Main Plaza ================= */
-      // [MAPA] la base roja está ahora en la otra punta (anillo oeste): su suelo pintado se dibuja allí, más abajo
-      P(-47, -43, 24, 24.6, 0, 1.2, GD, 'concrete'); P(-33, -29, 22, 22.6, 0, 1.2, GD, 'concrete'); P(-47, -46.4, 4, 9, 0, 1.2, GD, 'concrete');
-      b.run('N', 0, -33, 6, 4, 0, ST, GL, 'stone');                                     // Spawn Red → Main Plaza
-      P(-41, -6, -30, -4, 0, H1, PL, 'concfloor');                                      // Main Plaza (1,8 m)
-      // Sniper Perch
-      P(-48, -41, -22, -8, 0, R - 0.5, GR, 'concrete'); P(-48, -41, -22, -8, R - 0.5, R, OR, 'concrete');
-      P(-48, -41, -22, -21.6, R, R + 1.2, GD, 'concrete'); P(-48, -41, -8.4, -8, R, R + 1.2, GD, 'concrete'); P(-48, -47.6, -21.6, -8.4, R, R + 1.2, GD, 'concrete');
-      P(-41.4, -41, -21.6, -18, R, R + 1.2, GD, 'concrete'); P(-41.4, -41, -14, -8.4, R, R + 1.2, GD, 'concrete');
-      [[-48, -22], [-42.5, -22], [-48, -14.5], [-42.5, -14.5]].forEach(([x, z]) => P(x, x + 0.5, z, z + 0.5, R, R + 3, OR, 'metal'));
-      P(-48, -41.5, -22, -14, R + 3, R + 3.4, OR, 'concrete'); P(-47.9, -42, -21.9, -21.7, R + 1.2, R + 3, BL, 'glass');
-      b.run('W', -33, -16, 4, 8, H1, ST, GL, 'stone', H1);                              // Main Plaza → Sniper Perch
-      // props de la plaza
-      P(-40, -37, -29, -25, H1, H1 + 0.7, GD, 'stone'); P(-39.7, -37.3, -28.7, -25.3, H1 + 0.7, H1 + 1.4, GN, 'stone');
-      P(-30, -25, -20, -19.4, H1, H1 + 1.2, GD, 'concrete'); P(-16, -11, -24, -23.4, H1, H1 + 1.2, GD, 'concrete'); P(-28, -27.4, -12, -7, H1, H1 + 1.2, GD, 'concrete');
-      crate(-21, -9, 2, 2, H1); crate(-18.8, -9.2, 1.8, 1.8, H1); crate(-20, -9, 1.6, 1.6, H1 + 2); P(-12, -10.4, -28, -26, H1, H1 + 2.2, BL, 'metal'); P(-8.4, -6.8, -12, -9, H1, H1 + 1.4, GD, 'metal');
-      /* ================= OFFICE BLOCK (East Roof · Helipad A) ================= */
-      P(-46, -38, -48, -30, 0, R, GR, 'concrete'); P(-30, -22, -48, -30, 0, R, GR, 'concrete'); P(-38, -30, -48, -38, 0, R, GR, 'concrete');
-      P(-38, -36, -38, -30, 0, R, GR, 'concrete'); P(-32, -30, -38, -30, 0, R, GR, 'concrete');
-      b.run('N', -30, -34, 4, 8, H1, ST, GL, 'stone');                                  // Main Plaza → tejado de las oficinas
-      P(-45, -39, -30, -29.8, 2.6, 4.8, BL, 'glass'); P(-30, -23, -30, -29.8, 2.6, 4.8, BL, 'glass'); P(-46, -36, -30, -29.7, 4.9, R, OR, 'concrete'); P(-32, -22, -30, -29.7, 4.9, R, OR, 'concrete');
-      P(-44, -35, -47.5, -38.5, R, R + 0.06, '#ffffff', 'helipad');                     // Helipad A (9 × 9 m)
-      rail(-46, -22, -48, -47.6, R); rail(-46, -45.6, -47.6, -30, R); rail(-22.4, -22, -47.6, -44, R); rail(-22.4, -22, -40, -30, R); rail(-46, -36, -30.4, -30, R); rail(-32, -22, -30.4, -30, R);
-      P(-30, -27, -46, -43, R, R + 1.3, GD, 'metal'); P(-27, -24, -37, -34, R, R + 1.3, GD, 'metal');
-      b.run('S', -34, -17, 6, 4, 0, ST, GL, 'stone');                                   // Main Plaza → pasaje norte
-      /* ================= REACTOR COMPLEX (cubierta central a 3,6 m) ================= */
-      P(-2, 18, -24, 2, 0, H2, PL, 'concfloor');
-      b.run('E', -6, -14, 8, 4, H1, ST, GL, 'stone');                                   // Main Plaza → Reactor
-      b.run('N', 10, 8, 4, 8, 0, ST, GL, 'stone');                                       // Reactor → Central Courtyard
-      P(2, 10, -16, -8, H2, 9, GD, 'metal');                                            // núcleo del reactor
-      [[-1, -19, 13, -16], [-1, -8, 13, -5], [-1, -16, 2, -8], [10, -16, 13, -8]].forEach(([x0, z0, x1, z1]) => P(x0, x1, z0 < z1 ? z0 : z1, z0 < z1 ? z1 : z0, 6, 6.3, YL, 'metal'));
-      [[-1, -19], [12.4, -19], [-1, -5.6], [12.4, -5.6]].forEach(([x, z]) => P(x, x + 0.6, z, z + 0.6, H2, 9.2, YL, 'metal'));
-      P(-1, 13, -19, -18.7, 6.3, 7.2, YL, 'metal'); P(-1, -0.7, -18.7, -5, 6.3, 7.2, YL, 'metal'); P(12.7, 13, -18.7, -5, 6.3, 7.2, YL, 'metal'); P(-1, 3, -5.3, -5, 6.3, 7.2, YL, 'metal'); P(7, 13, -5.3, -5, 6.3, 7.2, YL, 'metal');
-      b.run('N', 1, 5, 4, 6, H2, ST, YL, 'metal', H2);                                  // cubierta → pasarela del reactor
-      crate(14, -20, 2, 2, H2); crate(15.5, -18.5, 1.6, 1.6, H2); P(14, 16, 0, 0.6, H2, H2 + 1.1, GD, 'concrete'); P(-1.6, -1, -6, 0, H2, H2 + 1, GD, 'concrete');
-      // pasarela norte hacia el Helipad B
-      P(2, 8, -34, -24, 3.2, H2, GD, 'concfloor'); rail(2, 2.4, -34, -24, H2); rail(7.6, 8, -34, -24, H2);
-      b.run('N', -34, 5, 6, 4, H2, ST, GL, 'stone');                                    // pasarela → tejado del Helipad B
-      /* ================= HELIPAD B · WEST TOWER ROOF · red de tejados ================= */
-      P(-12, 10, -48, -38, 0, R, GR, 'concrete'); P(-12, 2, -38, -34, 0, R, GR, 'concrete'); P(8, 10, -38, -34, 0, R, GR, 'concrete');
-      P(-9, 0, -47.5, -38.5, R, R + 0.06, '#ffffff', 'helipad');                         // Helipad B (9 × 9 m)
-      rail(-12, 10, -48, -47.6, R); rail(-12, -11.6, -47.6, -44, R); rail(-12, -11.6, -40, -34, R); rail(9.6, 10, -47.6, -44, R); rail(9.6, 10, -40, -34, R); rail(-12, 2, -34.4, -34, R); rail(8, 10, -34.4, -34, R);
-      P(4, 7, -46, -43, R, R + 1.3, GD, 'metal'); P(-12, 2, -34.6, -34, R - 0.5, R, OR, 'concrete'); P(8, 10, -34.6, -34, R - 0.5, R, OR, 'concrete');   // (la franja no cruza el hueco de la escalera: x 2–8)
-      P(16, 26, -48, -34, 0, R, GR, 'concrete'); P(16, 26, -34.6, -34, R - 0.5, R, OR, 'concrete'); P(19, 24, -46, -41, R, R + 2.4, GR, 'concrete'); P(19.2, 23.8, -41, -40.8, R + 0.6, R + 2, BL, 'glass');
-      rail(16, 26, -48, -47.6, R); rail(16, 16.4, -47.6, -44, R); rail(16, 16.4, -40, -34, R); rail(25.6, 26, -47.6, -44, R); rail(25.6, 26, -40, -34, R); rail(16, 26, -34.4, -34, R);
-      P(-22, -12, -44, -40, R - 0.4, R, GD, 'concfloor'); P(10, 16, -44, -40, R - 0.4, R, GD, 'concfloor'); P(26, 32, -44, -40, R - 0.4, R, GD, 'concfloor');   // pasarelas entre tejados
-      [[-22, -12], [10, 16], [26, 32]].forEach(([x0, x1]) => { rail(x0, x1, -44, -43.6, R); rail(x0, x1, -40.4, -40, R); });
-      /* ================= TECH HUB (NE) ================= */
-      P(32, 48, -48, -34, 0, R, GR, 'concrete'); P(32, 38, -34, -30, 0, R, GR, 'concrete'); P(44, 48, -34, -30, 0, R, GR, 'concrete');
-      P(32, 38, -34.6, -34, R - 0.5, R, GN, 'concrete'); P(44, 48, -34.6, -34, R - 0.5, R, GN, 'concrete'); P(31.8, 32, -46, -36, 2.4, 5, BL, 'glass'); P(32, 48, -48, -47.5, R - 0.7, R, GN, 'concrete');
-      [[45, -47], [46.6, -47]].forEach(([x, z]) => P(x, x + 0.4, z, z + 0.4, R, R + 6, DK, 'metal')); P(35, 38.5, -46, -43, R, R + 1.4, GD, 'metal'); P(41, 44, -45, -42, R, R + 1.4, GD, 'metal');
-      rail(32, 48, -48, -47.6, R); rail(47.6, 48, -47.6, -34, R); rail(32, 32.4, -47.6, -44, R); rail(32, 32.4, -40, -34, R); rail(32, 48, -34.4, -34, R);
-      b.run('N', -30, 41, 6, 4, H2, ST, GL, 'stone');                                   // azotea del Capture Point → Tech Hub
-      /* ================= CAPTURE POINT (azotea de la torre este) ================= */
-      P(30, 48, -30, -2, 0, H2, GD, 'concrete');
-      P(33, 45, -2, -1.8, 0.8, 3.2, BL, 'glass'); P(30, 48, -2, -1.7, 3.3, H2, GN, 'concrete');
-      P(35, 45, -20, -10, H2, H2 + 0.45, GR, 'concfloor'); P(39.8, 40.2, -15.2, -14.8, H2 + 0.45, H2 + 6, DK, 'metal'); b.box(40.2, 42.6, -15.1, -14.9, H2 + 4.5, H2 + 5.9, RD, null, false);
-      rail(47.6, 48, -30, -2, H2); rail(30, 47.6, -2.4, -2, H2, GD); rail(30, 30.4, -30, -14, H2); rail(30, 30.4, -8, -2, H2);
-      P(18, 30, -14, -8, 3.2, H2, GD, 'concfloor'); P(23.3, 24.7, -13.7, -12.3, 0, 3.2, GD, 'concrete'); P(23.3, 24.7, -9.7, -8.3, 0, 3.2, GD, 'concrete');   // «autopista» elevada
-      rail(18, 30, -14, -13.6, H2); rail(18, 30, -8.4, -8, H2);
-      b.run('N', 6, 34, 4, 8, 0, ST, GL, 'stone');                                       // Lower Plaza → azotea del Capture Point
-      P(37, 41, -26, -23, H2, H2 + 1.2, GD, 'metal');
-      /* ================= ARMORY (SE) ================= */
-      P(32, 47, 12, 19, 0, H2, GD, 'concrete');                                         // franja norte (maciza)
-      P(32, 33, 19, 21, 0, 3.2, GD, 'concrete'); P(32, 33, 25, 36, 0, 3.2, GD, 'concrete');   // muro oeste con puerta (z 21–25)
-      P(46, 47, 19, 36, 0, 3.2, GD, 'concrete'); P(33, 38, 35, 36, 0, 3.2, GD, 'concrete'); P(42, 46, 35, 36, 0, 3.2, GD, 'concrete');   // muro este y sur con puerta (x 38–42)
-      P(32, 47, 19, 36, 3.2, H2, GR, 'concfloor');                                      // techo
-      P(32, 47, 12, 12.4, H2, H2 + 0.9, OR, 'concrete'); P(32, 47, 35.6, 36, H2, H2 + 0.9, OR, 'concrete'); rail(46.6, 47, 12.4, 35.6, H2, OR); rail(32, 32.4, 12.4, 30, H2, OR);
-      P(35, 44, 25, 25.8, 0, 1.3, DK, 'metal'); P(35, 44, 31, 31.8, 0, 1.3, DK, 'metal'); crate(36, 28, 1.8, 1.8); crate(44, 28, 2, 2); crate(41, 33, 1.6, 1.6); P(38, 42, 20, 20.6, 0, 1, GD, 'concrete');
-      b.run('E', 24, 32, 4, 8, 0, ST, GL, 'stone');                                      // Lower Plaza → azotea de la Armory
-      P(24, 25, 34.6, 36, 0, 1.4, GD, 'metal');
-      /* ================= PATIO CENTRAL · LOWER PLAZA · calles ================= */
-      P(-6.5, -1.5, 19.5, 24.5, 0, 0.8, GL, 'stone'); P(-5.7, -2.3, 20.3, 23.7, 0.8, 1.0, WT, 'glass'); P(-4.4, -3.6, 21.6, 22.4, 1.0, 2.6, GL, 'stone');   // fuente
-      crate(-13, 26, 2, 2); crate(-11, 26.4, 2, 2); crate(-12, 26.2, 1.8, 1.8, 2); crate(-13, 16, 2, 2); crate(9, 22, 2, 2); crate(11, 22.6, 2, 2); crate(10, 22.3, 1.6, 1.6, 2); crate(2, 30, 2, 2); crate(-20, 20, 2, 2); crate(-18, 20.4, 1.8, 1.8);
-      [[-16, 14, 1], [-8, 12.5, 1], [4, 14, 1], [-16, 30, 1], [0, 26, 1], [-8, 32, 1], [12, 30, 0], [-24, 12, 0], [14, 14, 0]].forEach(([x, z, a]) => bar(x, z, !!a));
-      cont(-30, 16, false, BL); cont(-30, 28, false, OR); cont(-24.6, 4.6, true, GN);                                                    // Patio oeste
-      cont(22, 10, true, OR); cont(28, 14, false, BL); cont(21, 26, false, GN); cont(28, 30, true, RD); crate(24, 18, 2, 2); crate(26, 19.4, 2, 2); crate(25, 18.7, 1.6, 1.6, 2); bar(20, 22, false); bar(29, 22, true);
-      P(-8, 8, 34, 40, 0, R, GR, 'concrete'); P(-8, 8, 46, 50, 0, R, GR, 'concrete'); P(-8, 8, 40, 46, 3.6, R, GR, 'concrete');       // Tunnel Passage (pasaje cubierto)
-      P(-8, 8, 33.4, 34, R - 0.5, R, OR, 'concrete'); F(-50, -8, 43.8, 44.2, YL); F(8, 50, 43.8, 44.2, YL); F(-8, 8, 43.8, 44.2, YL);
-      crate(-30, 44, 2, 2); crate(-28, 45.4, 1.8, 1.8); cont(-40, 41, true, GN); crate(-20, 47, 2, 2); crate(20, 42, 2, 2); cont(34, 42, true, BL); crate(28, 47, 2, 2); crate(26, 45.8, 1.6, 1.6);
-      // Spawn Blue (el suelo pintado de la base está ahora en el anillo este, más abajo)
-      P(46, 46.6, 3, 8, 0, 1.2, GD, 'concrete'); P(38, 42, 13, 13.6, 0, 1.2, GD, 'concrete');
-      // pasaje norte y patio norte
-      crate(-19, -42, 2, 2); crate(-15.6, -45, 2, 2); cont(-17, -36, true, BL); cont(13, -45, false, OR); crate(13, -38, 2, 2); crate(20, -30, 2, 2); crate(6, -30, 2, 2); bar(-4, -28, true); bar(24, -26, true);
-    }
-  },
-  /* ================= [MAPAS 2] PUEBLO DUNA · pueblo del desierto =================
-     88 × 88 m, simétrico de oeste (ROJO) a este (AZUL). Tres carriles: el callejón norte con un balcón en alto en el centro,
-     la plaza del pozo en medio y el mercado con toldos al sur. Filas de casas separan los carriles, con arcos para cruzar. */
-  {
-    name: 'Pueblo Duna', half: 44,
-    desc: 'Pueblo del desierto: plaza del pozo, callejón con balcón en alto y mercado de toldos. Cuidado con las gallinas.',
-    sky: ['#3b8fe0', '#ffe2b0'], fog: '#f3d9a6', floor: ['#e8c890', '#d9b67a'], out: '#d9b67a', pal: ['#e3c28a', '#c98b52', '#b3542f', '#3f9fd6', '#ffd23f'],
-    look: { floor: 'sandfloor', outFloor: 'sandfloor', wall: 'sand', block: 'sand', crate: 'crate', plat: 'sand', awning: 'awning', sun: '#ffe7b8', decor: 'duna', wallH: 7, trimBase: '#a88b5c', trimTop: '#e9cf9c' },
-    spawns: {
-      1: [[-40, -10], [-41, -6], [-40, -2], [-41, 2], [-40, 6], [-41, 10], [-38, 0]],
-      0: [[40, -10], [41, -6], [40, -2], [41, 2], [40, 6], [41, 10], [38, 0]]
-    },
-    zones: [{ n: 'Well Plaza', x: 0, z: -6, y: 0 }, { n: 'Balcony', x: 0, z: -28, y: 2.4 }, { n: 'Market', x: 0, z: 30, y: 0 }],
-    areas: [
-      { n: 'Balcony', x0: -6, x1: 6, z0: -32, z1: -24, y0: 1.8, y1: 6 },
-      { n: 'Spawn Red', x0: -44, x1: -32, z0: -14, z1: 14, y0: -1, y1: 3 }, { n: 'Spawn Blue', x0: 32, x1: 44, z0: -14, z1: 14, y0: -1, y1: 3 },
-      { n: 'North Alley', x0: -44, x1: 44, z0: -32, z1: -20, y0: -1, y1: 4 }, { n: 'Market', x0: -44, x1: 44, z0: 20, z1: 36, y0: -1, y1: 4 },
-      { n: 'Well Plaza', x0: -32, x1: 32, z0: -12, z1: 12, y0: -1, y1: 4 }
-    ],
-    build(b) {
-      const SA = '#e3c28a', SD = '#c9a26a', ST = '#b8a88a', WD = '#a86a38', BR = '#c98b52', RF = '#b3542f';
-      const P = (x0, x1, z0, z1, y0, y1, c, t) => b.box(Math.min(x0, x1), Math.max(x0, x1), z0, z1, y0, y1, c, t);
-      const crate = (x, z, s = 2, h = 2, y = 0) => P(x - s / 2, x + s / 2, z - s / 2, z + s / 2, y, y + h, WD, 'crate');
-      const barrel = (x, z) => P(x - 0.45, x + 0.45, z - 0.45, z + 0.45, 0, 1.2, '#7a4a25', 'wood');
-      b.perimeter(44, 7, SD);
-      for (const sx of [-1, 1]) {
-        const X = (a, c) => [sx * a, sx * c];   // x mirado desde el centro hacia cada base
-        /* casas junto a la base */
-        P(...X(28, 34), -30, -16, 0, 4.5, SA, 'sand'); P(...X(27.6, 34.4), -30.4, -15.6, 4.5, 4.9, RF, 'roof');
-        P(...X(28, 34), 16, 30, 0, 4.5, SA, 'sand'); P(...X(27.6, 34.4), 15.6, 30.4, 4.5, 4.9, RF, 'roof');
-        /* fila norte (entre callejón y plaza) con un arco para cruzar */
-        P(...X(6, 14), -20, -12, 0, 4, SA, 'sand'); P(...X(17, 24), -20, -12, 0, 4, SA, 'sand'); P(...X(14, 17), -20, -12, 3, 4, SD, 'brick');
-        /* fila sur (entre plaza y mercado) con arco */
-        P(...X(6, 10), 12, 20, 0, 4, SA, 'sand'); P(...X(13, 24), 12, 20, 0, 4, SA, 'sand'); P(...X(10, 13), 12, 20, 3, 4, SD, 'brick');
-        /* casas del fondo norte y sur (el muro del pueblo) */
-        P(...X(8, 26), -44, -32, 0, 5, SA, 'sand'); P(...X(4, 28), 36, 44, 0, 5, SA, 'sand');
-        /* coberturas en la base y en la plaza */
-        crate(sx * 38, -6); crate(sx * 38, 6); crate(sx * 36.5, 0, 1.6, 1.2); barrel(sx * 35, -11); barrel(sx * 35, 11);
-        P(...X(18, 22), -3, -2.4, 0, 1.1, ST, 'stone'); P(...X(18, 22), 2.4, 3, 0, 1.1, ST, 'stone');   // muretes de piedra
-        crate(sx * 10, -7, 1.8, 1.8); crate(sx * 10, 7, 1.8, 1.8); barrel(sx * 26, -8); barrel(sx * 26, 8);
-        /* callejón norte */
-        crate(sx * 18, -26); crate(sx * 18, -23.9, 1.6, 1.2); barrel(sx * 26, -28); barrel(sx * 12, -30); crate(sx * 30, -24, 1.6, 1.6);
-        /* mercado: tres puestos por lado (postes, mostrador y toldo) */
-        [10, 18, 26].forEach((a, k) => {
-          const x = sx * a, z = 30, cols = ['#e04848', '#3f9fd6', '#f2b233'];
-          P(x - 1.5, x - 1.25, z - 1.2, z - 0.95, 0, 2.6, WD, 'wood'); P(x + 1.25, x + 1.5, z - 1.2, z - 0.95, 0, 2.6, WD, 'wood');
-          P(x - 1.5, x - 1.25, z + 0.95, z + 1.2, 0, 2.6, WD, 'wood'); P(x + 1.25, x + 1.5, z + 0.95, z + 1.2, 0, 2.6, WD, 'wood');
-          P(x - 1.3, x + 1.3, z - 0.5, z + 0.5, 0, 1.1, BR, 'wood');
-          P(x - 1.8, x + 1.8, z - 1.6, z + 1.6, 2.6, 2.85, cols[k], 'awning');
-        });
-        crate(sx * 32, 24, 1.6, 1.6); barrel(sx * 4, 26);
-      }
-      /* balcón en alto en el centro del callejón norte, con escaleras a los dos lados y parapeto */
-      P(-6, 6, -32, -24, 0, 2.4, SD, 'brick');
-      b.run('E', -12, -28, 3, 6, 0, 0.4, ST, 'stone'); b.run('W', 12, -28, 3, 6, 0, 0.4, ST, 'stone');
-      P(-6, 6, -32, -31.5, 2.4, 3.3, SA, 'sand'); P(-6, -3, -24.5, -24, 2.4, 3.3, SA, 'sand'); P(3, 6, -24.5, -24, 2.4, 3.3, SA, 'sand');
-      /* pozo de la plaza: brocal de piedra, cuatro postes y tejadillo */
-      P(-1.6, 1.6, -1.6, 1.6, 0, 1.0, ST, 'stone');
-      for (const [x, z] of [[-1.5, -1.5], [1.5, -1.5], [-1.5, 1.5], [1.5, 1.5]]) P(x - 0.15, x + 0.15, z - 0.15, z + 0.15, 1.0, 2.8, WD, 'wood');
-      P(-2, 2, -2, 2, 2.8, 3.1, RF, 'roof');
-      /* minarete al fondo del mercado */
-      P(-3, 3, 37, 43, 0, 11, SA, 'sand'); P(-3.4, 3.4, 36.6, 43.4, 11, 11.6, RF, 'roof');
-    }
-  },
-  /* ================= [MAPAS 2] VILLA PISCINA =================
-     80 × 80 m, simétrico de oeste (ROJO) a este (AZUL). Piscina en el centro (se puede entrar: el agua llega por las rodillas),
-     villa al norte con una gran terraza en alto a la que se sube por dos escaleras, cabañas a los lados y jardín con setos y bar al sur. */
-  {
-    name: 'Villa Piscina', half: 40,
-    desc: 'Villa de verano: piscina en el centro, terraza en alto, cabañas y jardín con bar. Se puede entrar en la piscina.',
-    sky: ['#2f9dff', '#d6f0ff'], fog: '#d6f0ff', floor: ['#efe3cf', '#e2d4bb'], out: '#5fcf5a', pal: ['#f5efe3', '#3fb8e6', '#ff7a59', '#5fcf5a', '#ffd23f'],
-    look: { floor: 'tile', outFloor: 'grass', wall: 'concrete', block: 'concrete', crate: 'crate', plat: 'tile', awning: 'awning', sun: '#fff4d6', decor: 'villa', wallH: 6, trimBase: '#c9bfae', trimTop: '#ffffff', water: { x0: -14, x1: 14, z0: -7, z1: 7, y: 0.38 } },
-    spawns: {
-      1: [[-36, -8], [-37, -4], [-36, 0], [-37, 4], [-36, 8], [-34, -2], [-34, 2]],
-      0: [[36, -8], [37, -4], [36, 0], [37, 4], [36, 8], [34, -2], [34, 2]]
-    },
-    zones: [{ n: 'Pool', x: 0, z: 0, y: 0 }, { n: 'Terrace', x: 0, z: -29, y: 3.6 }, { n: 'Garden', x: 0, z: 22, y: 0 }],
-    areas: [
-      { n: 'Terrace', x0: -24, x1: 24, z0: -36, z1: -22, y0: 3, y1: 7 },
-      { n: 'Spawn Red', x0: -40, x1: -32, z0: -12, z1: 12, y0: -1, y1: 3 }, { n: 'Spawn Blue', x0: 32, x1: 40, z0: -12, z1: 12, y0: -1, y1: 3 },
-      { n: 'Pool', x0: -15, x1: 15, z0: -8, z1: 8, y0: -1, y1: 3 }, { n: 'Cabana', x0: -31, x1: -23, z0: -6, z1: 6, y0: -1, y1: 3 }, { n: 'Cabana', x0: 23, x1: 31, z0: -6, z1: 6, y0: -1, y1: 3 },
-      { n: 'Garden', x0: -40, x1: 40, z0: 16, z1: 40, y0: -1, y1: 4 }, { n: 'Pool Deck', x0: -32, x1: 32, z0: -22, z1: 16, y0: -1, y1: 3 }
-    ],
-    build(b) {
-      const WH = '#f5efe3', CR = '#e8dcc6', RD = '#ff7a59', HG = '#3f9f47', WD = '#b07a45', BL = '#3fb8e6', TL = '#d8e8ee';
-      const P = (x0, x1, z0, z1, y0, y1, c, t) => b.box(Math.min(x0, x1), Math.max(x0, x1), z0, z1, y0, y1, c, t);
-      b.perimeter(40, 6, WH);
-      /* piscina: bordillo bajo (se pasa por encima) y trampolín al oeste; el agua la dibuja el navegador */
-      P(-14.6, 14.6, -7.6, -7, 0, 0.42, TL, 'tile'); P(-14.6, 14.6, 7, 7.6, 0, 0.42, TL, 'tile');
-      P(-14.6, -14, -7, 7, 0, 0.42, TL, 'tile'); P(14, 14.6, -7, 7, 0, 0.42, TL, 'tile');
-      P(-17, -13.2, -0.6, 0.6, 0.9, 1.05, BL, 'wood'); P(-17, -16, -0.6, 0.6, 0, 0.9, WH, 'concrete');   // trampolín
-      /* villa: planta baja maciza, terraza en alto con parapeto y piso superior */
-      P(-24, 24, -40, -22, 0, 3.6, WH, 'concrete');
-      P(-24, -14, -22.5, -22, 3.6, 4.5, WH, 'concrete'); P(-6, 6, -22.5, -22, 3.6, 4.5, WH, 'concrete'); P(14, 24, -22.5, -22, 3.6, 4.5, WH, 'concrete');
-      P(-10, 10, -40, -33, 3.6, 7.4, CR, 'concrete'); P(-10.4, 10.4, -40.4, -32.6, 7.4, 7.8, RD, 'roof');
-      for (const x of [-7, 0, 7]) P(x - 1.2, x + 1.2, -32.7, -32.5, 4.6, 6.4, '#8fd8ff', 'glass');
-      b.run('N', -13, -10, 4, 9, 0, 0.4, WH, 'concrete'); b.run('N', -13, 10, 4, 9, 0, 0.4, WH, 'concrete');   // escaleras a la terraza, en los huecos del parapeto
-      for (const sx of [-1, 1]) {
-        const X = (a, c) => [sx * a, sx * c];
-        /* cabaña de la piscina a cada lado, con puerta hacia la piscina y otra hacia la base */
-        P(...X(23, 31), -6, -5.6, 0, 3, WD, 'wood'); P(...X(23, 31), 5.6, 6, 0, 3, WD, 'wood');
-        P(...X(30.6, 31), -5.6, -1.2, 0, 3, WD, 'wood'); P(...X(30.6, 31), 1.2, 5.6, 0, 3, WD, 'wood'); P(...X(30.6, 31), -1.2, 1.2, 2.3, 3, WD, 'wood');
-        P(...X(23, 23.4), -5.6, -1.2, 0, 3, WD, 'wood'); P(...X(23, 23.4), 1.2, 5.6, 0, 3, WD, 'wood'); P(...X(23, 23.4), -1.2, 1.2, 2.3, 3, WD, 'wood');
-        P(...X(22.6, 31.4), -6.4, 6.4, 3, 3.3, RD, 'roof');
-        P(...X(26, 28), -2, 2, 0, 1.0, CR, 'wood');   // mesa dentro
-        /* hamacas junto a la piscina (bajas: cobertura agachado) y macetones */
-        for (const z of [-11, 11]) { P(...X(4, 6), z - 1, z + 1, 0, 0.5, '#ffffff', 'wood'); P(...X(9, 11), z - 1, z + 1, 0, 0.5, '#ffffff', 'wood'); }
-        for (const z of [-16, 16]) P(...X(17, 19), z - 1, z + 1, 0, 1.3, '#c98b52', 'concrete');
-        /* jardín: setos en L y bancos */
-        P(...X(6, 16), 22, 23.2, 0, 1.6, HG, 'leaf'); P(...X(14.8, 16), 23.2, 30, 0, 1.6, HG, 'leaf');
-        P(...X(24, 34), 26, 27.2, 0, 1.6, HG, 'leaf'); P(...X(24, 25.2), 27.2, 35, 0, 1.6, HG, 'leaf');
-        P(...X(30, 36), -18, -17, 0, 1.6, HG, 'leaf'); P(...X(30, 36), 17, 18, 0, 1.6, HG, 'leaf');
-        P(...X(8, 11), 34, 35, 0, 0.6, WD, 'wood');
-        /* cobertura en la base */
-        P(...X(33, 35), -12.5, -10.5, 0, 1.2, CR, 'concrete'); P(...X(33, 35), 10.5, 12.5, 0, 1.2, CR, 'concrete');
-      }
-      /* bar del jardín: barra, taburetes y tejado de paja */
-      P(-4, 4, 28, 29.2, 0, 1.2, WD, 'wood'); P(-4, -2.8, 29.2, 33, 0, 1.2, WD, 'wood'); P(2.8, 4, 29.2, 33, 0, 1.2, WD, 'wood');
-      for (const [x, z] of [[-4, 28], [4, 28], [-4, 33], [4, 33]]) P(x - 0.2, x + 0.2, z - 0.2, z + 0.2, 1.2, 3.2, WD, 'wood');
-      P(-5, 5, 27, 34, 3.2, 3.5, '#d9b35a', 'roof');
-    }
-  },
   /* ================= [MAPAS KRUNKER] CASTILLO REAL =================
      80 × 80 m, simétrico de oeste (ROJO) a este (AZUL). Cada equipo sale de su patio de armas, detrás de una muralla
      con tres puertas y adarve con almenas (se sube por escaleras desde el patio). En el centro, la torre del homenaje:
@@ -374,7 +89,8 @@ const MAPS = [
       1: [[-35, -10], [-36, -6], [-35, -2], [-36, 2], [-35, 6], [-36, 10], [-33, 0]],
       0: [[35, -10], [36, -6], [35, -2], [36, 2], [35, 6], [36, 10], [33, 0]]
     },
-    zones: [{ n: 'Keep Roof', x: 0, z: 0, y: 4.8 }, { n: 'Market Street', x: 0, z: -24, y: 0 }, { n: 'Stables', x: 0, z: 26, y: 0 }],
+    zones: [{ n: 'Keep Roof', x: 0, z: 0, y: 4.8 }, { n: 'Market Street', x: 0, z: -24, y: 0 }, { n: 'Stables', x: 0, z: 21, y: 0 }],
+    bomb: [{ n: 'A', x: 0, z: -28, y: 0 }, { n: 'B', x: 0, z: 21, y: 0 }],   // [BOMBA] puntos de plantado: calle del mercado y establos
     areas: [
       { n: 'Keep Roof', x0: -5, x1: 5, z0: -5, z1: 5, y0: 4, y1: 9 }, { n: 'Keep', x0: -5, x1: 5, z0: -5, z1: 5, y0: -1, y1: 4 },
       { n: 'Ramparts', x0: -25, x1: -23, z0: -40, z1: 40, y0: 3, y1: 8 }, { n: 'Ramparts', x0: 23, x1: 25, z0: -40, z1: 40, y0: 3, y1: 8 },
@@ -452,6 +168,7 @@ const MAPS = [
       0: [[37, -10], [38, -6], [37, -2], [38, 2], [37, 6], [38, 10], [35, 0]]
     },
     zones: [{ n: 'Fountain Plaza', x: 0, z: -8, y: 0 }, { n: 'North Houses', x: 14, z: -26, y: 0 }, { n: 'South Houses', x: -14, z: 26, y: 0 }],
+    bomb: [{ n: 'A', x: 0, z: -18, y: 0 }, { n: 'B', x: 0, z: 18, y: 0 }],   // [BOMBA] puntos de plantado: calle norte y calle sur
     areas: [
       { n: 'Rooftops', x0: -30, x1: 30, z0: -30, z1: -22, y0: 3, y1: 9 }, { n: 'Rooftops', x0: -30, x1: 30, z0: 22, z1: 30, y0: 3, y1: 9 },
       { n: 'House', x0: -30, x1: -10, z0: -30, z1: -22, y0: -1, y1: 3 }, { n: 'House', x0: 10, x1: 30, z0: -30, z1: -22, y0: -1, y1: 3 },
@@ -927,10 +644,14 @@ const MODES = {
   zona:      { id: 'zona',      name: 'Capturar zona',     short: 'ZONA',     desc: 'Una zona cambia de sitio cada 50 s. Suma puntos el equipo que la controla en solitario.', guns: true },
   cuchillos: { id: 'cuchillos', name: 'Solo cuchillos',    short: 'CUCHILLOS', desc: 'Sin armas de fuego: cuchillo en mano y a moverse rápido.', guns: false },
   carrera:   { id: 'carrera',   name: 'Carrera de armas',  short: 'CARRERA',  desc: 'Cada baja te da un arma nueva. Al llegar al cuchillo, una baja más y tu equipo gana. Si te matan a cuchillo, bajas de nivel.', guns: true },
+  bomba:     { id: 'bomba',     name: 'Desactivar bomba',  short: 'BOMBA',    desc: 'Por rondas y sin reaparecer: un equipo planta la bomba en A o B y el otro la desactiva. Los papeles cambian cada ronda; gana el primero en llegar a 4.', guns: true },   // [BOMBA]
   navidad:   { id: 'navidad',   name: 'Navidad',           short: 'NAVIDAD',  desc: 'Evento: caza duendes y recoge los regalos que sueltan. Gana el equipo con más regalos en 10 minutos.', guns: true, event: true }   // [NAVIDAD]
 };
 const GUN_LADDER = [8, 0, 9, 1, 7, 2, 10, 4, 6, 5, 3];   // armas por nivel (AK → … → Lince); tras la última viene el cuchillo (nivel 12)
-const ZONE = { R: 5.5, MOVE_SECS: 50, LIMIT: 160 };  // radio de la zona, cada cuánto cambia de sitio y puntos para ganar
+const ZONE = { R: 5.5, MOVE_SECS: 50, LIMIT: 160 };
+/* [BOMBA] Desactivar bomba: rondas ganadas para vencer, duración de la ronda, mecha, segundos para plantar/desactivar, radio de cada
+   punto de plantado (A/B, en el mapa: bomb), distancia para desactivar y pausa entre rondas */
+const BOMB = { WIN: 4, ROUND: 80, FUSE: 35, PLANT: 3, DEFUSE: 5, R: 3.5, DEF_R: 2.2, PAUSE: 4 };  // radio de la zona, cada cuánto cambia de sitio y puntos para ganar
 const LEAGUES = [
   { n: 'Hierro',   min: 0,    col: '#8a8f9e', cr: 0,    px: 0 },
   { n: 'Bronce',   min: 900,  col: '#cd7f32', cr: 150,  px: 0 },
@@ -1069,7 +790,7 @@ function viewmodelSight(pose, sight) {
   return { x: x + pose.px, y: y + pose.py, z: z + pose.pz };
 }
 
-const api = { KNIFE_ROULETTE, OUTFIT_ROULETTE, rouletteDef, rouletteOdds, PETS, OUTFITS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
+const api = { KNIFE_ROULETTE, OUTFIT_ROULETTE, rouletteDef, rouletteOdds, PETS, OUTFITS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, BOMB, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

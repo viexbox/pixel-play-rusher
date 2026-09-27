@@ -18,12 +18,12 @@ const welcome = c => c.msgs.find(m => m.t === 'welcome');
     await sleep(1200);
     const A = await join('Ana', 0, 'duelo'); await until(() => welcome(A));
     const B = await join('Beto', 1, 'duelo'); await until(() => welcome(B));
-    ok(welcome(B).room === welcome(A).room && welcome(B).map === 0, 'Beto eligió Pueblo Duna pero no había nadie: entra en la partida de Ana (Nexus Outpost)');
+    ok(welcome(B).room === welcome(A).room && welcome(B).map === 0, 'Beto eligió Barrio Arcoíris pero no había nadie: entra en la partida de Ana (Castillo Real)');
     ok(await until(() => B.msgs.some(m => m.t === 'notice' && /para que no esperes solo/.test(m.m))), 'y se le avisa de por qué');
     ok(!A.msgs.some(m => m.t === 'notice' && /no esperes solo/.test(m.m)), 'Ana (que ya estaba en su mapa) no recibe el aviso');
-    const C = await join('Cris', 2, 'cuchillos'); await until(() => welcome(C));
-    ok(welcome(C).room !== welcome(A).room && welcome(C).map === 2, 'otro modo (Solo cuchillos) no se mezcla: Cris abre su propia sala en Villa Piscina');
-    const D = await join('Dani', 2, 'cuchillos'); await until(() => welcome(D));
+    const C = await join('Cris', 1, 'cuchillos'); await until(() => welcome(C));
+    ok(welcome(C).room !== welcome(A).room && welcome(C).map === 1, 'otro modo (Solo cuchillos) no se mezcla: Cris abre su propia sala en Barrio Arcoíris');
+    const D = await join('Dani', 1, 'cuchillos'); await until(() => welcome(D));
     ok(welcome(D).room === welcome(C).room && !D.msgs.some(m => m.t === 'notice' && /no esperes solo/.test(m.m)), 'y quien elige ese mismo mapa y modo va con Cris, sin aviso');
     for (const x of [A, B, C, D]) x.ws.close();
   } catch (e) { ok(false, 'excepción: ' + e.stack); }
