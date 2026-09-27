@@ -48,6 +48,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
      las dos cuentas se crearon o entraron desde la misma conexión, y como mucho REF_DAY_MAX invitaciones premiadas al día por cuenta. */
   const REF_GAMES = +env.REF_GAMES || 3, REF_PX_INVITER = +env.REF_PX_INVITER || 300, REF_PX_FRIEND = +env.REF_PX_FRIEND || 200, REF_DAY_MAX = +env.REF_DAY_MAX || 5;
   const byRef = new Map(); for (const u of byId.values()) if (u.refCode) byRef.set(u.refCode, u);
+  const byCg = new Map(); for (const u of byId.values()) if (u.cg) byCg.set(u.cg, u);   // [PORTALES] cuentas enlazadas a un usuario de CrazyGames
   const ipHash = ip => sha('ip|' + ip).slice(0, 16);
   function refCode(u) {
     if (u.refCode) return u.refCode;
@@ -216,6 +217,56 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     u.lastLogin = t; u.ipH = ipHash(ip); return { ok: true, token: newSession(u), profile: pub(u) };   // ipH: conexión de la última entrada (para las invitaciones)
   }
 
+  /* ---------- [PORTALES] Entrar con la cuenta de CrazyGames ----------
+     El SDK da un token (JWT RS256) firmado por CrazyGames con userId y username. Se comprueba con su clave pública
+     (CRAZYGAMES_PUBLIC_KEY, o la que publican en sdk.crazygames.com/publicKey.json, guardada 12 h) y se crea o se encuentra
+     la cuenta enlazada a ese usuario: así sus PX, objetos y pase de batalla se guardan en el servidor, sin contraseña propia. */
+  let cgKey = { pem: env.CRAZYGAMES_PUBLIC_KEY ? String(env.CRAZYGAMES_PUBLIC_KEY).replace(/\\n/g, '\n') : '', at: env.CRAZYGAMES_PUBLIC_KEY ? Infinity : 0 };
+  async function cgPublicKey() {
+    if (cgKey.pem && now() - cgKey.at < 12 * 3600000) return cgKey.pem;
+    try {
+      const r = await fetch(env.CRAZYGAMES_PUBLIC_KEY_URL || 'https://sdk.crazygames.com/publicKey.json', { cache: 'no-store' }); const t = await r.text();
+      let pem = ''; try { const j = JSON.parse(t); pem = j.publicKey || j.key || ''; } catch (e) { pem = t; }
+      if (/BEGIN PUBLIC KEY/.test(pem)) cgKey = { pem, at: now() };
+    } catch (e) { log('CrazyGames: no se pudo descargar la clave pública (' + e.message + ')'); }
+    return cgKey.pem;
+  }
+  function jwtVerify(token, pem) {
+    const parts = String(token || '').split('.'); if (parts.length !== 3 || token.length > 4000) return null;
+    const dec = x => Buffer.from(x.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+    let head, body; try { head = JSON.parse(dec(parts[0]).toString('utf8')); body = JSON.parse(dec(parts[1]).toString('utf8')); } catch (e) { return null; }
+    if (!head || head.alg !== 'RS256' || !body) return null;
+    let ok = false; try { ok = crypto.verify('RSA-SHA256', Buffer.from(parts[0] + '.' + parts[1]), pem, dec(parts[2])); } catch (e) { ok = false; }
+    if (!ok) return null;
+    const t = Math.floor(now() / 1000); if (body.exp && body.exp < t - 30) return null; if (body.nbf && body.nbf > t + 30) return null;
+    return body;
+  }
+  async function cgLogin(b, ip) {
+    if (env.PORTALS === '0') return err(404, 'No disponible.');
+    const t = now(), hits = (regHits.get('cg:' + ip) || []).filter(x => t - x < 3600000);
+    if (hits.length >= 30) return err(429, 'Demasiados intentos desde tu conexión. Inténtalo más tarde.');
+    hits.push(t); regHits.set('cg:' + ip, hits);
+    const pem = await cgPublicKey(); if (!pem) return err(503, 'No se pudo comprobar la cuenta de CrazyGames. Inténtalo más tarde.');
+    const p = jwtVerify(b.token, pem); if (!p || !p.userId) return err(401, 'La sesión de CrazyGames no es válida.');
+    if (env.CRAZYGAMES_GAME_ID && p.gameId && String(p.gameId) !== String(env.CRAZYGAMES_GAME_ID)) return err(401, 'La sesión de CrazyGames es de otro juego.');
+    const cgId = String(p.userId).slice(0, 80);
+    let u = byCg.get(cgId);
+    if (!u) {
+      let base = String(p.username || '').replace(/[^\p{L}\p{N}_-]/gu, '').slice(0, 14);
+      if (base.length < 3 || checkUsername(base) || admin.isReserved(base)) base = 'CG_' + base.slice(0, 8);
+      if (base.length < 3) base = 'Jugador';
+      let username = base; if (byKey.has(ukey(username)) || checkUsername(username) || admin.isReserved(username)) username = suggest(base.slice(0, 10))[0] || ('CG' + hex(4));
+      const ban = admin.banFor(username, ip); if (ban) return err(403, admin.banMessage(ban));
+      u = { id: crypto.randomUUID(), username, key: ukey(username), email: '', salt: '', hash: '', cg: cgId, createdAt: t, lastLogin: t, px: 0, credits: 0, act: [new Date().toISOString().slice(0, 10)], friends: [], reqIn: [], reqOut: [], blocked: [], avatar: null, status: '', verified: false, stats: EMPTY_STATS(), unlocked: [0, 1, 2, 3], claimed: [], day: { d: '', px: 0 }, emailVerified: false };
+      D.users[u.id] = u; byId.set(u.id, u); byKey.set(u.key, u); byCg.set(cgId, u); u.regIpH = ipHash(ip);
+      db.flush(); if (Store.db) await Store.db.drain(2000);
+      log('Cuenta nueva de CrazyGames: ' + username + ' (' + u.id + ')');
+    }
+    const ban = admin.banFor(u.username, ip); if (ban) return err(403, admin.banMessage(ban));
+    u.lastLogin = t; u.ipH = ipHash(ip);
+    return { ok: true, token: newSession(u), profile: pub(u), created: u.createdAt === t };
+  }
+
   /* ---------- Progreso y monedero ---------- */
   const today = () => new Date().toISOString().slice(0, 10);
   /* [NUEVO] Beneficios de las cuentas verificadas (los edita el administrador en el panel → Verificados) */
@@ -371,6 +422,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
       let out;
       if (key === 'POST /api/auth/register') out = await register(b, ip);
       else if (key === 'POST /api/auth/login') out = await login(b, ip);
+      else if (key === 'POST /api/auth/crazygames') out = await cgLogin(b, ip);   // [PORTALES]
       else if (key === 'GET /api/store') out = storeInfo();
       else if (sec.publicRoutes[key]) out = await sec.publicRoutes[key](b, ip);
       else {

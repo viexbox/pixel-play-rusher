@@ -89,6 +89,22 @@
   P.instant = function () { try { var s = cg(); return !!(name === 'crazygames' && s && s.game && s.game.isInstantMultiplayer); } catch (e) { return false; } };
   P.settings = function () { try { var s = cg(), g = s && s.game && s.game.settings; return { disableChat: !!(g && g.disableChat), muteAudio: !!(g && g.muteAudio) }; } catch (e) { return { disableChat: false, muteAudio: false }; } };
   P.onSettings = function (fn) { when(function () { var s = cg(); if (name === 'crazygames' && s && s.game.addSettingsChangeListener) s.game.addSettingsChangeListener(function () { fn(P.settings()); }); fn(P.settings()); }); };
+  /* [PORTALES] Cuenta de CrazyGames: si el jugador ha iniciado sesión en CrazyGames, su token (JWT firmado por CrazyGames) sirve
+     para entrar con una cuenta del servidor enlazada a ese usuario (ver /api/auth/crazygames). Sin sesión, se le puede pedir que entre. */
+  P.account = function () {
+    return new Promise(function (res) {
+      when(function () {
+        var s = cg(); if (name !== 'crazygames' || !s || !s.user || s.user.isUserAccountAvailable === false) return res(null);
+        Promise.resolve(s.user.getUser()).then(function (u) {
+          if (!u) return res(null);
+          return Promise.resolve(s.user.getUserToken()).then(function (tk) { res(tk ? { token: tk, username: u.username } : null); });
+        }).catch(function () { res(null); });
+      });
+    });
+  };
+  P.accountAvailable = function () { var s = cg(); return !!(name === 'crazygames' && s && s.user && s.user.isUserAccountAvailable !== false); };
+  P.login = function () { return new Promise(function (res) { when(function () { try { Promise.resolve(cg().user.showAuthPrompt()).then(function () { res(true); }, function () { res(false); }); } catch (e) { res(false); } }); }); };
+  P.onAuth = function (fn) { when(function () { try { var s = cg(); if (name === 'crazygames' && s && s.user && s.user.addAuthListener) s.user.addAuthListener(function (u) { fn(u || null); }); } catch (e) { /* nada */ } }); };
   P.commercial = function (onStart, onEnd) { return ad('midgame', onStart, onEnd); };
   P.rewarded = function (onStart, onEnd) { return ad('rewarded', onStart, onEnd); };
 })();

@@ -68,6 +68,26 @@ export function bootstrap(opts = {}) {
   if (restored) enter(restored);
   else if (globalThis.PPR_PORTAL) { const g = app.auth.guest(); if (g.ok) enter(g.session); else app.ui.show('auth'); }   // [PORTALES] en CrazyGames/Poki no hay pantalla de acceso propia: se entra como invitado
   else app.ui.show('auth');
+  /* [PORTALES] Con sesión en CrazyGames se entra con la cuenta del servidor enlazada a ese usuario (progreso guardado en el servidor).
+     Sin sesión, el invitado ve «Guardar progreso», que abre el acceso de CrazyGames. */
+  const P = globalThis.PPR_PORTAL;
+  if (P && P.account) {
+    const link = async () => {
+      const cur = app.state.get().session; if (cur && cur.remote) return true;
+      const a = await P.account(); if (!a) return false;
+      try {
+        const r = await globalThis.fetch(base + 'api/auth/crazygames', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: a.token }) });
+        const j = await r.json().catch(() => ({})); if (!r.ok || !j.token) return false;
+        enter(app.auth.remoteSession(j.profile && j.profile.username || a.username, j.token)); return true;
+      } catch (e) { return false; }
+    };
+    const btn = doc.getElementById('cgLinkBtn');
+    const showBtn = () => { const s = app.state.get().session; if (btn) btn.hidden = !(P.accountAvailable && P.accountAvailable() && s && s.guest); };
+    if (btn) btn.addEventListener('click', async () => { btn.disabled = true; await P.login(); await link(); btn.disabled = false; showBtn(); });
+    P.onAuth(u => { if (u) link().then(showBtn); });
+    P.onReady(() => { link().then(showBtn); });
+    app.portalLink = link;
+  }
   app.legacy = legacy;
   return app;
 }
