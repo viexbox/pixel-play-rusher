@@ -43,6 +43,31 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     for (const o of D.orders || []) if (!isUuid(o.uid) && remap.has(String(o.uid))) o.uid = remap.get(String(o.uid));
     if (migrated) { log('Cuentas migradas a identificador único (UUID): ' + migrated); db.flush(); }
   })();
+  /* [INVITACIONES] Invita a un amigo: cada cuenta tiene un código (enlace ?ref=CÓDIGO). Si alguien se registra con él y juega REF_GAMES partidas
+     online con premio (con 2+ jugadores reales), el que invitó gana REF_PX_INVITER PX y el invitado REF_PX_FRIEND PX. Contra el abuso: no cuenta si
+     las dos cuentas se crearon o entraron desde la misma conexión, y como mucho REF_DAY_MAX invitaciones premiadas al día por cuenta. */
+  const REF_GAMES = +env.REF_GAMES || 3, REF_PX_INVITER = +env.REF_PX_INVITER || 300, REF_PX_FRIEND = +env.REF_PX_FRIEND || 200, REF_DAY_MAX = +env.REF_DAY_MAX || 5;
+  const byRef = new Map(); for (const u of byId.values()) if (u.refCode) byRef.set(u.refCode, u);
+  const ipHash = ip => sha('ip|' + ip).slice(0, 16);
+  function refCode(u) {
+    if (u.refCode) return u.refCode;
+    const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c;
+    do { c = ''; const b = crypto.randomBytes(6); for (let i = 0; i < 6; i++) c += A[b[i] % A.length]; } while (byRef.has(c));
+    u.refCode = c; byRef.set(c, u); db.save(); return c;
+  }
+  function refInfo(u) {
+    const refs = u.refs || [], done = refs.filter(r => r.done && !r.blocked).length;
+    return { ok: true, refCode: refCode(u), invited: refs.length, done, earned: done * REF_PX_INVITER, games: REF_GAMES, pxInviter: REF_PX_INVITER, pxFriend: REF_PX_FRIEND,
+      friends: refs.slice(0, 30).map(r => { const f = byId.get(r.uid); return { name: f ? f.username : '—', done: !!r.done && !r.blocked, blocked: !!r.blocked, games: f ? Math.min(REF_GAMES, f.stats.games) : 0 }; }) };
+  }
+  function refQualify(u) {   // el invitado ya jugó sus partidas: premio para los dos (si no es la misma persona con dos cuentas)
+    u.refDone = true; const inv = byId.get(u.refBy), e = inv && (inv.refs || []).find(r => r.uid === u.id); if (!inv || !e) return null;
+    const d = today(); if (!inv.refDay || inv.refDay.d !== d) inv.refDay = { d, n: 0 };
+    if ((u.ipH && inv.ipH && u.ipH === inv.ipH) || (u.regIpH && inv.ipH && u.regIpH === inv.ipH) || inv.refDay.n >= REF_DAY_MAX) { e.done = true; e.blocked = true; log('Invitación sin premio (misma conexión o tope diario): ' + inv.username + ' → ' + u.username); db.save(); return null; }
+    inv.refDay.n++; e.done = true; grant(inv, REF_PX_INVITER, 'Invitación: ' + u.username + ' ya juega'); grant(u, REF_PX_FRIEND, 'Bono por venir invitado por ' + inv.username);
+    log('Invitación premiada: ' + inv.username + ' (+' + REF_PX_INVITER + ') → ' + u.username + ' (+' + REF_PX_FRIEND + ')');
+    return { px: REF_PX_FRIEND, by: inv.username };
+  }
   const hooks = { onRename: null };   // server.js lo usa para mantener la clasificación al día cuando alguien cambia de nombre
   const NAME_CHANGE_MS = (+env.NAME_CHANGE_DAYS >= 0 ? +env.NAME_CHANGE_DAYS : 7) * 86400000;   // espera entre cambios de nombre (el primero es libre)
   const REQUIRE_TERMS = env.REQUIRE_TERMS !== '0';   // [NUEVO] para crear una cuenta hay que aceptar los términos y la privacidad (REQUIRE_TERMS=0 lo desactiva, solo para pruebas)
@@ -143,6 +168,8 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     if (byKey.has(key)) return err(409, 'Ese nombre de usuario ya está en uso. Elige otro.', { suggestions: suggest(username) });   // otra petición pudo ganarle mientras se calculaba el hash
     const u = { id: crypto.randomUUID(), username, key, email, salt, hash, createdAt: t, lastLogin: t, px: 0, credits: 0, act: [new Date().toISOString().slice(0, 10)], friends: [], reqIn: [], reqOut: [], blocked: [], avatar: null, status: '', verified: false, stats: EMPTY_STATS(), unlocked: [0, 1, 2, 3], claimed: [], day: { d: '', px: 0 } };
     D.users[u.id] = u; byId.set(u.id, u); byKey.set(key, u); if (b.terms === true) u.terms = { v: 1, at: t }; u.emailVerified = false; db.flush(); if (Store.db) await Store.db.drain(2000); if (sec.mailOn()) sec.sendVerification(u).catch(() => {});   // [NUEVO] la cuenta se guarda por su ID y al momento (no a los 1,5 s)
+    u.regIpH = ipHash(ip); u.ipH = u.regIpH;
+    { const inv = byRef.get(String(b.ref || '').toUpperCase().slice(0, 12)); if (inv && inv !== u) { u.refBy = inv.id; (inv.refs = inv.refs || []).unshift({ uid: u.id, ts: t }); if (inv.refs.length > 200) inv.refs.length = 200; db.save(); log('Invitado por ' + inv.username + ': ' + username); } }   // [INVITACIONES]
     log('Cuenta nueva: ' + username + ' (' + u.id + ')');
     return { ok: true, token: newSession(u), profile: pub(u) };
   }
@@ -159,7 +186,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     }
     fails.delete(kIp); fails.delete(kId);
     const ban = admin.banFor(u.username, ip); if (ban) return err(403, admin.banMessage(ban));
-    u.lastLogin = t; return { ok: true, token: newSession(u), profile: pub(u) };
+    u.lastLogin = t; u.ipH = ipHash(ip); return { ok: true, token: newSession(u), profile: pub(u) };   // ipH: conexión de la última entrada (para las invitaciones)
   }
 
   /* ---------- Progreso y monedero ---------- */
@@ -182,7 +209,8 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
     if (!u.dayCr || u.dayCr.d !== today()) u.dayCr = { d: today(), n: 0 };
     const cr = Math.max(0, Math.min(Math.round(S.crFor(r.points, r.won) * ev.cr), CR_DAILY_CAP - u.dayCr.n)); u.dayCr.n += cr; u.credits += cr;
     { const e = eco(); e.px += px; e.cr += cr; e.matches++; }
-    db.save(); return { px, cr, balance: u.px, crBalance: u.credits, prevBest, stats: st, mult: S.eventMult(S.todayEvent(), r.cls), ev: ev.names };
+    const ref = u.refBy && !u.refDone && st.games >= REF_GAMES ? refQualify(u) : null;   // [INVITACIONES]
+    db.save(); return { px, cr, balance: u.px, crBalance: u.credits, prevBest, stats: st, mult: S.eventMult(S.todayEvent(), r.cls), ev: ev.names, ref };
   }
   function unlockColor(u, i) {
     i = i | 0; const cost = S.COLOR_COSTS[i];
@@ -327,6 +355,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
         else if (key === 'POST /api/me/unlock') out = unlockColor(u, b.i);
         else if (key === 'POST /api/me/claim') out = claimRank(u, b.i);
         else if (key === 'POST /api/me/rename') out = rename(u, b.username, ip);   // [NUEVO]
+        else if (key === 'GET /api/me/referral') out = refInfo(u);   // [INVITACIONES]
         else if (key === 'POST /api/store/checkout') out = await checkout(u, String(b.pack || ''));
         else if (key === 'POST /api/store/paypal') out = paypalOrder(u, String(b.pack || ''));   // [PAYPAL]
         else { send(req, res, 404, { error: 'No encontrado.' }); return true; }

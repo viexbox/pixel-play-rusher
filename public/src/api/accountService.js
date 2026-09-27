@@ -16,7 +16,8 @@ export function createAccountClient({ fetchFn = globalThis.fetch, base = '', sto
     },
     /* {ok, token, profile} · {ok:false, status, error} · null si no hay conexión */
     async register(username, email, password, terms) {
-      try { const r = await post('auth/register', { username, email, password, terms: terms === true }); return r.ok ? { ok: true, token: r.j.token, profile: r.j.profile } : { ok: false, status: r.status, error: r.j.error || 'No se pudo crear la cuenta.', suggestions: r.j.suggestions || [] }; } catch (e) { return null; }
+      try { let ref = ''; try { ref = (storage || globalThis.localStorage).getItem('ppr.ref') || ''; } catch (e) { /* sin almacenamiento */ }   // [INVITACIONES] código de quien te invitó
+      const r = await post('auth/register', { username, email, password, terms: terms === true, ref: ref || undefined }); return r.ok ? { ok: true, token: r.j.token, profile: r.j.profile } : { ok: false, status: r.status, error: r.j.error || 'No se pudo crear la cuenta.', suggestions: r.j.suggestions || [] }; } catch (e) { return null; }
     },
     async login(identifier, password) {
       try { const r = await post('auth/login', { identifier, password }); return r.ok ? { ok: true, token: r.j.token, profile: r.j.profile } : { ok: false, status: r.status, error: r.j.error || 'No se pudo entrar.' }; } catch (e) { return null; }

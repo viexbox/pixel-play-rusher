@@ -29,6 +29,7 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 - Trajes con efectos (`OUTFITS` con `ru: 1`: Neón, Oro Yakuza, Dragón Imperial, Espectro Ártico; `fxOutfitBody()`/`fxMats()` en client.js) en la **Ruleta de trajes** (`S.OUTFIT_ROULETTE`, `/api/bp/outfit-spin`). Las dos ruletas usan `spin()` en battlepass.js y `renderRoulette(kind)` en el cliente. El karambit gira sobre la anilla al sacarlo (`setKnifeDraw`).
 - Móvil: controles táctiles (`TOUCH`, `initTouch()` en client.js: joystick, mirar arrastrando, botones; sin bloqueo de puntero) y la interfaz se reduce con `zoom` (`--uiz`) para que quepa. Test `touch.test.js`.
 - Móvil: `public/shell.js` (en `<head>`) convierte la página en un marco: el juego va en un iframe `?embed=1` de al menos 720 px de alto, escalado y girado 90° si el móvil está en vertical. La página de fuera no arranca el juego (`window.__PPR_SHELL`: cada script lo comprueba). No se usa con ratón ni para buscadores. Test `shell.test.js`.
+- Invitaciones: botón «🎁 Invita y gana PX» (`openReferral()` en client.js), enlace `?ref=CÓDIGO` que se guarda en `ppr.ref` y se manda al registrarse; `GET /api/me/referral`; premio en `awardMatch` al jugar `REF_GAMES` (3) partidas con premio: `REF_PX_INVITER` (300) y `REF_PX_FRIEND` (200). No cuenta con la misma conexión ni más de `REF_DAY_MAX` (5) al día. Test `referral.test.js`.
 
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).
