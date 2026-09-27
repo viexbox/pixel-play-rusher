@@ -43,7 +43,7 @@ const settle = (T, n) => { for (let f = 0; f < n; f++) T.step(1 / 60); T.fast();
       seen[id] = { optic: $('#optic').hidden ? '' : $('#optic').dataset.k, scope: $('#scope').hidden ? '' : $('#scope').dataset.k, cross: $('#crosshair').style.opacity, gunY: T.gun.position.y, fov: T.camera.fov, vis: T.gun.visible, zoom: $('#scZoom').textContent };
       T.setMouseR(false); settle(T, 40);
     }
-    ok(seen.hierro.optic === '' && seen.hierro.scope === '' && seen.hierro.vis && Number(seen.hierro.cross) === 0, 'mira de hierro: sin retícula superpuesta, el arma se ve y la mira normal se desvanece');
+    ok(seen.hierro.optic === 'iron' && seen.hierro.scope === '' && seen.hierro.vis && Number(seen.hierro.cross) === 0, 'mira de hierro: el arma se ve, la mira normal se desvanece y queda un punto pequeño en el centro');
     ok(seen.punto.optic === 'dot' && seen.punto.scope === '' && seen.punto.vis, 'punto rojo: aparece el punto luminoso y el arma sigue visible');
     ok(seen.holo.optic === 'holo' && seen.holo.scope === '', 'holográfica: aparece el anillo con punto');
     ok(seen.acog.scope === 'acog' && !seen.acog.vis && seen.acog.optic === '', 'ACOG: mira con retícula y bordes oscuros (el arma se oculta)');
@@ -54,6 +54,8 @@ const settle = (T, n) => { for (let f = 0; f < n; f++) T.step(1 / 60); T.fast();
     T.cfg.optics.ak = 'hierro'; $('#optHint'); key('KeyB'); key('KeyB', 'keyup');
     ok(T.cfg.optics.ak === 'punto' && /Punto rojo/.test($('#wtype').textContent), 'la tecla B cambia de mira en partida → ' + T.cfg.optics.ak);
     key('KeyB'); key('KeyB', 'keyup'); ok(T.cfg.optics.ak === 'holo' && /Holográfica/.test($('#wtype').textContent), 'B otra vez → holográfica');
+    { const sg = T.gun.userData.sight; T.player.aim = 0; settle(T, 1); const hip = sg && sg.visible; T.setMouseR(true); settle(T, 60); const ads = sg && sg.visible; T.setMouseR(false); settle(T, 40);
+      ok(sg && hip === true && ads === false && sg.visible, '[MIRAS] holográfica: la carcasa y el cristal se ven sin apuntar y se ocultan al apuntar, para no tapar a dónde disparas'); }
     ok(errors.length === 0, 'sin errores de JavaScript ' + JSON.stringify(errors)); }
 
   /* ---------- Francotirador ---------- */
@@ -68,6 +70,15 @@ const settle = (T, n) => { for (let f = 0; f < n; f++) T.step(1 / 60); T.fast();
     T.setMouseR(true); settle(T, 60);
     ok(/^×5\.\d/.test($('#scZoom').textContent) && T.camera.fov < a.fov * 0.6, 'Lince ×6: más zoom (' + $('#scZoom').textContent + ', FOV ' + T.camera.fov.toFixed(1) + '° frente a ' + a.fov.toFixed(1) + '°)');
     T.setMouseR(false); settle(T, 60); key('KeyB'); key('KeyB', 'keyup'); ok(T.cfg.optics.lince === 'scope3', 'B vuelve a ×3');
+    ok(errors.length === 0, 'sin errores de JavaScript ' + JSON.stringify(errors)); }
+
+  /* ---------- [MIRAS] Precisión y Centinela: visor propio ---------- */
+  for (const id of ['precision', 'centinela']) { const { T, $, errors } = boot(); await sleep(250);
+    const wi = S.WEAPONS.findIndex(x => x.id === id); T.cfg.cls = wi; $('#play').click(); $('#eqPlay').click(); settle(T, 90);
+    T.setMouseR(true); settle(T, 60);
+    const zt = $('#scZoom').textContent;
+    ok(!$('#scope').hidden && $('#scope').dataset.k === 'acog' && !T.gun.visible && Math.abs(T.camera.fov - 90 * S.WEAPONS[wi].aimFov) < 1, id + ': al apuntar se ve el visor (sin la lente tapando el centro) con zoom ' + zt);
+    T.setMouseR(false); settle(T, 40); ok($('#scope').hidden && T.gun.visible, id + ': al dejar de apuntar vuelve el arma');
     ok(errors.length === 0, 'sin errores de JavaScript ' + JSON.stringify(errors)); }
 
   /* ---------- Chat ---------- */
