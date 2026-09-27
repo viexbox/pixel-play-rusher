@@ -29,12 +29,12 @@ ok(W[L[0]].id === 'ak' && W[L[L.length - 1]].id === 'lince', 'empieza en el AK y
 ok(L.slice(0, 2).join() === '8,0', 'los dos primeros niveles no cambian (las pruebas y los jugadores conocen ese comienzo)');
 
 console.log('\n=== Mapas ===');
-const M = S.MAPS; ok(M.length === 5 && M[0].name === 'Nexus Outpost' && M[1].name === 'Pueblo Duna' && M[2].name === 'Villa Piscina' && M[3].name === 'Castillo Real' && M[4].name === 'Barrio Arcoíris', 'cinco mapas: Nexus Outpost, Pueblo Duna, Villa Piscina, Castillo Real y Barrio Arcoíris');
+const M = S.MAPS; ok(M.length === 2 && M[0].name === 'Castillo Real' && M[1].name === 'Barrio Arcoíris', 'dos mapas: Castillo Real y Barrio Arcoíris');
 
-ok(Object.entries(M[0].look).every(([k, v]) => typeof v === 'string' || typeof v === 'number') && M[0].look.decor === 'nexus' && M[0].look.outFloor === 'grass', 'el mapa declara su aspecto: decorado «nexus», suelo exterior de hierba y texturas por tipo de superficie');
+ok(Object.entries(M[0].look).every(([k, v]) => typeof v === 'string' || typeof v === 'number') && M[0].look.decor === 'burg' && M[0].look.outFloor === 'grass', 'el mapa declara su aspecto: decorado «burg», suelo exterior de hierba y texturas por tipo de superficie');
 ok(M.every(m => m.name && m.desc.length > 30 && m.sky.length === 2 && m.pal.length === 5 && m.floor.length === 2 && isHex(m.fog) && isHex(m.out) && m.half >= 36), 'nombre, descripción, cielo, niebla, suelo y paleta completos');
 const STEP = S.CONST.STEP;
-for (const i of M.keys()) {   // los tres mapas
+for (const i of M.keys()) {   // los dos mapas
   const w = S.buildWorld(i), m = M[i], cols = w.colliders, half = m.half;
   ok(w.waypoints.length >= 200 && w.waypoints.every(([x, z]) => Math.abs(x) < half && Math.abs(z) < half && !S.overlapAt(cols, x, 0, z, 0.6, 1.8)), m.name + ': ' + w.waypoints.length + ' puntos de paso (aparición de jugadores y bots), todos dentro del mapa y libres');
   /* conectividad: desde el centro se puede llegar a TODOS los puntos de paso andando por el suelo (los escalones bajos se salvan; las paredes no) */
@@ -47,7 +47,6 @@ for (const i of M.keys()) {   // los tres mapas
   let free = 0, reach = 0; for (let a = -N + 1; a < N; a++) for (let b = -N + 1; b < N; b++) if (!blocked(a * G, b * G)) { free++; if (seen.has(key(a, b))) reach++; }
   ok(reach / free > 0.97, m.name + ': ' + Math.round(reach / free * 100) + ' % del suelo libre es accesible (sin bolsas selladas)');
   const cover = cols.filter(c => c.maxY - c.minY >= 1 && c.maxX - c.minX < 30 && c.maxZ - c.minZ < 30).length; ok(cover >= 16, m.name + ': ' + cover + ' elementos de cobertura');
-  /* Nexus Outpost NO es simétrico a propósito (dos bases distintas, azoteas, pasajes): la igualdad de oportunidades se comprueba en nexus.test.js con las distancias caminando desde cada base. */
 }
 console.log('\n=== Imágenes de selección de mapa ===');
 for (let i = 0; i < M.length; i++) { const f = path.join(__dirname, '..', 'public', 'maps', 'map' + i + '.jpg'), buf = fs.existsSync(f) ? fs.readFileSync(f) : Buffer.alloc(0), im = sniffImage(buf); ok(im && im.mime === 'image/jpeg' && im.w === 512 && im.h === 288, 'maps/map' + i + '.jpg existe (512×288)'); }

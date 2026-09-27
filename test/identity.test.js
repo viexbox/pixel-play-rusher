@@ -27,7 +27,7 @@ async function scenario(label, port, dir, dbUrl) {
   const legacyAccounts = { seq: 2, users: { pepe1: user(1, 'Pepe_1', 'pepe@e.com', 700, 900), lola2: user(2, 'Lola_2', 'lola@e.com', 50, 100) },
     sessions: { [sha('token-antiguo-pepe')]: { uid: 1, exp: now + 86400000 }, [sha('token-huerfano')]: { uid: 99, exp: now + 86400000 } },
     orders: [{ id: 'cs_old_1', uid: 1, user: 'Pepe_1', pack: 'px1300', px: 1300, amount: 199, currency: 'eur', status: 'paid', ts: now - 5e6 }], pxlog: [] };
-  const legacyLb = { entries: [{ n: 'Pepe_1', p: 500, k: 12, d: 4, h: 3, c: 'Asalto', m: 0, t: now - 3e6, r: 0 }, { n: 'Anónimo', p: 300, k: 5, d: 5, h: 0, c: 'Asalto', m: 0, t: now - 3e6, r: 0 }] };
+  const legacyLb = { v: 2, entries: [{ n: 'Pepe_1', p: 500, k: 12, d: 4, h: 3, c: 'Asalto', m: 0, t: now - 3e6, r: 0 }, { n: 'Anónimo', p: 300, k: 5, d: 5, h: 0, c: 'Asalto', m: 0, t: now - 3e6, r: 0 }] };
   fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
   if (dbUrl) {
     const { Client } = require('pg'); const c = new Client({ connectionString: dbUrl }); await c.connect(); await c.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');

@@ -17,7 +17,7 @@ const M = w.__M, THREE = w.THREE;
 /* Cuenta cuántas BoxGeometry se crean y cuántos dispose() se llaman durante cada buildMap */
 let boxes = 0, disposed = 0; const BG = THREE.BoxGeometry; THREE.BoxGeometry = function (...a) { boxes++; return new BG(...a); }; THREE.BoxGeometry.prototype = BG.prototype;
 const disp = THREE.BufferGeometry.prototype.dispose; THREE.BufferGeometry.prototype.dispose = function () { disposed++; return disp.call(this); };
-/* Nexus Outpost no tiene «antes»: se construyó ya en lotes. Los umbrales son absolutos y se comparan con el número de cajas (sin lotes cada caja sería una malla). */
+/* Los mapas no tienen «antes»: se construyeron ya en lotes. Los umbrales son absolutos y se comparan con el número de cajas (sin lotes cada caja sería una malla). */
 const stats = () => { const meshes = []; M.mapGroup.traverse(o => { if (o.isMesh) meshes.push(o); }); return meshes; };
 const cell = v => Math.floor(v * 100), ckey = (a, b, c) => a + ',' + b + ',' + c;   // casillas de 1 cm; se busca también en las vecinas (Float32 puede cruzar el borde de una casilla)
 
@@ -36,7 +36,7 @@ for (let m = 0; m < M.MAPS.length; m++) {
 ok(totalMeshes <= 24 * M.MAPS.length, 'los ' + M.MAPS.length + ' mapas juntos suman ' + totalMeshes + ' mallas (cada uno ≤ 24)');
 
 console.log('\n=== La geometría fusionada es la misma caja a caja ===');
-for (const m of [0]) {   // Nexus Outpost
+for (const m of S.MAPS.keys()) {
   M.buildMap(m); const pos = new Map(); for (const o of stats().filter(o => !o.userData.own)) { const P = o.geometry.attributes.position, C = o.geometry.attributes.color; for (let v = 0; v < P.count; v++) { const x = P.getX(v), y = P.getY(v), z = P.getZ(v), k = ckey(cell(x), cell(y), cell(z)); (pos.get(k) || pos.set(k, []).get(k)).push({ x, y, z, c: [C.getX(v), C.getY(v), C.getZ(v)] }); } }
   const list = []; S.buildWorld(m, (cx, y0, cz, bw, bh, bd, color, solid) => list.push({ cx, y0, cz, bw, bh, bd, color, solid }));
   let missing = 0, badColor = 0, checked = 0;

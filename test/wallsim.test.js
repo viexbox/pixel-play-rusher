@@ -18,12 +18,9 @@ for (let m = 0; m < S.MAPS.length; m++) {
       if (f % every === 0) { const x = +e.pos.x.toFixed(3), y = +e.pos.y.toFixed(3), z = +e.pos.z.toFixed(3); n++; if (S.wallViolation(cols, inset, prev, x, y, z, 1.8)) bad++; prev = { x, y, z }; }
     }
   }
-  /* Nexus Outpost tiene cuatro niveles: también se simulan jugadores que EMPIEZAN sobre tejados, cubiertas, la torre, el podio y la pasarela alta del reactor (escaleras, bordes, caídas) */
   let nHigh = 0, badHigh = 0;
-  const HIGH = [[[-30, 5.4, -42], [-4, 5.46, -43], [21, 5.4, -38], [40, 5.4, -40], [10, 3.6, -1], [40, 4.05, -13], [40, 3.6, 24], [-24, 1.8, -14], [6, 6.3, -17.5], [-44, 5.4, -17]],   // Nexus Outpost
-    [[0, 2.4, -28], [4, 2.4, -26], [-4, 2.4, -30]],   // Pueblo Duna: el balcón
-    [[0, 3.6, -28], [-18, 3.6, -30], [18, 3.6, -26], [-16, 3.6, -36]],   // Villa Piscina: la terraza
-    [[0, 4.8, -2], [24, 3.6, 0], [-24, 3.6, 12], [14, 3.6, -32], [-14, 3.6, 36]],   // Castillo Real: azotea de la torre, adarves, tejado de la casa y de los establos
+  /* también se simulan jugadores que EMPIEZAN en las zonas altas (azoteas, adarves, tejados, puentes): escaleras, bordes y caídas */
+  const HIGH = [[[0, 4.8, -2], [24, 3.6, 0], [-24, 3.6, 12], [14, 3.6, -32], [-14, 3.6, 36]],   // Castillo Real: azotea de la torre, adarves, tejado de la casa y de los establos
     [[-14, 4.0, -26], [0, 4.0, 26], [26, 4.0, 26], [-26, 4.0, -26]]][m] || [];   // Barrio Arcoíris: tejados y puentes
   for (const [sx, sy, sz] of HIGH) for (const every of [3, 6, 9]) for (let k = 0; k < 4; k++) {
     const r = rnd(7000 + Math.round(sx * 10 + sz) + every * 31 + k), e = { pos: { x: sx, y: sy, z: sz }, vel: { x: 0, y: 0, z: 0 }, hw: 0.35, h: 1.8, onGround: true };
@@ -41,10 +38,10 @@ for (let m = 0; m < S.MAPS.length; m++) {
 }
 ok(allBad === 0 && allN > 150000, 'total: ' + allBad + ' correcciones en ' + allN + ' posiciones');
 console.log('\n=== Casos concretos ===');
-const F = S.buildWorld(0), Fi = S.insetColliders(F.colliders, 0.3), P0 = { x: 26.4, y: 0, z: 14 };   // contenedor de la Lower Plaza (x 26,8–29,2)
-ok(S.wallViolation(F.colliders, Fi, P0, 29.6, 0, 14, 1.8) === 'muro', 'saltar al otro lado de un muro de 2,4 m se detecta («muro»)');
-ok(S.wallViolation(F.colliders, Fi, P0, 27.5, 0, 14, 1.8) === 'dentro', 'acabar dentro del muro se detecta («dentro»)');
-ok(S.wallViolation(F.colliders, Fi, P0, 26.42, 0, 14.4, 1.8) === null, 'pegarse a la pared y avanzar por ella es legítimo');
+const F = S.buildWorld(0), Fi = S.insetColliders(F.colliders, 0.3), P0 = { x: 22.6, y: 0, z: 18 };   // muralla este de Castillo Real (x 23–25)
+ok(S.wallViolation(F.colliders, Fi, P0, 25.4, 0, 18, 1.8) === 'muro', 'saltar al otro lado de un muro de 2 m se detecta («muro»)');
+ok(S.wallViolation(F.colliders, Fi, P0, 24, 0, 18, 1.8) === 'dentro', 'acabar dentro del muro se detecta («dentro»)');
+ok(S.wallViolation(F.colliders, Fi, P0, 22.62, 0, 18.4, 1.8) === null, 'pegarse a la pared y avanzar por ella es legítimo');
 const step = { minX: 0, maxX: 3, minZ: 0, maxZ: 3, minY: 0, maxY: 0.5333333333 };
 ok(S.wallViolation([step], S.insetColliders([step], 0.3), { x: 1, y: 0.533, z: -1 }, 1, 0.533, 1.2, 1.8) === null, 'de pie sobre un escalón de 0,5333 m con la posición redondeada (0,533) NO es «dentro»');
 ok(S.wallViolation([step], S.insetColliders([step], 0.3), { x: 1, y: 0.533, z: -1 }, 1, 0.2, 1.2, 1.8) === 'dentro', 'pero meterse en el escalón sí');

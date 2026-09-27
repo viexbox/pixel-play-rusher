@@ -26,7 +26,7 @@ const los = (m, a, b) => { const o = { x: a.x, y: 1.6, z: a.z }, d = { x: b.x - 
 async function approach(m, bot, tgt) { for (let r = 5; r <= 12; r += 3) for (let k = 0; k < 24; k++) { const a = k / 24 * Math.PI * 2, x = tgt.x + Math.cos(a) * r, z = tgt.z + Math.sin(a) * r; if (Math.abs(x) > 56 || Math.abs(z) > 56 || S.overlapAt(world(m).colliders, x, 0, z, 0.4, 1.8)) continue; if (los(m, { x, z }, tgt)) { await bot.walkTo(x, z); return true; } } return false; }
 async function shootAt(bot, tgt, times) { for (let i = 0; i < times; i++) { const dx = tgt.x - bot.pos.x, dz = tgt.z - bot.pos.z, dy = -0.5, l = Math.hypot(dx, dy, dz); bot.send({ t: 'shoot', o: [bot.pos.x, 1.6, bot.pos.z], d: [[dx / l, dy / l, dz / l]] }); await sleep(120); } }
 (async () => {
-  fs.mkdirSync(DIR + '2', { recursive: true }); fs.writeFileSync(DIR + '2/leaderboard.json', JSON.stringify({ entries: ['Viexbox', 'ProGamer', 'Normalito'].map((n, i) => ({ n, p: 900 - i * 100, k: 9, d: 1, h: 1, c: 'Asalto', m: 0, t: 1 })) }));
+  fs.mkdirSync(DIR + '2', { recursive: true }); fs.writeFileSync(DIR + '2/leaderboard.json', JSON.stringify({ v: 2, entries: ['Viexbox', 'ProGamer', 'Normalito'].map((n, i) => ({ n, p: 900 - i * 100, k: 9, d: 1, h: 1, c: 'Asalto', m: 0, t: 1 })) }));
   start(P1, DIR + '1', { MAX_PLAYERS_PER_ROOM: 2 }); start(P2, DIR + '2', {}); await sleep(1400);
   const api = async (port, m, p, b, tk) => { const r = await fetch('http://127.0.0.1:' + port + '/api/admin' + p, { method: m, headers: Object.assign({ 'Content-Type': 'application/json', 'X-Forwarded-For': xip() }, tk ? { Authorization: 'Bearer ' + tk } : {}), body: b ? JSON.stringify(b) : undefined }); return { status: r.status, j: await r.json().catch(() => null) }; };
   try {

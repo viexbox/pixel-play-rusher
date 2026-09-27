@@ -81,6 +81,9 @@ const log = (...a) => { const line = new Date().toISOString() + ' ' + a.join(' '
 const LB_FILE = path.join(DATA_DIR, 'leaderboard.json');
 let lb = { entries: [] };
 try { const d = (PGDB && PGDB.get('leaderboard.json')) || JSON.parse(fs.readFileSync(LB_FILE, 'utf8')); if (d && Array.isArray(d.entries)) lb = d; } catch (e) { /* primera ejecución */ }
+/* [MAPAS KRUNKER] v2: los mapas son otros (Castillo Real, Barrio Arcoíris); las entradas guardadas antes eran de mapas viejos con los mismos números y se descartan una vez */
+const LB_VERSION = 2;
+if (lb.v !== LB_VERSION) { if (lb.entries.length) console.log('[clasificación] mapas nuevos: se reinicia la clasificación (' + lb.entries.length + ' entradas de los mapas viejos)'); lb = { v: LB_VERSION, entries: [] }; }
 { const n0 = lb.entries.length; lb.entries = lb.entries.filter(e => Number.isInteger(e.m) && e.m >= 0 && e.m < S.MAPS.length); if (lb.entries.length !== n0) console.log('[clasificación] se descartaron ' + (n0 - lb.entries.length) + ' entradas de mapas que ya no existen'); }   // [NUEVO] solo queda «Nexus Outpost»
 let lbTimer = null;
 function lbSaveSoon() {

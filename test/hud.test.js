@@ -33,7 +33,7 @@ const world = S.buildWorld(0);
   ok($('#hpnum').textContent === '100' && $('#hpbar').style.width === '100%', 'barra de vida al 100 %');
   ok(/^\d:\d\d$/.test($('#timer').textContent), 'reloj de partida (' + $('#timer').textContent + ')');
   ok($$('#liveRows li').length >= 5 && $$('#liveRows li.me').length >= 1, 'clasificación lateral con ' + $$('#liveRows li').length + ' filas y tu fila resaltada');
-  ok(/Nexus Outpost/i.test($('#modeName').textContent), 'la barra superior indica el mapa (' + $('#modeName').textContent + ')');
+  ok(/Castillo Real/i.test($('#modeName').textContent), 'la barra superior indica el mapa (' + $('#modeName').textContent + ')');
   ok($('#leadName').textContent.length > 0 && $('#myKD').textContent.includes('K'), 'panel de líder y de tus puntos');
   ok($('#hpProt').hidden === false, 'etiqueta «PROTEGIDO» tras aparecer');
   await sleep(600);

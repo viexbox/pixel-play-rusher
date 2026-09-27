@@ -510,7 +510,7 @@ function archDetail(L, half) {
   }
 }
 function decorate(L, m) {
-  const half = m.half, R = rngSeed(strHash(m.name));
+  const half = m.half;
   archDetail(L, half);
   const wallTop = (color, step) => { // almenas sobre el muro perimetral
     const y = L.wallH;
@@ -519,84 +519,7 @@ function decorate(L, m) {
       decoBox(-half - 0.5, y, s, 1.0, 1.5, step * 0.5, color); decoBox(half + 0.5, y, s, 1.0, 1.5, step * 0.5, color);
     }
   };
-  const free = (x, z, r) => !S.overlapAt(colliders, x, 0, z, r, 1.8);
-  if (L.decor === 'castle') {
-    wallTop('#a78bfa', 4);
-    const flags = ['#ff4d6d', '#ffd23f', '#2ec4b6', '#4cc9f0'];
-    [-24, -8, 8, 24].forEach((x, i) => { [-1, 1].forEach(s => { decoBox(x, 4.2, s * (half - 0.08), 3, 5, 0.14, flags[(i + (s > 0 ? 2 : 0)) % 4]); decoBox(x, 9.1, s * (half - 0.1), 3.4, 0.18, 0.2, '#2a1b3d'); }); });
-    decoBox(0, 3.6, 0, 0.16, 5.2, 0.16, '#2a1b3d'); decoBox(0.95, 7.4, 0, 1.8, 1.05, 0.06, '#ff4d6d', true);
-    [[28, 28], [-28, 28], [28, -28], [-28, -28]].forEach(([x, z]) => { decoBox(x, 5, z, 0.2, 2.4, 0.2, '#2a1b3d'); decoBox(x, 7.4, z, 1.2, 0.5, 1.2, '#ffd23f', true); });
-  } else if (L.decor === 'desert') {
-    wallTop('#ffcf7a', 4);
-    const cactus = (x, z) => { const h = 2.4 + R() * 1.4; decoBox(x, 0, z, 0.7, h, 0.7, '#22b573'); decoBox(x - 0.55, 1.0 + R() * 0.5, z, 0.9, 0.45, 0.45, '#22b573'); decoBox(x - 0.85, 1.0, z, 0.45, 1.0, 0.45, '#22b573'); decoBox(x + 0.5, 1.5, z, 0.8, 0.4, 0.4, '#22b573'); decoBox(x + 0.75, 1.5, z, 0.4, 0.8, 0.4, '#22b573'); };
-    for (let i = 0; i < 16; i++) { const t = (R() - 0.5) * (half * 2 - 8), e = (half - 2.5 - R() * 2) * (R() < 0.5 ? 1 : -1), x = i % 2 ? t : e, z = i % 2 ? e : t; if (free(x, z, 1.2)) cactus(x, z); }
-    for (let i = 0; i < 18; i++) { const x = (R() - 0.5) * (half * 2 - 6), z = (R() - 0.5) * (half * 2 - 6); if (free(x, z, 0.8)) decoBox(x, 0, z, 0.7 + R() * 0.7, 0.4 + R() * 0.5, 0.7 + R() * 0.7, R() < 0.5 ? '#c98b52' : '#d9a066'); }
-    const pen = ['#12c2b3', '#ff7b00', '#ff4d6d', '#ffd23f']; for (let s = -half + 3; s <= half - 3; s += 6) { decoBox(s, 8.2, -half + 0.05, 1.2, 1.6, 0.06, pen[(s + half) / 6 & 3]); decoBox(s, 8.2, half - 0.05, 1.2, 1.6, 0.06, pen[((s + half) / 6 + 1) & 3]); }
-  } else if (L.decor === 'port') {
-    wallTop('#b3bed4', 6);
-    for (let x = -38; x <= 38; x += 6) { [-17.5, 17.5, 0].forEach(z => decoBox(x, 0.0, z, 3, 0.04, 0.28, '#ffd23f', true)); }
-    for (let z = -38; z <= 38; z += 6) { [-31, 31].forEach(x => decoBox(x, 0.0, z, 0.28, 0.04, 3, '#ffffff', true)); }
-    const lamp = (x, z) => { decoBox(x, 0, z, 0.25, 7, 0.25, '#38425a'); decoBox(x, 7, z, 1.4, 0.3, 0.7, '#fff3b0', true); };
-    [[-38, -38], [38, -38], [-38, 38], [38, 38], [0, -39], [0, 39], [-39, 0], [39, 0]].forEach(([x, z]) => lamp(x, z));
-    const bar = ['#e63946', '#1d6cf2', '#ffbe0b']; for (let i = 0; i < 26; i++) { const x = (R() - 0.5) * 78, z = (R() - 0.5) * 78; if (free(x, z, 0.9)) { const c = bar[i % 3]; decoBox(x, 0, z, 0.85, 1.15, 0.85, c); decoBox(x, 1.15, z, 0.87, 0.08, 0.87, '#2a2f45'); decoBox(x, 0.55, z, 0.89, 0.08, 0.89, '#2a2f45'); } }
-    for (let i = 0; i < 6; i++) { const x = (R() - 0.5) * 70, z = (R() - 0.5) * 70; if (free(x, z, 1)) { decoBox(x, 0, z, 1.5, 0.15, 1.5, '#8a6a3e'); decoBox(x, 0.15, z, 1.3, 0.9, 1.3, '#c98b52'); } }
-  } else if (L.decor === 'forest') {
-    wallTop('#7dff8a', 3);
-    const pet = ['#ff4d6d', '#ffd23f', '#ffffff', '#b388ff', '#ff9f1c'];
-    for (let i = 0; i < 190; i++) {
-      const x = (R() - 0.5) * (half * 2 - 4), z = (R() - 0.5) * (half * 2 - 4); if (!free(x, z, 0.4)) continue;
-      const k = R();
-      if (k < 0.5) decoBox(x, 0, z, 0.3, 0.45 + R() * 0.35, 0.3, R() < 0.5 ? '#2fdc59' : '#1fbf4a');
-      else if (k < 0.8) { decoBox(x, 0, z, 0.08, 0.55, 0.08, '#1a9e46'); decoBox(x, 0.5, z, 0.26, 0.26, 0.26, pet[Math.floor(R() * pet.length)]); }
-      else if (k < 0.92) { decoBox(x, 0, z, 0.14, 0.3, 0.14, '#f3ead7'); decoBox(x, 0.28, z, 0.42, 0.16, 0.42, '#e63946'); }
-      else { decoBox(x, 0, z, 1.3 + R(), 0.9 + R() * 0.6, 1.3 + R(), '#98a4bd'); }
-    }
-    for (let i = 0; i < 14; i++) { const a = R() * TAU, r = half - 3, x = Math.max(-half + 2, Math.min(half - 2, Math.cos(a) * r * 1.2)), z = Math.max(-half + 2, Math.min(half - 2, Math.sin(a) * r * 1.2)); if (free(x, z, 1.3)) { decoBox(x, 0, z, 1.9, 1.3, 1.9, '#1f9d55'); decoBox(x, 1.3, z, 1.3, 0.6, 1.3, '#39d96a'); } }
-  } else if (L.decor === 'duna') {   // [MAPAS 2] pueblo del desierto: almenas, palmeras, ventanas, alfombras, farolillos, ropa tendida y cerámica
-    wallTop('#e3c28a', 4);
-    const palm = (x, z, s) => { for (let k = 0; k < 5; k++) decoBox(x + Math.sin(k * 0.7) * 0.18 * s, k * 1.1 * s, z, 0.5 * s, 1.1 * s, 0.5 * s, k % 2 ? '#8a5a34' : '#7a4f2d', false, true);
-      const y = 5.5 * s; decoBox(x, y, z, 0.8 * s, 0.6 * s, 0.8 * s, '#5a3a1e', false, true); for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { decoBox(x + dx * 1.3 * s, y + 0.2 * s, z + dz * 1.3 * s, dx ? 2.6 * s : 0.7 * s, 0.14 * s, dz ? 2.6 * s : 0.7 * s, '#3faa3a', false, true); decoBox(x + dx * 2.5 * s, y - 0.3 * s, z + dz * 2.5 * s, dx ? 0.9 * s : 0.6 * s, 0.4 * s, dz ? 0.9 * s : 0.6 * s, '#2f8f2f', false, true); } };
-    [[-41, -41], [41, -41], [-41, 41], [41, 41], [-31, 33], [31, 33], [-35, -33], [35, -33], [-16, 8.5], [16, -8.5]].forEach(([x, z]) => palm(x, z, 0.9 + R() * 0.3));
-    for (let i = 0; i < 26; i++) { const t = (R() - 0.5) * (half * 2 - 6), e = (half - 2 - R() * 2) * (R() < 0.5 ? 1 : -1), x = i % 2 ? t : e, z = i % 2 ? e : t; if (free(x, z, 0.9)) decoBox(x, 0, z, 0.6 + R() * 0.5, 0.35 + R() * 0.4, 0.6 + R() * 0.5, R() < 0.5 ? '#c98b52' : '#d9a066'); }   // piedras y dunas pequeñas junto al muro
-    const win = (x, y, z, alongX) => {   // [GRÁFICOS] ventana con marco, reja, alféizar, dintel y postigos
-      const W = (a, b) => (alongX ? a : b), sh = ['#3f7fbf', '#3f9f6a', '#b3542f'][Math.abs(Math.round(x + z)) % 3];
-      decoRecv(x, y - 0.1, z, W(1.4, 0.1), 1.45, W(0.1, 1.4), '#e9d3a8'); decoRecv(x, y, z, W(1.1, 0.12), 1.2, W(0.12, 1.1), '#2a1d14');
-      decoRecv(x, y + 0.55, z, W(1.1, 0.14), 0.06, W(0.14, 1.1), '#5a3a1e'); decoRecv(x, y, z, W(0.06, 0.14), 1.2, W(0.14, 0.06), '#5a3a1e');
-      decoRecv(x, y - 0.18, z, W(1.6, 0.26), 0.12, W(0.26, 1.6), '#c9a26a'); decoRecv(x, y + 1.25, z, W(1.6, 0.18), 0.16, W(0.18, 1.6), '#b89868');
-      for (const k of [-1, 1]) decoRecv(x + (alongX ? k * 0.85 : 0), y - 0.05, z + (alongX ? 0 : k * 0.85), W(0.55, 0.14), 1.3, W(0.14, 0.55), sh);
-    };
-    for (const sx of [-1, 1]) {
-      for (const a of [8, 11, 20, 23]) win(sx * a, 1.8, -11.95, true);   // fachadas de la plaza
-      for (const a of [7, 17, 21]) win(sx * a, 1.8, 11.95, true);
-      for (const a of [12, 20]) win(sx * a, 2.2, -31.95, true);
-      decoBox(sx * 19, 0.6, -11.9, 2.2, 2.6, 0.06, ['#b3542f', '#3f7fbf'][(sx + 1) / 2], false, true);   // alfombras colgadas
-      decoBox(sx * 31, 0, -15.55, 1.4, 2.3, 0.1, '#5a3a1e', false, true); decoBox(sx * 31, 0, 15.55, 1.4, 2.3, 0.1, '#5a3a1e', false, true);   // puertas
-      for (const z of [-24, 24]) { decoBox(sx * 3.8, 0, z, 0.5, 0.7, 0.5, '#b86a3a'); decoBox(sx * 3.8, 0.7, z, 0.34, 0.22, 0.34, '#9a5226'); }   // tinajas
-    }
-    for (const z of [-22, 23]) { decoBox(0, 3.9, z, 44, 0.04, 0.04, '#5a3a1e', false, true); for (let x = -20; x <= 20; x += 2.5) decoBox(x, 3.35, z, 0.9, 0.55, 0.05, ['#ff4d6d', '#ffd23f', '#3fb8e6', '#ffffff', '#8ae234'][Math.round((x + 20) / 2.5 + (z > 0 ? 2 : 0)) % 5], false, true); }   // ropa tendida
-    /* [GRÁFICOS] suelo: losas de piedra alrededor del pozo, calzada del mercado */
-    for (let x = -9.5; x <= 9.5; x += 1) for (let z = -9.5; z <= 9.5; z += 1) { const r = Math.hypot(x, z); if (r < 2.3 || r > 9.2 || !free(x, z, 0.3)) continue; decoRecv(x + (R() - 0.5) * 0.08, 0, z + (R() - 0.5) * 0.08, 0.86 + R() * 0.08, 0.025, 0.86 + R() * 0.08, ['#cdbb97', '#bfae8c', '#d8c7a3', '#b5a483'][Math.floor(R() * 4)]); }
-    for (let x = -30; x <= 30; x += 1.2) for (const z of [22.8, 24, 25.2]) if (free(x, z, 0.3)) decoRecv(x, 0, z + (R() - 0.5) * 0.1, 1.08, 0.022, 1.08, ['#c8b48f', '#b9a582', '#d3c09a'][Math.floor(R() * 3)]);
-    for (const [x, z] of [[-6, -12.2], [6, -12.2], [-6, 12.2], [6, 12.2], [0, 36.8], [-14, 36.2], [14, 36.2]]) { decoBox(x, 3.2, z, 0.06, 0.5, 0.06, '#3a2a1e', false, true); decoBox(x, 2.75, z, 0.4, 0.45, 0.4, '#ffb347', true); }   // farolillos
-  } else if (L.decor === 'villa') {   // [MAPAS 2] villa de verano: fondo de la piscina, sombrillas, palmeras, ventanas y guirnalda de luces
-    wallTop('#ffffff', 3);
-    const W = L.water; decoBox((W.x0 + W.x1) / 2, 0.005, (W.z0 + W.z1) / 2, W.x1 - W.x0, 0.02, W.z1 - W.z0, '#2fa7d9', true);
-    for (const z of [-3.5, 0, 3.5]) decoBox(0, 0.03, z, W.x1 - W.x0 - 3, 0.02, 0.35, '#1e6fa8', true);   // calles de la piscina
-    for (let x = W.x0 + 1; x <= W.x1 - 1; x += 1) { decoBox(x, 0.42, W.z0 - 0.3, 0.46, 0.012, 0.12, x % 2 ? '#2fa7d9' : '#ffffff', true); decoBox(x, 0.42, W.z1 + 0.3, 0.46, 0.012, 0.12, x % 2 ? '#2fa7d9' : '#ffffff', true); }   // gresite del borde
-    const palm = (x, z, s) => { for (let k = 0; k < 5; k++) decoBox(x + Math.sin(k * 0.7) * 0.18 * s, k * 1.1 * s, z, 0.5 * s, 1.1 * s, 0.5 * s, k % 2 ? '#8a5a34' : '#7a4f2d', false, true);
-      const y = 5.5 * s; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { decoBox(x + dx * 1.3 * s, y + 0.2 * s, z + dz * 1.3 * s, dx ? 2.6 * s : 0.7 * s, 0.14 * s, dz ? 2.6 * s : 0.7 * s, '#3faa3a', false, true); decoBox(x + dx * 2.5 * s, y - 0.3 * s, z + dz * 2.5 * s, dx ? 0.9 * s : 0.6 * s, 0.4 * s, dz ? 0.9 * s : 0.6 * s, '#2f8f2f', false, true); } };
-    [[-37, -37], [37, -37], [-37, 37], [37, 37], [-20, -10], [20, 10], [-20, 12], [20, -12]].forEach(([x, z]) => palm(x, z, 0.85 + R() * 0.3));
-    const umb = (x, z, c) => { decoBox(x, 0, z, 0.1, 2.4, 0.1, '#e9edf5', false, true); decoBox(x, 2.3, z, 2.6, 0.12, 2.6, c, false, true); decoBox(x, 2.42, z, 1.8, 0.12, 1.8, c, false, true); decoBox(x, 2.54, z, 0.9, 0.12, 0.9, '#ffffff', false, true); };
-    for (const sx of [-1, 1]) { umb(sx * 7.5, -11, '#ff7a59'); umb(sx * 7.5, 11, '#3fb8e6'); umb(sx * 11, 30.5, '#ffd23f'); }
-    for (const x of [-18, -12, 12, 18]) { decoBox(x, 0.8, -21.95, 1.8, 2, 0.08, '#8fd8ff', false, true); decoBox(x, 0.7, -21.95, 2.1, 0.12, 0.12, '#ffffff', false, true); }   // ventanas de la planta baja
-    decoBox(0, 0, -21.95, 2.6, 2.8, 0.1, '#7a4a25', false, true);
-    for (let x = -23; x <= 23; x += 1) decoBox(x, 4.9 - Math.abs(Math.sin(x * 0.55)) * 0.3, -22.3, 0.16, 0.16, 0.16, ['#ffd23f', '#ff7a59', '#3fb8e6', '#8ae234'][(x + 23) % 4], true);   // guirnalda de luces
-    /* [GRÁFICOS] jardín con césped en franjas, camino de losas hasta el bar y marcos en las ventanas */
-    for (let x = -38; x < 38; x += 4) decoRecv(x + 2, 0, 28.5, 4, 0.02, 22.6, (x / 4) % 2 ? '#5fbf4a' : '#57b344');
-    for (let z = 8.5; z <= 26; z += 1.6) decoRecv((R() - 0.5) * 0.3, 0, z, 1.3, 0.035, 0.9, ['#d9d2c3', '#c9c1b0', '#e6dfd0'][Math.floor(R() * 3)]);
-    for (const x of [-18, -12, 12, 18]) { decoRecv(x, 0.62, -21.9, 2.1, 0.12, 0.14, '#ffffff'); decoRecv(x, 2.8, -21.9, 2.1, 0.12, 0.14, '#ffffff'); decoRecv(x - 1.02, 0.7, -21.9, 0.1, 2.1, 0.14, '#ffffff'); decoRecv(x + 1.02, 0.7, -21.9, 0.1, 2.1, 0.14, '#ffffff'); }
-    for (let i = 0; i < 60; i++) { const x = (R() - 0.5) * 70, z = 18 + R() * 20; if (free(x, z, 0.5)) { decoBox(x, 0, z, 0.08, 0.3, 0.08, '#2f8f2f'); decoBox(x, 0.28, z, 0.26, 0.2, 0.26, ['#ff4d6d', '#ffd23f', '#ffffff', '#b388ff', '#ff9f1c'][i % 5]); } }   // flores del jardín
-  } else if (L.decor === 'burg') {   // [MAPAS KRUNKER] Castillo Real: almenas en la muralla exterior, estandartes de cada equipo, bandera en la torre y antorchas
+  if (L.decor === 'burg') {   // [MAPAS KRUNKER] Castillo Real: almenas en la muralla exterior, estandartes de cada equipo, bandera en la torre y antorchas
     wallTop('#a39c8d', 4);
     for (const sx of [-1, 1]) {
       const col = sx < 0 ? '#ff3b48' : '#3a86ff';
@@ -614,23 +537,6 @@ function decorate(L, m) {
       decoBox(a, y, -39.96, 1.6, 1.3, 0.06, '#2d4a7a'); decoBox(a, y, 39.96, 1.6, 1.3, 0.06, '#2d4a7a');
       decoBox(-39.96, y, a, 0.06, 1.3, 1.6, '#2d4a7a'); decoBox(39.96, y, a, 0.06, 1.3, 1.6, '#2d4a7a');
     }
-  } else if (L.decor === 'nexus') {
-    wallTop('#9aa3b2', 6);
-    /* Alrededores (solo decoración, sin colisión): colinas verdes escalonadas, casas de píxeles y árboles fuera del muro, como en el croquis */
-    const tree = (x, z, s) => { decoBox(x, 0, z, 0.9 * s, 3.2 * s, 0.9 * s, '#7b5330', false, true); decoBox(x, 3.2 * s, z, 3.4 * s, 2.6 * s, 3.4 * s, R() < 0.5 ? '#3fbf3a' : '#35a832', false, true); decoBox(x, 5.8 * s, z, 2.2 * s, 1.5 * s, 2.2 * s, '#4fd046', false, true); };
-    const house = (x, z, w, d, c, roof) => { decoBox(x, 0, z, w, 4.2, d, c, false, true); decoBox(x, 4.2, z, w + 0.8, 0.9, d + 0.8, roof, false, true); decoBox(x + w * 0.2, 0, z - d / 2 - 0.02, 1.6, 2.6, 0.1, '#7a4a25', false, true); };
-    const hill = (x, z, w) => { for (let k = 0; k < 4; k++) decoBox(x, k * 1.3, z, w - k * 4.6, 1.3, w - k * 4.6, k % 2 ? '#58cf42' : '#4fc23a', false, true); };
-    hill(-74, -72, 24); hill(78, 76, 22); hill(-80, 66, 20); hill(72, -78, 26);
-    [[-62, 64, 10, 9, '#e8d6a6', '#ff8a1f'], [64, 62, 9, 10, '#d9c08a', '#c9702a'], [-68, -46, 9, 9, '#c9d0da', '#ff8a1f'], [68, -52, 10, 9, '#e8d6a6', '#3a9bff'], [-60, 20, 8, 8, '#d9c08a', '#c9702a']].forEach(a => house(...a));
-    for (let i = 0; i < 46; i++) { const a = R() * TAU, r = half + 8 + R() * 30, x = Math.cos(a) * r * 1.05, z = Math.sin(a) * r * 1.05; if (Math.max(Math.abs(x), Math.abs(z)) > half + 6) tree(x, z, 0.8 + R() * 0.6); }
-    /* Dentro: farolas en los callejones, balizas de las antenas, luces de los helipuertos y banderas de cada base */
-    const lamp = (x, z) => { decoBox(x, 0, z, 0.25, 6, 0.25, '#38425a'); decoBox(x, 6, z, 1.3, 0.3, 0.7, '#fff3b0', true); };
-    [[-46, 38], [-26, 38], [26, 38], [46, 38], [-46, 47], [46, 47], [-20, -32], [16, -32], [-46, -25]].forEach(([x, z]) => lamp(x, z));
-    decoBox(45.2, 11.4, -46.8, 0.5, 0.5, 0.5, '#ff3b48', true); decoBox(46.8, 11.4, -46.8, 0.5, 0.5, 0.5, '#ff3b48', true);
-    [[-44, -47.5], [-35.3, -47.5], [-44, -38.8], [-35.3, -38.8], [-9, -47.5], [-0.3, -47.5], [-9, -38.8], [-0.3, -38.8]].forEach(([x, z]) => decoBox(x, 5.46, z, 0.35, 0.3, 0.35, '#ffd23f', true));
-    const flag = (x, z, c) => { decoBox(x, 0, z, 0.2, 5, 0.2, '#39435a'); decoBox(x + 0.9, 3.4, z, 1.6, 1.1, 0.06, c, true); };
-    flag(-49.4, -15.5, '#ff3b48'); flag(-49.4, 10.5, '#ff3b48'); flag(47.6, -15.5, '#2f7bff'); flag(47.6, 10.5, '#2f7bff');   // [MAPA] junto a las bases nuevas, en el borde que mira al centro
-    for (let i = 0; i < 8; i++) { decoBox(-7.4 + i * 1.9, 0, 41.5, 0.9, 0.05, 1.2, i % 2 ? '#ffd23f' : '#39435a', true); }   // franjas de peligro a la entrada del túnel
   }
 }
 function buildMap(i) {
@@ -646,13 +552,13 @@ function buildMap(i) {
   colliders = world.colliders; waypoints = world.waypoints; curSpawns = world.spawns; curNav = world.nav;
   decorate(L, m);
   flushBoxes();
-  buildLife(L, m);   // [MAPAS 2] gallinas, balón, agua, rodadoras y polvo (aparte del mapa fusionado)   // [NUEVO] fusiona los lotes: de ~300 mallas a ~10–15
+  buildLife(L, m);   // [MAPAS 2] gallinas, balón, agua y polen (aparte del mapa fusionado)   // [NUEVO] fusiona los lotes: de ~300 mallas a ~10–15
 }
 
 /* ===== [MAPAS 2] Vida del mapa: lo que se mueve y reacciona. Va en un grupo aparte (no en el mapa fusionado) y es solo
    decoración de cada navegador: no se sincroniza en el online (cada jugador ve sus propias gallinas y su propio balón). ===== */
 const mapLife = new THREE.Group(); scene.add(mapLife);
-const life = { chickens: [], ball: null, water: null, floats: [], weeds: [], dust: null, last: new Map(), splashT: 0 };
+const life = { chickens: [], ball: null, water: null, floats: [], dust: null, last: new Map(), splashT: 0 };
 function colorMesh(parts, basic) {   // varias cajas de colores en UNA malla (color por vértice)
   const geos = parts.map(([w, h, d, x, y, z, c]) => { const g = new THREE.BoxGeometry(w, h, d).toNonIndexed(); g.translate(x, y, z); const col = new THREE.Color(c), n = g.attributes.position.count, a = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) { const shade = g.attributes.normal.getY(i) > 0.5 ? 1 : g.attributes.normal.getY(i) < -0.5 ? 0.6 : 0.82; a[i * 3] = col.r * shade; a[i * 3 + 1] = col.g * shade; a[i * 3 + 2] = col.b * shade; }
@@ -667,7 +573,7 @@ function lifeTex(key, draw, n) { const c = document.createElement('canvas'); c.w
 function clearLife() {
   mapLife.traverse(o => { if (o.userData.shared) return; if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } });
   while (mapLife.children.length) mapLife.remove(mapLife.children[0]);
-  life.chickens = []; life.ball = null; life.water = null; life.floats = []; life.weeds = []; life.dust = null; life.last.clear();
+  life.chickens = []; life.ball = null; life.water = null; life.floats = []; life.dust = null; life.last.clear();
 }
 const CHICKEN_PARTS = [[0.34, 0.3, 0.42, 0, 0.36, 0, '#f4f1ea'], [0.22, 0.24, 0.14, 0, 0.5, 0.22, '#f4f1ea'], [0.2, 0.24, 0.2, 0, 0.62, -0.2, '#f4f1ea'], [0.05, 0.09, 0.14, 0, 0.78, -0.2, '#e03a3a'],
   [0.05, 0.07, 0.04, 0, 0.51, -0.31, '#e03a3a'], [0.09, 0.06, 0.1, 0, 0.61, -0.34, '#ffae33'], [0.21, 0.045, 0.045, 0, 0.66, -0.25, '#15151a'], [0.04, 0.2, 0.28, 0.19, 0.38, 0.02, '#dcd6c8'], [0.04, 0.2, 0.28, -0.19, 0.38, 0.02, '#dcd6c8'],
@@ -675,21 +581,20 @@ const CHICKEN_PARTS = [[0.34, 0.3, 0.42, 0, 0.36, 0, '#f4f1ea'], [0.22, 0.24, 0.
 const CHICKEN = (() => { const m = colorMesh(CHICKEN_PARTS); return { geo: m.geometry, mat: m.material }; })();   // se crea una vez al cargar: todas las gallinas comparten geometría y material
 function lifeSpot(maxAbsX) {   // un punto de paso libre, lejos de las bases
   for (let k = 0; k < 40; k++) { const w = waypoints[Math.floor(Math.random() * waypoints.length)]; if (w && Math.abs(w[0]) <= maxAbsX && !overlapAt(w[0], 0, w[1], 0.3, 0.6)) return w; }
-  return [0, 6];
+  return [12, 0];
 }
 function buildLife(L, m) {
   clearLife();
-  if (L.decor === 'duna') {
-    for (let i = 0; i < 7; i++) { const mesh = new THREE.Mesh(CHICKEN.geo, CHICKEN.mat), sp = lifeSpot(28); mesh.castShadow = true; mesh.userData.shared = true; const c = { mesh, pos: new THREE.Vector3(sp[0], 0, sp[1]), yaw: Math.random() * TAU, tx: sp[0], tz: sp[1], state: 'peck', t: Math.random() * 2, alive: true, respawn: 0, hop: 0 }; mesh.position.copy(c.pos); mapLife.add(mesh); life.chickens.push(c); }
+  if (L.decor === 'burg') {   // [MAPAS KRUNKER] gallinas sueltas y un balón en el castillo (antes en Pueblo Duna)
+    for (let i = 0; i < 7; i++) { const mesh = new THREE.Mesh(CHICKEN.geo, CHICKEN.mat), sp = lifeSpot(20); mesh.castShadow = true; mesh.userData.shared = true; const c = { mesh, pos: new THREE.Vector3(sp[0], 0, sp[1]), yaw: Math.random() * TAU, tx: sp[0], tz: sp[1], state: 'peck', t: Math.random() * 2, alive: true, respawn: 0, hop: 0 }; mesh.position.copy(c.pos); mapLife.add(mesh); life.chickens.push(c); }
     const ballTex = lifeTex('ball', (g, n) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, n, n); g.fillStyle = '#15151a'; for (const [x, y] of [[8, 12], [40, 12], [24, 36], [56, 40], [8, 52]]) { g.beginPath(); for (let k = 0; k < 5; k++) { const a = k / 5 * TAU - Math.PI / 2; g.lineTo(x + Math.cos(a) * 7, y + Math.sin(a) * 7); } g.fill(); } });
     const bm = new THREE.Mesh(new THREE.SphereGeometry(0.33, 18, 12), new THREE.MeshLambertMaterial({ map: ballTex })); bm.castShadow = true; mapLife.add(bm);
-    life.ball = { mesh: bm, home: new THREE.Vector3(0, 0, 6), e: { pos: new THREE.Vector3(0, 0, 6), vel: new THREE.Vector3(), hw: 0.3, h: 0.6, onGround: true }, cd: 0 };
-    for (let i = 0; i < 3; i++) { const g = new THREE.Group(), mat1 = new THREE.MeshLambertMaterial({ color: '#a97a45' }); g.add(new THREE.Mesh(new THREE.IcosahedronGeometry(0.55, 0), mat1)); const inner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.4, 0), new THREE.MeshLambertMaterial({ color: '#7a5530' })); inner.rotation.set(0.6, 0.3, 0); g.add(inner); mapLife.add(g); life.weeds.push({ g, z: [-26, 4.5, 26][i], x: -m.half + i * 30, v: 2.4 + i * 0.7 }); }
+    life.ball = { mesh: bm, home: new THREE.Vector3(12, 0, 0), e: { pos: new THREE.Vector3(12, 0, 0), vel: new THREE.Vector3(), hw: 0.3, h: 0.6, onGround: true }, cd: 0 };
   }
-  if (L.decor === 'duna' || L.decor === 'villa') {   // motas de polvo o de polen que flotan con el viento
+  if (L.decor === 'town') {   // motas de polen que flotan con el viento
     const n = 260, pos = new Float32Array(n * 3); for (let i = 0; i < n; i++) { pos[i * 3] = (Math.random() - 0.5) * m.half * 2; pos[i * 3 + 1] = 0.3 + Math.random() * 7; pos[i * 3 + 2] = (Math.random() - 0.5) * m.half * 2; }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: L.decor === 'duna' ? '#fff0cc' : '#ffffff', size: L.decor === 'duna' ? 0.09 : 0.06, transparent: true, opacity: 0.7, depthWrite: false }));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: '#ffffff', size: 0.06, transparent: true, opacity: 0.7, depthWrite: false }));
     mapLife.add(pts); life.dust = { pts, half: m.half };
   }
   if (L.water) {
@@ -763,7 +668,6 @@ function animMap(dt) {
     b.mesh.position.set(e.pos.x, e.pos.y + 0.33, e.pos.z);
   }
   /* rodadoras empujadas por el viento */
-  for (const w of life.weeds) { w.x += w.v * dt; if (w.x > mapHalf + 3) w.x = -mapHalf - 3; w.g.position.set(w.x, 0.55 + Math.abs(Math.sin(tt * 3 + w.z)) * 0.45, w.z + Math.sin(tt * 0.7 + w.v) * 1.5); w.g.rotation.z -= w.v * dt / 0.55; w.g.rotation.y += dt * 0.3; }
   /* polvo o polen a la deriva */
   if (life.dust) { const a = life.dust.pts.geometry.attributes.position, h = life.dust.half; for (let i = 0; i < a.count; i++) { let x = a.getX(i) + dt * (0.9 + (i % 5) * 0.2), y = a.getY(i) + Math.sin(tt + i) * dt * 0.15; if (x > h) x = -h; a.setX(i, x); a.setY(i, y); } a.needsUpdate = true; }
   /* agua: ondas y destellos que se mueven, flotadores que se mecen y salpicaduras al andar por la piscina */
