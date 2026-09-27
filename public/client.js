@@ -2027,10 +2027,39 @@ function petMesh(def) {
   const g = new THREE.Group(), b = def.body, a = def.acc, e = def.eye;
   const B = (w, h, d, c, x, y, z, rz) => { const m = new THREE.Mesh(BG(w, h, d), mat(c)); m.position.set(x, y, z); if (rz) m.rotation.z = rz; g.add(m); return m; };
   const eyes = (y, z, gap) => { B(0.055, 0.07, 0.02, e, -gap, y, z); B(0.055, 0.07, 0.02, e, gap, y, z); };
-  if (def.kind === 'drone') {
-    B(0.32, 0.09, 0.32, b, 0, 0, 0); B(0.14, 0.07, 0.14, a, 0, 0.08, 0);
-    for (const [x, z] of [[0.21, 0.21], [-0.21, 0.21], [0.21, -0.21], [-0.21, -0.21]]) { B(0.05, 0.05, 0.05, a, x, 0.04, z); B(0.18, 0.015, 0.04, '#e9edf5', x, 0.08, z); }
-    B(0.12, 0.06, 0.02, e, 0, 0, -0.17);
+  const S3 = (r, c, x, y, z, sx, sy, sz, basic) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), basic ? basicMat(c) : mat(c)); m.position.set(x, y, z); m.scale.set(sx || 1, sy || 1, sz || 1); g.add(m); return m; };
+  const eyeBall = (x, y, z, r) => { S3(r, '#ffffff', x, y, z, 1, 1, 0.6); const pu = S3(r * 0.55, e, x, y, z - r * 0.45, 1, 1, 0.5); return pu; };   // ojo con blanco y pupila
+  const spin = [], flap = [], blink = [];
+  if (def.kind === 'drone') {   // [MASCOTAS 2] dron con brazos en X, hélices que giran, cámara y luces
+    B(0.24, 0.08, 0.3, b, 0, 0, 0); B(0.16, 0.05, 0.2, a, 0, 0.06, 0.01); B(0.2, 0.03, 0.22, '#1b2038', 0, -0.05, 0);
+    for (const [x, z] of [[0.19, 0.19], [-0.19, 0.19], [0.19, -0.19], [-0.19, -0.19]]) {
+      const arm = B(0.26, 0.025, 0.04, b, x / 2, 0.01, z / 2); arm.rotation.y = Math.atan2(-z, x);
+      B(0.06, 0.05, 0.06, '#1b2038', x, 0.03, z);
+      const rot = new THREE.Group(); rot.position.set(x, 0.065, z); g.add(rot); spin.push(rot);
+      const blade = new THREE.Mesh(BG(0.2, 0.008, 0.03), mat('#e9edf5')); rot.add(blade); const b2 = blade.clone(); b2.rotation.y = Math.PI / 2; rot.add(b2);
+    }
+    S3(0.045, '#1b2038', 0, -0.02, -0.16); S3(0.028, e, 0, -0.02, -0.19, 1, 1, 0.5, true);   // cámara
+    S3(0.015, '#ff3b48', 0.1, 0.0, -0.15, 1, 1, 1, true); S3(0.015, '#3dff9a', -0.1, 0.0, -0.15, 1, 1, 1, true);
+  } else if (def.kind === 'ball') {   // [MASCOTAS 2] bola con ojos grandes que bota y parpadea
+    S3(0.17, b, 0, 0, 0); S3(0.12, a, 0.02, 0.08, -0.06, 1, 0.5, 0.8);   // brillo
+    blink.push(eyeBall(-0.065, 0.03, -0.14, 0.055), eyeBall(0.065, 0.03, -0.14, 0.055));
+    B(0.08, 0.02, 0.02, '#1b2038', 0, -0.06, -0.165);   // boquita
+    for (const x of [-0.13, 0.13]) S3(0.03, a, x, -0.03, -0.12, 1, 0.6, 0.5);   // mofletes
+  } else if (def.kind === 'bird') {   // [MASCOTAS 2] pájaro: cuerpo redondo, pico, cresta, cola y alas que baten
+    S3(0.13, b, 0, 0, 0, 1, 0.95, 1.15); S3(0.1, '#ffffff', 0, -0.03, -0.06, 0.9, 0.8, 0.7);
+    B(0.05, 0.04, 0.08, a, 0, 0.02, -0.17); B(0.04, 0.02, 0.05, a, 0, -0.005, -0.16);   // pico
+    for (const [x, h] of [[0, 0.07], [0.03, 0.05], [-0.03, 0.05]]) B(0.025, h, 0.03, b, x, 0.14, -0.02);   // cresta
+    B(0.1, 0.02, 0.12, b, 0, 0.03, 0.15, 0); B(0.06, 0.02, 0.1, '#1b2038', 0, 0.035, 0.2);   // cola
+    for (const sx of [-1, 1]) { const w = new THREE.Group(); w.position.set(sx * 0.11, 0.03, 0); g.add(w); const m = new THREE.Mesh(BG(0.18, 0.02, 0.12), mat(b)); m.position.x = sx * 0.09; w.add(m); const tip = new THREE.Mesh(BG(0.06, 0.021, 0.1), mat('#1b2038')); tip.position.x = sx * 0.16; w.add(tip); w.userData.sx = sx; flap.push(w); }
+    blink.push(eyeBall(-0.06, 0.05, -0.1, 0.035), eyeBall(0.06, 0.05, -0.1, 0.035));
+    for (const x of [-0.04, 0.04]) B(0.015, 0.06, 0.015, a, x, -0.14, 0);
+  } else if (def.kind === 'ufo') {   // [MASCOTAS 2] platillo volador: disco metálico, cúpula de cristal con alienígena, luces que giran y rayo de luz
+    S3(0.26, b, 0, 0, 0, 1, 0.22, 1); S3(0.2, '#8a93b8', 0, -0.03, 0, 1, 0.2, 1);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 8, 0, TAU, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#bff6ff', transparent: true, opacity: 0.45 })); dome.position.y = 0.04; g.add(dome);
+    S3(0.055, a, 0, 0.08, 0); S3(0.018, '#0b1020', -0.022, 0.09, -0.045, 1, 1.3, 0.5, true); S3(0.018, '#0b1020', 0.022, 0.09, -0.045, 1, 1.3, 0.5, true);   // alienígena
+    const ring = new THREE.Group(); g.add(ring); spin.push(ring);
+    for (let i = 0; i < 8; i++) { const an = i / 8 * TAU; const l = S3(0.022, i % 2 ? e : '#ffd23a', Math.cos(an) * 0.235, -0.01, Math.sin(an) * 0.235, 1, 1, 1, true); ring.add(l); }
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.2, 0.5, 14, 1, true), new THREE.MeshBasicMaterial({ color: e, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false })); beam.position.y = -0.3; g.add(beam); g.userData.beam = beam;
   } else if (def.kind === 'ghost') {
     B(0.3, 0.32, 0.28, b, 0, 0, 0); B(0.3, 0.04, 0.28, a, 0, 0.18, 0);
     for (const x of [-0.1, 0, 0.1]) B(0.08, 0.08, 0.28, b, x, -0.19, 0);
@@ -2048,7 +2077,16 @@ function petMesh(def) {
   } else {   // cube
     B(0.3, 0.3, 0.3, b, 0, 0, 0); B(0.31, 0.06, 0.31, a, 0, 0.08, 0); eyes(0.0, -0.155, 0.07);
   }
-  g.userData.kind = def.kind; return g;
+  g.userData.kind = def.kind; g.userData.spin = spin; g.userData.flap = flap; g.userData.blink = blink; return g;
+}
+/* [MASCOTAS 2] Animación propia de cada mascota: hélices y luces que giran, alas que baten, ojos que parpadean, la bola bota */
+function animPetParts(o, tt) {
+  const u = o.userData, ph = u.phase || 0;
+  for (const r of u.spin || []) r.rotation.y = tt * (u.kind === 'ufo' ? 2.2 : 28);
+  for (const w of u.flap || []) w.rotation.z = w.userData.sx * Math.sin(tt * 14 + ph) * 0.7;
+  const shut = (tt * 0.7 + ph) % 3.2 < 0.12; for (const b of u.blink || []) b.parent && (b.visible = !shut);
+  if (u.kind === 'ball') { const k = Math.abs(Math.sin(tt * 4 + ph)); o.children[0].scale.set(1 + (1 - k) * 0.08, 1 - (1 - k) * 0.1, 1 + (1 - k) * 0.08); o.position.y += k * 0.08; }
+  if (u.beam) u.beam.material.opacity = 0.12 + 0.08 * Math.sin(tt * 5);
 }
 const petDef = id => (id ? S.PETS.find(p => p.id === id) : null) || null;
 function setPet(f, id) {   // mascota de un jugador de la partida (la manda el servidor)
@@ -2069,9 +2107,9 @@ function animPets(dt) {
     const vis = !!(f.alive && f.mesh && f.mesh.visible); o.visible = vis; if (!vis) continue;
     _petV.copy(PET_OFF).applyAxisAngle(PET_UP, f.yaw).add(f.pos);
     if (!o.userData.placed) { o.position.copy(_petV); o.userData.placed = true; } else o.position.lerp(_petV, Math.min(1, dt * 8));
-    o.position.y += Math.sin(tt * 3 + o.userData.phase) * 0.05; o.rotation.y = f.yaw + Math.sin(tt * 1.3 + o.userData.phase) * 0.25;
+    o.position.y += Math.sin(tt * 3 + o.userData.phase) * 0.05; o.rotation.y = f.yaw + Math.sin(tt * 1.3 + o.userData.phase) * 0.25; animPetParts(o, tt);
   }
-  if (pv.pet) { pv.pet.position.set(0.8, 1.74 + Math.sin(tt * 3) * 0.05, 0.25); pv.pet.rotation.y = tt * 0.9; }   // en la vista previa: fija a la derecha del personaje (si girase con él, taparía la cabeza), girando sobre sí misma
+  if (pv.pet) { pv.pet.position.set(0.8, 1.74 + Math.sin(tt * 3) * 0.05, 0.25); pv.pet.rotation.y = tt * 0.9; animPetParts(pv.pet, tt); }   // en la vista previa: fija a la derecha del personaje (si girase con él, taparía la cabeza), girando sobre sí misma
 }
 function removeRemote(id) {
   const f = net.remotes.get(id); if (!f) return;
@@ -2703,6 +2741,12 @@ function showPaypalOrder(o, fmt) {
 /* [MASCOTAS] Tienda de mascotas: se compran con PX (los cobra el servidor, que además comprueba que no la tengas ya) */
 function petSvg(def) {
   const b = def.body, a = def.acc, e = def.eye, k = def.kind;
+  const eye2 = (x, y, r) => '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="#fff"/><circle cx="' + x + '" cy="' + (y + 1) + '" r="' + (r * 0.55) + '" fill="' + e + '"/>';
+  const svg = inner => '<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">' + inner + '</svg>';
+  if (k === 'ball') return svg('<ellipse cx="32" cy="56" rx="14" ry="3" fill="rgba(0,0,0,.25)"/><circle cx="32" cy="34" r="19" fill="' + b + '"/><ellipse cx="37" cy="24" rx="8" ry="4" fill="' + a + '" opacity=".8"/>' + eye2(25, 32, 6) + eye2(39, 32, 6) + '<rect x="28" y="43" width="8" height="2" fill="#1b2038"/><circle cx="17" cy="40" r="3" fill="' + a + '"/><circle cx="47" cy="40" r="3" fill="' + a + '"/>');
+  if (k === 'bird') return svg('<ellipse cx="32" cy="36" rx="15" ry="14" fill="' + b + '"/><ellipse cx="30" cy="40" rx="9" ry="8" fill="#fff"/><path d="M17 34 L4 26 L8 38 Z" fill="' + b + '"/><path d="M47 34 L60 26 L56 38 Z" fill="' + b + '"/><path d="M14 36 L20 44 L10 42 Z" fill="#1b2038"/><polygon points="44,33 54,36 44,39" fill="' + a + '"/><rect x="30" y="17" width="3" height="7" fill="' + b + '"/><rect x="34" y="19" width="3" height="5" fill="' + b + '"/>' + eye2(38, 30, 4) + '<rect x="27" y="49" width="2" height="7" fill="' + a + '"/><rect x="34" y="49" width="2" height="7" fill="' + a + '"/>');
+  if (k === 'ufo') return svg('<polygon points="22,40 42,40 52,62 12,62" fill="' + e + '" opacity=".25"/><ellipse cx="32" cy="26" rx="11" ry="10" fill="#bff6ff" opacity=".6"/><circle cx="32" cy="27" r="5" fill="' + a + '"/><ellipse cx="30" cy="27" rx="1.3" ry="2" fill="#0b1020"/><ellipse cx="34" cy="27" rx="1.3" ry="2" fill="#0b1020"/><ellipse cx="32" cy="35" rx="27" ry="7" fill="' + b + '"/><ellipse cx="32" cy="38" rx="20" ry="4" fill="#8a93b8"/>' + [10, 20, 32, 44, 54].map((x, i) => '<circle cx="' + x + '" cy="35" r="2.2" fill="' + (i % 2 ? '#ffd23a' : e) + '"/>').join(''));
+  if (k === 'drone') return svg('<rect x="8" y="33" width="48" height="3" fill="' + b + '" transform="rotate(-14 32 34)"/><rect x="8" y="33" width="48" height="3" fill="' + b + '" transform="rotate(14 32 34)"/><rect x="20" y="28" width="24" height="12" rx="3" fill="' + b + '"/><rect x="24" y="24" width="16" height="6" rx="2" fill="' + a + '"/>' + [[9, 28], [55, 28], [9, 40], [55, 40]].map(([x, y]) => '<rect x="' + (x - 7) + '" y="' + (y - 1) + '" width="14" height="2" fill="#e9edf5"/><rect x="' + (x - 2) + '" y="' + y + '" width="4" height="4" fill="#1b2038"/>').join('') + '<circle cx="32" cy="42" r="4" fill="#1b2038"/><circle cx="32" cy="42" r="2" fill="' + e + '"/>');
   let x = '<rect x="18" y="22" width="28" height="26" fill="' + b + '"/><rect x="18" y="28" width="28" height="5" fill="' + a + '"/>';
   if (k === 'drone') x = '<rect x="12" y="30" width="40" height="10" fill="' + b + '"/><rect x="24" y="24" width="16" height="7" fill="' + a + '"/><rect x="6" y="26" width="16" height="3" fill="#e9edf5"/><rect x="42" y="26" width="16" height="3" fill="#e9edf5"/>';
   else if (k === 'ghost') x = '<rect x="18" y="18" width="28" height="30" fill="' + b + '"/><rect x="18" y="18" width="28" height="4" fill="' + a + '"/><rect x="18" y="48" width="7" height="6" fill="' + b + '"/><rect x="29" y="48" width="7" height="6" fill="' + b + '"/><rect x="40" y="48" width="6" height="6" fill="' + b + '"/>';

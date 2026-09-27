@@ -556,7 +556,15 @@ const PETS = [
   { id: 'pet_dron', n: 'Dron Z-3', r: 'raro', px: 1500, kind: 'drone', body: '#39414f', acc: '#ff5a1f', eye: '#8dff5a' },
   { id: 'pet_fantasmin', n: 'Fantasmín', r: 'epico', px: 2500, kind: 'ghost', body: '#e9edf5', acc: '#7dffea', eye: '#1b2038' },
   { id: 'pet_zorro', n: 'Zorro Píxel', r: 'epico', px: 2800, kind: 'fox', body: '#ff8a1f', acc: '#ffffff', eye: '#1b2038' },
-  { id: 'pet_dragon', n: 'Dragoncito', r: 'leyenda', px: 5000, kind: 'dragon', body: '#c4161f', acc: '#ffd23a', eye: '#fff4b8' }
+  { id: 'pet_dragon', n: 'Dragoncito', r: 'leyenda', px: 5000, kind: 'dragon', body: '#c4161f', acc: '#ffd23a', eye: '#fff4b8' },
+  /* [MASCOTAS 2] bolas con ojos (varios colores), pájaro y platillo volador (la más cara) */
+  { id: 'pet_bola_roja', n: 'Bola Roja', r: 'comun', px: 500, kind: 'ball', body: '#ff4d6d', acc: '#ffc2cd', eye: '#1b2038' },
+  { id: 'pet_bola_verde', n: 'Bola Verde', r: 'comun', px: 500, kind: 'ball', body: '#3fd15a', acc: '#c8f7d0', eye: '#1b2038' },
+  { id: 'pet_bola_azul', n: 'Bola Azul', r: 'comun', px: 500, kind: 'ball', body: '#3a86ff', acc: '#cfe0ff', eye: '#1b2038' },
+  { id: 'pet_bola_morada', n: 'Bola Morada', r: 'poco', px: 800, kind: 'ball', body: '#9b5cff', acc: '#e3d2ff', eye: '#1b2038' },
+  { id: 'pet_bola_dorada', n: 'Bola Dorada', r: 'raro', px: 1400, kind: 'ball', body: '#ffcf3a', acc: '#fff4b8', eye: '#3a2a08' },
+  { id: 'pet_pajaro', n: 'Pico Azul', r: 'raro', px: 1800, kind: 'bird', body: '#3aa0ff', acc: '#ffb020', eye: '#1b2038' },
+  { id: 'pet_platillo', n: 'Platillo Volador', r: 'leyenda', px: 7500, kind: 'ufo', body: '#c9d1e4', acc: '#8dff5a', eye: '#3dff9a' }
 ];
 const bpFind = r => (r.t === 'wskin' ? WEAPON_SKINS : r.t === 'kskin' ? KNIFE_SKINS : r.t === 'banner' ? BANNERS : r.t === 'pet' ? PETS : r.t === 'avatar' ? (typeof AVATARS !== 'undefined' ? AVATARS : []) : []).find(x => x.id === r.id) || null;
 /* Nombre y rareza de cualquier recompensa (los PX se clasifican por cantidad) */
