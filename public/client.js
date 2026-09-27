@@ -235,6 +235,20 @@ const TEX = {
     LT(g, 0.26, 3, 3, S / 2 - 6, 2); LT(g, 0.26, S / 2 + 3, 3, S / 2 - 6, 2); LT(g, 0.26, 3, S / 2 + 3, S / 2 - 6, 2); LT(g, 0.26, S / 2 + 3, S / 2 + 3, S / 2 - 6, 2);
     speckle(g, S, R, 1100, 0.2); for (let i = 0; i < 4; i++) crack(g, R, R() * S, R() * S * 0.7, 30);
   } },
+  /* [MAPAS KRUNKER] bloque liso casi blanco con un grano muy suave y una junta fina cada metro: el color de la caja manda (como en Krunker) */
+  kblock: { tile: 2, draw(g, S, R) {
+    white(g, S);
+    for (let i = 0; i < 6; i++) DK(g, 0.015 + R() * 0.03, R() * S, R() * S, 60 + R() * 120, 40 + R() * 90);
+    speckle(g, S, R, 700, 0.07);
+    DK(g, 0.16, 0, 0, S, 2); DK(g, 0.16, 0, 0, 2, S); DK(g, 0.1, 0, S / 2, S, 1); DK(g, 0.1, S / 2, 0, 1, S);
+    LT(g, 0.35, 2, 2, S - 4, 1); LT(g, 0.2, 2, 2, 1, S - 4);
+  } },
+  kfloor: { tile: 4, draw(g, S, R) {   // suelo liso a cuadros muy suaves
+    white(g, S); const n = 2, ts = S / n;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) DK(g, (r + c) % 2 ? 0.06 : 0, c * ts, r * ts, ts, ts);
+    speckle(g, S, R, 900, 0.08);
+    DK(g, 0.18, 0, 0, S, 2); DK(g, 0.18, 0, 0, 2, S);
+  } },
   tile: { tile: 8, draw(g, S, R) {
     white(g, S); const n = 4, ts = S / n;
     for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) { const x = c * ts, y = r * ts; DK(g, (r + c) % 2 ? 0.1 : 0.0, x, y, ts, ts); DK(g, R() * 0.05, x, y, ts, ts);
@@ -338,12 +352,26 @@ function grain(g, S, R) {
   const n = S * S / 90; for (let i = 0; i < n; i++) { const a = R(); g.fillStyle = a < 0.5 ? 'rgba(0,0,0,' + (0.03 + R() * 0.07) + ')' : 'rgba(255,255,255,' + (0.03 + R() * 0.06) + ')'; g.fillRect(R() * S | 0, R() * S | 0, 1, 1); }
 }
 const texCache = {};
-function getTex(name, arg) {
-  const key = name + (arg || ''); if (texCache[key]) return texCache[key];
-  const S = HQ ? 512 : 256, c = document.createElement('canvas'); c.width = c.height = S;
+/* [MAPAS KRUNKER] Texturas pixeladas (como Krunker): la textura se dibuja igual y se reduce a unos `px` píxeles por metro, con un poco
+   de ruido por píxel; de cerca se ve cada píxel (filtro NEAREST) y de lejos se suaviza con mipmaps para que no parpadee. */
+function pixelize(src, n, R) {
+  const c = document.createElement('canvas'); c.width = c.height = n; const g = c.getContext('2d');
+  try {
+    g.imageSmoothingEnabled = true; g.drawImage(src, 0, 0, n, n);
+    const im = g.getImageData(0, 0, n, n), d = im.data;
+    for (let i = 0; i < d.length; i += 4) { const f = 1 + (R() - 0.5) * 0.22; d[i] = Math.min(255, d[i] * f); d[i + 1] = Math.min(255, d[i + 1] * f); d[i + 2] = Math.min(255, d[i + 2] * f); }
+    g.putImageData(im, 0, 0);
+  } catch (e) { return src; }
+  return c;
+}
+function getTex(name, arg, px) {
+  const key = name + (arg || '') + (px ? '|px' + px : ''); if (texCache[key]) return texCache[key];
+  const S = HQ ? 512 : 256; let c = document.createElement('canvas'); c.width = c.height = S;
   const R = rngSeed(strHash(key)); TEX[name].draw(c.getContext('2d'), S, R, arg);
   if (TEX[name].tile > 1 && !TEX[name].raw) grain(c.getContext('2d'), S, R);   // [GRÁFICOS] grano fino y manchas suaves en las texturas del mapa
+  if (px) c = pixelize(c, Math.min(128, Math.max(16, 2 ** Math.round(Math.log2(TEX[name].tile * px)))), R);   // px = píxeles por metro
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  if (px) { t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; }
   if (renderer) t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   return (texCache[key] = t);
 }
@@ -422,8 +450,9 @@ function mergeGeometries(geos) {
 }
 const vcMats = {};   // un material por textura (y por color solo en los toldos, cuya textura lleva el color): el color de cada caja va en los vértices
 function vcMat(kind, type, color) {
-  const aw = kind === 'tex' && type === 'awning', key = kind + '|' + (type || '') + (aw ? '|' + color : ''); if (vcMats[key]) return vcMats[key];
-  return (vcMats[key] = kind === 'tex' ? new THREE.MeshLambertMaterial({ map: getTex(type, aw ? color : undefined), color: '#ffffff', vertexColors: true })
+  const px = kind === 'tex' && curLook && curLook.pixel ? curLook.pixel : 0;   // [MAPAS KRUNKER] mapas con texturas pixeladas
+  const aw = kind === 'tex' && type === 'awning', key = kind + '|' + (type || '') + (aw ? '|' + color : '') + (px ? '|px' + px : ''); if (vcMats[key]) return vcMats[key];
+  return (vcMats[key] = kind === 'tex' ? new THREE.MeshLambertMaterial({ map: getTex(type, aw ? color : undefined, px), color: '#ffffff', vertexColors: true })
     : kind === 'basic' ? new THREE.MeshBasicMaterial({ color: '#ffffff', vertexColors: true }) : new THREE.MeshLambertMaterial({ color: '#ffffff', vertexColors: true }));
 }
 function queueBox(material, cast, recv, geo) {
@@ -452,7 +481,7 @@ function addMesh(cx, y0, cz, w, h, d, color, solid, tag) {
   geo.translate(cx, y0 + h / 2, cz); queueBox(vcMat('tex', type, color), true, true, geo);
 }
 function floorTex(type, worldSize) {
-  const t = getTex(type).clone(); t.needsUpdate = true; const r = worldSize / TEX[type].tile; t.repeat.set(r, r); return t;
+  const t = getTex(type, undefined, curLook && curLook.pixel).clone(); t.needsUpdate = true; const r = worldSize / TEX[type].tile; t.repeat.set(r, r); return t;
 }
 function setFloor(m, L) {
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(m.half * 2, m.half * 2), new THREE.MeshLambertMaterial({ map: floorTex(L.floor, m.half * 2), color: m.floor[0] }));
@@ -567,6 +596,24 @@ function decorate(L, m) {
     for (let z = 8.5; z <= 26; z += 1.6) decoRecv((R() - 0.5) * 0.3, 0, z, 1.3, 0.035, 0.9, ['#d9d2c3', '#c9c1b0', '#e6dfd0'][Math.floor(R() * 3)]);
     for (const x of [-18, -12, 12, 18]) { decoRecv(x, 0.62, -21.9, 2.1, 0.12, 0.14, '#ffffff'); decoRecv(x, 2.8, -21.9, 2.1, 0.12, 0.14, '#ffffff'); decoRecv(x - 1.02, 0.7, -21.9, 0.1, 2.1, 0.14, '#ffffff'); decoRecv(x + 1.02, 0.7, -21.9, 0.1, 2.1, 0.14, '#ffffff'); }
     for (let i = 0; i < 60; i++) { const x = (R() - 0.5) * 70, z = 18 + R() * 20; if (free(x, z, 0.5)) { decoBox(x, 0, z, 0.08, 0.3, 0.08, '#2f8f2f'); decoBox(x, 0.28, z, 0.26, 0.2, 0.26, ['#ff4d6d', '#ffd23f', '#ffffff', '#b388ff', '#ff9f1c'][i % 5]); } }   // flores del jardín
+  } else if (L.decor === 'burg') {   // [MAPAS KRUNKER] Castillo Real: almenas en la muralla exterior, estandartes de cada equipo, bandera en la torre y antorchas
+    wallTop('#a39c8d', 4);
+    for (const sx of [-1, 1]) {
+      const col = sx < 0 ? '#ff3b48' : '#3a86ff';
+      for (const z of [-12, -8, 8, 12]) { decoBox(sx * 22.94, 1.2, z, 0.08, 2.2, 1.4, col); decoBox(sx * 22.93, 3.25, z, 0.1, 0.12, 1.6, '#2a1b3d'); }   // estandartes en la cara de la muralla que da al patio
+      for (const z of [-20, 20]) { decoBox(sx * 39.9, 3.4, z, 0.1, 2.8, 1.8, col); }
+      for (const z of [-6, 6]) { decoBox(sx * 22.9, 2.1, z, 0.25, 0.5, 0.25, '#4a3526'); decoBox(sx * 22.9, 2.6, z, 0.2, 0.3, 0.2, '#ffb02e', true); }   // antorchas junto a la puerta
+    }
+    decoBox(0, 4.8, 0, 0.16, 4.2, 0.16, '#2a1b3d'); decoBox(0.95, 7.8, 0, 1.8, 1.05, 0.06, '#ffd23f', true);                                       // bandera de la torre
+    for (const [x, z] of [[-3, 6.2], [3, 6.2], [-3, -6.2], [3, -6.2]]) { decoBox(x, 0, z, 0.9, 0.35, 0.9, '#5a8f3a'); }                            // arbustos junto a la torre
+  } else if (L.decor === 'town') {   // [MAPAS KRUNKER] Barrio Arcoíris: marcos de ventanas, farolas y pasos de cebra
+    for (const [x, z] of [[-24, -18], [24, -18], [-24, 18], [24, 18], [-8, -19.5], [8, 19.5]]) { decoBox(x, 0, z, 0.22, 4.2, 0.22, '#39435a'); decoBox(x, 4.2, z, 0.8, 0.22, 0.5, '#fff3b0', true); }
+    for (const sx of [-1, 1]) for (let k = 0; k < 6; k++) { decoBox(sx * 20.5, 0, -18 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); decoBox(sx * 20.5, 0, 12 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); }
+    for (const z of [-22.08, 21.88]) for (const x of [-26, -14, 14, 26]) decoBox(x, 2.45, z + 0.1, 2.6, 0.18, 0.12, '#ffffff');                // tejadillo blanco sobre cada puerta
+    for (let a = -40; a <= 40; a += 4) for (let y = 2.2; y < 6.5; y += 2.6) {   // ventanas en las fachadas altas del fondo
+      decoBox(a, y, -39.96, 1.6, 1.3, 0.06, '#2d4a7a'); decoBox(a, y, 39.96, 1.6, 1.3, 0.06, '#2d4a7a');
+      decoBox(-39.96, y, a, 0.06, 1.3, 1.6, '#2d4a7a'); decoBox(39.96, y, a, 0.06, 1.3, 1.6, '#2d4a7a');
+    }
   } else if (L.decor === 'nexus') {
     wallTop('#9aa3b2', 6);
     /* Alrededores (solo decoración, sin colisión): colinas verdes escalonadas, casas de píxeles y árboles fuera del muro, como en el croquis */

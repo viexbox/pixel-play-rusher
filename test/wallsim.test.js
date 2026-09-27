@@ -22,7 +22,9 @@ for (let m = 0; m < S.MAPS.length; m++) {
   let nHigh = 0, badHigh = 0;
   const HIGH = [[[-30, 5.4, -42], [-4, 5.46, -43], [21, 5.4, -38], [40, 5.4, -40], [10, 3.6, -1], [40, 4.05, -13], [40, 3.6, 24], [-24, 1.8, -14], [6, 6.3, -17.5], [-44, 5.4, -17]],   // Nexus Outpost
     [[0, 2.4, -28], [4, 2.4, -26], [-4, 2.4, -30]],   // Pueblo Duna: el balcón
-    [[0, 3.6, -28], [-18, 3.6, -30], [18, 3.6, -26], [-16, 3.6, -36]]][m] || [];   // Villa Piscina: la terraza
+    [[0, 3.6, -28], [-18, 3.6, -30], [18, 3.6, -26], [-16, 3.6, -36]],   // Villa Piscina: la terraza
+    [[0, 4.8, -2], [24, 3.6, 0], [-24, 3.6, 12], [14, 3.6, -32], [-14, 3.6, 36]],   // Castillo Real: azotea de la torre, adarves, tejado de la casa y de los establos
+    [[-14, 4.0, -26], [0, 4.0, 26], [26, 4.0, 26], [-26, 4.0, -26]]][m] || [];   // Barrio Arcoíris: tejados y puentes
   for (const [sx, sy, sz] of HIGH) for (const every of [3, 6, 9]) for (let k = 0; k < 4; k++) {
     const r = rnd(7000 + Math.round(sx * 10 + sz) + every * 31 + k), e = { pos: { x: sx, y: sy, z: sz }, vel: { x: 0, y: 0, z: 0 }, hw: 0.35, h: 1.8, onGround: true };
     let tx = sx, tz = sz, t = 0, prev = { x: sx, y: sy, z: sz };

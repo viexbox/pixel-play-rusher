@@ -359,8 +359,171 @@ const MAPS = [
       for (const [x, z] of [[-4, 28], [4, 28], [-4, 33], [4, 33]]) P(x - 0.2, x + 0.2, z - 0.2, z + 0.2, 1.2, 3.2, WD, 'wood');
       P(-5, 5, 27, 34, 3.2, 3.5, '#d9b35a', 'roof');
     }
+  },
+  /* ================= [MAPAS KRUNKER] CASTILLO REAL =================
+     80 × 80 m, simétrico de oeste (ROJO) a este (AZUL). Cada equipo sale de su patio de armas, detrás de una muralla
+     con tres puertas y adarve con almenas (se sube por escaleras desde el patio). En el centro, la torre del homenaje:
+     se entra por dos puertas y se sube a la azotea por las escaleras norte y sur. Al norte, la calle del mercado con
+     casas de tejado rojo (a los tejados se sube saltando por las cajas); al sur, los establos y la estatua. */
+  {
+    name: 'Castillo Real', half: 40,
+    desc: 'Castillo medieval: torre del homenaje con azotea, murallas con almenas, calle del mercado con tejados a los que se sube saltando y establos.',
+    sky: ['#3d8bff', '#d4ecff'], fog: '#d4ecff', floor: ['#86cf5f', '#74bd4f'], out: '#74bd4f', pal: ['#b8b2a4', '#d6453d', '#9b6a3c', '#e8c252', '#3a86ff'],
+    look: { floor: 'grass', outFloor: 'grass', wall: 'brick', block: 'stone', crate: 'crate', plat: 'stone', sun: '#fff3d6', decor: 'burg', pixel: 16, wallH: 7, trimBase: '#7d7768', trimTop: '#e0dacb' },
+    spawns: {
+      1: [[-35, -10], [-36, -6], [-35, -2], [-36, 2], [-35, 6], [-36, 10], [-33, 0]],
+      0: [[35, -10], [36, -6], [35, -2], [36, 2], [35, 6], [36, 10], [33, 0]]
+    },
+    zones: [{ n: 'Keep Roof', x: 0, z: 0, y: 4.8 }, { n: 'Market Street', x: 0, z: -24, y: 0 }, { n: 'Stables', x: 0, z: 26, y: 0 }],
+    areas: [
+      { n: 'Keep Roof', x0: -5, x1: 5, z0: -5, z1: 5, y0: 4, y1: 9 }, { n: 'Keep', x0: -5, x1: 5, z0: -5, z1: 5, y0: -1, y1: 4 },
+      { n: 'Ramparts', x0: -25, x1: -23, z0: -40, z1: 40, y0: 3, y1: 8 }, { n: 'Ramparts', x0: 23, x1: 25, z0: -40, z1: 40, y0: 3, y1: 8 },
+      { n: 'Rooftops', x0: -19, x1: 19, z0: -37, z1: -27, y0: 3, y1: 8 },
+      { n: 'Spawn Red', x0: -40, x1: -25, z0: -40, z1: 40, y0: -1, y1: 3 }, { n: 'Spawn Blue', x0: 25, x1: 40, z0: -40, z1: 40, y0: -1, y1: 3 },
+      { n: 'Market Street', x0: -23, x1: 23, z0: -40, z1: -15, y0: -1, y1: 4 }, { n: 'Stables', x0: -23, x1: 23, z0: 15, z1: 40, y0: -1, y1: 4 },
+      { n: 'Courtyard', x0: -23, x1: 23, z0: -15, z1: 15, y0: -1, y1: 4 }
+    ],
+    build(b) {
+      const ST = '#b8b2a4', SD = '#8f887a', SL = '#a39c8c', WD = '#9b6a3c', RF = '#d6453d', HY = '#e8c252';
+      const P = (x0, x1, z0, z1, y0, y1, c, t) => b.box(Math.min(x0, x1), Math.max(x0, x1), z0, z1, y0, y1, c, t);
+      const F = (x0, x1, z0, z1, c) => b.box(Math.min(x0, x1), Math.max(x0, x1), z0, z1, 0, 0.03, c, null, false);   // camino de piedra pintado en el suelo
+      const crate = (x, z, s = 2, h = 2, y = 0) => P(x - s / 2, x + s / 2, z - s / 2, z + s / 2, y, y + h, WD, 'crate');
+      const hay = (x, z, alongX) => (alongX ? P(x - 1, x + 1, z - 0.6, z + 0.6, 0, 1.1, HY, 'wood') : P(x - 0.6, x + 0.6, z - 1, z + 1, 0, 1.1, HY, 'wood'));   // bala de paja
+      b.perimeter(40, 7, SD);
+      F(-40, 40, -2, 2, SL); F(-2, 2, -40, 40, SL);
+      /* ---------- torre del homenaje (centro): hueca, dos puertas (oeste/este), ventanas y azotea con almenas ---------- */
+      const KH = 4.4, T = 0.6;
+      P(-5, 5, -5, -5 + T, 0, KH, ST, 'brick'); P(-5, 5, 5 - T, 5, 0, KH, ST, 'brick');
+      for (const sx of [-1, 1]) {
+        const X = (a, c) => [sx * a, sx * c];
+        P(...X(5 - T, 5), -5 + T, -1.2, 0, KH, ST, 'brick'); P(...X(5 - T, 5), 1.2, 5 - T, 0, KH, ST, 'brick'); P(...X(5 - T, 5), -1.2, 1.2, 2.6, KH, ST, 'brick');   // puerta
+      }
+      P(-5, 5, -5, 5, KH, KH + 0.4, SD, 'stone');                                                                                   // azotea (arriba a 4,8 m)
+      for (const x of [-4.5, -2.5, 2.5, 4.5]) for (const z of [-4.75, 4.75]) P(x - 0.5, x + 0.5, z - 0.25, z + 0.25, KH + 0.4, KH + 1.4, ST, 'brick');   // almenas (hueco donde llegan las escaleras)
+      for (const z of [-3, -1, 1, 3]) for (const x of [-4.75, 4.75]) P(x - 0.25, x + 0.25, z - 0.5, z + 0.5, KH + 0.4, KH + 1.4, ST, 'brick');
+      b.run('N', 17, 0, 3, 12, 0, 0.4, SD, 'stone'); b.run('S', -17, 0, 3, 12, 0, 0.4, SD, 'stone');                            // escaleras norte y sur a la azotea
+      crate(-3.4, -3.4, 1.6, 1.6); crate(3.4, 3.4, 1.6, 1.6);                                                                         // cajas dentro
+      for (const sx of [-1, 1]) {
+        const X = (a, c) => [sx * a, sx * c];
+        /* ---------- muralla con tres puertas y adarve (arriba a 3,6 m), almenas hacia el patio ---------- */
+        P(...X(23, 25), -40, -24, 0, 3.6, ST, 'brick'); P(...X(23, 25), -20, -3, 0, 3.6, ST, 'brick'); P(...X(23, 25), 3, 20, 0, 3.6, ST, 'brick'); P(...X(23, 25), 24, 40, 0, 3.6, ST, 'brick');
+        P(...X(23, 25), -24, -20, 2.8, 3.6, ST, 'brick'); P(...X(23, 25), -3, 3, 2.8, 3.6, ST, 'brick'); P(...X(23, 25), 20, 24, 2.8, 3.6, ST, 'brick');   // arcos sobre las puertas
+        for (let z = -33; z <= 33; z += 2.4) P(...X(23, 23.5), z - 0.6, z + 0.6, 3.6, 4.6, ST, 'brick');
+        b.run('N', 16, sx * 26.5, 3, 9, 0, 0.4, SD, 'stone'); b.run('S', -16, sx * 26.5, 3, 9, 0, 0.4, SD, 'stone');                // escaleras al adarve desde el patio de armas
+        /* torres de las esquinas con tejado rojo escalonado */
+        for (const z0 of [-40, 34]) { P(...X(22, 27), z0, z0 + 6, 0, 6.4, ST, 'brick'); P(...X(21.6, 27.4), z0 - 0.4, z0 + 6.4, 6.4, 6.9, RF, 'roof'); P(...X(22.6, 26.4), z0 + 0.6, z0 + 5.4, 6.9, 7.6, RF, 'roof'); P(...X(23.6, 25.4), z0 + 1.6, z0 + 4.4, 7.6, 8.3, RF, 'roof'); }
+        /* ---------- patio central: muretes y cajas ---------- */
+        P(...X(18.6, 19.2), -2.4, 2.4, 0, 1.2, ST, 'stone'); crate(sx * 12, -7); crate(sx * 12, 7); crate(sx * 13.6, 8.4, 1.4, 1.1);
+        hay(sx * 16, -10, true); hay(sx * 16, 10, true);
+        /* muros bajos que separan el patio de la calle del mercado y de los establos (con un paso en medio de cada lado) */
+        for (const z of [-15, 14]) { P(...X(8, 15), z, z + 1, 0, 2.4, ST, 'stone'); P(...X(17, 23), z, z + 1, 0, 2.4, ST, 'stone'); }
+        /* ---------- calle del mercado (norte): casa de tejado rojo, hueca, con puerta y ventana; al tejado se sube por las cajas ---------- */
+        const hx0 = 10, hx1 = 18, hz0 = -36, hz1 = -28, HH = 3.2, W = 0.4;
+        P(...X(hx0, hx1), hz0, hz0 + W, 0, HH, '#f1e4c8', 'stone');
+        P(...X(hx0, 13), hz1 - W, hz1, 0, HH, '#f1e4c8', 'stone'); P(...X(15, hx1), hz1 - W, hz1, 0, HH, '#f1e4c8', 'stone'); P(...X(13, 15), hz1 - W, hz1, 2.4, HH, '#f1e4c8', 'stone');   // puerta al sur
+        P(...X(hx0, hx0 + W), hz0 + W, -33, 0, HH, '#f1e4c8', 'stone'); P(...X(hx0, hx0 + W), -31, hz1 - W, 0, HH, '#f1e4c8', 'stone'); P(...X(hx0, hx0 + W), -33, -31, 0, 1.1, '#f1e4c8', 'stone'); P(...X(hx0, hx0 + W), -33, -31, 2.1, HH, '#f1e4c8', 'stone');   // ventana hacia el centro
+        P(...X(hx1 - W, hx1), hz0 + W, hz1 - W, 0, HH, '#f1e4c8', 'stone');
+        P(...X(hx0 - 0.4, hx1 + 0.4), hz0 - 0.4, hz1 + 0.4, HH, HH + 0.4, RF, 'roof');                                                  // tejado plano (arriba a 3,6 m)
+        P(...X(8.4, 10), -31.6, -29.8, 0, 2.4, WD, 'crate'); P(...X(7.4, 9.2), -29.8, -28, 0, 1.2, WD, 'crate');                       // cajas en escalera para subir al tejado
+        crate(sx * 5, -32, 1.8, 1.8); crate(sx * 20.5, -20, 1.6, 1.6); hay(sx * 6, -19, true);
+        P(...X(2, 4), -24.6, -23.4, 0, 1.1, WD, 'wood');                                                                                // carro del mercado
+        /* ---------- establos (sur): tres paredes, tejado y paja ---------- */
+        P(...X(8, 8.4), 32, 40, 0, 3.2, WD, 'wood'); P(...X(19.6, 20), 32, 40, 0, 3.2, WD, 'wood'); P(...X(13.8, 14.2), 34, 40, 0, 3.2, WD, 'wood');
+        P(...X(7.6, 20.4), 31.6, 40, 3.2, 3.6, RF, 'roof');
+        hay(sx * 11, 37); hay(sx * 17, 37); hay(sx * 12, 24, true); hay(sx * 17, 27); crate(sx * 5, 20, 1.8, 1.8);
+        /* ---------- patio de armas (base) ---------- */
+        crate(sx * 31, -9); crate(sx * 31, 9); crate(sx * 30, 11, 1.4, 1.2); hay(sx * 38, -16); hay(sx * 38, 16);
+      }
+      /* estatua en el centro de los establos */
+      P(-1.6, 1.6, 26.4, 29.6, 0, 1.2, SD, 'stone'); P(-0.6, 0.6, 27.4, 28.6, 1.2, 4.2, SL, 'stone');
+    }
+  },
+  /* ================= [MAPAS KRUNKER] BARRIO ARCOÍRIS =================
+     84 × 84 m, simétrico de oeste (ROJO) a este (AZUL). Plaza de la fuente con coches, setos y quioscos en el centro;
+     dos filas de casas de colores (se entra por la puerta de la calle) y un camino por los tejados: se sube por la
+     escalera de la casa de cada base y se cruza por puentes de tablones sobre el callejón y sobre la calle. */
+  {
+    name: 'Barrio Arcoíris', half: 42,
+    desc: 'Barrio de casas de colores: plaza con fuente y coches, casas en las que se entra y un camino por los tejados con puentes de tablones.',
+    sky: ['#2f8cff', '#d9f0ff'], fog: '#d9f0ff', floor: ['#7d8391', '#707684'], out: '#6fce5a', pal: ['#ff8fb1', '#6fe0b5', '#ffd56b', '#6fc3ff', '#b99bff'],
+    look: { floor: 'kfloor', outFloor: 'grass', wall: 'kblock', block: 'kblock', crate: 'crate', plat: 'kfloor', sun: '#fff6e0', decor: 'town', pixel: 16, wallH: 6, trimBase: '#8b8f9c', trimTop: '#ffffff' },
+    spawns: {
+      1: [[-37, -10], [-38, -6], [-37, -2], [-38, 2], [-37, 6], [-38, 10], [-35, 0]],
+      0: [[37, -10], [38, -6], [37, -2], [38, 2], [37, 6], [38, 10], [35, 0]]
+    },
+    zones: [{ n: 'Fountain Plaza', x: 0, z: -8, y: 0 }, { n: 'North Houses', x: 14, z: -26, y: 0 }, { n: 'South Houses', x: -14, z: 26, y: 0 }],
+    areas: [
+      { n: 'Rooftops', x0: -30, x1: 30, z0: -30, z1: -22, y0: 3, y1: 9 }, { n: 'Rooftops', x0: -30, x1: 30, z0: 22, z1: 30, y0: 3, y1: 9 },
+      { n: 'House', x0: -30, x1: -10, z0: -30, z1: -22, y0: -1, y1: 3 }, { n: 'House', x0: 10, x1: 30, z0: -30, z1: -22, y0: -1, y1: 3 },
+      { n: 'House', x0: -30, x1: -10, z0: 22, z1: 30, y0: -1, y1: 3 }, { n: 'House', x0: 10, x1: 30, z0: 22, z1: 30, y0: -1, y1: 3 },
+      { n: 'Spawn Red', x0: -42, x1: -32, z0: -20, z1: 20, y0: -1, y1: 3 }, { n: 'Spawn Blue', x0: 32, x1: 42, z0: -20, z1: 20, y0: -1, y1: 3 },
+      { n: 'Back Street', x0: -42, x1: 42, z0: -42, z1: -30, y0: -1, y1: 4 }, { n: 'Back Street', x0: -42, x1: 42, z0: 30, z1: 42, y0: -1, y1: 4 },
+      { n: 'Fountain Plaza', x0: -32, x1: 32, z0: -22, z1: 22, y0: -1, y1: 4 }
+    ],
+    build(b) {
+      const WH = '#f4f1ec', GY = '#8b8f9c', WD = '#b07a45', HG = '#43b85a', RD = '#ff5a5f', BL = '#3a86ff', YL = '#ffc43d', GN = '#2fbf71';
+      const P = (x0, x1, z0, z1, y0, y1, c, t) => b.box(Math.min(x0, x1), Math.max(x0, x1), z0, z1, y0, y1, c, t);
+      const F = (x0, x1, z0, z1, c) => b.box(Math.min(x0, x1), Math.max(x0, x1), z0, z1, 0, 0.03, c, null, false);
+      const crate = (x, z, s = 2, h = 2) => P(x - s / 2, x + s / 2, z - s / 2, z + s / 2, 0, h, WD, 'crate');
+      /* casa hueca: paredes de 0,4 m y 3,6 m de alto, tejado plano (arriba a 4 m). open = { lado: 'door' | 'win' } */
+      const house = (xa, xb, z0, z1, col, open) => {
+        const H = 3.6, W = 0.4, x0 = Math.min(xa, xb), x1 = Math.max(xa, xb);
+        const side = (sd, kind) => {
+          const alongZ = sd === 'xmin' || sd === 'xmax', a0 = alongZ ? z0 + W : x0, a1 = alongZ ? z1 - W : x1, c = (a0 + a1) / 2;
+          const bx = (b0, b1, y0, y1) => (alongZ ? P(sd === 'xmin' ? x0 : x1 - W, sd === 'xmin' ? x0 + W : x1, b0, b1, y0, y1, col, 'kblock') : P(b0, b1, sd === 'zmin' ? z0 : z1 - W, sd === 'zmin' ? z0 + W : z1, y0, y1, col, 'kblock'));
+          if (!kind) return bx(a0, a1, 0, H);
+          const w = kind === 'door' ? 2 : 1.6, y0 = kind === 'door' ? 0 : 1.1, y1 = kind === 'door' ? 2.5 : 2.2, g0 = c - w / 2, g1 = c + w / 2;
+          bx(a0, g0, 0, H); bx(g1, a1, 0, H); if (y0 > 0) bx(g0, g1, 0, y0); bx(g0, g1, y1, H);
+        };
+        for (const sd of ['xmin', 'xmax', 'zmin', 'zmax']) side(sd, open[sd]);
+        P(x0 - 0.2, x1 + 0.2, z0 - 0.2, z1 + 0.2, H, H + 0.4, GY, 'kfloor');
+      };
+      const car = (x, z, alongX, col) => {   // coche de bloques: carrocería y cabina (cobertura)
+        if (alongX) { P(x - 2.1, x + 2.1, z - 1, z + 1, 0, 1.0, col, 'metal'); P(x - 1.1, x + 0.9, z - 0.9, z + 0.9, 1.0, 1.75, '#dff3ff', 'glass'); }
+        else { P(x - 1, x + 1, z - 2.1, z + 2.1, 0, 1.0, col, 'metal'); P(x - 0.9, x + 0.9, z - 1.1, z + 0.9, 1.0, 1.75, '#dff3ff', 'glass'); }
+      };
+      const tree = (x, z) => { P(x - 0.3, x + 0.3, z - 0.3, z + 0.3, 0, 2.3, '#7a4e2d', 'bark'); P(x - 1.3, x + 1.3, z - 1.3, z + 1.3, 2.3, 4.3, HG, 'leaf'); };
+      b.perimeter(42, 6, WH);
+      F(-42, 42, -21.5, -20.5, '#f2f2f2'); F(-42, 42, 20.5, 21.5, '#f2f2f2');                                           // aceras
+      for (let x = -30; x <= 30; x += 6) { F(x - 1.2, x + 1.2, -0.15, 0.15, '#ffffff'); }                                   // línea discontinua de la calle
+      /* fuente de la plaza */
+      P(-3, 3, -3, 3, 0, 0.7, WH, 'kblock'); P(-0.6, 0.6, -0.6, 0.6, 0.7, 2.4, WH, 'kblock'); P(-1.4, 1.4, -1.4, 1.4, 2.4, 2.7, WH, 'kblock');
+      for (const sx of [-1, 1]) {
+        const X = (a, c) => [sx * a, sx * c], inner = sx > 0 ? 'xmin' : 'xmax', outer = sx > 0 ? 'xmax' : 'xmin';
+        const warm = sx < 0, c1 = warm ? '#ff8fb1' : '#6fe0b5', c2 = warm ? '#ff9f5a' : '#6fc3ff', c3 = warm ? '#ffd56b' : '#b99bff', c4 = warm ? '#ff7a8a' : '#7fe3e0';
+        /* casas: dos por fila y lado (x 10–18 y 22–30), filas norte (z −30…−22) y sur (22…30) */
+        house(...X(10, 18), -30, -22, c1, { zmax: 'door', zmin: 'door', [inner]: 'win', [outer]: 'win' });
+        house(...X(22, 30), -30, -22, c2, { zmax: 'door', [outer]: 'door', [inner]: 'win' });
+        house(...X(10, 18), 22, 30, c3, { zmin: 'door', zmax: 'door', [inner]: 'win', [outer]: 'win' });
+        house(...X(22, 30), 22, 30, c4, { zmin: 'door', [outer]: 'door', [inner]: 'win' });
+        /* escalera exterior a los tejados (casa de la base) y puentes de tablones sobre el callejón */
+        b.run(sx > 0 ? 'W' : 'E', sx * 32, -31.5, 3, 10, 0, 0.4, GY, 'kfloor'); b.run(sx > 0 ? 'W' : 'E', sx * 32, 31.5, 3, 10, 0, 0.4, GY, 'kfloor');
+        P(...X(18, 22), -27, -25, 3.6, 4.0, WD, 'wood'); P(...X(18, 22), 25, 27, 3.6, 4.0, WD, 'wood');
+        /* plaza: coches, setos, quiosco y bancos */
+        car(sx * 14, -12, true, sx < 0 ? RD : BL); car(sx * 9, 13, true, YL); car(sx * 26, 16, false, GN);
+        P(...X(6, 13), -7, -6, 0, 1.3, HG, 'leaf'); P(...X(6, 13), 6, 7, 0, 1.3, HG, 'leaf');
+        P(...X(19, 21.4), -1.2, 1.2, 0, 2.6, c3, 'kblock'); P(...X(18.6, 21.8), -1.6, 1.6, 2.6, 2.9, '#ffffff', 'awning');
+        P(...X(4.5, 6.5), 16, 16.6, 0, 0.6, WD, 'wood');
+        tree(sx * 6, -17); tree(sx * 16, 17);
+        /* calles de atrás: contenedores de basura y cajas */
+        P(...X(12, 15), -39, -37.4, 0, 1.5, GN, 'metal'); crate(sx * 6, -35); crate(sx * 20, -36, 1.6, 1.6); crate(sx * 7, 36); P(...X(16, 19), 37.4, 39, 0, 1.5, '#3a86ff', 'metal');
+        /* base */
+        crate(sx * 33, -14); crate(sx * 33, 14); crate(sx * 34.4, -15.4, 1.2, 1.1); P(...X(32.5, 33.3), -4, 4, 0, 1.2, WH, 'kblock');
+      }
+      /* fachadas altas de colores alrededor del barrio (macizas, solo de fondo) */
+      const FC = ['#ff8fb1', '#ffd56b', '#6fc3ff', '#6fe0b5', '#b99bff', '#ff9f5a', '#7fe3e0'], FH = [8, 10, 7.5, 9, 8.5, 10.5, 7.5];
+      for (let k = 0; k < 7; k++) {
+        const a0 = -42 + k * 12, a1 = a0 + 12, c = FC[k], h = FH[k], c2 = FC[(k + 3) % 7], h2 = FH[(k + 2) % 7];
+        P(a0, a1, -42, -40, 0, h, c, 'kblock'); P(a0, a1, 40, 42, 0, h2, c2, 'kblock');
+        P(-42, -40, a0, a1, 0, FH[(k + 4) % 7], FC[(k + 5) % 7], 'kblock'); P(40, 42, a0, a1, 0, FH[(k + 1) % 7], FC[(k + 1) % 7], 'kblock');
+      }
+      F(-12, 12, -12, 12, '#a3998a');                                                                                        // plaza empedrada
+      /* puentes largos sobre la calle, de un tejado a otro (norte y sur) */
+      P(-10, 10, -27, -25, 3.6, 4.0, WD, 'wood'); P(-10, 10, 25, 27, 3.6, 4.0, WD, 'wood');
+    }
   }
 ];
+
 /* Colisiones */
 function overlapAt(cols, x, y, z, hw, h) {
   for (let i = 0; i < cols.length; i++) {

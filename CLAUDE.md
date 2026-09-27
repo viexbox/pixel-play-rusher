@@ -36,6 +36,8 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 
 - Miras estilo Krunker: visor negro con dos líneas finas (`#scope`, igual para francotirador, ACOG, Precisión y Centinela); punto rojo y holo = lente redonda con aro oscuro en HTML (`#optic .orf`) y el arma algo más baja (`adsSightY`). Antes: el punto rojo y la holográfica van en un grupo (`gun.userData.sight`) que se oculta al apuntar y queda la retícula `#optic`; la mira de hierro pone un punto blanco pequeño (`#optic[data-k="iron"]`); Precisión y Centinela (`look.scope` sin `optics`) usan la vista de visor ACOG (`scopeKind`). Test en `optics.test.js`. Enlace de Discord: `https://discord.gg/zwz5xzG9M`.
 
+- Mapas estilo Krunker con diseño propio: **Castillo Real** (`decor: 'burg'`) y **Barrio Arcoíris** (`decor: 'town'`, texturas lisas `kblock`/`kfloor`). Miniaturas en `public/maps/map3.jpg` y `map4.jpg` (512×288, vista aérea).
+
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).
 - Adaptar a CrazyGames/Poki, modo "plantar la bomba", estadísticas de jugadores en el panel.

@@ -29,7 +29,7 @@ ok(W[L[0]].id === 'ak' && W[L[L.length - 1]].id === 'lince', 'empieza en el AK y
 ok(L.slice(0, 2).join() === '8,0', 'los dos primeros niveles no cambian (las pruebas y los jugadores conocen ese comienzo)');
 
 console.log('\n=== Mapas ===');
-const M = S.MAPS; ok(M.length === 3 && M[0].name === 'Nexus Outpost' && M[1].name === 'Pueblo Duna' && M[2].name === 'Villa Piscina', 'tres mapas: Nexus Outpost, Pueblo Duna y Villa Piscina');
+const M = S.MAPS; ok(M.length === 5 && M[0].name === 'Nexus Outpost' && M[1].name === 'Pueblo Duna' && M[2].name === 'Villa Piscina' && M[3].name === 'Castillo Real' && M[4].name === 'Barrio Arcoíris', 'cinco mapas: Nexus Outpost, Pueblo Duna, Villa Piscina, Castillo Real y Barrio Arcoíris');
 
 ok(Object.entries(M[0].look).every(([k, v]) => typeof v === 'string' || typeof v === 'number') && M[0].look.decor === 'nexus' && M[0].look.outFloor === 'grass', 'el mapa declara su aspecto: decorado «nexus», suelo exterior de hierba y texturas por tipo de superficie');
 ok(M.every(m => m.name && m.desc.length > 30 && m.sky.length === 2 && m.pal.length === 5 && m.floor.length === 2 && isHex(m.fog) && isHex(m.out) && m.half >= 36), 'nombre, descripción, cielo, niebla, suelo y paleta completos');
