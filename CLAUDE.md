@@ -27,8 +27,9 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 - Cuchillos nuevos (`KNIFE_SKINS` con `kind`, `ru` y `fx`): mariposa, karambit, bayoneta, daga, machete; `knifeMesh()` en client.js (perfiles extruidos, largo por modelo en `BLADE_LEN`), luces animadas en `tickKnives()`, inspección con F. Se consiguen en el **evento de la ruleta** (`S.KNIFE_ROULETTE`: precio por tirada y peso por rareza; `S.rouletteOdds()`; `/api/bp/knife-spin`, nunca repetidos). Los demás ven tu cuchillo (`equippedLook().knife`).
 - Panel admin → Cuentas → «Objetos»: regalar o quitar cuchillos, trajes, mascotas, skins y banners (`/api/admin/bp/items|give|take`, queda en la auditoría).
 - Trajes con efectos (`OUTFITS` con `ru: 1`: Neón, Oro Yakuza, Dragón Imperial, Espectro Ártico; `fxOutfitBody()`/`fxMats()` en client.js) en la **Ruleta de trajes** (`S.OUTFIT_ROULETTE`, `/api/bp/outfit-spin`). Las dos ruletas usan `spin()` en battlepass.js y `renderRoulette(kind)` en el cliente. El karambit gira sobre la anilla al sacarlo (`setKnifeDraw`).
+- Móvil: controles táctiles (`TOUCH`, `initTouch()` en client.js: joystick, mirar arrastrando, botones; sin bloqueo de puntero) y la interfaz se reduce con `zoom` (`--uiz`) para que quepa. Test `touch.test.js`.
 
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).
-- Tutorial para jugadores nuevos, controles táctiles para móvil, adaptar a CrazyGames/Poki, modo "plantar la bomba", estadísticas de jugadores en el panel.
+- Tutorial para jugadores nuevos, adaptar a CrazyGames/Poki, modo "plantar la bomba", estadísticas de jugadores en el panel.
 - Los `.glb` de `public/models/weapons` y `scripts/generate_weapons.py` ya no se usan.
