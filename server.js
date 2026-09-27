@@ -989,7 +989,11 @@ function onMessage(ws, m, now) {
       if (!r || r.humanCount() >= (admin.settings.maxPerRoom || MAX_PER_ROOM)) { r = findRoomFor(pc.go.map, pc.go.mode, pc.need); pc.go.room = r.id; pc.go.team = null; }
       if (pc.go.team == null) { let c0 = 0, c1 = 0; for (const o of r.players.values()) if (!o.isBot) { if (o.team === 0) c0++; else c1++; } pc.go.team = c0 <= c1 ? 0 : 1; }
       p.forceTeam = pc.go.team; joinedRoom = r;
-    } else joinedRoom = findRoom(map, mode, wantRanked, S.leagueIdx(p.mmr));
+    } else {
+      /* [PORTALES] invitación de un amigo (enlace de CrazyGames/Poki o ?sala=): a esa sala si existe, es del mismo modo, no es clasificatoria y cabe */
+      const jr = Number.isInteger(m.jr) ? rooms.get(m.jr) : null;
+      joinedRoom = jr && !wantRanked && !jr.ranked && jr.mode === mode && jr.humanCount() < (admin.settings.maxPerRoom || MAX_PER_ROOM) ? jr : findRoom(map, mode, wantRanked, S.leagueIdx(p.mmr));
+    }
     joinedRoom.add(p);
     if (joinedRoom.map !== map) p.send(JSON.stringify({ t: 'notice', kind: 'sys', m: 'Te hemos unido a una partida en ' + S.MAPS[joinedRoom.map].name + ' para que no esperes solo. Al acabar la ronda se vota el siguiente mapa.' }));   // [SALAS]
     if (acct && bp && bp.equippedLook) bp.equippedLook(acct.id).then(sk => { if (!sk || !Object.keys(sk).length || !p.room) return; p.sk = sk; p.room.broadcast({ t: 'look', id: p.id, sk }); }).catch(() => {});   // [SKINS VISIBLES] las skins las decide el inventario, no el cliente

@@ -1801,10 +1801,11 @@ function burst(pos, color, n, speed) {
    ===================================================================== */
 let AC = null, master = null, noiseBuf = null;
 function initAudio() {
-  if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
+  if (AC) { if (AC.state === 'suspended' && !portalMuted) AC.resume(); return; }
   try {
     AC = new (window.AudioContext || window.webkitAudioContext)();
     master = AC.createGain(); master.gain.value = cfg.vol; master.connect(AC.destination);
+    if (portalMuted) AC.suspend();   // [PORTALES] el portal pide silencio
     noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
     const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   } catch (e) { AC = null; }
@@ -2365,10 +2366,29 @@ const wrapAng = a => { while (a > Math.PI) a -= TAU; while (a < -Math.PI) a += T
 function netSend(o) { const ws = net.ws; if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
 function setNetMsg(t) { const e = $('#netMsg'); e.textContent = t || ''; e.hidden = !t; }
 
+/* [PORTALES] Invitaciones: ?sala=N (o la invitación del portal: roomId + mode) lleva a la sala de un amigo; en CrazyGames, el multijugador
+   instantáneo (o llegar por una invitación) entra directo a jugar online en cuanto hay servidor. Al estar en una sala, el portal enseña su botón «Invitar». */
+const invite = { room: null, auto: false, done: false };
+(function readInvite() {
+  const P = window.PPR_PORTAL, get = k => { try { return (P && P.inviteParam(k)) || new URLSearchParams(location.search).get(k); } catch (e) { return null; } };
+  const apply = () => { const r = parseInt(get('roomId') || get('sala'), 10), md = get('mode'); if (r > 0) { invite.room = r; invite.auto = true; if (md && S.MODES[md] && !S.MODES[md].event) { cfg.mode = md; cfg.ranked = false; } } if (P && P.instant()) invite.auto = true; };
+  if (P) P.onReady(() => { apply(); autoJoin(); }); else apply();
+})();
+function autoJoin() { if (invite.auto && !invite.done && serverOK && state === 'menu' && !net.ws) { invite.done = true; setTimeout(() => { if (state === 'menu') startOnline(); }, 400); } }
+async function copyInvite() {
+  const room = net.room; if (!room) return;
+  const P = window.PPR_PORTAL, params = { roomId: String(room), mode: net.mode || 'duelo' };
+  let url = P ? await P.inviteLink(params) : null;
+  if (!url) { const u = new URL(location.href); u.search = ''; u.hash = ''; u.searchParams.set('sala', room); if (net.mode && net.mode !== 'duelo') u.searchParams.set('mode', net.mode); url = u.href; }
+  try { await navigator.clipboard.writeText(url); toast('Enlace de invitación copiado: pásaselo a tus amigos para jugar en tu sala.'); } catch (e) { toast(url ? url : 'No se pudo crear el enlace de invitación.'); }
+}
+/* [PORTALES] ajustes del portal: sin chat (cuentas de menores) y sin sonido */
+let portalMuted = false;
+if (window.PPR_PORTAL) window.PPR_PORTAL.onSettings(st => { document.documentElement.classList.toggle('nochat', !!st.disableChat); portalMuted = !!st.muteAudio; try { if (AC) { if (portalMuted) AC.suspend(); else AC.resume(); } } catch (e) { /* sin audio */ } });
 function setServer(ok, j) {
   const first = ok && !serverOK;
   if (ok && j) initAds(j.ads, j.portalAds);   // [ANUNCIOS] (y los del portal, si se juega en CrazyGames/Poki)
-  serverOK = ok; if (ok) lobbyConnect(); else lobbyClose();
+  serverOK = ok; if (ok) lobbyConnect(); else lobbyClose(); if (ok) autoJoin();
   { const pl = $('#lobbyPlay'); if (pl) pl.classList.toggle('srvok', !!ok); }   // punto verde/rojo del botón «Servidor»
   setTimeout(() => { const oi = $('#onlineInfo'); if (oi) oi.title = oi.textContent; }, 0);   // el aviso se recorta a 4 líneas: el texto completo sale al pasar el ratón
   $('#playOnline').disabled = !ok || noPointer || !!net.ws;
@@ -2421,7 +2441,7 @@ function startOnline() {
   catch (e) { return netFail('No se pudo abrir la conexión.'); }
   net.ws = ws; net.joined = false;
   const ptok = partyC.tok; partyC.tok = null;   // [GRUPOS] el billete del grupo se guarda ANTES: borrarlo después de asignar onopen lo borraba antes de enviarlo
-  ws.onopen = () => netSend({ t: 'hello', v: 1, n: cfg.name, map: cfg.map, c: cfg.cls, lk: [cfg.look.col, cfg.look.skin], adm: admToken(), inf: cfg.infKey || '', acct: acctToken(), mode: S.MODES[cfg.mode] ? cfg.mode : 'duelo', rk: cfg.ranked && cfg.mode === 'duelo' ? 1 : 0, tm: cfg.wantTeam, pt: ptok || undefined });   // [GRUPOS] billete del grupo (solo sirve una vez)
+  ws.onopen = () => netSend({ t: 'hello', v: 1, n: cfg.name, map: cfg.map, c: cfg.cls, lk: [cfg.look.col, cfg.look.skin], adm: admToken(), inf: cfg.infKey || '', acct: acctToken(), mode: S.MODES[cfg.mode] ? cfg.mode : 'duelo', rk: cfg.ranked && cfg.mode === 'duelo' ? 1 : 0, tm: cfg.wantTeam, pt: ptok || undefined, jr: invite.room || undefined });   // [GRUPOS] billete del grupo (solo sirve una vez)
   ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } try { netHandle(m); } catch (e) { console.error(e); } };
   ws.onclose = ev => {
     if (net.ws !== ws) return;
@@ -2540,6 +2560,8 @@ function netHandle(m) {
 }
 function onWelcome(m) {
   clearTimeout(net.timer); net.joined = true; net.tries = 0; net.id = m.id; setNetMsg('');
+  net.room = m.spec ? null : m.room; invite.room = null;   // [PORTALES] la invitación solo sirve una vez
+  if (!m.spec) { const ib = $('#inviteBtn'); if (ib) ib.hidden = false; if (window.PPR_PORTAL) window.PPR_PORTAL.showInvite({ roomId: String(m.room), mode: S.MODES[m.mode] ? m.mode : 'duelo' }); }
   { const ec = $('#endCr'), er = $('#endRank'); if (ec) ec.hidden = true; if (er) er.hidden = true; }
   net.mode = S.MODES[m.mode] ? m.mode : 'duelo'; net.ranked = !!m.rk; net.zone = m.zone || null; net.bomb = m.b || null; net.bprog = null; { const tb = $('#tBomb'); if (tb) tb.hidden = net.mode !== 'bomba'; } net.gl = 0; net.rank = null; net.spec = !!m.spec;   // [NUEVO] modo de la sala
   net.cash = Number.isFinite(m.cash) ? m.cash : S.CONST.SHOP_START_CASH;   // [NUEVO] tienda de armas
@@ -2984,6 +3006,7 @@ function resumeGame() {
 }
 function leaveToMenu() {
   if (online) netDisconnect();
+  net.room = null; { const ib = $('#inviteBtn'); if (ib) ib.hidden = true; } if (window.PPR_PORTAL) window.PPR_PORTAL.hideInvite();   // [PORTALES] fuera de la sala no hay invitación
   online = false; net.spec = false; document.body.classList.remove('spectating'); if (window.PPR_BP.onSpectate) window.PPR_BP.onSpectate(false); state = 'menu'; clearFighters(); $('#again').hidden = false; $('#endNext').hidden = true; hud.hidden = true; $('#pause').hidden = true; $('#end').hidden = true; $('#menu').hidden = false;
   document.body.classList.remove('playing'); gun.visible = false; el.scope.hidden = true; el.optic.hidden = true;
   camera.fov = 60; camera.updateProjectionMatrix();
@@ -3112,7 +3135,7 @@ async function claimAd() {
   catch (e) { toast(e.message); if (/todos los anuncios/.test(e.message)) adLeft = 0; }
   adBusy = false; onDeathAds();
 }
-function adSound(on) { try { if (!AC) return; if (on) AC.resume(); else AC.suspend(); } catch (e) { /* sin audio */ } }
+function adSound(on) { try { if (!AC) return; if (on && !portalMuted) AC.resume(); else AC.suspend(); } catch (e) { /* sin audio */ } }
 function watchAd() {
   if (adBusy || !ADS || !remote) return; adBusy = true; onDeathAds();
   const fail = msg => { adBusy = false; onDeathAds(); if (msg) toast(msg); };
@@ -3633,6 +3656,7 @@ function applyChatHidden() {
 let lobbyWs = null;
 let chatIdleT = 0;
 function chatAdd(kind, name, text, rl, mid) {
+  if (document.documentElement.classList.contains('nochat')) return;   // [PORTALES] chat desactivado por el portal
   const li = document.createElement('li'); li.className = kind + (rl ? ' from-' + rl : ''); if (mid) li.dataset.mid = mid;
   li.innerHTML = (name ? '<b>' + nameHtml(name, rl) + '</b>' : '') + esc(text);
   chatEl.log.appendChild(li);
@@ -3731,7 +3755,8 @@ function initReport() {
   $('#reportBtn').addEventListener('click', openReport); $('#repCancel').addEventListener('click', closeReport);
   $('#reportForm').addEventListener('submit', e => { e.preventDefault(); netSend({ t: 'report', id: +$('#repTarget').value, cat: $('#repCat').value, text: $('#repText').value }); });
 }
-function openChat() { chatEl.box.classList.remove('idle'); Object.keys(keys).forEach(k => { keys[k] = false; }); mouseL = mouseR = false; if (cfg.chatHidden) document.body.classList.add('chat-peek'); chatEl.input.focus(); }
+function openChat() {
+  if (document.documentElement.classList.contains('nochat')) return; chatEl.box.classList.remove('idle'); Object.keys(keys).forEach(k => { keys[k] = false; }); mouseL = mouseR = false; if (cfg.chatHidden) document.body.classList.add('chat-peek'); chatEl.input.focus(); }
 function initChat() {
   initReport(); initEnd();
   applyChatHidden();
@@ -3839,6 +3864,7 @@ function initMenu() {
   $('#lbScope').addEventListener('change', renderLeaderboard);
   $('#lbScope').value = 'local';
   $('#resume').addEventListener('click', resumeGame);
+  $('#inviteBtn').addEventListener('click', copyInvite);   // [PORTALES] enlace para que un amigo entre en esta sala
   $('#quit').addEventListener('click', leaveToMenu);
   $('#again').addEventListener('click', startMatch);
   $('#toMenu').addEventListener('click', leaveToMenu);
