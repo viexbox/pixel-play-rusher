@@ -13,7 +13,7 @@ console.log('=== Botón de Discord ===');
 const btn = d.getElementById('discordBtn');
 ok(!!btn, 'existe #discordBtn en el menú');
 ok(btn && btn.tagName === 'A', 'es un enlace de verdad (para abrir con clic derecho, arrastrar, etc., no solo con JS)');
-ok(btn && btn.getAttribute('href') === 'https://discord.gg/UbfC5bBcp', 'apunta al servidor de Discord correcto (' + (btn && btn.getAttribute('href')) + ')');
+ok(btn && btn.getAttribute('href') === 'https://discord.gg/zwz5xzG9M', 'apunta al servidor de Discord correcto (' + (btn && btn.getAttribute('href')) + ')');
 ok(btn && btn.getAttribute('target') === '_blank', 'se abre en una pestaña nueva, no reemplaza el juego');
 ok(btn && (btn.getAttribute('rel') || '').includes('noopener'), 'lleva rel="noopener" (la pestaña nueva no puede tocar la del juego)');
 ok(btn && btn.classList.contains('iconbtn'), 'usa el mismo estilo que el resto de iconos de la barra (controles, ajustes)');

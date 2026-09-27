@@ -34,6 +34,8 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 - Premio diario (`dailyInfo/dailyClaim` en accounts.js, `POST /api/me/daily`, `DAILY_PX`; ventana `openDaily()` al entrar) y tutorial de la primera partida (`TUT`, `tickTutorial()` en client.js; `cfg.tutDone`, se repite desde Ajustes). Test `daily-tutorial.test.js`.
 - Anuncios (`ADS_PROVIDER=h5|test`, `ADS_CLIENT`, `ADS_SLOT`): banner y botón «Ver anuncio · +PX» en la pantalla de muerte (`onDeathAds()`/`watchAd()` en client.js; H5 Games Ads `adBreak({type:'reward'})`); premio en `POST /api/me/adreward` con tope diario y espera. La CSP abre los dominios de Google solo con `h5`. Test `ads.test.js`. Para activarlo de verdad hace falta dominio propio + cuenta de AdSense aprobada.
 
+- Miras que no tapan el centro al apuntar: el punto rojo y la holográfica van en un grupo (`gun.userData.sight`) que se oculta al apuntar y queda la retícula `#optic`; la mira de hierro pone un punto blanco pequeño (`#optic[data-k="iron"]`); Precisión y Centinela (`look.scope` sin `optics`) usan la vista de visor ACOG (`scopeKind`). Test en `optics.test.js`. Enlace de Discord: `https://discord.gg/zwz5xzG9M`.
+
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).
 - Adaptar a CrazyGames/Poki, modo "plantar la bomba", estadísticas de jugadores en el panel.

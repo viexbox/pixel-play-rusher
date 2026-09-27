@@ -120,7 +120,7 @@ function createAccounts({ dataDir, log, S, admin, env = process.env }) {
      y abre un ticket en Discord; un administrador comprueba el pago y entrega los PX desde el panel (Monedas y ventas → Entregar PX). */
   const PAYPAL_EMAIL = validEmail(String(env.PAYPAL_EMAIL || '').trim()) ? String(env.PAYPAL_EMAIL).trim() : '';
   const PAYPAL_ME = /^[A-Za-z0-9]{1,40}$/.test(String(env.PAYPAL_ME || '').trim()) ? String(env.PAYPAL_ME).trim() : '';
-  const DISCORD_TICKET_URL = /^https:\/\/[^\s"'<>]{4,200}$/.test(String(env.DISCORD_TICKET_URL || '')) ? String(env.DISCORD_TICKET_URL) : 'https://discord.gg/UbfC5bBcp';
+  const DISCORD_TICKET_URL = /^https:\/\/[^\s"'<>]{4,200}$/.test(String(env.DISCORD_TICKET_URL || '')) ? String(env.DISCORD_TICKET_URL) : 'https://discord.gg/zwz5xzG9M';
   const paypalInfo = () => (PAYPAL_EMAIL ? { email: PAYPAL_EMAIL, me: PAYPAL_ME, discord: DISCORD_TICKET_URL } : null);
   function paypalOrder(u, packId) {
     if (!PAYPAL_EMAIL) return err(503, 'El pago por PayPal no está activado.');

@@ -48,7 +48,7 @@ const sightH = (w, opt) => (w.id === 'ak' || opt.kind === 'scope' ? opt.h : w.si
 function opticOf(w, id) { if (!w.optics) return null; const k = id || (cfg.optics && cfg.optics[w.id]); return OPTICS[w.optics.includes(k) ? k : w.optics[0]]; }
 const opticIdOf = w => { const o = opticOf(w); return w.optics.find(k => OPTICS[k] === o); };
 const aimFovOf = w => { const o = opticOf(w); return o ? o.fov : w.aimFov; };
-const scopeKind = w => { const o = opticOf(w); return o ? (o.kind === 'scope' || o.kind === 'acog' ? o.kind : null) : (w.scope ? 'scope' : null); };
+const scopeKind = w => { const o = opticOf(w); return o ? (o.kind === 'scope' || o.kind === 'acog' ? o.kind : null) : (w.scope ? 'scope' : (w.look && w.look.scope ? 'acog' : null)); };   // [MIRAS] armas con visor propio (Precisión, Centinela): vista de visor al apuntar
 const BOT_WEAPONS = [0, 1, 2, 7, 8];
 const DIFFS = [
   { react: 0.75, err: 0.05, dmg: 7, interval: 0.22, speed: 4.0 },
@@ -1196,6 +1196,10 @@ function gunModel(w, ox, oid, skinId) {
   /* Dibuja la mira elegida (hierro, punto rojo, holográfica o ACOG) sobre el cajón: zc = centro de la mira, zRear = alza, zf = punto de mira */
   const sights = (zc, zRear, zf) => {
     if (!opt) return;
+    /* [MIRAS] el punto rojo y la holográfica van en su propio grupo: al apuntar se ocultan y queda la retícula de #optic, para ver bien a dónde disparas */
+    if (opt.kind === 'dot' || opt.kind === 'holo') { const sg = new THREE.Group(); g.add(sg); g.userData.sight = sg; return sightsIn(sg); }
+    return sightsIn(g);
+    function sightsIn(g) {
     const glass = (wd, ht, x, y, z, c) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(wd, ht), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.3, side: THREE.DoubleSide })); m.position.set(x, y, z); g.add(m); };
   if (opt.kind === 'iron') {
     g.add(box(0.05, 0.008, 0.045, 0, ty0 + 0.004, zRear, rail));
@@ -1214,6 +1218,7 @@ function gunModel(w, ox, oid, skinId) {
     const fib = new THREE.Mesh(BG(0.006, 0.006, 0.13), basicMat('#ff7a00')); fib.position.set(0, ty0 + 0.068, zc); g.add(fib);
     glass(0.04, 0.04, 0, ty0 + 0.038, zc - 0.116, '#38e4ff');
   }
+    }
   };
   if (GUN_BUILDERS[w.id]) {   // [ARMAS HD] arma detallada (ver buildDetailedGun)
     const metal = '#' + new THREE.Color(dark).lerp(new THREE.Color('#8a93b8'), 0.22).getHexString();
@@ -1258,8 +1263,8 @@ function addHands(g, w) {
 }
 function buildGun(w) {
   while (gun.children.length) gun.remove(gun.children[0]);
-  flashes = [];
-  const add = ox => { const g = gunModel(w, ox, cfg.optics[w.id], mySkin(w.id)); flashes.push(g.userData.flash); addHands(g, w); gun.add(g); };
+  flashes = []; gun.userData.sight = null;
+  const add = ox => { const g = gunModel(w, ox, cfg.optics[w.id], mySkin(w.id)); flashes.push(g.userData.flash); if (g.userData.sight) gun.userData.sight = g.userData.sight; addHands(g, w); gun.add(g); };
   if (w.dual) { add(-0.22); add(0.22); } else add(0);
 }
 
@@ -2232,8 +2237,9 @@ function updatePlayer(dt) {
   gun.visible = !scoped;
   if (el.scope.hidden === scoped) el.scope.hidden = !scoped;
   if (scoped) { if (el.scope.dataset.k !== sk) el.scope.dataset.k = sk; const zt = '×' + +(1 / aimFovOf(w)).toFixed(1); if (el.scZoom.textContent !== zt) el.scZoom.textContent = zt; }
-  const ok = opt && (opt.kind === 'dot' || opt.kind === 'holo') && p.aim > 0.8 ? opt.kind : '';
+  const ok = opt && (opt.kind === 'dot' || opt.kind === 'holo' || opt.kind === 'iron') && p.aim > 0.8 ? opt.kind : '';
   if ((el.optic.dataset.k || '') !== ok) { el.optic.dataset.k = ok; el.optic.hidden = !ok; }
+  if (gun.userData.sight) gun.userData.sight.visible = p.aim < 0.6;   // [MIRAS] la carcasa y el cristal no tapan la retícula al apuntar
   if (knifeT > 0) { knifeT += dt / 0.62; if (knifeT >= 1) knifeT = 0; }
   if (pendingMelee > 0) { pendingMelee -= dt; if (pendingMelee <= 0) { pendingMelee = 0; meleeHit(); } }
   const swV = knifeT > 0 ? (knifeT < 0.3 ? ease01(knifeT / 0.3) : knifeT < 0.72 ? 1 : 1 - ease01((knifeT - 0.72) / 0.28)) : 0;   // golpe rápido con V: 0 = arma arriba, 1 = arma abajo
