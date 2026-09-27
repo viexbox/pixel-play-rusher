@@ -808,6 +808,11 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
 .petcard button{width:100%;padding:6px 4px;font-size:12px;font-weight:800;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff}
 .petcard button.on{background:var(--rc);color:#0a0a12;border-color:#000}
 .petcard button:disabled{opacity:.45;cursor:not-allowed}
+.petcard.kfx img{animation:kfxGlow 1.6s ease-in-out infinite}
+.petcard.kfx::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(100deg,transparent 30%,color-mix(in srgb,var(--kc) 30%,transparent) 50%,transparent 70%);background-size:250% 100%;animation:kfxSweep 2.4s linear infinite}
+@keyframes kfxGlow{50%{filter:drop-shadow(0 0 8px var(--kc)) brightness(1.25)}}
+@keyframes kfxSweep{from{background-position:120% 0}to{background-position:-120% 0}}
+@media (prefers-reduced-motion:reduce){.petcard.kfx img,.petcard.kfx::after{animation:none}}
 .packs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:10px 0}
 .pack{position:relative;padding:12px 10px 10px;background:linear-gradient(160deg,rgba(255,220,58,.14),rgba(8,11,24,.75));border:1px solid rgba(255,220,58,.35);text-align:center}
 .pack .pxn{font-size:26px;font-weight:900;font-style:italic;color:#fff}.pack .pxn small{display:block;font-size:12px;letter-spacing:.2em;color:var(--volt);font-style:normal}
@@ -1214,6 +1219,7 @@ body:not(.playing):not(.tabopen):not(.eqopen) #partyBox{display:block}
         <span><kbd>Espacio</kbd></span><span>Saltar (una pulsación = un salto; suelta y vuelve a pulsar para el siguiente)</span>
         <span><kbd>Mayús</kbd></span><span>Agacharte; corriendo, te deslizas (siempre corres: no hay una tecla aparte para correr)</span>
         <span><kbd>V</kbd></span><span>Golpe rápido de cuchillo (sin cambiar de arma)</span>
+        <span><kbd>F</kbd></span><span>Inspeccionar el cuchillo (con el cuchillo en la mano)</span>
         <span><kbd>Rueda</kbd></span><span>Cambiar entre arma y cuchillo (con el cuchillo en mano, el clic golpea)</span>
         <span><kbd>1</kbd> <kbd>E</kbd></span><span>Arma principal</span>
         <span><kbd>2</kbd> <kbd>3</kbd> <kbd>Q</kbd></span><span>Cuchillo (Q: lo saca; si ya lo tienes, golpea)</span>

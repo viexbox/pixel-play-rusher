@@ -31,10 +31,22 @@
     }
     return '<svg viewBox="0 0 170 84" aria-hidden="true">' + g + '</svg>';
   }
-  function knifeSvg(k) {
-    return '<svg viewBox="0 0 170 84" aria-hidden="true"><g transform="rotate(-24 85 44)">' +
-      '<polygon points="62,34 130,37 146,44 130,51 62,54" fill="' + k.blade + '" stroke="' + OL + '" stroke-width="1.6"/><polygon points="64,36 128,39 128,42 64,42" fill="' + k.edge + '"/>' +
-      R(53, 29, 10, 30, k.guard) + R(18, 36, 36, 16, k.handle, 3) + R(26, 38, 3, 12, k.guard) + R(38, 38, 3, 12, k.guard) + '</g></svg>';
+  function knifeSvg(k) {   // [CUCHILLOS] cada modelo tiene su silueta; los de luces llevan brillo del color del efecto
+    const kd = k.kind || 'classic', st = '" stroke="' + OL + '" stroke-width="1.6"/>';
+    const blade = {
+      classic: '<polygon points="62,34 130,37 146,44 130,51 62,54" fill="' + k.blade + st + '<polygon points="64,36 128,39 128,42 64,42" fill="' + k.edge + '"/>',
+      bayonet: '<polygon points="62,33 80,33 83,29 87,33 91,29 95,33 99,29 103,33 128,34 152,44 132,53 62,55" fill="' + k.blade + st + '<polygon points="64,49 130,50 146,45 130,52 64,53" fill="' + k.edge + '"/>',
+      dagger: '<path d="M62 34 Q110 32 150 44 Q110 56 62 54 Z" fill="' + k.blade + st + '<rect x="64" y="43" width="80" height="2" fill="' + k.edge + '"/>',
+      butterfly: '<polygon points="62,38 124,38 142,44 128,50 62,50" fill="' + k.blade + st + '<polygon points="64,46 124,46 136,45 128,48 64,48" fill="' + k.edge + '"/>',
+      karambit: '<path d="M62 36 Q118 26 128 70 Q108 46 62 52 Z" fill="' + k.blade + st + '<path d="M126 66 Q108 46 64 50 L64 48 Q110 42 126 62 Z" fill="' + k.edge + '"/>',
+      machete: '<polygon points="62,35 140,31 158,40 152,56 62,53" fill="' + k.blade + st + '<polygon points="64,49 150,52 156,44 152,55 64,53" fill="' + k.edge + '"/>'
+    }[kd] || '';
+    const hilt = kd === 'dagger' ? R(55, 22, 7, 44, k.guard) + R(20, 38, 35, 12, k.handle, 3) + '<circle cx="18" cy="44" r="7" fill="' + k.guard + '" stroke="' + OL + '" stroke-width="1.6"/>'
+      : kd === 'butterfly' ? R(14, 36, 46, 8, k.handle, 2) + R(14, 44, 46, 8, k.handle, 2) + R(22, 39, 6, 3, '#0a0d16') + R(36, 39, 6, 3, '#0a0d16') + R(22, 46, 6, 3, '#0a0d16') + R(36, 46, 6, 3, '#0a0d16') + R(56, 40, 6, 8, k.guard)
+      : kd === 'karambit' ? R(56, 34, 6, 20, k.guard) + R(26, 36, 30, 16, k.handle, 3) + '<circle cx="18" cy="46" r="9" fill="none" stroke="' + k.guard + '" stroke-width="4"/>'
+      : kd === 'machete' ? R(18, 37, 44, 16, k.handle, 3) + '<circle cx="30" cy="45" r="2" fill="#d6a64a"/><circle cx="42" cy="45" r="2" fill="#d6a64a"/><circle cx="54" cy="45" r="2" fill="#d6a64a"/>'
+      : R(53, 29, 10, 30, k.guard) + R(18, 36, 36, 16, k.handle, 3) + R(26, 38, 3, 12, k.guard) + R(38, 38, 3, 12, k.guard);
+    return '<svg viewBox="0 0 170 84" aria-hidden="true"' + (k.fx ? ' style="filter:drop-shadow(0 0 5px ' + k.fx.col + ')"' : '') + '><g transform="rotate(-24 85 44)">' + blade + hilt + '</g></svg>';
   }
   function bannerSvg(b) {
     const id = 'bg' + b.id;

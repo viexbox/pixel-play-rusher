@@ -23,6 +23,8 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 ## Hecho recientemente
 - Antitrampas: ping medido por el servidor; disparos fuera de la mira contados (`AIM_CHECK=1` los descarta).
 - SEO (meta, Open Graph, robots, sitemap), PayPal + Discord, armas detalladas por código (`GUN_BUILDERS`), mascotas nuevas, trajes (`S.OUTFITS`, migración 007), mapas **Pueblo Duna** y **Villa Piscina**, calidad gráfica alta (`cfg.hq`).
+- Salas: `findRoom` une a un jugador con una sala del mismo modo aunque haya elegido otro mapa, si no hay nadie en el suyo.
+- Cuchillos de tienda (`KNIFE_SKINS` con `kind`, `px` y `fx`): mariposa, karambit, bayoneta, daga, machete; `knifeMesh()` en client.js (perfiles extruidos), luces animadas en `tickKnives()`, inspección con F, compra en `/api/bp/knife-buy`, los demás ven tu cuchillo (`equippedLook().knife`).
 
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).
