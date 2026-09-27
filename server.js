@@ -596,6 +596,17 @@ function findRoom(map, mode, isRanked, tier) {
     if (isRanked && r.players.size && d > r.tierSpan()) continue;
     if (!best || d < bestD - 1e-9 || (Math.abs(d - bestD) < 1e-9 && r.humanCount() > best.humanCount())) { best = r; bestD = d; }
   }
+  /* [SALAS] Con varios mapas, si en el elegido no hay nadie (ni sala), antes de abrir una sala vacía se busca una del MISMO modo con gente en
+     otro mapa: así, con pocos jugadores conectados, no se quedan repartidos esperando solos. El mapa se sigue cambiando votando al acabar la ronda. */
+  if (!best || best.humanCount() === 0) {
+    let other = null;
+    for (const r of rooms.values()) {
+      if (r.map === map || r.mode !== mode || r.ranked !== isRanked || r.humanCount() === 0 || r.humanCount() >= max) continue;
+      if (isRanked && Math.abs(r.tierAvg() - tier) > r.tierSpan()) continue;
+      if (!other || r.humanCount() > other.humanCount()) other = r;
+    }
+    if (other) return other;
+  }
   return best || new Room(map, mode, isRanked);
 }
 
@@ -893,6 +904,7 @@ function onMessage(ws, m, now) {
       p.forceTeam = pc.go.team; joinedRoom = r;
     } else joinedRoom = findRoom(map, mode, wantRanked, S.leagueIdx(p.mmr));
     joinedRoom.add(p);
+    if (joinedRoom.map !== map) p.send(JSON.stringify({ t: 'notice', kind: 'sys', m: 'Te hemos unido a una partida en ' + S.MAPS[joinedRoom.map].name + ' para que no esperes solo. Al acabar la ronda se vota el siguiente mapa.' }));   // [SALAS]
     if (acct && bp && bp.equippedLook) bp.equippedLook(acct.id).then(sk => { if (!sk || !Object.keys(sk).length || !p.room) return; p.sk = sk; p.room.broadcast({ t: 'look', id: p.id, sk }); }).catch(() => {});   // [SKINS VISIBLES] las skins las decide el inventario, no el cliente
     if (acct && bp && bp.equippedOutfit) bp.equippedOutfit(acct.id).then(of => { if (!of || !p.room) return; p.outfit = of; p.room.broadcast({ t: 'outfit', id: p.id, of }); }).catch(() => {});   // [TRAJES] el traje lo decide el inventario de la cuenta, no el cliente
     if (acct && bp && bp.equippedPet) bp.equippedPet(acct.id).then(pet => { if (!pet || !p.room) return; p.pet = pet; p.room.broadcast({ t: 'pet', id: p.id, pt: pet }); }).catch(() => {});   // [NUEVO] mascota: la decide el inventario de la cuenta, no el cliente
