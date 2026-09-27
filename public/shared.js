@@ -237,6 +237,128 @@ const MAPS = [
       // pasaje norte y patio norte
       crate(-19, -42, 2, 2); crate(-15.6, -45, 2, 2); cont(-17, -36, true, BL); cont(13, -45, false, OR); crate(13, -38, 2, 2); crate(20, -30, 2, 2); crate(6, -30, 2, 2); bar(-4, -28, true); bar(24, -26, true);
     }
+  },
+  /* ================= [MAPAS 2] PUEBLO DUNA · pueblo del desierto =================
+     88 × 88 m, simétrico de oeste (ROJO) a este (AZUL). Tres carriles: el callejón norte con un balcón en alto en el centro,
+     la plaza del pozo en medio y el mercado con toldos al sur. Filas de casas separan los carriles, con arcos para cruzar. */
+  {
+    name: 'Pueblo Duna', half: 44,
+    desc: 'Pueblo del desierto: plaza del pozo, callejón con balcón en alto y mercado de toldos. Cuidado con las gallinas.',
+    sky: ['#3b8fe0', '#ffe2b0'], fog: '#f3d9a6', floor: ['#e8c890', '#d9b67a'], out: '#d9b67a', pal: ['#e3c28a', '#c98b52', '#b3542f', '#3f9fd6', '#ffd23f'],
+    look: { floor: 'sandfloor', outFloor: 'sandfloor', wall: 'sand', block: 'sand', crate: 'crate', plat: 'sand', awning: 'awning', sun: '#ffe7b8', decor: 'duna', wallH: 7 },
+    spawns: {
+      1: [[-40, -10], [-41, -6], [-40, -2], [-41, 2], [-40, 6], [-41, 10], [-38, 0]],
+      0: [[40, -10], [41, -6], [40, -2], [41, 2], [40, 6], [41, 10], [38, 0]]
+    },
+    zones: [{ n: 'Well Plaza', x: 0, z: -6, y: 0 }, { n: 'Balcony', x: 0, z: -28, y: 2.4 }, { n: 'Market', x: 0, z: 30, y: 0 }],
+    areas: [
+      { n: 'Balcony', x0: -6, x1: 6, z0: -32, z1: -24, y0: 1.8, y1: 6 },
+      { n: 'Spawn Red', x0: -44, x1: -32, z0: -14, z1: 14, y0: -1, y1: 3 }, { n: 'Spawn Blue', x0: 32, x1: 44, z0: -14, z1: 14, y0: -1, y1: 3 },
+      { n: 'North Alley', x0: -44, x1: 44, z0: -32, z1: -20, y0: -1, y1: 4 }, { n: 'Market', x0: -44, x1: 44, z0: 20, z1: 36, y0: -1, y1: 4 },
+      { n: 'Well Plaza', x0: -32, x1: 32, z0: -12, z1: 12, y0: -1, y1: 4 }
+    ],
+    build(b) {
+      const SA = '#e3c28a', SD = '#c9a26a', ST = '#b8a88a', WD = '#a86a38', BR = '#c98b52', RF = '#b3542f';
+      const P = (x0, x1, z0, z1, y0, y1, c, t) => b.box(Math.min(x0, x1), Math.max(x0, x1), z0, z1, y0, y1, c, t);
+      const crate = (x, z, s = 2, h = 2, y = 0) => P(x - s / 2, x + s / 2, z - s / 2, z + s / 2, y, y + h, WD, 'crate');
+      const barrel = (x, z) => P(x - 0.45, x + 0.45, z - 0.45, z + 0.45, 0, 1.2, '#7a4a25', 'wood');
+      b.perimeter(44, 7, SD);
+      for (const sx of [-1, 1]) {
+        const X = (a, c) => [sx * a, sx * c];   // x mirado desde el centro hacia cada base
+        /* casas junto a la base */
+        P(...X(28, 34), -30, -16, 0, 4.5, SA, 'sand'); P(...X(27.6, 34.4), -30.4, -15.6, 4.5, 4.9, RF, 'roof');
+        P(...X(28, 34), 16, 30, 0, 4.5, SA, 'sand'); P(...X(27.6, 34.4), 15.6, 30.4, 4.5, 4.9, RF, 'roof');
+        /* fila norte (entre callejón y plaza) con un arco para cruzar */
+        P(...X(6, 14), -20, -12, 0, 4, SA, 'sand'); P(...X(17, 24), -20, -12, 0, 4, SA, 'sand'); P(...X(14, 17), -20, -12, 3, 4, SD, 'brick');
+        /* fila sur (entre plaza y mercado) con arco */
+        P(...X(6, 10), 12, 20, 0, 4, SA, 'sand'); P(...X(13, 24), 12, 20, 0, 4, SA, 'sand'); P(...X(10, 13), 12, 20, 3, 4, SD, 'brick');
+        /* casas del fondo norte y sur (el muro del pueblo) */
+        P(...X(8, 26), -44, -32, 0, 5, SA, 'sand'); P(...X(4, 28), 36, 44, 0, 5, SA, 'sand');
+        /* coberturas en la base y en la plaza */
+        crate(sx * 38, -6); crate(sx * 38, 6); crate(sx * 36.5, 0, 1.6, 1.2); barrel(sx * 35, -11); barrel(sx * 35, 11);
+        P(...X(18, 22), -3, -2.4, 0, 1.1, ST, 'stone'); P(...X(18, 22), 2.4, 3, 0, 1.1, ST, 'stone');   // muretes de piedra
+        crate(sx * 10, -7, 1.8, 1.8); crate(sx * 10, 7, 1.8, 1.8); barrel(sx * 26, -8); barrel(sx * 26, 8);
+        /* callejón norte */
+        crate(sx * 18, -26); crate(sx * 18, -23.9, 1.6, 1.2); barrel(sx * 26, -28); barrel(sx * 12, -30); crate(sx * 30, -24, 1.6, 1.6);
+        /* mercado: tres puestos por lado (postes, mostrador y toldo) */
+        [10, 18, 26].forEach((a, k) => {
+          const x = sx * a, z = 30, cols = ['#e04848', '#3f9fd6', '#f2b233'];
+          P(x - 1.5, x - 1.25, z - 1.2, z - 0.95, 0, 2.6, WD, 'wood'); P(x + 1.25, x + 1.5, z - 1.2, z - 0.95, 0, 2.6, WD, 'wood');
+          P(x - 1.5, x - 1.25, z + 0.95, z + 1.2, 0, 2.6, WD, 'wood'); P(x + 1.25, x + 1.5, z + 0.95, z + 1.2, 0, 2.6, WD, 'wood');
+          P(x - 1.3, x + 1.3, z - 0.5, z + 0.5, 0, 1.1, BR, 'wood');
+          P(x - 1.8, x + 1.8, z - 1.6, z + 1.6, 2.6, 2.85, cols[k], 'awning');
+        });
+        crate(sx * 32, 24, 1.6, 1.6); barrel(sx * 4, 26);
+      }
+      /* balcón en alto en el centro del callejón norte, con escaleras a los dos lados y parapeto */
+      P(-6, 6, -32, -24, 0, 2.4, SD, 'brick');
+      b.run('E', -12, -28, 3, 6, 0, 0.4, ST, 'stone'); b.run('W', 12, -28, 3, 6, 0, 0.4, ST, 'stone');
+      P(-6, 6, -32, -31.5, 2.4, 3.3, SA, 'sand'); P(-6, -3, -24.5, -24, 2.4, 3.3, SA, 'sand'); P(3, 6, -24.5, -24, 2.4, 3.3, SA, 'sand');
+      /* pozo de la plaza: brocal de piedra, cuatro postes y tejadillo */
+      P(-1.6, 1.6, -1.6, 1.6, 0, 1.0, ST, 'stone');
+      for (const [x, z] of [[-1.5, -1.5], [1.5, -1.5], [-1.5, 1.5], [1.5, 1.5]]) P(x - 0.15, x + 0.15, z - 0.15, z + 0.15, 1.0, 2.8, WD, 'wood');
+      P(-2, 2, -2, 2, 2.8, 3.1, RF, 'roof');
+      /* minarete al fondo del mercado */
+      P(-3, 3, 37, 43, 0, 11, SA, 'sand'); P(-3.4, 3.4, 36.6, 43.4, 11, 11.6, RF, 'roof');
+    }
+  },
+  /* ================= [MAPAS 2] VILLA PISCINA =================
+     80 × 80 m, simétrico de oeste (ROJO) a este (AZUL). Piscina en el centro (se puede entrar: el agua llega por las rodillas),
+     villa al norte con una gran terraza en alto a la que se sube por dos escaleras, cabañas a los lados y jardín con setos y bar al sur. */
+  {
+    name: 'Villa Piscina', half: 40,
+    desc: 'Villa de verano: piscina en el centro, terraza en alto, cabañas y jardín con bar. Se puede entrar en la piscina.',
+    sky: ['#2f9dff', '#d6f0ff'], fog: '#d6f0ff', floor: ['#efe3cf', '#e2d4bb'], out: '#5fcf5a', pal: ['#f5efe3', '#3fb8e6', '#ff7a59', '#5fcf5a', '#ffd23f'],
+    look: { floor: 'tile', outFloor: 'grass', wall: 'concrete', block: 'concrete', crate: 'crate', plat: 'tile', awning: 'awning', sun: '#fff4d6', decor: 'villa', wallH: 6, water: { x0: -14, x1: 14, z0: -7, z1: 7, y: 0.38 } },
+    spawns: {
+      1: [[-36, -8], [-37, -4], [-36, 0], [-37, 4], [-36, 8], [-34, -2], [-34, 2]],
+      0: [[36, -8], [37, -4], [36, 0], [37, 4], [36, 8], [34, -2], [34, 2]]
+    },
+    zones: [{ n: 'Pool', x: 0, z: 0, y: 0 }, { n: 'Terrace', x: 0, z: -29, y: 3.6 }, { n: 'Garden', x: 0, z: 22, y: 0 }],
+    areas: [
+      { n: 'Terrace', x0: -24, x1: 24, z0: -36, z1: -22, y0: 3, y1: 7 },
+      { n: 'Spawn Red', x0: -40, x1: -32, z0: -12, z1: 12, y0: -1, y1: 3 }, { n: 'Spawn Blue', x0: 32, x1: 40, z0: -12, z1: 12, y0: -1, y1: 3 },
+      { n: 'Pool', x0: -15, x1: 15, z0: -8, z1: 8, y0: -1, y1: 3 }, { n: 'Cabana', x0: -31, x1: -23, z0: -6, z1: 6, y0: -1, y1: 3 }, { n: 'Cabana', x0: 23, x1: 31, z0: -6, z1: 6, y0: -1, y1: 3 },
+      { n: 'Garden', x0: -40, x1: 40, z0: 16, z1: 40, y0: -1, y1: 4 }, { n: 'Pool Deck', x0: -32, x1: 32, z0: -22, z1: 16, y0: -1, y1: 3 }
+    ],
+    build(b) {
+      const WH = '#f5efe3', CR = '#e8dcc6', RD = '#ff7a59', HG = '#3f9f47', WD = '#b07a45', BL = '#3fb8e6', TL = '#d8e8ee';
+      const P = (x0, x1, z0, z1, y0, y1, c, t) => b.box(Math.min(x0, x1), Math.max(x0, x1), z0, z1, y0, y1, c, t);
+      b.perimeter(40, 6, WH);
+      /* piscina: bordillo bajo (se pasa por encima) y trampolín al oeste; el agua la dibuja el navegador */
+      P(-14.6, 14.6, -7.6, -7, 0, 0.42, TL, 'tile'); P(-14.6, 14.6, 7, 7.6, 0, 0.42, TL, 'tile');
+      P(-14.6, -14, -7, 7, 0, 0.42, TL, 'tile'); P(14, 14.6, -7, 7, 0, 0.42, TL, 'tile');
+      P(-17, -13.2, -0.6, 0.6, 0.9, 1.05, BL, 'wood'); P(-17, -16, -0.6, 0.6, 0, 0.9, WH, 'concrete');   // trampolín
+      /* villa: planta baja maciza, terraza en alto con parapeto y piso superior */
+      P(-24, 24, -40, -22, 0, 3.6, WH, 'concrete');
+      P(-24, -14, -22.5, -22, 3.6, 4.5, WH, 'concrete'); P(-6, 6, -22.5, -22, 3.6, 4.5, WH, 'concrete'); P(14, 24, -22.5, -22, 3.6, 4.5, WH, 'concrete');
+      P(-10, 10, -40, -33, 3.6, 7.4, CR, 'concrete'); P(-10.4, 10.4, -40.4, -32.6, 7.4, 7.8, RD, 'roof');
+      for (const x of [-7, 0, 7]) P(x - 1.2, x + 1.2, -32.7, -32.5, 4.6, 6.4, '#8fd8ff', 'glass');
+      b.run('N', -13, -10, 4, 9, 0, 0.4, WH, 'concrete'); b.run('N', -13, 10, 4, 9, 0, 0.4, WH, 'concrete');   // escaleras a la terraza, en los huecos del parapeto
+      for (const sx of [-1, 1]) {
+        const X = (a, c) => [sx * a, sx * c];
+        /* cabaña de la piscina a cada lado, con puerta hacia la piscina y otra hacia la base */
+        P(...X(23, 31), -6, -5.6, 0, 3, WD, 'wood'); P(...X(23, 31), 5.6, 6, 0, 3, WD, 'wood');
+        P(...X(30.6, 31), -5.6, -1.2, 0, 3, WD, 'wood'); P(...X(30.6, 31), 1.2, 5.6, 0, 3, WD, 'wood'); P(...X(30.6, 31), -1.2, 1.2, 2.3, 3, WD, 'wood');
+        P(...X(23, 23.4), -5.6, -1.2, 0, 3, WD, 'wood'); P(...X(23, 23.4), 1.2, 5.6, 0, 3, WD, 'wood'); P(...X(23, 23.4), -1.2, 1.2, 2.3, 3, WD, 'wood');
+        P(...X(22.6, 31.4), -6.4, 6.4, 3, 3.3, RD, 'roof');
+        P(...X(26, 28), -2, 2, 0, 1.0, CR, 'wood');   // mesa dentro
+        /* hamacas junto a la piscina (bajas: cobertura agachado) y macetones */
+        for (const z of [-11, 11]) { P(...X(4, 6), z - 1, z + 1, 0, 0.5, '#ffffff', 'wood'); P(...X(9, 11), z - 1, z + 1, 0, 0.5, '#ffffff', 'wood'); }
+        for (const z of [-16, 16]) P(...X(17, 19), z - 1, z + 1, 0, 1.3, '#c98b52', 'concrete');
+        /* jardín: setos en L y bancos */
+        P(...X(6, 16), 22, 23.2, 0, 1.6, HG, 'leaf'); P(...X(14.8, 16), 23.2, 30, 0, 1.6, HG, 'leaf');
+        P(...X(24, 34), 26, 27.2, 0, 1.6, HG, 'leaf'); P(...X(24, 25.2), 27.2, 35, 0, 1.6, HG, 'leaf');
+        P(...X(30, 36), -18, -17, 0, 1.6, HG, 'leaf'); P(...X(30, 36), 17, 18, 0, 1.6, HG, 'leaf');
+        P(...X(8, 11), 34, 35, 0, 0.6, WD, 'wood');
+        /* cobertura en la base */
+        P(...X(33, 35), -12.5, -10.5, 0, 1.2, CR, 'concrete'); P(...X(33, 35), 10.5, 12.5, 0, 1.2, CR, 'concrete');
+      }
+      /* bar del jardín: barra, taburetes y tejado de paja */
+      P(-4, 4, 28, 29.2, 0, 1.2, WD, 'wood'); P(-4, -2.8, 29.2, 33, 0, 1.2, WD, 'wood'); P(2.8, 4, 29.2, 33, 0, 1.2, WD, 'wood');
+      for (const [x, z] of [[-4, 28], [4, 28], [-4, 33], [4, 33]]) P(x - 0.2, x + 0.2, z - 0.2, z + 0.2, 1.2, 3.2, WD, 'wood');
+      P(-5, 5, 27, 34, 3.2, 3.5, '#d9b35a', 'roof');
+    }
   }
 ];
 /* Colisiones */

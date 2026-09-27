@@ -80,10 +80,10 @@ async function approach(bot, tgt) { for (let r = 6; r <= 12; r += 3) for (let k 
     ok(A.has('end', e => Array.isArray(e.maps) && e.maps.length === S.MAPS.length && e.cur === 0), 'el mensaje de fin de ronda trae la lista de mapas para votar');
 
     /* ---------- Votación de mapa ---------- */
-    A.send({ t: 'vote', m: 0 }); B.send({ t: 'vote', m: 0 });   // hay un solo mapa: se vota ese
-    ok(await until(() => A.has('votes', v => v.v.length === 1 && v.v[0] === 2)), 'los votos llegan en directo a todos (2 votos para el único mapa)');
-    A.send({ t: 'vote', m: 99 }); A.send({ t: 'vote', m: 1 }); await sleep(100); ok(!A.has('votes', v => v.v.length !== S.MAPS.length), 'un voto no válido (99, o el mapa 1 que ya no existe) se ignora');
-    ok(await until(() => A.msgs.filter(x => x.t === 'round').length >= 1 && B.msgs.filter(x => x.t === 'round').length >= 1, 8000) && !A.has('map') && !B.has('map'), 'al acabar el descanso empieza la ronda en el mismo mapa (con un solo mapa la sala no cambia de mapa)');
+    A.send({ t: 'vote', m: 0 }); B.send({ t: 'vote', m: 0 });   // los dos votan seguir en Nexus Outpost
+    ok(await until(() => A.has('votes', v => v.v.length === S.MAPS.length && v.v[0] === 2)), 'los votos llegan en directo a todos (2 votos para Nexus Outpost)');
+    const nVotes = A.msgs.filter(x => x.t === 'votes').length; A.send({ t: 'vote', m: 99 }); A.send({ t: 'vote', m: -1 }); await sleep(150); ok(A.msgs.filter(x => x.t === 'votes').length === nVotes && !A.has('votes', v => v.v.length !== S.MAPS.length), 'un voto no válido (un mapa que no existe) se ignora');
+    ok(await until(() => A.msgs.filter(x => x.t === 'round').length >= 1 && B.msgs.filter(x => x.t === 'round').length >= 1, 8000) && !A.has('map') && !B.has('map'), 'al acabar el descanso empieza la ronda en el mapa más votado (el mismo: la sala no cambia de mapa)');
     ok((await adm('GET', '/overview')).j.rooms[0].map === 0, 'y el servidor confirma la sala en Nexus Outpost');
 
     /* ---------- Colores y rangos ---------- */

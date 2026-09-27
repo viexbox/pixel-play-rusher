@@ -29,7 +29,7 @@ const store = {
 
 const cfg = Object.assign({ name: '', cls: 0, map: 0, diff: 1, wantTeam: null, sens: 1, fov: 90, vol: 0.6, shadows: true, wheelSwap: true, shake: 100, recoilCam: 100, fovSpeed: 8, hudScale: 100, hudCompact: false, mode: 'duelo', ranked: false, look: { col: 0, skin: 0 }, infKey: '', rankClaimed: [] }, store.get(K.cfg, {}));
 cfg.look = { col: clamp((cfg.look && cfg.look.col) | 0, 0, 9), skin: clamp((cfg.look && cfg.look.skin) | 0, 0, 4) };
-cfg.cls = clamp(cfg.cls | 0, 0, window.VoltShared.WEAPONS.length - 1); if (!cfg.optics || typeof cfg.optics !== 'object') cfg.optics = {}; if (!Array.isArray(cfg.rankClaimed)) cfg.rankClaimed = []; cfg.infKey = String(cfg.infKey || '').slice(0, 40); cfg.map = clamp(cfg.map | 0, 0, window.VoltShared.MAPS.length - 1); cfg.diff = clamp(cfg.diff | 0, 0, 2);
+cfg.cls = clamp(cfg.cls | 0, 0, window.VoltShared.WEAPONS.length - 1); if (!cfg.optics || typeof cfg.optics !== 'object') cfg.optics = {}; if (!Array.isArray(cfg.rankClaimed)) cfg.rankClaimed = []; cfg.infKey = String(cfg.infKey || '').slice(0, 40); cfg.map = (cfg.map | 0) >= 0 && (cfg.map | 0) < window.VoltShared.MAPS.length ? cfg.map | 0 : 0;   // un mapa guardado que ya no existe vuelve al primero cfg.diff = clamp(cfg.diff | 0, 0, 2);
 if (!cfg.name) cfg.name = 'Jugador' + irand(100, 999);
 const saveCfg = () => store.set(K.cfg, cfg);
 
@@ -491,6 +491,37 @@ function decorate(L, m) {
       else { decoBox(x, 0, z, 1.3 + R(), 0.9 + R() * 0.6, 1.3 + R(), '#98a4bd'); }
     }
     for (let i = 0; i < 14; i++) { const a = R() * TAU, r = half - 3, x = Math.max(-half + 2, Math.min(half - 2, Math.cos(a) * r * 1.2)), z = Math.max(-half + 2, Math.min(half - 2, Math.sin(a) * r * 1.2)); if (free(x, z, 1.3)) { decoBox(x, 0, z, 1.9, 1.3, 1.9, '#1f9d55'); decoBox(x, 1.3, z, 1.3, 0.6, 1.3, '#39d96a'); } }
+  } else if (L.decor === 'duna') {   // [MAPAS 2] pueblo del desierto: almenas, palmeras, ventanas, alfombras, farolillos, ropa tendida y cerámica
+    wallTop('#e3c28a', 4);
+    const palm = (x, z, s) => { for (let k = 0; k < 5; k++) decoBox(x + Math.sin(k * 0.7) * 0.18 * s, k * 1.1 * s, z, 0.5 * s, 1.1 * s, 0.5 * s, k % 2 ? '#8a5a34' : '#7a4f2d', false, true);
+      const y = 5.5 * s; decoBox(x, y, z, 0.8 * s, 0.6 * s, 0.8 * s, '#5a3a1e', false, true); for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { decoBox(x + dx * 1.3 * s, y + 0.2 * s, z + dz * 1.3 * s, dx ? 2.6 * s : 0.7 * s, 0.14 * s, dz ? 2.6 * s : 0.7 * s, '#3faa3a', false, true); decoBox(x + dx * 2.5 * s, y - 0.3 * s, z + dz * 2.5 * s, dx ? 0.9 * s : 0.6 * s, 0.4 * s, dz ? 0.9 * s : 0.6 * s, '#2f8f2f', false, true); } };
+    [[-41, -41], [41, -41], [-41, 41], [41, 41], [-31, 33], [31, 33], [-35, -33], [35, -33], [-16, 8.5], [16, -8.5]].forEach(([x, z]) => palm(x, z, 0.9 + R() * 0.3));
+    for (let i = 0; i < 26; i++) { const t = (R() - 0.5) * (half * 2 - 6), e = (half - 2 - R() * 2) * (R() < 0.5 ? 1 : -1), x = i % 2 ? t : e, z = i % 2 ? e : t; if (free(x, z, 0.9)) decoBox(x, 0, z, 0.6 + R() * 0.5, 0.35 + R() * 0.4, 0.6 + R() * 0.5, R() < 0.5 ? '#c98b52' : '#d9a066'); }   // piedras y dunas pequeñas junto al muro
+    const win = (x, y, z, alongX) => { decoBox(x, y, z, alongX ? 1.1 : 0.08, 1.2, alongX ? 0.08 : 1.1, '#3a2a1e', false, true); decoBox(x, y - 0.12, z, alongX ? 1.4 : 0.14, 0.14, alongX ? 0.14 : 1.4, '#c9a26a', false, true); };
+    for (const sx of [-1, 1]) {
+      for (const a of [8, 11, 20, 23]) win(sx * a, 1.8, -11.95, true);   // fachadas de la plaza
+      for (const a of [7, 17, 21]) win(sx * a, 1.8, 11.95, true);
+      for (const a of [12, 20]) win(sx * a, 2.2, -31.95, true);
+      decoBox(sx * 19, 0.6, -11.9, 2.2, 2.6, 0.06, ['#b3542f', '#3f7fbf'][(sx + 1) / 2], false, true);   // alfombras colgadas
+      decoBox(sx * 31, 0, -15.55, 1.4, 2.3, 0.1, '#5a3a1e', false, true); decoBox(sx * 31, 0, 15.55, 1.4, 2.3, 0.1, '#5a3a1e', false, true);   // puertas
+      for (const z of [-24, 24]) { decoBox(sx * 3.8, 0, z, 0.5, 0.7, 0.5, '#b86a3a'); decoBox(sx * 3.8, 0.7, z, 0.34, 0.22, 0.34, '#9a5226'); }   // tinajas
+    }
+    for (const z of [-22, 23]) { decoBox(0, 3.9, z, 44, 0.04, 0.04, '#5a3a1e', false, true); for (let x = -20; x <= 20; x += 2.5) decoBox(x, 3.35, z, 0.9, 0.55, 0.05, ['#ff4d6d', '#ffd23f', '#3fb8e6', '#ffffff', '#8ae234'][Math.round((x + 20) / 2.5 + (z > 0 ? 2 : 0)) % 5], false, true); }   // ropa tendida
+    for (const [x, z] of [[-6, -12.2], [6, -12.2], [-6, 12.2], [6, 12.2], [0, 36.8], [-14, 36.2], [14, 36.2]]) { decoBox(x, 3.2, z, 0.06, 0.5, 0.06, '#3a2a1e', false, true); decoBox(x, 2.75, z, 0.4, 0.45, 0.4, '#ffb347', true); }   // farolillos
+  } else if (L.decor === 'villa') {   // [MAPAS 2] villa de verano: fondo de la piscina, sombrillas, palmeras, ventanas y guirnalda de luces
+    wallTop('#ffffff', 3);
+    const W = L.water; decoBox((W.x0 + W.x1) / 2, 0.005, (W.z0 + W.z1) / 2, W.x1 - W.x0, 0.02, W.z1 - W.z0, '#2fa7d9', true);
+    for (const z of [-3.5, 0, 3.5]) decoBox(0, 0.03, z, W.x1 - W.x0 - 3, 0.02, 0.35, '#1e6fa8', true);   // calles de la piscina
+    for (let x = W.x0 + 1; x <= W.x1 - 1; x += 1) { decoBox(x, 0.42, W.z0 - 0.3, 0.46, 0.012, 0.12, x % 2 ? '#2fa7d9' : '#ffffff', true); decoBox(x, 0.42, W.z1 + 0.3, 0.46, 0.012, 0.12, x % 2 ? '#2fa7d9' : '#ffffff', true); }   // gresite del borde
+    const palm = (x, z, s) => { for (let k = 0; k < 5; k++) decoBox(x + Math.sin(k * 0.7) * 0.18 * s, k * 1.1 * s, z, 0.5 * s, 1.1 * s, 0.5 * s, k % 2 ? '#8a5a34' : '#7a4f2d', false, true);
+      const y = 5.5 * s; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { decoBox(x + dx * 1.3 * s, y + 0.2 * s, z + dz * 1.3 * s, dx ? 2.6 * s : 0.7 * s, 0.14 * s, dz ? 2.6 * s : 0.7 * s, '#3faa3a', false, true); decoBox(x + dx * 2.5 * s, y - 0.3 * s, z + dz * 2.5 * s, dx ? 0.9 * s : 0.6 * s, 0.4 * s, dz ? 0.9 * s : 0.6 * s, '#2f8f2f', false, true); } };
+    [[-37, -37], [37, -37], [-37, 37], [37, 37], [-20, -10], [20, 10], [-20, 12], [20, -12]].forEach(([x, z]) => palm(x, z, 0.85 + R() * 0.3));
+    const umb = (x, z, c) => { decoBox(x, 0, z, 0.1, 2.4, 0.1, '#e9edf5', false, true); decoBox(x, 2.3, z, 2.6, 0.12, 2.6, c, false, true); decoBox(x, 2.42, z, 1.8, 0.12, 1.8, c, false, true); decoBox(x, 2.54, z, 0.9, 0.12, 0.9, '#ffffff', false, true); };
+    for (const sx of [-1, 1]) { umb(sx * 7.5, -11, '#ff7a59'); umb(sx * 7.5, 11, '#3fb8e6'); umb(sx * 11, 30.5, '#ffd23f'); }
+    for (const x of [-18, -12, 12, 18]) { decoBox(x, 0.8, -21.95, 1.8, 2, 0.08, '#8fd8ff', false, true); decoBox(x, 0.7, -21.95, 2.1, 0.12, 0.12, '#ffffff', false, true); }   // ventanas de la planta baja
+    decoBox(0, 0, -21.95, 2.6, 2.8, 0.1, '#7a4a25', false, true);
+    for (let x = -23; x <= 23; x += 1) decoBox(x, 4.9 - Math.abs(Math.sin(x * 0.55)) * 0.3, -22.3, 0.16, 0.16, 0.16, ['#ffd23f', '#ff7a59', '#3fb8e6', '#8ae234'][(x + 23) % 4], true);   // guirnalda de luces
+    for (let i = 0; i < 40; i++) { const x = (R() - 0.5) * 70, z = 18 + R() * 20; if (free(x, z, 0.5)) decoBox(x, 0, z, 0.3, 0.35, 0.3, ['#ff4d6d', '#ffd23f', '#ffffff', '#b388ff'][i % 4]); }   // flores del jardín
   } else if (L.decor === 'nexus') {
     wallTop('#9aa3b2', 6);
     /* Alrededores (solo decoración, sin colisión): colinas verdes escalonadas, casas de píxeles y árboles fuera del muro, como en el croquis */
@@ -521,9 +552,143 @@ function buildMap(i) {
   const world = S.buildWorld(i, addMesh);
   colliders = world.colliders; waypoints = world.waypoints; curSpawns = world.spawns; curNav = world.nav;
   decorate(L, m);
-  flushBoxes();   // [NUEVO] fusiona los lotes: de ~300 mallas a ~10–15
+  flushBoxes();
+  buildLife(L, m);   // [MAPAS 2] gallinas, balón, agua, rodadoras y polvo (aparte del mapa fusionado)   // [NUEVO] fusiona los lotes: de ~300 mallas a ~10–15
 }
 
+/* ===== [MAPAS 2] Vida del mapa: lo que se mueve y reacciona. Va en un grupo aparte (no en el mapa fusionado) y es solo
+   decoración de cada navegador: no se sincroniza en el online (cada jugador ve sus propias gallinas y su propio balón). ===== */
+const mapLife = new THREE.Group(); scene.add(mapLife);
+const life = { chickens: [], ball: null, water: null, floats: [], weeds: [], dust: null, last: new Map(), splashT: 0 };
+function colorMesh(parts, basic) {   // varias cajas de colores en UNA malla (color por vértice)
+  const geos = parts.map(([w, h, d, x, y, z, c]) => { const g = new THREE.BoxGeometry(w, h, d).toNonIndexed(); g.translate(x, y, z); const col = new THREE.Color(c), n = g.attributes.position.count, a = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { const shade = g.attributes.normal.getY(i) > 0.5 ? 1 : g.attributes.normal.getY(i) < -0.5 ? 0.6 : 0.82; a[i * 3] = col.r * shade; a[i * 3 + 1] = col.g * shade; a[i * 3 + 2] = col.b * shade; }
+    g.setAttribute('color', new THREE.BufferAttribute(a, 3)); return g; });
+  let n = 0; geos.forEach(g => { n += g.attributes.position.count; });
+  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3); let o = 0;
+  for (const g of geos) { pos.set(g.attributes.position.array, o); nor.set(g.attributes.normal.array, o); col.set(g.attributes.color.array, o); o += g.attributes.position.array.length; }
+  const out = new THREE.BufferGeometry(); out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); out.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const m = new THREE.Mesh(out, basic ? new THREE.MeshBasicMaterial({ vertexColors: true }) : new THREE.MeshLambertMaterial({ vertexColors: true })); m.castShadow = true; return m;
+}
+function lifeTex(key, draw, n) { const c = document.createElement('canvas'); c.width = c.height = n || 64; draw(c.getContext('2d'), c.width); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; }
+function clearLife() {
+  mapLife.traverse(o => { if (o.userData.shared) return; if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } });
+  while (mapLife.children.length) mapLife.remove(mapLife.children[0]);
+  life.chickens = []; life.ball = null; life.water = null; life.floats = []; life.weeds = []; life.dust = null; life.last.clear();
+}
+const CHICKEN_PARTS = [[0.34, 0.3, 0.42, 0, 0.36, 0, '#f4f1ea'], [0.22, 0.24, 0.14, 0, 0.5, 0.22, '#f4f1ea'], [0.2, 0.24, 0.2, 0, 0.62, -0.2, '#f4f1ea'], [0.05, 0.09, 0.14, 0, 0.78, -0.2, '#e03a3a'],
+  [0.05, 0.07, 0.04, 0, 0.51, -0.31, '#e03a3a'], [0.09, 0.06, 0.1, 0, 0.61, -0.34, '#ffae33'], [0.21, 0.045, 0.045, 0, 0.66, -0.25, '#15151a'], [0.04, 0.2, 0.28, 0.19, 0.38, 0.02, '#dcd6c8'], [0.04, 0.2, 0.28, -0.19, 0.38, 0.02, '#dcd6c8'],
+  [0.045, 0.22, 0.045, 0.08, 0.1, 0, '#ffae33'], [0.045, 0.22, 0.045, -0.08, 0.1, 0, '#ffae33'], [0.1, 0.03, 0.14, 0.08, 0.01, -0.03, '#ffae33'], [0.1, 0.03, 0.14, -0.08, 0.01, -0.03, '#ffae33']];
+const CHICKEN = (() => { const m = colorMesh(CHICKEN_PARTS); return { geo: m.geometry, mat: m.material }; })();   // se crea una vez al cargar: todas las gallinas comparten geometría y material
+function lifeSpot(maxAbsX) {   // un punto de paso libre, lejos de las bases
+  for (let k = 0; k < 40; k++) { const w = waypoints[Math.floor(Math.random() * waypoints.length)]; if (w && Math.abs(w[0]) <= maxAbsX && !overlapAt(w[0], 0, w[1], 0.3, 0.6)) return w; }
+  return [0, 6];
+}
+function buildLife(L, m) {
+  clearLife();
+  if (L.decor === 'duna') {
+    for (let i = 0; i < 7; i++) { const mesh = new THREE.Mesh(CHICKEN.geo, CHICKEN.mat), sp = lifeSpot(28); mesh.castShadow = true; mesh.userData.shared = true; const c = { mesh, pos: new THREE.Vector3(sp[0], 0, sp[1]), yaw: Math.random() * TAU, tx: sp[0], tz: sp[1], state: 'peck', t: Math.random() * 2, alive: true, respawn: 0, hop: 0 }; mesh.position.copy(c.pos); mapLife.add(mesh); life.chickens.push(c); }
+    const ballTex = lifeTex('ball', (g, n) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, n, n); g.fillStyle = '#15151a'; for (const [x, y] of [[8, 12], [40, 12], [24, 36], [56, 40], [8, 52]]) { g.beginPath(); for (let k = 0; k < 5; k++) { const a = k / 5 * TAU - Math.PI / 2; g.lineTo(x + Math.cos(a) * 7, y + Math.sin(a) * 7); } g.fill(); } });
+    const bm = new THREE.Mesh(new THREE.SphereGeometry(0.33, 18, 12), new THREE.MeshLambertMaterial({ map: ballTex })); bm.castShadow = true; mapLife.add(bm);
+    life.ball = { mesh: bm, home: new THREE.Vector3(0, 0, 6), e: { pos: new THREE.Vector3(0, 0, 6), vel: new THREE.Vector3(), hw: 0.3, h: 0.6, onGround: true }, cd: 0 };
+    for (let i = 0; i < 3; i++) { const g = new THREE.Group(), mat1 = new THREE.MeshLambertMaterial({ color: '#a97a45' }); g.add(new THREE.Mesh(new THREE.IcosahedronGeometry(0.55, 0), mat1)); const inner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.4, 0), new THREE.MeshLambertMaterial({ color: '#7a5530' })); inner.rotation.set(0.6, 0.3, 0); g.add(inner); mapLife.add(g); life.weeds.push({ g, z: [-26, 4.5, 26][i], x: -m.half + i * 30, v: 2.4 + i * 0.7 }); }
+  }
+  if (L.decor === 'duna' || L.decor === 'villa') {   // motas de polvo o de polen que flotan con el viento
+    const n = 260, pos = new Float32Array(n * 3); for (let i = 0; i < n; i++) { pos[i * 3] = (Math.random() - 0.5) * m.half * 2; pos[i * 3 + 1] = 0.3 + Math.random() * 7; pos[i * 3 + 2] = (Math.random() - 0.5) * m.half * 2; }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: L.decor === 'duna' ? '#fff0cc' : '#ffffff', size: L.decor === 'duna' ? 0.09 : 0.06, transparent: true, opacity: 0.7, depthWrite: false }));
+    mapLife.add(pts); life.dust = { pts, half: m.half };
+  }
+  if (L.water) {
+    const W = L.water, rip = lifeTex('water', (g, n) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, n, n); g.strokeStyle = 'rgba(40,120,170,.35)'; g.lineWidth = 2; for (let i = 0; i < 9; i++) { g.beginPath(); const y = i * 7 + 3; for (let x = 0; x <= n; x += 4) g.lineTo(x, y + Math.sin(x * 0.2 + i) * 2.5); g.stroke(); } });
+    rip.repeat.set((W.x1 - W.x0) / 3, (W.z1 - W.z0) / 3);
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(W.x1 - W.x0, W.z1 - W.z0), new THREE.MeshLambertMaterial({ color: '#63d4ff', map: rip, transparent: true, opacity: 0.62, depthWrite: false }));
+    water.rotation.x = -Math.PI / 2; water.position.set((W.x0 + W.x1) / 2, W.y, (W.z0 + W.z1) / 2); water.renderOrder = 2; mapLife.add(water);
+    const glint = lifeTex('glint', (g, n) => { g.clearRect(0, 0, n, n); g.fillStyle = 'rgba(255,255,255,.8)'; for (let i = 0; i < 30; i++) g.fillRect((i * 37) % n, (i * 23) % n, 3 + (i % 3) * 2, 1); });
+    glint.repeat.set((W.x1 - W.x0) / 4, (W.z1 - W.z0) / 4);
+    const shine = new THREE.Mesh(new THREE.PlaneGeometry(W.x1 - W.x0, W.z1 - W.z0), new THREE.MeshBasicMaterial({ map: glint, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
+    shine.rotation.x = -Math.PI / 2; shine.position.set(water.position.x, W.y + 0.01, water.position.z); shine.renderOrder = 3; mapLife.add(shine);
+    life.water = { W, rip, glint };
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.16, 8, 16), new THREE.MeshLambertMaterial({ color: '#ff5a5a' })); ring.rotation.x = -Math.PI / 2; mapLife.add(ring);
+    const bb = new THREE.Mesh(new THREE.SphereGeometry(0.35, 14, 10), new THREE.MeshLambertMaterial({ map: lifeTex('bball', (g, n) => { ['#ff4d6d', '#ffffff', '#3fb8e6', '#ffd23f', '#ffffff', '#8ae234'].forEach((c, i) => { g.fillStyle = c; g.fillRect(i * n / 6, 0, n / 6 + 1, n); }); }) })); mapLife.add(bb);
+    life.floats = [{ m: ring, x: -6, z: 2, ph: 0, vx: 0.3, vz: 0.15, r: 0.12 }, { m: bb, x: 6, z: -2, ph: 1.7, vx: -0.25, vz: 0.2, r: 0.3 }];
+  }
+}
+function cluck(p) { if (!camera || camera.position.distanceTo(p) > 16) return; tone(1100, 700, 0.05, 'square', 0.025); tone(1000, 650, 0.06, 'square', 0.02, 0.09); }
+/* Un disparo (tuyo) que pasa por una gallina o por el balón: la gallina estalla en plumas y el balón sale despedido */
+function shootLife(o, d, maxT) {
+  for (const c of life.chickens) {
+    if (!c.alive) continue; const t = raySphere(o, d, { x: c.pos.x, y: c.pos.y + 0.42, z: c.pos.z }, 0.32);
+    if (t < maxT) { c.alive = false; c.mesh.visible = false; c.respawn = 18 + Math.random() * 10; burst(new THREE.Vector3(c.pos.x, c.pos.y + 0.45, c.pos.z), '#ffffff', 12, 3.2); burst(new THREE.Vector3(c.pos.x, c.pos.y + 0.45, c.pos.z), '#e03a3a', 3, 2); cluck(c.pos); return; }
+  }
+  const b = life.ball; if (b) { const t = raySphere(o, d, { x: b.e.pos.x, y: b.e.pos.y + 0.33, z: b.e.pos.z }, 0.34); if (t < maxT) { b.e.vel.x += d.x * 7; b.e.vel.z += d.z * 7; b.e.vel.y = Math.max(b.e.vel.y, 2.5); b.e.onGround = false; } }
+}
+const _lq = new THREE.Quaternion(), _lax = new THREE.Vector3();
+function animMap(dt) {
+  if (!mapLife.children.length) return;
+  dt = Math.min(dt, 0.05); const tt = performance.now() / 1000;
+  const alive = fighters.filter(f => f.alive && f.pos);
+  const velOf = f => { const l = life.last.get(f); const v = l ? { x: (f.pos.x - l.x) / Math.max(dt, 1e-3), z: (f.pos.z - l.z) / Math.max(dt, 1e-3) } : { x: 0, z: 0 }; return v; };
+  /* gallinas: pasean, picotean y huyen de quien se acerca */
+  for (const c of life.chickens) {
+    if (!c.alive) { c.respawn -= dt; if (c.respawn <= 0) { const sp = lifeSpot(28); c.pos.set(sp[0], 0, sp[1]); c.tx = sp[0]; c.tz = sp[1]; c.alive = true; c.mesh.visible = true; c.state = 'peck'; c.t = 1; } continue; }
+    let near = null, nd = 4.5; for (const f of alive) { const dd = Math.hypot(f.pos.x - c.pos.x, f.pos.z - c.pos.z); if (dd < nd && Math.abs(f.pos.y - c.pos.y) < 2) { nd = dd; near = f; } }
+    let spd = 0, dx = 0, dz = 0;
+    if (near) { if (c.state !== 'flee') { c.state = 'flee'; cluck(c.pos); } dx = c.pos.x - near.pos.x; dz = c.pos.z - near.pos.z; spd = 4.6; c.hop += dt * 16; }
+    else {
+      if (c.state === 'flee') { c.state = 'walk'; const sp = lifeSpot(28); c.tx = sp[0]; c.tz = sp[1]; }
+      c.t -= dt;
+      if (c.state === 'peck') { if (c.t <= 0) { c.state = 'walk'; const a = Math.random() * TAU, r = 2 + Math.random() * 5; c.tx = c.pos.x + Math.cos(a) * r; c.tz = c.pos.z + Math.sin(a) * r; c.t = 6; } }
+      else { dx = c.tx - c.pos.x; dz = c.tz - c.pos.z; spd = 1.2; c.hop += dt * 9; if (Math.hypot(dx, dz) < 0.3 || c.t <= 0) { c.state = 'peck'; c.t = 1 + Math.random() * 2.5; spd = 0; } }
+    }
+    if (spd) {
+      const l = Math.hypot(dx, dz) || 1, nx = c.pos.x + dx / l * spd * dt, nz = c.pos.z + dz / l * spd * dt;
+      if (Math.abs(nx) < mapHalf - 1 && Math.abs(nz) < mapHalf - 1 && !overlapAt(nx, c.pos.y, nz, 0.2, 0.5)) { c.pos.x = nx; c.pos.z = nz; } else { const a = Math.random() * TAU; c.tx = c.pos.x + Math.cos(a) * 4; c.tz = c.pos.z + Math.sin(a) * 4; c.t = 3; if (c.state === 'flee') c.pos.x += (Math.random() - 0.5) * 0.1; }
+      const want = Math.atan2(-dx, -dz); let dy = want - c.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); c.yaw += dy * Math.min(1, dt * 10);
+    }
+    c.mesh.position.set(c.pos.x, c.pos.y + (spd ? Math.abs(Math.sin(c.hop)) * (c.state === 'flee' ? 0.18 : 0.05) : 0), c.pos.z); c.mesh.rotation.y = c.yaw;
+    c.mesh.rotation.x = c.state === 'peck' ? Math.max(0, Math.sin(tt * 9 + c.pos.x)) * 0.5 : 0;
+  }
+  /* balón: se chuta al pasar por encima (lo empuja cualquiera: tú, los bots o los demás jugadores), rebota en las paredes y rueda */
+  const b = life.ball;
+  if (b) {
+    const e = b.e; b.cd -= dt;
+    for (const f of alive) {
+      const dx = e.pos.x - f.pos.x, dz = e.pos.z - f.pos.z, dd = Math.hypot(dx, dz);
+      if (dd < 0.72 && e.pos.y < f.pos.y + 1.2 && e.pos.y + 0.6 > f.pos.y - 0.2) {
+        const fv = f.vel && (f.isPlayer || !online) ? f.vel : velOf(f), v = Math.max(Math.hypot(fv.x, fv.z), 2.2), nx = dx / (dd || 1), nz = dz / (dd || 1);
+        e.pos.x = f.pos.x + nx * 0.73; e.pos.z = f.pos.z + nz * 0.73;
+        if (b.cd <= 0) { e.vel.x = nx * v * 1.4; e.vel.z = nz * v * 1.4; e.vel.y = 1.8 + v * 0.18; e.onGround = false; b.cd = 0.18; }
+      }
+    }
+    const pvx = e.vel.x, pvz = e.vel.z, pvy = e.vel.y;
+    S.moveEntity(colliders, e, dt);
+    if (e.vel.x === 0 && Math.abs(pvx) > 0.4) e.vel.x = -pvx * 0.6; if (e.vel.z === 0 && Math.abs(pvz) > 0.4) e.vel.z = -pvz * 0.6;
+    if (e.onGround) { if (pvy < -3) { e.vel.y = -pvy * 0.42; e.onGround = false; } else { const k = Math.exp(-1.3 * dt); e.vel.x *= k; e.vel.z *= k; } }
+    if (e.pos.y < -5 || Math.abs(e.pos.x) > mapHalf || Math.abs(e.pos.z) > mapHalf) { e.pos.copy(b.home); e.vel.set(0, 0, 0); }
+    const sp = Math.hypot(e.vel.x, e.vel.z); if (sp > 0.05) { _lax.set(e.vel.z, 0, -e.vel.x).normalize(); _lq.setFromAxisAngle(_lax, sp * dt / 0.33); b.mesh.quaternion.premultiply(_lq); }
+    b.mesh.position.set(e.pos.x, e.pos.y + 0.33, e.pos.z);
+  }
+  /* rodadoras empujadas por el viento */
+  for (const w of life.weeds) { w.x += w.v * dt; if (w.x > mapHalf + 3) w.x = -mapHalf - 3; w.g.position.set(w.x, 0.55 + Math.abs(Math.sin(tt * 3 + w.z)) * 0.45, w.z + Math.sin(tt * 0.7 + w.v) * 1.5); w.g.rotation.z -= w.v * dt / 0.55; w.g.rotation.y += dt * 0.3; }
+  /* polvo o polen a la deriva */
+  if (life.dust) { const a = life.dust.pts.geometry.attributes.position, h = life.dust.half; for (let i = 0; i < a.count; i++) { let x = a.getX(i) + dt * (0.9 + (i % 5) * 0.2), y = a.getY(i) + Math.sin(tt + i) * dt * 0.15; if (x > h) x = -h; a.setX(i, x); a.setY(i, y); } a.needsUpdate = true; }
+  /* agua: ondas y destellos que se mueven, flotadores que se mecen y salpicaduras al andar por la piscina */
+  if (life.water) {
+    const W = life.water.W; life.water.rip.offset.set(tt * 0.05, tt * 0.03); life.water.glint.offset.set(-tt * 0.04, tt * 0.06);
+    for (const f of life.floats) {
+      f.x += f.vx * dt; f.z += f.vz * dt; if (f.x < W.x0 + 1.2 || f.x > W.x1 - 1.2) f.vx = -f.vx; if (f.z < W.z0 + 1.2 || f.z > W.z1 - 1.2) f.vz = -f.vz;
+      for (const g of alive) { const dx = f.x - g.pos.x, dz = f.z - g.pos.z, dd = Math.hypot(dx, dz); if (dd < 0.9) { f.vx += dx / (dd || 1) * 2 * dt * 10; f.vz += dz / (dd || 1) * 2 * dt * 10; } }
+      f.vx *= Math.exp(-0.3 * dt); f.vz *= Math.exp(-0.3 * dt);
+      f.m.position.set(f.x, W.y + f.r * 0.6 + Math.sin(tt * 1.6 + f.ph) * 0.05, f.z); f.m.rotation.z = Math.sin(tt * 1.2 + f.ph) * 0.12;
+    }
+    life.splashT -= dt;
+    for (const f of alive) {
+      if (f.pos.x > W.x0 && f.pos.x < W.x1 && f.pos.z > W.z0 && f.pos.z < W.z1 && f.pos.y < W.y) { const v = velOf(f); if (Math.hypot(v.x, v.z) > 1.5 && Math.random() < dt * 14) burst(new THREE.Vector3(f.pos.x, W.y + 0.05, f.pos.z), '#c8f2ff', 2, 2.2); }
+    }
+  }
+  for (const f of alive) life.last.set(f, { x: f.pos.x, z: f.pos.z });
+}
 /* Física y rayos (compartidos con el servidor) */
 const overlapAt = (x, y, z, hw, h) => S.overlapAt(colliders, x, y, z, hw, h);
 const moveEntity = (e, dt) => S.moveEntity(colliders, e, dt);
@@ -1684,7 +1849,7 @@ function playerShoot() {
   for (let i = 0; i < w.pellets; i++) {
     const d = spreadDir(base, sp);
     dirs.push([r3(d.x), r3(d.y), r3(d.z)]);
-    const r = hitscan(origin, d, p, w.range);
+    const r = hitscan(origin, d, p, w.range); shootLife(origin, d, r.t);   // [MAPAS 2] gallinas y balón
     if (r.f) {
       let dm = (r.head && w.head) ? w.head : w.dmg * (r.head ? 2 : 1);
       if (w.fall) dm *= clamp(1 - (r.t - w.fall[0]) / (w.fall[1] - w.fall[0]), w.fall[2], 1);
@@ -3398,6 +3563,7 @@ function frame(now) {
   sky.position.copy(camera.position); cloudRoot.rotation.y += dt * 0.004;
   if (renderer) renderer.render(scene, camera);
   animPets(dt);   // [MASCOTAS]
+  animMap(dt);   // [MAPAS 2]
   animXmas(dt);   // [NAVIDAD]
   pulseNeon();   // [NEÓN]
   if (state === 'menu') renderPreview(dt);

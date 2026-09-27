@@ -419,7 +419,14 @@ Al morir aparece la tienda (`#shop` en `public/index.html`): 8 tarjetas con icon
 - **`S.SHOP`** (en `public/shared.js`): ocho armas ya existentes del juego con su precio; `S.shopStats(arma)` calcula DMG/RPM/RNG/ACC a partir de los números reales del arma. Añadir un arma a la tienda es una línea.
 - **Pruebas:** `test/shop.test.js` (27 comprobaciones): economía en el servidor real (dinero inicial, recompensa por baja, compras válidas e inválidas, reinicio por ronda) y la tienda en el cliente (8 tarjetas, botón deshabilitado sin dinero suficiente, sin atajo de teclado).
 
-## Nexus Outpost (mapa único)
+## Mapas: Nexus Outpost, Pueblo Duna y Villa Piscina
+
+- **Pueblo Duna** (88 × 88 m): pueblo del desierto con la plaza del pozo, el callejón norte con un balcón en alto y el mercado con toldos. Tiene gallinas que pasean y huyen (se pueden abatir y reaparecen), un balón que se chuta al pasar por encima y rebota, rodadoras y polvo en el aire.
+- **Villa Piscina** (80 × 80 m): piscina en el centro en la que se puede entrar (el agua llega por las rodillas y salpica al andar), trampolín, villa con terraza en alto, cabañas y jardín con setos y bar. Flotadores que se mecen en el agua.
+- Los dos son simétricos de oeste (ROJO) a este (AZUL) y tienen zonas para «Capturar zona», nombres de zona y navegación para los bots. Con varios mapas vuelve a aparecer la votación al terminar la ronda.
+- Gallinas, balón, agua y flotadores son decoración de cada navegador: en el online no se sincronizan (cada jugador ve los suyos).
+
+## Nexus Outpost
 
 Complejo táctico amurallado de 100 × 100 m con cuatro niveles (suelo, plaza a 1,8 m, cubierta central y azoteas a 3,6 m, tejados a 5,4 m) unidos por escaleras de peldaño 0,45 m (la física ya sube hasta 0,55 m: no hace falta saltar). Zonas: **Spawn Red** y **Spawn Blue** (cada equipo aparece en su base), **South Alley** y **Tunnel Passage**, **Main Plaza** con **Sniper Perch** y **Office Block**, **Central Courtyard** y **Lower Plaza** (cajas y contenedores), **Reactor Complex** (cubierta central con pasarela alta), **East Roof** (Helipad A), **Rooftop Network** (puentes), **Helipad B**, **West Tower Roof**, **Tech Hub**, **Armory** (con interior) y **Capture Point** (azotea con bandera).
 - **Rótulo «estás en…»:** bajo el reloj aparece el nombre de la zona donde estás (`S.areaAt`, definido por `areas` en el mapa).
