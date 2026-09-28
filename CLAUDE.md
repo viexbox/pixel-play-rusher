@@ -36,7 +36,7 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 
 - Miras estilo Krunker: visor negro con dos líneas finas (`#scope`, igual para francotirador, ACOG, Precisión y Centinela); punto rojo y holo = lente redonda con aro oscuro en HTML (`#optic .orf`) y el arma algo más baja (`adsSightY`). Antes: el punto rojo y la holográfica van en un grupo (`gun.userData.sight`) que se oculta al apuntar y queda la retícula `#optic`; la mira de hierro pone un punto blanco pequeño (`#optic[data-k="iron"]`); Precisión y Centinela (`look.scope` sin `optics`) usan la vista de visor ACOG (`scopeKind`). Test en `optics.test.js`. Enlace de Discord: `https://discord.gg/zwz5xzG9M`.
 
-- Mapas: solo **Castillo Real** (0, `decor: 'burg'`, con gallinas y balón en `mapLife`) y **Barrio Arcoíris** (1, `decor: 'town'`, texturas lisas `kblock`/`kfloor`), estilo Krunker con texturas pixeladas (`look.pixel`). Los viejos (Nexus, Duna, Villa) se quitaron; la clasificación se reinició (`LB_VERSION`). Miniaturas `public/maps/map0.jpg`/`map1.jpg` (512×288). Test general de mapas: `maps.test.js`.
+- Mapas: **Castillo Real** (0, `decor: 'burg'`, con gallinas y balón en `mapLife`), **Barrio Arcoíris** (1, `decor: 'town'`, texturas lisas `kblock`/`kfloor`) y **Puerto Industrial** (2, `decor: 'port'`, contenedores, nave, oficinas, grúa; mar fuera con la textura `sea`), estilo Krunker con texturas pixeladas (`look.pixel`). Los viejos (Nexus, Duna, Villa) se quitaron; la clasificación se reinició (`LB_VERSION`). Miniaturas `public/maps/mapN.jpg` (512×288). Los nombres de las zonas (`areas`, `zones`) van en español con su traducción en i18n.js. Test general de mapas: `maps.test.js`.
 
 - Modo **Desactivar bomba** (`bomba`): rondas sin reaparecer, plantar/desactivar manteniendo E (botón BOMBA en el móvil), puntos A/B por mapa (`bomb`), `S.BOMB` (+ variables `BOMB_*`), `bombStart/bombTick/bombEnd` en server.js, `drawBomb()` en modes.js. Tests `bomb.test.js` y `bomb-ui.test.js`.
 
@@ -45,6 +45,8 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 - Portales **CrazyGames/Poki**: `public/portal.js` (solo con `?portal=` o `PPR_PORTAL_NAME`): SDK, `gameplay()` desde el bucle `frame`, anuncio entre partidas (`portalBreak`) y con premio (ADS provider 'portal'), esconde Discord/Tienda/invitaciones (`html.portal`). Servidor: `portalOrigin()`, `PORTAL_ANCESTORS`, `CSP_PORTAL`, `portalAds` en `/api/status`. Paquete: `node scripts/build-portal.js poki|crazygames https://servidor` → `dist/`. Test `portal.test.js`.
 
 - CrazyGames: cuenta del portal = cuenta del servidor (`POST /api/auth/crazygames`, `cgLogin` en accounts.js, JWT RS256 con `CRAZYGAMES_PUBLIC_KEY`; `P.account()` en portal.js, `link()` y botón `#cgLinkBtn` «Guardar progreso» en src/main.js). Test en `portal.test.js`.
+
+- Revisión de modos: las barras de los modos, el aviso de espera y «Eliminado» se colocan bajo el marcador con `--mbb` (lo mide client.js con un ResizeObserver sobre `#matchbar`); sin tienda de armas en Carrera y Solo cuchillos (`#death.noshop`, y el servidor rechaza `buy` con `reason: 'mode'`).
 
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).
