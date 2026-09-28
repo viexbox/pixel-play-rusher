@@ -61,7 +61,7 @@ const BOT_COLORS = ['#ff4d6d', '#3a86ff', '#2ec4b6', '#ffbe0b', '#b388ff', '#ff7
 const { WALK, SPRINT, CROUCH, JUMP, GRAV, STEP, MATCH_TIME, KILL_LIMIT, RESPAWN } = S.CONST;
 /* Equipos: azul (0) y rojo (1). Al entrar se reparte al azar; no hay fuego amigo y gana el equipo con más bajas. */
 const TEAMS = [{ n: 'AZUL', c: '#2f7bff' }, { n: 'ROJO', c: '#ff3b48' }];
-const OFFLINE_TEAM_LIMIT = 60;   // [PARTIDAS] igual que online
+const OFFLINE_TEAM_LIMIT = 100;   // [PARTIDAS] igual que online (partidas de 8 min)
 let teamLimit = OFFLINE_TEAM_LIMIT;
 const tdot = t => '<i class="tdot t' + (t === 1 ? 1 : 0) + '"></i>';
 

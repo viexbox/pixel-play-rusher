@@ -45,8 +45,8 @@ const KILL_LIMIT = +process.env.KILL_LIMIT || S.CONST.KILL_LIMIT;
 const MAX_PER_ROOM = +process.env.MAX_PLAYERS_PER_ROOM || 10;
 const BREAK_SECS = +process.env.BREAK_SECS || 12;
 /* Equipos: azul (0) y rojo (1). La ronda acaba cuando un equipo suma estas bajas (o al acabar el tiempo: gana quien tenga más). */
-const TEAM_LIMIT = +process.env.TEAM_KILL_LIMIT || (process.env.KILL_LIMIT ? KILL_LIMIT : 60);   // [PARTIDAS] 40 → 60: con partidas de 5 min, que no terminen antes por bajas
-const KNIFE_LIMIT = +process.env.KNIFE_KILL_LIMIT || 40;   // [NUEVO] bajas para ganar en «Solo cuchillos»
+const TEAM_LIMIT = +process.env.TEAM_KILL_LIMIT || (process.env.KILL_LIMIT ? KILL_LIMIT : 100);   // [PARTIDAS] 40 → 60 → 100: con partidas de 8 min, que no terminen antes por bajas
+const KNIFE_LIMIT = +process.env.KNIFE_KILL_LIMIT || 60;   // [PARTIDAS] 40 → 60 con partidas de 8 min;   // [NUEVO] bajas para ganar en «Solo cuchillos»
 const ZONE_LIMIT = +process.env.ZONE_LIMIT || S.ZONE.LIMIT, ZONE_MOVE = +process.env.ZONE_MOVE_SECS || S.ZONE.MOVE_SECS;   // puntos para ganar en «Capturar zona» y cada cuánto cambia de sitio
 const BOMB = Object.assign({}, S.BOMB, { WIN: +process.env.BOMB_WIN || S.BOMB.WIN, ROUND: +process.env.BOMB_ROUND || S.BOMB.ROUND, FUSE: +process.env.BOMB_FUSE || S.BOMB.FUSE, PAUSE: +process.env.BOMB_PAUSE || S.BOMB.PAUSE });   // [BOMBA] se puede acortar para las pruebas
 const LADDER = S.GUN_LADDER.slice(0, +process.env.LADDER_LEVELS || S.GUN_LADDER.length);   // niveles de armas de la Carrera (acortable solo para pruebas)

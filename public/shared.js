@@ -4,7 +4,7 @@
 'use strict';
 const TAU = Math.PI * 2;
 /* [AJUSTE estilo Krunker] Más velocidad, salto más seco y gravedad mayor (menos tiempo en el aire). El servidor vigila la velocidad con MOVE.MAX_H (15,5 m/s): el bunny hop llega a ~11 m/s, el deslizamiento a ~12,4 y un slide hop a ~14,9. */
-const CONST = { WALK: 7.4, SPRINT: 8.8, CROUCH: 4.2, JUMP: 8.6, GRAV: 27, STEP: 0.55, MATCH_TIME: 300, KILL_LIMIT: 40, RESPAWN: 3, SHOP_START_CASH: 800, SHOP_KILL_CASH: 350 };   // [NUEVO] economía de la tienda de armas
+const CONST = { WALK: 7.4, SPRINT: 8.8, CROUCH: 4.2, JUMP: 8.6, GRAV: 27, STEP: 0.55, MATCH_TIME: 480, KILL_LIMIT: 40, RESPAWN: 3, SHOP_START_CASH: 800, SHOP_KILL_CASH: 350 };   // [NUEVO] economía de la tienda de armas
 
 const WEAPONS = [
   { id: 'asalto', name: 'Asalto', type: 'Fusil de asalto', desc: 'Equilibrado y fiable a cualquier distancia.', dmg: 20, interval: 0.1, mag: 30, reload: 1.7, spread: 0.011, pellets: 1, range: 130, kick: 0.006, fall: null, aimFov: 0.78, speed: 1, stats: [3, 4, 4], col: '#ff5a5f', size: [0.07, 0.1, 0.5], look: { mag: [0.05, 0.16, 0.08, -0.3], barrel: 0.5 }, optics: ['punto', 'hierro'] },
@@ -765,7 +765,7 @@ const MODES = {
   navidad:   { id: 'navidad',   name: 'Navidad',           short: 'NAVIDAD',  desc: 'Evento: caza duendes y recoge los regalos que sueltan. Gana el equipo con más regalos en 10 minutos.', guns: true, event: true }   // [NAVIDAD]
 };
 const GUN_LADDER = [8, 0, 9, 1, 7, 2, 10, 4, 6, 5, 3];   // armas por nivel (AK → … → Lince); tras la última viene el cuchillo (nivel 12)
-const ZONE = { R: 5.5, MOVE_SECS: 50, LIMIT: 160 };
+const ZONE = { R: 5.5, MOVE_SECS: 50, LIMIT: 250 };   // [PARTIDAS] 160 → 250 con partidas de 8 min
 /* [BOMBA] Desactivar bomba: rondas ganadas para vencer, duración de la ronda, mecha, segundos para plantar/desactivar, radio de cada
    punto de plantado (A/B, en el mapa: bomb), distancia para desactivar y pausa entre rondas */
 const BOMB = { WIN: 4, ROUND: 80, FUSE: 35, PLANT: 3, DEFUSE: 5, R: 3.5, DEF_R: 2.2, PAUSE: 4 };  // radio de la zona, cada cuánto cambia de sitio y puntos para ganar
