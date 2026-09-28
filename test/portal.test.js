@@ -126,9 +126,10 @@ const wsTry = origin => new Promise(res => { const ws = new WebSocket('ws://127.
     ok(T.ads && T.ads.provider === 'portal', 'los anuncios con premio pasan a ser los del portal');
     adKind = null; T.watchAd(); ok(await until(() => adKind === 'rewarded' && posts.length === 1), 'el botón de anuncio con premio pide un «rewarded» al portal y, al verlo entero, cobra el premio');
     ok(posts[0] && posts[0].portal === 'crazygames', 'el servidor recibe de qué portal viene el anuncio');
-    T.renderStore(); await sleep(50); ok(/se consiguen jugando/.test($('#storeBox').textContent) && !$('#storeBox button'), 'la tienda de PX no ofrece pagos con dinero dentro del portal');
+    T.renderStore(); await sleep(300); ok(/se consiguen jugando/.test($('#storeBox').textContent) && !$('#storeBox [data-pack], #storeBox [data-pp], #storeBox .packs'), 'la tienda no ofrece pagos con dinero dentro del portal (ni paquetes de PX ni PayPal)');
+    ok($('#storeBox #knivesBox') && $('#storeBox #outfitsBox') && $('#storeBox #petsBox'), '[PORTALES] pero sí lo que se compra con PX ganados jugando: ruleta de cuchillos, trajes y mascotas');
     const css = [...w.document.querySelectorAll('style')].map(s => s.textContent).join('\n');
-    ok(/html\.portal #discordBtn,html\.portal \[data-tab="store"\],html\.portal \.pt-ref,html\.portal #logoutBtn\{display:none!important\}/.test(css), 'y se esconden el enlace a Discord, la pestaña Tienda, las invitaciones (enlaces externos) y «Cerrar sesión» (no hay inicio de sesión propio)');
+    ok(/html\.portal #discordBtn,html\.portal \.pt-ref,html\.portal #logoutBtn\{display:none!important\}/.test(css) && !/html\.portal \[data-tab="store"\]/.test(css), 'se esconden el enlace a Discord, las invitaciones (enlaces externos) y «Cerrar sesión» (no hay inicio de sesión propio); la pestaña Tienda se ve');
     ok(errors.length === 0, 'sin errores de JavaScript ' + JSON.stringify(errors.slice(0, 2)));
     w.close();
   }

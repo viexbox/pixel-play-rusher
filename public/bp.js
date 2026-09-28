@@ -183,7 +183,7 @@
   }
   P.renderInventory = async () => {
     const box = document.getElementById('invBox'); if (!box) return;
-    if (!P.acctToken()) { box.innerHTML = '<div class="invhead"><b>Inventario</b></div><p class="note warn">Inicia sesión con una cuenta online para tener inventario: tus skins, banners y mascotas se guardan en tu cuenta.</p>'; return; }
+    if (!P.acctToken()) { box.innerHTML = '<div class="invhead"><b>Inventario</b></div>' + ((window.pprPortalLogin && window.pprPortalLogin('inventario')) || '<p class="note warn">Inicia sesión con una cuenta online para tener inventario: tus skins, banners y mascotas se guardan en tu cuenta.</p>'); return; }   // [PORTALES]
     box.innerHTML = '<div class="invhead"><b>Inventario</b></div><p class="note">Cargando…</p>';
     await load(); drawInv();
   };
@@ -212,7 +212,7 @@
     $('#psXpTxt').textContent = !st ? 'Inicia sesión para ganar XP' : max ? 'NIVEL MÁXIMO' : fmt(st.into) + ' / ' + fmt(st.need) + ' XP';
     $('#psWallet').textContent = st ? fmt(st.px) + ' PX' : '';
     const note = $('#psNote'), gift = st && st.giftedBy && vip ? 'Tu Pase VIP es un regalo de ' + st.giftedBy + '. ' : '';
-    if (!P.acctToken()) { note.hidden = false; note.textContent = 'Estás viendo el catálogo. Inicia sesión con una cuenta online (Registro) para ganar XP, reclamar recompensas y comprar el Pase VIP.'; }
+    if (!P.acctToken()) { note.hidden = false; const pl = window.pprPortalLogin && window.pprPortalLogin('pase', 'inline'); if (pl) note.innerHTML = pl; else note.textContent = 'Estás viendo el catálogo. Inicia sesión con una cuenta online (Registro) para ganar XP, reclamar recompensas y comprar el Pase VIP.'; }   // [PORTALES]
     else if (gift) { note.hidden = false; note.textContent = gift + '¡Disfrútalo!'; } else note.hidden = true;
     const buy = $('#psBuy'), price = st ? st.prices.vip : S.BP_PRICES.vip, skip = st ? st.prices.skip : S.BP_PRICES.skipPerLevel;
     buy.innerHTML = vip ? 'Pase VIP activo ✓' : 'Comprar Pase VIP<small>' + fmt(price) + ' PX</small>'; buy.disabled = !st || vip;

@@ -50,6 +50,8 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 
 - Estadísticas de jugadores (panel → Resumen → «Jugadores por día»): el cliente manda `src` (web/crazygames/poki) en el `hello`; `admin.visit()` y `admin.playTime()` guardan por día en `stats.json` (`ST.days`, `ST.first`, solo huellas sha1, 35 días); `GET /api/admin/player-stats`. Test `player-stats.test.js`.
 
+- Portales: la Tienda se ve dentro de CrazyGames/Poki pero sin pagos con dinero (renderStore enseña solo ruleta de cuchillos, trajes y mascotas, que se pagan con PX). Los avisos de «inicia sesión» dentro del portal los da `portalLogin(key)` (client.js, también `window.pprPortalLogin` en bp.js y social.js) con un botón «Entrar con CrazyGames» (`[data-cglogin]` → `#cgLinkBtn`).
+
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).
 - (Dueño) Dar de alta el juego en CrazyGames y Poki (pasos en README). 

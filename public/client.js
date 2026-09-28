@@ -3414,9 +3414,31 @@ function claimRank(i) {
   toast('Rango ' + r.n + ': ' + rewardText(r)); renderRanks(); if (typeof buildCustom === 'function') buildCustom();
 }
 /* --- Tienda: comprar PX con dinero real (pago seguro en Stripe; los PX los acredita el servidor al confirmarse el pago) --- */
+/* [PORTALES] Dentro de CrazyGames no hay registro propio: la cuenta es la de CrazyGames («Guardar progreso»). Los avisos de «inicia sesión»
+   dicen eso y llevan un botón que abre el acceso de CrazyGames. Poki no tiene cuentas: allí se juega como invitado. Fuera de un portal devuelve
+   null y cada pantalla enseña su aviso de siempre. key: ruleta, trajes, mascotas, inventario, pase, mercado, amigos, tienda. */
+const PORTAL_LOGIN = {
+  ruleta: 'Entra con tu cuenta de CrazyGames para girar la ruleta.', trajes: 'Entra con tu cuenta de CrazyGames para tener trajes.', mascotas: 'Entra con tu cuenta de CrazyGames para tener mascotas.',
+  inventario: 'Entra con tu cuenta de CrazyGames para tener inventario: tus skins, banners y mascotas se guardan en tu cuenta.',
+  pase: 'Estás viendo el catálogo. Entra con tu cuenta de CrazyGames para ganar XP, reclamar recompensas y comprar el Pase VIP.',
+  mercado: 'Entra con tu cuenta de CrazyGames para comprar y vender.', amigos: 'Entra con tu cuenta de CrazyGames para tener amigos.',
+  tienda: 'Entra con tu cuenta de CrazyGames para gastar tus PX en cuchillos, trajes y mascotas.'
+};
+function portalLogin(key, cls) {
+  const P = window.PPR_PORTAL; if (!P) return null;
+  const can = typeof P.accountAvailable === 'function' && P.accountAvailable();
+  const tag = cls === 'inline' ? 'span' : 'p';   // inline: dentro de un párrafo que ya existe (el aviso del pase)
+  return '<' + tag + ' class="' + (cls === 'inline' ? 'pl' : cls || 'note warn') + '">' + (can ? esc(PORTAL_LOGIN[key] || PORTAL_LOGIN.tienda) + ' <button type="button" class="cglogin" data-cglogin>Entrar con CrazyGames</button>' : 'En esta versión se juega como invitado.') + '</' + tag + '>';
+}
+window.pprPortalLogin = portalLogin;   // también lo usan bp.js (inventario, pase) y social.js (amigos, mercado)
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-cglogin]')) { const b = $('#cgLinkBtn'); if (b) b.click(); } });
 async function renderStore() {
   const box = $('#storeBox'); box.innerHTML = '<p class="note">Cargando…</p>';
-  if (window.PPR_PORTAL) { box.innerHTML = '<p class="note">En esta web los PX se consiguen jugando: premio diario, desafíos, pase de batalla y anuncios con premio.</p>'; return; }   // [PORTALES] sin pagos fuera del portal
+  if (window.PPR_PORTAL) {   // [PORTALES] sin pagos con dinero (el portal no los permite), pero sí todo lo que se compra con los PX ganados jugando
+    box.innerHTML = '<div class="storehead"><b>Tienda</b><span>Saldo: <em id="storeBal">' + fmtKr(krTotal()) + ' PX</em></span></div>' + (remote ? '' : portalLogin('tienda')) +
+      '<p class="note">Los PX se consiguen jugando: partidas, premio diario, desafíos, pase de batalla y anuncios con premio.</p><div id="knivesBox"></div><div id="outfitRoulBox"></div><div id="outfitsBox"></div><div id="petsBox"></div>';
+    renderKnives(); renderOutfits(); renderPets(); return;
+  }
   let info = null;
   try { const r = await fetch(apiUrl('api/store'), { cache: 'no-store' }); if (r.ok) info = await r.json(); } catch (e) { /* sin servidor */ }
   if (!info) { box.innerHTML = '<p class="note">La tienda necesita el servidor del juego. No está disponible en esta versión.</p>'; return; }
@@ -3525,7 +3547,7 @@ function renderRoulette(kind) {
     : !left ? '<button type="button" class="roul-spin" disabled>¡Los tienes todos!</button>'
     : '<button type="button" class="roul-spin"' + (px < R.px ? ' disabled title="Te faltan ' + (R.px - px) + ' PX"' : '') + '>Girar · ' + fmtKr(R.px) + ' PX</button>';
   box.innerHTML = '<div class="storehead"><b><em class="evtag">Evento</em> ' + C.title + '</b><span>' + C.sub + '</span></div>' +
-    (!remote ? '<p class="note warn">Inicia sesión con una cuenta online para girar la ruleta.</p>' : '') +
+    (!remote ? portalLogin('ruleta') || '<p class="note warn">Inicia sesión con una cuenta online para girar la ruleta.</p>' : '') +
     '<div class="roul"><div class="roul-reel">' + (() => { const v = all.filter(k => !own.has(k.id) || !left), out = []; for (let i = 0; v.length && i < Math.max(8, v.length); i++) out.push(v[i % v.length]); return out.map(item).join(''); })() + '</div><i class="roul-mark"></i></div>' +
     '<div class="roul-act">' + spinBtn + (remote ? '<span>Tienes ' + (all.length - left) + ' de ' + all.length + '</span>' : '') + '</div><div class="roul-winbox" role="status"></div>' +
     '<div class="pets outfits">' + all.map(k => {
@@ -3570,7 +3592,7 @@ function renderOutfits() {
   const P = window.PPR_BP, st = P.state, eq = (P.equipped || {}).outfit || '', px = krTotal();
   const own = new Set(st && st.inventory ? st.inventory.filter(i => i.t === 'outfit').map(i => i.id) : []);
   box.innerHTML = '<div class="storehead"><b>Trajes</b><span>Cambian tu personaje y todos lo ven.</span></div>' +
-    (!remote ? '<p class="note warn">Inicia sesión con una cuenta online para tener trajes.</p>' : '') +
+    (!remote ? portalLogin('trajes') || '<p class="note warn">Inicia sesión con una cuenta online para tener trajes.</p>' : '') +
     '<div class="pets outfits">' + S.OUTFITS.filter(o => !o.ru).map(o => {   // los de la ruleta van en su propia sección
       const rar = S.RARITY[o.r] || { n: '', c: '#9aa4b8' }, has = own.has(o.id), on = eq === o.id, img = outfitThumb(o);
       const btn = !remote ? '<button type="button" disabled>' + fmtKr(o.px) + ' PX</button>'
@@ -3595,7 +3617,7 @@ function renderPets() {
   const P = window.PPR_BP, st = P.state, eq = (P.equipped || {}).pet || '', px = krTotal();
   const own = new Set(st && st.inventory ? st.inventory.filter(i => i.t === 'pet').map(i => i.id) : []);
   box.innerHTML = '<div class="storehead"><b>Mascotas</b><span>Te siguen en la partida y todos las ven.</span></div>' +
-    (!remote ? '<p class="note warn">Inicia sesión con una cuenta online para tener mascotas.</p>' : '') +
+    (!remote ? portalLogin('mascotas') || '<p class="note warn">Inicia sesión con una cuenta online para tener mascotas.</p>' : '') +
     '<div class="pets">' + S.PETS.map(p => {
       const rar = S.RARITY[p.r] || { n: '', c: '#9aa4b8' }, has = own.has(p.id), on = eq === p.id;
       const btn = !remote ? '<button type="button" disabled>' + fmtKr(p.px) + ' PX</button>'
@@ -3804,7 +3826,10 @@ function initChat() {
 }
 
 function initMenu() {
-  window.addEventListener('ppr-session', () => { syncRemote(); }); syncRemote().then(checkPaymentReturn);
+  /* [PORTALES] al entrar con la cuenta de CrazyGames la tienda abierta se pone al día. Solo si CAMBIA el estado (invitado ↔ cuenta): la propia
+     tienda vuelve a lanzar «ppr-session» al cargar, y sin esta comprobación se llamaban la una a la otra sin parar */
+  let wasLogged = null;
+  window.addEventListener('ppr-session', () => { syncRemote().then(() => { const now = !!remote; if (window.PPR_PORTAL && wasLogged !== null && now !== wasLogged) { const t = $('#tab-store'); if (t && !t.hidden) renderStore(); } wasLogged = now; }); }); syncRemote().then(checkPaymentReturn);
   const ik = $('#infKey'); ik.value = cfg.infKey || '';
   ik.addEventListener('change', () => { cfg.infKey = ik.value.trim().toUpperCase().slice(0, 24); ik.value = cfg.infKey; saveCfg(); $('#infO').textContent = cfg.infKey ? 'guardado' : ''; lobbyClose(); lobbyConnect(); });
   $('#name').value = cfg.name;
