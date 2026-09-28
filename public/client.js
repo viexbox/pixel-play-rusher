@@ -279,6 +279,26 @@ const TEX = {
     for (let y = 0; y < S; y += 12) for (let x = 0; x < S; x += 6) { const yy = y + Math.sin((x / S) * TAU * 3 + y * 0.7) * 4; LT(g, 0.22, x, yy, 6, 2); DK(g, 0.08, x, yy + 5, 6, 3); }
     for (let i = 0; i < 40; i++) LT(g, 0.3 + R() * 0.3, R() * S, R() * S, 4 + R() * 10, 1);
   } },
+  /* [MAPAS KRUNKER 2] enlucido de adobe: manchas suaves, churretes que bajan, grietas y algún trozo caído que deja ver el ladrillo */
+  adobe: { tile: 4, draw(g, S, R) {
+    white(g, S);
+    for (let i = 0; i < 26; i++) { g.fillStyle = rgba(R() < 0.5 ? '0,0,0' : '255,255,255', 0.03 + R() * 0.05); g.beginPath(); g.ellipse(R() * S, R() * S, 18 + R() * 60, 10 + R() * 40, R() * 3, 0, TAU); g.fill(); }
+    for (let i = 0; i < 14; i++) { const x = R() * S, w = 3 + R() * 8; DK(g, 0.04 + R() * 0.05, x, R() * S * 0.3, w, S * (0.3 + R() * 0.6)); }
+    for (let k = 0; k < 2; k++) {   // trozos de enlucido caído con ladrillo visto
+      const px = R() * (S - 90), py = R() * (S - 60), pw = 50 + R() * 50, ph = 30 + R() * 30;
+      DK(g, 0.22, px - 2, py - 2, pw + 4, ph + 4);
+      for (let y = py; y < py + ph; y += 10) for (let x = px + ((y - py) / 10 % 2) * 8; x < px + pw; x += 16) { DK(g, 0.28 + R() * 0.1, x, y, 15, 9); LT(g, 0.12, x + 1, y + 1, 13, 2); }
+    }
+    for (let i = 0; i < 5; i++) crack(g, R, R() * S, R() * S, 30);
+    speckle(g, S, R, 1400, 0.1);
+  } },
+  /* [MAPAS KRUNKER 2] losas de piedra arenisca irregulares con arena en las juntas */
+  pave: { tile: 6, draw(g, S, R) {
+    white(g, S); const rows = 5, rh = S / rows;
+    for (let r = 0; r < rows; r++) { let x = -R() * 40; while (x < S) { const w = 40 + R() * 70, y = r * rh; DK(g, 0.03 + R() * 0.12, x, y, w, rh); LT(g, 0.18, x + 3, y + 3, w - 6, 3); DK(g, 0.14, x + 3, y + rh - 6, w - 6, 3); g.fillStyle = 'rgba(214,176,112,0.55)'; g.fillRect(x, y, w, 3); g.fillRect(x, y, 3, rh); if (R() < 0.25) crack(g, R, x + R() * w, y + 4, 22); x += w; } }
+    for (let i = 0; i < 10; i++) { g.fillStyle = 'rgba(214,176,112,0.35)'; g.beginPath(); g.ellipse(R() * S, R() * S, 14 + R() * 30, 6 + R() * 14, R() * 3, 0, TAU); g.fill(); }   // arena que se ha colado
+    speckle(g, S, R, 1200, 0.14);
+  } },
   sandfloor: { tile: 8, draw(g, S, R) {
     white(g, S);
     for (let y = 0; y < S; y += 10) for (let x = 0; x < S; x += 4) { const yy = y + Math.sin((x / S) * TAU * 2 + y * 0.31) * 3; DK(g, 0.06, x, yy, 4, 2); LT(g, 0.16, x, yy + 2, 4, 1); }
@@ -571,6 +591,77 @@ function decorate(L, m) {
     }
     decoBox(0, 4.0, -7.28, 6, 1.0, 0.06, '#e5533d', true); decoBox(0, 4.0, 7.28, 6, 1.0, 0.06, '#2f7bd9', true);                          // rótulos de la nave
     decoBox(0, 9.7, -25.5, 2.9, 1.0, 0.06, '#9fd3ff', true);                                                                                  // ventana de la cabina de la grúa
+  } else if (L.decor === 'desert' && m.open) {   // [MAPAS KRUNKER 2] Tormenta de Arena: fachadas con detalle, tejados con trastos, cuerdas de ropa y palmeras
+    const hs = (a, b) => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return v - Math.floor(v); };
+    const SHUT = ['#2f7f8f', '#3a6fb0', '#4f8f4a', '#9a4a3a', '#6b4a2a'], AWN = ['#d9463d', '#2f7fbf', '#e0a43a', '#3f9f6a', '#ffffff'];
+    const TRIM = '#f4e6c8', GLASS = '#34444f', WOOD = '#6b4a2a', DARK = '#4a3527';
+    const fronts = [];   // tramos de fachada que dan a la calle (para las cuerdas de ropa)
+    for (const c of colliders) {
+      if (c.maxY < 5.9 || c.minY > 0.05) continue;
+      const faces = [[c.minX, c.maxX, c.minZ, 'z', -1], [c.minX, c.maxX, c.maxZ, 'z', 1], [c.minZ, c.maxZ, c.minX, 'x', -1], [c.minZ, c.maxZ, c.maxX, 'x', 1]];
+      for (const [a0, a1, f, ax, sg] of faces) {
+        /* caja pegada a la fachada: u = a lo largo, v = altura, t = cuánto sale; ancho en u, alto, grosor */
+        const Q = (u, v, t, wu, h, wt, col, basic) => decoBox(ax === 'z' ? u : f + sg * t, v, ax === 'z' ? f + sg * t : u, ax === 'z' ? wu : wt, h, ax === 'z' ? wt : wu, col, basic);
+        let any = false;
+        for (let a = a0 + 1.5; a < a1 - 1; a += 3) {
+          if (!m.open(ax === 'z' ? a : f + sg, ax === 'z' ? f + sg : a)) continue;
+          any = true; const r = hs(a, f), sh = SHUT[Math.floor(r * SHUT.length)];
+          for (let y = 3.2, fl = 1; y + 1.8 < c.maxY - 0.3; y += 3, fl++) {
+            const rr = hs(a + fl, f - fl);
+            Q(a, y, 0.03, 1.1, 1.4, 0.06, GLASS); Q(a, y - 0.16, 0.1, 1.5, 0.16, 0.2, TRIM);                                                            // cristal y alféizar
+            if (rr < 0.55) { Q(a - 0.82, y, 0.07, 0.5, 1.4, 0.06, sh); Q(a + 0.82, y, 0.07, 0.5, 1.4, 0.06, sh); }                              // contraventanas abiertas
+            else if (rr < 0.72) { Q(a, y - 0.2, 0.45, 1.8, 0.12, 0.9, TRIM); Q(a, y - 0.08, 0.85, 1.8, 0.7, 0.05, WOOD); Q(a - 0.88, y - 0.08, 0.45, 0.05, 0.7, 0.9, WOOD); Q(a + 0.88, y - 0.08, 0.45, 0.05, 0.7, 0.9, WOOD); }   // balcón con barandilla
+            else if (rr < 0.85) { Q(a, y + 1.6, 0.35, 1.5, 0.08, 0.7, AWN[Math.floor(rr * 97) % AWN.length]); }                                  // toldito
+            if (rr > 0.93) { Q(a + 0.95, y + 0.3, 0.3, 0.7, 0.5, 0.55, '#d8d8d0'); Q(a + 0.95, y + 0.4, 0.58, 0.5, 0.28, 0.02, '#6f7478'); }       // aparato de aire acondicionado
+          }
+          /* planta baja: puerta con marco (a veces con toldo y macetas) o ventana con reja */
+          if (r < 0.42) { Q(a, 0, 0.04, 1.3, 2.3, 0.08, WOOD); Q(a, 2.3, 0.08, 1.7, 0.2, 0.16, TRIM); Q(a - 0.75, 0, 0.08, 0.2, 2.3, 0.16, TRIM); Q(a + 0.75, 0, 0.08, 0.2, 2.3, 0.16, TRIM); Q(a + 0.35, 1.1, 0.1, 0.08, 0.08, 0.06, '#d9b04a');
+            if (r < 0.2) Q(a, 2.6, 0.55, 2.2, 0.1, 1.1, AWN[Math.floor(r * 50) % AWN.length]);
+            if (r > 0.3) { Q(a - 1.2, 0, 0.35, 0.5, 0.55, 0.5, '#b0633a'); Q(a - 1.2, 0.55, 0.35, 0.6, 0.45, 0.6, '#4f9a3a'); } }
+          else { Q(a, 0.9, 0.03, 1.1, 1.2, 0.06, GLASS); Q(a, 0.76, 0.1, 1.5, 0.14, 0.2, TRIM); for (let k = -1; k <= 1; k++) Q(a + k * 0.35, 0.9, 0.1, 0.05, 1.2, 0.05, DARK); }
+        }
+        if (any) fronts.push({ c, a0, a1, f, ax, sg });
+      }
+      /* tejado: depósitos de agua, aparatos, antenas parabólicas y alguna cúpula (según el edificio) */
+      const r = hs(c.minX + c.maxX, c.minZ + c.maxZ), cx = (c.minX + c.maxX) / 2, cz = (c.minZ + c.maxZ) / 2, w = c.maxX - c.minX, d = c.maxZ - c.minZ, top = c.maxY;
+      if (w < 3 || d < 3) continue;
+      if (r < 0.3) { for (const [dx, dz] of [[-0.6, -0.6], [0.6, -0.6], [-0.6, 0.6], [0.6, 0.6]]) decoBox(cx + dx, top, cz + dz, 0.1, 0.8, 0.1, '#5a5f63'); decoBox(cx, top + 0.8, cz, 1.6, 1.1, 1.6, '#e8e6df'); decoBox(cx, top + 1.9, cz, 1.2, 0.2, 1.2, '#c9c6bd'); }   // depósito de agua
+      else if (r < 0.5) { decoBox(cx, top, cz, 1.2, 0.8, 0.9, '#d8d8d0'); decoBox(cx, top + 0.8, cz, 0.8, 0.06, 0.8, '#6f7478'); decoBox(cx + 1.6, top, cz, 0.1, 1.4, 0.1, '#5a5f63'); decoBox(cx + 1.6, top + 1.2, cz - 0.3, 0.9, 0.9, 0.12, '#ecebe6'); }   // aire acondicionado y parabólica
+      else if (r < 0.62 && w >= 5 && d >= 5) { const col = hs(cx, cz) < 0.5 ? '#3f8fb0' : '#e0b04a'; decoBox(cx, top, cz, 3.2, 0.5, 3.2, TRIM); decoBox(cx, top + 0.5, cz, 2.8, 0.6, 2.8, col); decoBox(cx, top + 1.1, cz, 2.2, 0.5, 2.2, col); decoBox(cx, top + 1.6, cz, 1.4, 0.4, 1.4, col); decoBox(cx, top + 2, cz, 0.6, 0.3, 0.6, col); decoBox(cx, top + 2.3, cz, 0.12, 0.7, 0.12, '#d9b04a'); }   // cúpula
+      else if (r < 0.75) { decoBox(cx - 1, top, cz, 0.08, 1.6, 0.08, '#5a5f63'); decoBox(cx + 1, top, cz, 0.08, 1.6, 0.08, '#5a5f63'); decoBox(cx, top + 1.5, cz, 2, 0.02, 0.02, '#333'); decoBox(cx - 0.3, top + 1.1, cz, 0.5, 0.4, 0.02, AWN[1]); decoBox(cx + 0.4, top + 1.05, cz, 0.4, 0.45, 0.02, AWN[2]); }   // tendedero
+    }
+    /* cuerdas de ropa y banderines de fachada a fachada sobre las calles estrechas */
+    for (const A of fronts) for (const B of fronts) {
+      if (A.ax !== B.ax || A.sg !== 1 || B.sg !== -1 || A.f >= B.f) continue;
+      const gap = B.f - A.f; if (gap < 5 || gap > 13) continue;
+      const u0 = Math.max(A.a0, B.a0) + 2, u1 = Math.min(A.a1, B.a1) - 2; if (u1 - u0 < 2) continue;
+      for (let u = u0; u < u1; u += 9) {
+        const y = Math.min(A.c.maxY, B.c.maxY) - 1.2 - hs(u, A.f) * 1.4, mid = (A.f + B.f) / 2;
+        if (A.ax === 'z') decoBox(u, y, mid, 0.03, 0.03, gap, '#2b2b2b'); else decoBox(mid, y, u, gap, 0.03, 0.03, '#2b2b2b');
+        for (let k = 1; k < gap / 1.1; k++) { const t = A.f + k * 1.1, col = AWN[(k + Math.floor(u)) % AWN.length], sag = -0.35 * Math.sin(Math.PI * (t - A.f) / gap);
+          if (A.ax === 'z') decoBox(u, y + sag - 0.45, t, 0.02, 0.45, 0.4, col); else decoBox(t, y + sag - 0.45, u, 0.4, 0.45, 0.02, col); }
+      }
+    }
+    /* pilares con cúpula en la terraza de la torre */
+    for (const x of [-4, 4]) for (const z of [-4, 4]) { decoBox(x, 5.8, z, 1.0, 0.2, 1.0, TRIM); decoBox(x, 6, z, 0.8, 0.35, 0.8, '#3f8fb0'); decoBox(x, 6.35, z, 0.5, 0.3, 0.5, '#3f8fb0'); decoBox(x, 6.65, z, 0.08, 0.4, 0.08, '#d9b04a'); }
+    /* palmeras: tronco curvo por anillos y hojas que caen hacia fuera */
+    const palm = (x, z, h, y0 = 0) => {
+      const lean = hs(x, z) * TAU;
+      for (let k = 0; k < h; k += 1) { const t = k / h, ox = Math.cos(lean) * t * t * 0.9, oz = Math.sin(lean) * t * t * 0.9; decoBox(x + ox, y0 + k, z + oz, 0.44 - t * 0.14, 1.02, 0.44 - t * 0.14, k % 2 ? '#8a6a42' : '#76593a'); }
+      const tx = x + Math.cos(lean) * 0.9, tz = z + Math.sin(lean) * 0.9, ty = y0 + h;
+      decoBox(tx, ty - 0.3, tz, 0.6, 0.5, 0.6, '#5a7a2a');
+      for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + lean, ca = Math.cos(a), sa = Math.sin(a), col = i % 2 ? '#4f9a3a' : '#3f8a30';
+        for (let s = 0; s < 3; s++) decoBox(tx + ca * (0.5 + s * 0.6), ty + 0.1 - s * s * 0.14, tz + sa * (0.5 + s * 0.6), Math.abs(ca) * 0.6 + Math.abs(sa) * (0.5 - s * 0.08), 0.12, Math.abs(sa) * 0.6 + Math.abs(ca) * (0.5 - s * 0.08), col); }
+    };
+    for (const sx of [-1, 1]) { palm(sx * 12.5, -11, 6); palm(sx * 12.5, 11, 5.4); palm(sx * 40.5, -9, 6.2); palm(sx * 40.5, 9, 5.6); palm(sx * 33, -28.5, 5.8); palm(sx * 28.5, 21, 5.2); palm(sx * 5, 33, 4.6, 2.4); palm(sx * 24, 33, 4.2, 2.4); }
+    /* toldos del color de cada equipo en la entrada de las bases y barriles */
+    for (const sx of [-1, 1]) {
+      const tc = sx < 0 ? '#ff3b48' : '#3a86ff';
+      for (const z of [-7, 7]) { decoBox(sx * 30.6, 2.9, z, 1.2, 0.1, 2.6, tc); decoBox(sx * 31.15, 2.4, z, 0.06, 0.5, 2.6, tc); }   // toldos en la fachada que da a la base
+      for (let x = 3; x < 26; x += 5) { decoBox(sx * x, 1.9, 28, 0.5, 0.1, 0.5, '#3a2e24'); decoBox(sx * x, 1.82, 28, 0.36, 0.08, 0.36, '#ffd27a', true); }   // lámparas del túnel
+      for (const z of [26.02, 29.98]) decoBox(sx * 14, 0, z, 24, 0.5, 0.06, '#8a6a42');   // zócalo oscuro dentro del túnel
+      for (const [x, z] of [[41.4, -6.5], [41.4, 6.2], [33.5, -21]]) { decoBox(sx * x, 0, z, 0.7, 1.0, 0.7, '#4f6b7a'); decoBox(sx * x, 1.0, z, 0.74, 0.08, 0.74, '#3a4f5a'); }
+    }
   } else if (L.decor === 'town') {   // [MAPAS KRUNKER] Barrio Arcoíris: marcos de ventanas, farolas y pasos de cebra
     for (const [x, z] of [[-24, -18], [24, -18], [-24, 18], [24, 18], [-8, -19.5], [8, 19.5]]) { decoBox(x, 0, z, 0.22, 4.2, 0.22, '#39435a'); decoBox(x, 4.2, z, 0.8, 0.22, 0.5, '#fff3b0', true); }
     for (const sx of [-1, 1]) for (let k = 0; k < 6; k++) { decoBox(sx * 3, 0, -18 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); decoBox(sx * 3, 0, 12 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); }
