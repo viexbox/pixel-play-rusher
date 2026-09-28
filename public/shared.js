@@ -255,6 +255,99 @@ const MAPS = [
       /* puentes largos sobre la calle, de un tejado a otro (norte y sur) */
       P(-10, 10, -27, -25, 3.6, 4.0, WD, 'wood'); P(-10, 10, 25, 27, 3.6, 4.0, WD, 'wood');
     }
+  },
+  /* ================= [MAPA 3] PUERTO INDUSTRIAL =================
+     84 × 84 m, simétrico de oeste (ROJO) a este (AZUL). En el centro, la nave de carga (hueca, con portones a cada lado y estanterías);
+     al norte, el patio de contenedores: se sube por una rampa a la fila de contenedores y se cruza de un lado a otro por una pasarela de
+     metal (por debajo se pasa andando); al sur, las oficinas del puerto, con una rampa por fuera hasta el tejado y un puente de tablones
+     entre los dos tejados. La grúa pórtico de encima del patio es decoración (solo sus patas son macizas). */
+  {
+    name: 'Puerto Industrial', half: 42,
+    desc: 'Puerto de carga: nave con portones y estanterías, patio de contenedores con pasarela por arriba, oficinas con tejado y una grúa pórtico.',
+    sky: ['#3f8fe0', '#e3edf5'], fog: '#e3edf5', floor: ['#a3a9b1', '#959ba3'], out: '#4f9fd6', pal: ['#e5533d', '#2f7bd9', '#f0a02e', '#1fa37a', '#ffc43d'],
+    look: { floor: 'concfloor', outFloor: 'sea', wall: 'concrete', block: 'concrete', crate: 'crate', plat: 'concfloor', sun: '#fff1d6', decor: 'port', pixel: 16, wallH: 6, trimBase: '#5d6570', trimTop: '#d3d8de' },
+    spawns: {
+      1: [[-35, -10], [-36, -6], [-35, -2], [-37, 2], [-35, 6], [-36, 10], [-37, -1]],
+      0: [[35, -10], [36, -6], [35, -2], [37, 2], [35, 6], [36, 10], [37, -1]]
+    },
+    zones: [{ n: 'Nave', x: 0, z: 0, y: 0 }, { n: 'Muelle norte', x: 0, z: -31, y: 0 }, { n: 'Muelle sur', x: 0, z: 17, y: 0 }],
+    bomb: [{ n: 'A', x: 0, z: -31, y: 0 }, { n: 'B', x: 0, z: 17, y: 0 }],   // [BOMBA] puntos de plantado: muelle norte (bajo la grúa) y muelle sur
+    areas: [
+      { n: 'Tejado de las oficinas', x0: -24.4, x1: 24.4, z0: 19.6, z1: 30.4, y0: 3, y1: 9 },
+      { n: 'Contenedores', x0: -24, x1: 24, z0: -40, z1: -14, y0: 2, y1: 9 },
+      { n: 'Oficinas', x0: -24, x1: -14, z0: 20, z1: 30, y0: -1, y1: 3 }, { n: 'Oficinas', x0: 14, x1: 24, z0: 20, z1: 30, y0: -1, y1: 3 },
+      { n: 'Nave', x0: -10, x1: 10, z0: -7, z1: 7, y0: -1, y1: 5 },
+      { n: 'Base roja', x0: -42, x1: -30, z0: -42, z1: 42, y0: -1, y1: 3 }, { n: 'Base azul', x0: 30, x1: 42, z0: -42, z1: 42, y0: -1, y1: 3 },
+      { n: 'Muelle norte', x0: -30, x1: 30, z0: -42, z1: -14, y0: -1, y1: 4 }, { n: 'Muelle sur', x0: -30, x1: 30, z0: 14, z1: 42, y0: -1, y1: 4 },
+      { n: 'Patio de carga', x0: -30, x1: 30, z0: -14, z1: 14, y0: -1, y1: 4 }
+    ],
+    build(b) {
+      const CN = '#9aa3ad', DK = '#5d6570', YL = '#ffc43d', WD = '#b07a45', MT = '#8a939e', WH = '#eef1f4';
+      const P = (x0, x1, z0, z1, y0, y1, c, t) => b.box(Math.min(x0, x1), Math.max(x0, x1), z0, z1, y0, y1, c, t);
+      const D = (x0, x1, z0, z1, y0, y1, c, t) => b.box(Math.min(x0, x1), Math.max(x0, x1), z0, z1, y0, y1, c, t, false);   // solo decoración (sin colisión)
+      const F = (x0, x1, z0, z1, c) => b.box(Math.min(x0, x1), Math.max(x0, x1), z0, z1, 0, 0.03, c, null, false);         // pintura del suelo
+      const crate = (x, z, s = 2, h = 2) => P(x - s / 2, x + s / 2, z - s / 2, z + s / 2, 0, h, WD, 'crate');
+      const box = (x0, x1, z0, z1, y0, y1, c) => P(x0, x1, z0, z1, y0, y1, c, 'metal');   // contenedor (6 × 2,6 × 2,6 m)
+      b.perimeter(42, 6, '#7c8591');
+      /* suelo pintado: líneas amarillas de los carriles y cuadrícula de carga */
+      F(-42, 42, -13.2, -12.8, YL); F(-42, 42, 12.8, 13.2, YL); F(-0.2, 0.2, -42, -14, YL); F(-0.2, 0.2, 14, 42, YL);
+      /* ---------- nave central: hueca, 20 × 14 m, portones grandes al oeste y al este, puertas al norte y al sur ---------- */
+      const NH = 5.2, T = 0.5;
+      P(-10, -1.5, -7, -7 + T, 0, NH, CN, 'concrete'); P(1.5, 10, -7, -7 + T, 0, NH, CN, 'concrete'); P(-1.5, 1.5, -7, -7 + T, 3, NH, CN, 'concrete');
+      P(-10, -1.5, 7 - T, 7, 0, NH, CN, 'concrete'); P(1.5, 10, 7 - T, 7, 0, NH, CN, 'concrete'); P(-1.5, 1.5, 7 - T, 7, 3, NH, CN, 'concrete');
+      for (const sx of [-1, 1]) { const X = (a, c) => [sx * a, sx * c]; P(...X(10 - T, 10), -7 + T, -3, 0, NH, CN, 'concrete'); P(...X(10 - T, 10), 3, 7 - T, 0, NH, CN, 'concrete'); P(...X(10 - T, 10), -3, 3, 3.6, NH, CN, 'concrete'); }
+      P(-10.3, 10.3, -7.3, 7.3, NH, NH + 0.4, DK, 'metal');                                                                     // tejado (no se sube)
+      P(-6, -2, -0.6, 0.6, 0, 2.4, MT, 'metal'); P(2, 6, -0.6, 0.6, 0, 2.4, MT, 'metal');                                         // estanterías (cobertura)
+      crate(-7.6, -4.4); crate(7.6, 4.4); crate(-7.6, 4.6, 1.6, 1.6); crate(7.6, -4.6, 1.6, 1.6); crate(0, -4, 1.4, 1.2); crate(0, 4, 1.4, 1.2);
+      for (const sx of [-1, 1]) {
+        const X = (a, c) => [sx * a, sx * c], warm = sx < 0, cA = warm ? '#e5533d' : '#2f7bd9', cB = warm ? '#f0a02e' : '#1fa37a', cC = warm ? '#d9a520' : '#6c5ce7';
+        /* ---------- patio de contenedores (norte) ---------- */
+        box(...X(12, 18.2), -27.3, -24.7, 0, 2.6, cA);                                                                          // fila a la que se sube (arriba a 2,6 m)
+        b.ramp(...X(12.4, 15.6), -24.7, -16, 0, 2.6, 'N', YL, 'concfloor');                                                     // [RAMPAS] del patio al techo de los contenedores
+        box(...X(19, 21.6), -33, -26.8, 0, 2.6, cB); box(...X(19, 21.6), -33, -26.8, 2.6, 5.2, cC);                             // torre de dos contenedores (cobertura alta)
+        box(...X(4, 10.2), -38, -35.4, 0, 2.6, cB); box(...X(24, 30.2), -22, -19.4, 0, 2.6, cC); box(...X(25, 27.6), -36, -29.8, 0, 2.6, cA);
+        crate(sx * 8, -21); crate(sx * 16, -31, 1.6, 1.6); crate(sx * 3.5, -26, 1.4, 1.2);
+        P(...X(5.5, 6.5), -31, -30, 0, 11, YL, 'metal'); P(...X(5.5, 6.5), -21, -20, 0, 11, YL, 'metal');                         // patas de la grúa pórtico
+        /* ---------- oficinas del puerto (sur): hueca, puerta al norte y hacia el centro, ventana hacia la base; tejado a 4 m ---------- */
+        const ox0 = 14, ox1 = 24, oz0 = 20, oz1 = 30, OH = 3.6, W = 0.4;
+        P(...X(ox0, 17.5), oz0, oz0 + W, 0, OH, WH, 'kblock'); P(...X(19.5, ox1), oz0, oz0 + W, 0, OH, WH, 'kblock'); P(...X(17.5, 19.5), oz0, oz0 + W, 2.5, OH, WH, 'kblock');   // puerta norte
+        P(...X(ox0, ox1), oz1 - W, oz1, 0, OH, WH, 'kblock');
+        P(...X(ox0, ox0 + W), oz0 + W, 24, 0, OH, WH, 'kblock'); P(...X(ox0, ox0 + W), 26, oz1 - W, 0, OH, WH, 'kblock'); P(...X(ox0, ox0 + W), 24, 26, 2.5, OH, WH, 'kblock');   // puerta hacia el centro
+        P(...X(ox1 - W, ox1), oz0 + W, 24, 0, OH, WH, 'kblock'); P(...X(ox1 - W, ox1), 26, oz1 - W, 0, OH, WH, 'kblock'); P(...X(ox1 - W, ox1), 24, 26, 0, 1.1, WH, 'kblock'); P(...X(ox1 - W, ox1), 24, 26, 2.2, OH, WH, 'kblock');   // ventana
+        P(...X(ox0 - 0.2, ox1 + 0.2), oz0 - 0.2, oz1 + 0.2, OH, OH + 0.4, DK, 'concfloor');                                      // tejado (arriba a 4 m)
+        crate(sx * 16, 28, 1.4, 1.2); P(...X(20.5, 22.5), 27.6, 29.4, 0, 0.9, WD, 'wood');                                        // mesa y caja dentro
+        b.ramp(...X(24.4, 27.8), 12, 26, 0, 4.0, 'S', YL, 'concfloor');                                                          // [RAMPAS] de la calle al tejado de las oficinas
+        /* muelle sur: carretillas y palés */
+        P(...X(6, 8.2), 16, 17.4, 0, 1.3, '#ffb000', 'metal'); P(...X(6.3, 7.2), 16.1, 17.3, 1.3, 2.4, DK, 'metal');             // carretilla elevadora
+        crate(sx * 11, 35); crate(sx * 13, 37, 1.6, 1.6); box(...X(2, 8.2), 37.4, 40, 0, 2.6, cA); P(...X(9.5, 11.5), 14.8, 16.8, 0, 1.0, WD, 'wood');
+        /* ---------- bases ---------- */
+        crate(sx * 32, -15); crate(sx * 32, 15); crate(sx * 33.4, -16.4, 1.2, 1.1); box(...X(39, 41.6), -26, -19.8, 0, 2.6, cB); box(...X(39, 41.6), 19.8, 26, 0, 2.6, cC);
+        P(...X(31.4, 32.2), -4, 4, 0, 1.2, CN, 'concrete');                                                                      // murete delante de la base
+      }
+      /* detalle: contenedores apilados contra los muros del fondo, bidones, palés y mercancía en las estanterías */
+      const STK = ['#e5533d', '#2f7bd9', '#f0a02e', '#1fa37a', '#6c5ce7', '#d9a520', '#8a939e'];
+      for (let k = 0; k < 8; k++) {
+        const x0 = -24 + k * 6.2, c1 = STK[k % 7], c2 = STK[(k + 3) % 7];
+        box(x0, x0 + 6, -42, -39.4, 0, 2.6, c1); if (k % 3 !== 1) box(x0, x0 + 6, -42, -39.4, 2.6, 5.2, c2);                   // muro norte
+        if (Math.abs(x0 + 3) > 10) { box(x0, x0 + 6, 39.4, 42, 0, 2.6, c2); if (k % 2) box(x0, x0 + 6, 39.4, 42, 2.6, 5.2, c1); }   // muro sur (sin tapar el contenedor del muelle)
+      }
+      const drum = (x, z, c) => P(x - 0.4, x + 0.4, z - 0.4, z + 0.4, 0, 1.2, c, 'metal');
+      for (const sx of [-1, 1]) {
+        for (const [x, z] of [[9, -9.5], [9.9, -10.3], [8.9, -10.6], [22, 7], [22.9, 7.6], [4, 33], [4.9, 33.6], [28, -34], [28.9, -34.6]]) drum(sx * x, z, ['#2f7bd9', '#e5533d', '#1fa37a'][Math.abs(Math.round(x * 3 + z)) % 3]);
+        for (const [x, z] of [[16, 9], [29, 30]]) { P(sx * x - 1, sx * x + 1, z - 0.6, z + 0.6, 0, 0.3, WD, 'wood'); P(sx * x - 0.9, sx * x + 0.9, z - 0.5, z + 0.5, 0.3, 1.2, '#c8b08a', 'crate'); }   // palés con carga
+        for (const x of [-5.4, -4, -2.6, 2.6, 4, 5.4]) D(x - 0.6, x + 0.6, -0.5, 0.5, 2.4, 3.1, ['#c8b08a', '#8f6a3c', '#d9a520'][Math.abs(Math.round(x * 2)) % 3], 'crate');   // cajas encima de las estanterías
+      }
+      b.horizon(26, 62, 92, 8, 24, 6, 16, ['#8a939e', '#6b7480', '#b7bec7', '#e5533d', '#2f7bd9']);                              // naves y grúas del puerto, a lo lejos
+      /* pasarela de metal entre las dos filas de contenedores (arriba a 2,6 m; por debajo se pasa andando) y puente de tablones entre las oficinas */
+      P(-12, 12, -26.4, -25.2, 2.2, 2.6, MT, 'metal');
+      P(-14.2, 14.2, 24, 26, 3.6, 4.0, WD, 'wood');
+      /* barandillas (decoración: no frenan ni tapan balas) en la pasarela y en el puente */
+      for (const z of [-26.35, -25.25]) { D(-12, 12, z - 0.04, z + 0.04, 3.5, 3.6, YL, 'metal'); for (let x = -10; x <= 10; x += 2.5) D(x - 0.05, x + 0.05, z - 0.05, z + 0.05, 2.6, 3.6, YL, 'metal'); }
+      for (const z of [24.05, 25.95]) { D(-13.8, 13.8, z - 0.04, z + 0.04, 4.9, 5.0, '#6b4a2b', 'wood'); for (let x = -12; x <= 12; x += 3) D(x - 0.06, x + 0.06, z - 0.06, z + 0.06, 4.0, 5.0, '#6b4a2b', 'wood'); }
+      /* grúa pórtico (decoración): vigas, cabina y gancho sobre el muelle norte */
+      D(-6.6, 6.6, -31, -30, 11, 12, YL, 'metal'); D(-6.6, 6.6, -21, -20, 11, 12, YL, 'metal'); D(-1, 1, -31, -20, 11, 11.8, YL, 'metal');
+      D(-1.4, 1.4, -27, -24, 9.6, 11, DK, 'metal'); D(-0.1, 0.1, -25.6, -25.4, 6.2, 9.6, '#2a2f38', 'metal'); D(-0.6, 0.6, -26.1, -24.9, 5.6, 6.2, '#e5533d', 'metal');
+    }
   }
 ];
 
