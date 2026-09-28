@@ -364,7 +364,7 @@ const MAPS = [
     name: 'Tormenta de Arena', half: 44,
     desc: 'Barrio del desierto como el Sandstorm de Krunker: pasillos largos entre edificios de pisos, torre con terraza en la plaza, balcón con nido de francotirador y un túnel bajo la meseta.',
     sky: ['#f0a95a', '#fbe3b8'], fog: '#f6ddb0', floor: ['#e2c08a', '#d7b37b'], out: '#d9b47c', pal: ['#e3c08d', '#c98158', '#6fb3c9', '#efe3cc', '#6aa84f'],
-    look: { floor: 'sandfloor', outFloor: 'sand', wall: 'sand', block: 'sand', crate: 'crate', plat: 'sand', sun: '#ffe2b0', decor: 'desert', pixel: 16, wallH: 12, trimBase: '#b08650', trimTop: '#f4e6c8' },
+    look: { floor: 'pave', outFloor: 'sand', wall: 'sand', block: 'sand', crate: 'crate', plat: 'sand', sun: '#ffe2b0', decor: 'desert', pixel: 16, wallH: 12, trimBase: '#b08650', trimTop: '#f4e6c8' },
     /* Suelo transitable (mitad este; el oeste es su espejo): base, plaza, carril central, largo norte, meseta sur y callejones */
     open(x, z) {
       const ax = Math.abs(x), R = [[30, 42, -10, 10], [0, 14, -12, 12], [14, 30, -4, 4], [0, 34, -30, -20], [30, 34, -20, -10], [4, 10, -20, -12], [16, 22, -36, -30], [0, 30, 20, 34], [26, 32, 10, 20], [0, 6, 12, 20]];
@@ -400,42 +400,40 @@ const MAPS = [
       const near = (cx, cz, r) => { for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) if (open(cx + dx * C, cz + dz * C)) return true; return false; };
       const cellH = (cx, cz) => { if (open(cx, cz)) return 0; const bi = Math.floor(Math.abs(cx) / 8), bj = Math.floor((cz + 44) / 8), hv = hash(bi, bj); return near(cx, cz, 1) ? 6 + Math.floor(hv * 4) : near(cx, cz, 3) ? 10 + Math.floor(hv * 4) : 13; };
       const COLS = [SA, TN, WH, TC], colOf = (x0, z0) => COLS[Math.floor(hash(Math.floor(Math.abs(x0) / 8) + 7, Math.floor((z0 + 44) / 8)) * 4)];
-      let prev = [];
+      const rects = [];   // filas de celdas iguales seguidas → un rectángulo; si la fila siguiente repite el tramo, se alarga
       for (let z = -N; z < N; z += C) {
-        const runs = []; let cur = null;
+        let cur = null; const row = [];
         for (let x = -N; x <= N; x += C) {
           const h = x < N ? cellH(x + C / 2, z + C / 2) : 0, c = h ? colOf(x + C / 2, z + C / 2) : '';
-          if (cur && (h !== cur.h || c !== cur.c)) { if (cur.h) runs.push(cur); cur = null; }
-          if (!cur && h) cur = { x0: x, x1: x + C, h, c, z0: z, z1: z + C }; else if (cur) cur.x1 = x + C;
+          if (cur && (h !== cur.h || c !== cur.c)) { row.push(cur); cur = null; }
+          if (!cur && h) cur = { x0: x, x1: x + C, h, c }; else if (cur) cur.x1 = x + C;
         }
-        for (const r of runs) { const p = prev.find(q => q.x0 === r.x0 && q.x1 === r.x1 && q.h === r.h && q.c === r.c && q.z1 === z); if (p) { p.z1 = z + C; r.merged = p; } }   // fundir con la fila anterior si es igual
-        prev = prev.filter(q => q.z1 < z).concat(runs.map(r => r.merged || r));
-        for (const q of prev) if (q.z1 < z) { /* ya cerrado */ }
-        this._runs = (this._runs || []); for (const r of runs) if (!r.merged) this._runs.push(r);
+        for (const r of row) { const q = rects.find(q => q.z1 === z && q.x0 === r.x0 && q.x1 === r.x1 && q.h === r.h && q.c === r.c); if (q) q.z1 = z + C; else rects.push(Object.assign(r, { z0: z, z1: z + C })); }
       }
-      for (const r of this._runs) P(r.x0, r.x1, r.z0, r.z1, 0, r.h, r.c, 'sand'); this._runs = null;
+      for (const r of rects) P(r.x0, r.x1, r.z0, r.z1, 0, r.h, r.c, 'adobe');
       /* ---------- plaza: torre central (planta baja hueca con 4 puertas, terraza a 3,2 m con pretil) ---------- */
       const T = 0.5, TH = 2.8;
       for (const s of [-1, 1]) {
-        P(-4, -1, s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), 0, TH, WH, 'sand'); P(1, 4, s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), 0, TH, WH, 'sand'); P(-1, 1, s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), 2.2, TH, WH, 'sand');   // norte / sur con puerta
-        P(s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), -4 + T, -1, 0, TH, WH, 'sand'); P(s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), 1, 4 - T, 0, TH, WH, 'sand'); P(s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), -1, 1, 2.2, TH, WH, 'sand');
+        P(-4, -1, s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), 0, TH, WH, 'adobe'); P(1, 4, s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), 0, TH, WH, 'adobe'); P(-1, 1, s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), 2.2, TH, WH, 'adobe');   // norte / sur con puerta
+        P(s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), -4 + T, -1, 0, TH, WH, 'adobe'); P(s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), 1, 4 - T, 0, TH, WH, 'adobe'); P(s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), -1, 1, 2.2, TH, WH, 'adobe');
       }
       P(-4.4, 4.4, -4.4, 4.4, TH, TH + 0.4, TN, 'sand');                                                                                             // terraza (arriba a 3,2 m)
-      for (const s of [-1, 1]) { P(-4.4, 4.4, s * 4.4 - (s > 0 ? 0.4 : 0), s * 4.4 + (s < 0 ? 0.4 : 0), TH + 0.4, TH + 1.4, WH, 'sand'); P(s * 4.4 - (s > 0 ? 0.4 : 0), s * 4.4 + (s < 0 ? 0.4 : 0), -4, -1.2, TH + 0.4, TH + 1.4, WH, 'sand'); P(s * 4.4 - (s > 0 ? 0.4 : 0), s * 4.4 + (s < 0 ? 0.4 : 0), 1.2, 4, TH + 0.4, TH + 1.4, WH, 'sand'); }   // pretil con hueco donde llegan las escaleras
+      for (const s of [-1, 1]) { P(-4.4, 4.4, s * 4.4 - (s > 0 ? 0.4 : 0), s * 4.4 + (s < 0 ? 0.4 : 0), TH + 0.4, TH + 1.4, WH, 'adobe'); P(s * 4.4 - (s > 0 ? 0.4 : 0), s * 4.4 + (s < 0 ? 0.4 : 0), -4, -1.2, TH + 0.4, TH + 1.4, WH, 'adobe'); P(s * 4.4 - (s > 0 ? 0.4 : 0), s * 4.4 + (s < 0 ? 0.4 : 0), 1.2, 4, TH + 0.4, TH + 1.4, WH, 'adobe'); }   // pretil con hueco donde llegan las escaleras
       b.run('W', 12, 0, 2.4, 8, 0, 0.4, TN, 'sand'); b.run('E', -12, 0, 2.4, 8, 0, 0.4, TN, 'sand');                                          // escaleras oeste y este a la terraza (8 peldaños → 3,2 m)
+      for (const cx of [-4, 4]) for (const cz of [-4, 4]) P(cx - 0.4, cx + 0.4, cz - 0.4, cz + 0.4, TH + 0.4, TH + 3, WH, 'adobe');   // pilares de las esquinas (con cúpula de adorno en el cliente)
       crate(-2.6, -2.6, 1.4, 1.4); crate(2.6, 2.6, 1.4, 1.4);
       for (const sx of [-1, 1]) {
         const X = (a, c) => [sx * a, sx * c];
         /* plaza: muretes, cajas y palmeras */
-        P(...X(8, 11), -9.6, -9, 0, 1.2, SA, 'sand'); P(...X(8, 11), 9, 9.6, 0, 1.2, SA, 'sand'); crate(sx * 11, -6); crate(sx * 7, 7.5, 1.6, 1.6);
+        P(...X(8, 11), -9.6, -9, 0, 1.2, SA, 'adobe'); P(...X(8, 11), 9, 9.6, 0, 1.2, SA, 'adobe'); crate(sx * 11, -6); crate(sx * 7, 7.5, 1.6, 1.6);
         /* ---------- carril central (estrecho, directo de la base a la plaza) ---------- */
-        bags(...X(20, 20.8), -3, 0.4); crate(sx * 25, 2.6, 1.6, 1.6); P(...X(14, 15), -4, -2.6, 0, 3, SA, 'sand'); P(...X(14, 15), 2.6, 4, 0, 3, SA, 'sand');   // arco de entrada a la plaza
-        P(...X(14, 15), -2.6, 2.6, 2.4, 3, SA, 'sand');
+        bags(...X(20, 20.8), -3, 0.4); crate(sx * 25, 2.6, 1.6, 1.6); P(...X(14, 15), -4, -2.6, 0, 3, SA, 'adobe'); P(...X(14, 15), 2.6, 4, 0, 3, SA, 'adobe');   // arco de entrada a la plaza
+        P(...X(14, 15), -2.6, 2.6, 2.4, 3, SA, 'adobe');
         /* ---------- base: patio con arco hacia el carril ---------- */
         crate(sx * 36, -4); crate(sx * 36, 4); crate(sx * 34.6, 5.6, 1.4, 1.2); bags(...X(32, 32.8), -8.5, -6);
         /* ---------- largo norte: pasillo de 10 m entre edificios, balcón corrido a 2,8 m y nido a los lados ---------- */
         P(...X(0, 16), -30, -28, 0, 2.8, TN, 'sand');                                                                                               // balcón (la mitad de cada lado)
-        P(...X(16, 22), -36, -28, 0, 2.8, TN, 'sand'); P(...X(16, 22), -28.4, -28, 2.8, 3.8, WH, 'sand');                                             // nido con pretil
+        P(...X(16, 22), -36, -28, 0, 2.8, TN, 'sand'); P(...X(16, 22), -28.4, -28, 2.8, 3.8, WH, 'adobe');                                             // nido con pretil
         b.run(sx > 0 ? 'W' : 'E', sx * 29, -29, 2, 7, 0, 0.4, TN, 'sand');                                                                           // escalera al nido desde el extremo del largo
         crate(sx * 8, -23, 1.8, 1.8); crate(sx * 26, -25); bags(...X(14, 17), -21.4, -20.6); crate(sx * 32, -16, 1.6, 1.6);
         /* callejón plaza ↔ largo norte */
@@ -445,7 +443,7 @@ const MAPS = [
         P(...X(0, 2), 22, 26, 2.0, 2.4, TN, 'sand');                                                                                                  // puente sobre la salida al centro
         b.run(sx > 0 ? 'W' : 'E', sx * 30, 24, 2, 6, 0, 0.4, TN, 'sand');                                                                             // escalera a la meseta desde el callejón sur
         b.run('S', 16, sx * 5, 2, 6, 0, 0.4, TN, 'sand');                                                                                             // escalera a la meseta desde la plaza
-        P(...X(8, 12), 22, 22.5, 2.4, 3.4, SA, 'sand'); P(...X(16, 22), 22, 22.5, 2.4, 3.4, SA, 'sand'); crate(sx * 14, 32, 1.6, 1.6, 2.4); crate(sx * 22, 27, 1.4, 1.2, 2.4);   // pretil y cajas arriba
+        P(...X(8, 12), 22, 22.5, 2.4, 3.4, SA, 'adobe'); P(...X(16, 22), 22, 22.5, 2.4, 3.4, SA, 'adobe'); crate(sx * 14, 32, 1.6, 1.6, 2.4); crate(sx * 22, 27, 1.4, 1.2, 2.4);   // pretil y cajas arriba
         b.ramp(...X(26, 30), 30, 34, 0, 2.4, sx > 0 ? 'W' : 'E', '#cfa66e', 'sand');                                                                  // rampa para deslizarse desde la meseta
         crate(sx * 12, 16, 1.6, 1.6); crate(sx * 29, 14); bags(...X(22, 25), 18.6, 19.4);
       }
