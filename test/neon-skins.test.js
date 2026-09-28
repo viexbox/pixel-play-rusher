@@ -13,7 +13,7 @@ let ipn = 80; const ip = () => '10.7.6.' + (ipn++);
 
 console.log('=== 1. Datos ===');
 const neon = S.WEAPON_SKINS.filter(k => k.neon), OSARIO = S.BP_TIERS.find(t => t.vip.id === 'asalto_osario');
-ok(neon.length === 11 && new Set(neon.map(k => k.w)).size === S.WEAPONS.length, 'hay 11 skins de neón, una por cada arma del juego');
+ok(neon.length === 11 && new Set(neon.map(k => k.w)).size === 11, 'hay 11 skins de neón, una por cada una de las 11 armas originales');
 ok(neon.every(k => S.BP_TIERS.some(t => t.vip.t === 'wskin' && t.vip.id === k.id) && !S.BP_TIERS.some(t => t.free.id === k.id)), 'todas están en la vía VIP del pase y ninguna en la gratuita');
 ok(neon.every(k => ['epico', 'leyenda'].includes(k.r) && /^#[0-9a-f]{6}$/i.test(k.neon.col) && /^n_/.test(k.neon.pat)), 'todas son épicas o legendarias, con color y dibujo de neón');
 ok(!!OSARIO && OSARIO.level === 35, 'Osario (Asalto) está en el nivel 35 VIP');

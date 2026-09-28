@@ -1124,13 +1124,85 @@ function buildPistolHD(k, w, s, L, bl) {
   hdTrigger(P, 0.05);
   return -0.232;
 }
+/* [ARMAS KRUNKER] Tubo hueco a lo largo de z (lanzacohetes) y pieza plana en el plano x-z (palas de la ballesta) */
+function hdTube(k, role, ro, ri, len, y, zc) {
+  const sh = new THREE.Shape(), seg = gunLOD > 0 ? 24 : 10; sh.absarc(0, 0, ro, 0, TAU, false);
+  const h = new THREE.Path(); h.absarc(0, 0, ri, 0, TAU, true); sh.holes.push(h);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: len, bevelEnabled: false, curveSegments: seg }); g.translate(0, 0, -len / 2);
+  k.parts.push({ role, geo: g, m: new THREE.Matrix4().makeTranslation(0, y, zc) });
+}
+function hdFlat(k, role, pts, thick, y, round) {   // pts = [x, u]: silueta vista desde arriba, extruida hacia arriba
+  const g = new THREE.ExtrudeGeometry(roundPath(new THREE.Shape(), pts, round || 0.01), { depth: thick, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.002, bevelSegments: 1, curveSegments: gunLOD > 0 ? 4 : 1 });
+  g.rotateX(-Math.PI / 2);   // (x, u, e) → (x, e, −u)
+  k.parts.push({ role, geo: g, m: new THREE.Matrix4().makeTranslation(0, y - thick / 2, 0) });
+}
+/* Tríada: fusil bullpup de ráfaga (tipo FAMAS). El cargador va DETRÁS de la empuñadura, cajón largo con asa baja y riel, guardamanos corto */
+function buildBullpupHD(k, w, s, L, bl) {
+  const P = HDP(k), W = 0.056;
+  P('body', [[-0.25, -0.07], [-0.24, 0.022], [-0.2, 0.034], [0.42, 0.034], [0.44, 0.02], [0.44, -0.022], [0.3, -0.03], [0.14, -0.03], [0.12, -0.05], [-0.02, -0.05], [-0.06, -0.076], [-0.235, -0.082]], W, 0.006, null, 0, false, 0.014);   // carcasa de una pieza
+  P('dark', [[-0.262, -0.086], [-0.248, -0.086], [-0.248, 0.024], [-0.262, 0.018]], W * 0.96, 0.003);                                    // cantonera
+  P('dark', [[0.44, -0.024], [0.54, -0.024], [0.546, -0.016], [0.546, 0.02], [0.44, 0.024]], W * 0.9, 0.008, null, 0, false, 0.012);      // guardamanos
+  for (let i = 0; i < 3; i++) for (const x of [-1, 1]) k.t('metal', 0.003, 0.012, 0.022, x * (W * 0.45 + 0.002), 0.0, -(0.46 + i * 0.03));
+  P('body', [[-0.12, 0.034], [-0.1, 0.06], [0.3, 0.06], [0.33, 0.034], [0.28, 0.034], [0.26, 0.048], [-0.06, 0.048], [-0.08, 0.034]], 0.018, 0.003, null, 0, false, 0.008);   // asa de transporte baja
+  hdRail(k, -0.1, 0.3, 0.064, 0.022);
+  k.b('dark', 0.004, 0.018, 0.08, W / 2 + 0.001, 0.004, 0.08, 0, 0, 0, 0.001);                                                            // ventana de expulsión (atrás, junto a la mejilla)
+  k.b('metal', 0.012, 0.01, 0.03, 0, 0.052, -0.3, 0, 0, 0, 0.002);                                                                        // palanca de carga bajo el asa
+  k.c('metal', 0.0105, 0.0105, 0.16, 0, 0.0, -0.63, 12);
+  const tip = hdBrake(k, 0.71, 0.0105, 0.0);
+  P('dark', [[-0.075, -0.05], [-0.02, -0.05], [-0.012, -0.1], [0.0, -0.16], [-0.052, -0.172], [-0.066, -0.12]], W * 0.62, 0.004);    // cargador recto detrás de la empuñadura
+  for (let i = 0; i < 3; i++) k.t('metal', W * 0.62 + 0.004, 0.005, 0.04, 0, -0.075 - i * 0.028, -(-0.045 + i * 0.005), -0.12);
+  P('metal', [[-0.056, -0.168], [0.004, -0.156], [0.006, -0.166], [-0.054, -0.18]], W * 0.66, 0.002);
+  hdGrip(P, W, 0.07, 0.004); hdTrigger(P, 0.1);
+  k.b('acc', W + 0.003, 0.006, 0.16, 0, 0.02, -0.2, 0, 0, 0, 0.0015);
+  return tip;
+}
+/* Cometa: lanzacohetes de tubo (tipo RPG): tubo hueco, escudo térmico de madera, dos empuñaduras, tobera trasera acampanada y la cabeza del cohete asomando */
+function buildLauncherHD(k, w, s, L, bl) {
+  const P = HDP(k), y = 0.0, R = 0.036;
+  hdTube(k, 'body', R, R - 0.006, 0.78, y, -0.05);                                                                                          // tubo
+  k.c('wood', R + 0.008, R + 0.008, 0.2, 0, y, -0.02, 18); for (const z of [-0.12, 0.08]) k.c('metal', R + 0.011, R + 0.011, 0.012, 0, y, z, 18);   // escudo térmico con abrazaderas
+  k.c('dark', R + 0.004, R + 0.004, 0.03, 0, y, -0.43, 18);                                                                                // boca
+  k.c('dark', R * 1.7, R + 0.004, 0.13, 0, y, 0.4, 18); hdTube(k, 'dark', R * 1.7, R * 1.7 - 0.005, 0.02, y, 0.47);                   // tobera acampanada
+  k.c('acc', 0.028, 0.028, 0.06, 0, y, -0.47, 14); k.c('acc', 0.012, 0.028, 0.1, 0, y, -0.55, 14); k.c('hi', 0.0, 0.012, 0.03, 0, y, -0.615, 10);   // cabeza del cohete
+  k.c('metal', 0.012, 0.012, 0.04, 0, y, -0.42, 10);
+  P('dark', [[0.06, -R + 0.004], [0.12, -R + 0.004], [0.12, -0.05], [0.06, -0.05]], 0.03, 0.003);                                         // base de la empuñadura
+  hdGrip(P, 0.05, 0.07, 0.006); hdTrigger(P, 0.1);
+  P('dark', [[0.2, -R + 0.004], [0.24, -R + 0.004], [0.232, -0.13], [0.196, -0.132]], 0.036, 0.006, null, 0, false, 0.012);                 // empuñadura delantera
+  hdRail(k, -0.1, 0.25, R + 0.004, 0.02);
+  k.b('metal', 0.012, 0.03, 0.016, R + 0.004, y + 0.01, -0.2, 0, 0, 0, 0.002); k.c('lens', 0.008, 0.008, 0.004, R + 0.012, y + 0.02, -0.21, 10);   // visor lateral
+  return -0.64;
+}
+/* Arpón: ballesta con culata, riel del virote, dos palas curvas, cuerda tensada, estribo delantero y un virote cargado */
+function buildCrossbowHD(k, w, s, L, bl) {
+  const P = HDP(k), W = 0.048;
+  P('wood', [[-0.26, -0.07], [-0.25, 0.024], [-0.18, 0.03], [0.02, 0.018], [0.08, 0.02], [0.08, -0.03], [-0.02, -0.03], [-0.06, -0.05], [-0.24, -0.085]], W, 0.006,
+    [[[-0.2, -0.012], [-0.08, -0.008], [-0.1, -0.035], [-0.19, -0.05]]], 0, false, 0.014);                                                 // culata de madera con hueco
+  P('body', [[0.0, -0.03], [0.5, -0.03], [0.52, -0.02], [0.52, 0.02], [0.0, 0.024]], W * 0.8, 0.005, null, 0, false, 0.01);                  // cuerpo largo
+  k.b('dark', 0.012, 0.006, 0.44, 0, 0.026, -0.27, 0, 0, 0, 0.0015);                                                                       // canal del virote
+  hdGrip(P, W, 0.07, 0.004); hdTrigger(P, 0.1);
+  k.b('metal', 0.03, 0.02, 0.03, 0, 0.03, -0.12, 0, 0, 0, 0.004);                                                                          // nuez (enganche de la cuerda)
+  k.b('dark', 0.05, 0.04, 0.06, 0, 0.0, -0.5, 0, 0, 0, 0.006);                                                                             // bloque de las palas
+  const lim = gunLOD > 0 ? 7 : 4, pts = [];
+  for (let i = 0; i <= lim; i++) { const t = i / lim, x = 0.19 * t; pts.push([x, 0.5 + 0.018 - 0.07 * t * t]); }
+  for (let i = lim; i >= 0; i--) { const t = i / lim, x = 0.19 * t; pts.push([x, 0.5 - 0.012 - 0.075 * t * t + 0.01 * t]); }
+  hdFlat(k, 'dark', pts, 0.014, 0.004, 0.004); hdFlat(k, 'dark', pts.map(([x, u]) => [-x, u]).reverse(), 0.014, 0.004, 0.004);             // palas curvas
+  for (const x of [-1, 1]) k.c('metal', 0.008, 0.008, 0.02, x * 0.188, 0.004, -0.43, 8, Math.PI / 2);                                  // poleas
+  const str = (x0, z0, x1, z1) => { const dx = x1 - x0, dz = z1 - z0; k.t('metal', 0.003, 0.003, Math.hypot(dx, dz), (x0 + x1) / 2, 0.028, (z0 + z1) / 2, 0, Math.atan2(dx, dz)); };
+  str(-0.188, -0.43, 0, -0.12); str(0.188, -0.43, 0, -0.12);                                                                               // cuerda tensada
+  hdTube(k, 'metal', 0.05, 0.042, 0.012, -0.03, -0.56); k.t('metal', 0.012, 0.03, 0.012, 0, -0.012, -0.53);                                // estribo
+  k.c('wood', 0.0045, 0.0045, 0.44, 0, 0.034, -0.33, 8); k.c('metal', 0.0, 0.007, 0.03, 0, 0.034, -0.565, 8);                           // virote cargado
+  for (let i = 0; i < 3; i++) { const a = i / 3 * TAU; k.t('acc', 0.002, 0.012, 0.04, Math.sin(a) * 0.008, 0.034 + Math.cos(a) * 0.008, -0.135, 0, 0, -a); }   // plumas
+  return -0.58;
+}
 const GUN_BUILDERS = {
   asalto: buildRifleHD, precision: buildRifleHD, centinela: buildRifleHD, ak: buildAkHD, lince: buildSniperHD,
   rafaga: (k, w, s, L, bl) => buildSmgHD(k, w, s, L, bl, {}), vortice: (k, w, s, L, bl) => buildSmgHD(k, w, s, L, bl, { supp: true, foregrip: true }),
-  torrente: buildLmgHD, trueno: buildShotgunHD, sheriff: buildRevolverHD, duo: buildPistolHD
+  torrente: buildLmgHD, trueno: buildShotgunHD, sheriff: buildRevolverHD, duo: buildPistolHD,
+  triada: buildBullpupHD, cometa: buildLauncherHD, arpon: buildCrossbowHD   // [ARMAS KRUNKER]
 };
 /* [REALISTAS] Tono de cada arma sin skin (cuerpo): pavonado, polímero verde oliva, arena, acero inoxidable… y el resto de piezas de verdad */
-const REAL_BODY = { asalto: '#3a3f46', precision: '#6b6150', centinela: '#3f4538', ak: '#34373c', lince: '#4a5140', rafaga: '#2f3338', vortice: '#857658', torrente: '#43483f', trueno: '#2d3034', sheriff: '#a4abb3', duo: '#282b30' };
+const REAL_BODY = { asalto: '#3a3f46', precision: '#6b6150', centinela: '#3f4538', ak: '#34373c', lince: '#4a5140', rafaga: '#2f3338', vortice: '#857658', torrente: '#43483f', trueno: '#2d3034', sheriff: '#a4abb3', duo: '#282b30', triada: '#5b6150', cometa: '#4f5a3c', arpon: '#2e3136' };
+const SIGHT_AT = { cometa: [-0.08, 0.12, -0.36], arpon: [-0.2, -0.02, -0.46] };
 const REAL_PARTS = { dark: '#1c1f24', metal: '#5a6068', acc: '#7c8189', wood: '#6e4323', woodDk: '#4d2d16' };
 const REAL_PBR = { body: [0.55, 0.45], dark: [0.1, 0.8], metal: [0.85, 0.32], acc: [0.6, 0.4], wood: [0.0, 0.7], woodDk: [0.0, 0.75], hi: [0.2, 0.5], shell: [0.1, 0.55], brass: [0.9, 0.3] };
 const realMatCache = {};
@@ -1268,6 +1340,7 @@ function gunModel(w, ox, oid, skinId) {
     if (sk) {   // con skin: sus colores, patrones y brillos (sombreado toon)
       const metal = '#' + new THREE.Color(dark).lerp(new THREE.Color('#8a93b8'), 0.22).getHexString();
       const cols = { body: wcol, acc, dark, metal }; if (w.id === 'ak') { cols.wood = sk.acc; cols.woodDk = sk.dark; cols.metal = '#2b2f3f'; }
+      else if (w.id === 'arpon' || w.id === 'cometa') cols.wood = w.id === 'arpon' ? sk.dark : sk.acc;   // [ARMAS KRUNKER] la culata y el escudo térmico toman el color de la skin
       g.userData.tipZ = buildDetailedGun(w, g, s, L, bl, cols, c => gunMat(c, sk, wcol, acc, dark));
     } else {    // [REALISTAS] sin skin: tonos de arma de verdad y materiales con brillo físico
       const cols = Object.assign({ body: REAL_BODY[w.id] || '#3a3f46' }, REAL_PARTS), roleOf = {};
@@ -1275,6 +1348,7 @@ function gunModel(w, ox, oid, skinId) {
       g.userData.tipZ = buildDetailedGun(w, g, s, L, bl, cols, c => realMat(roleOf[c] || 'hi', c));
     }
     if (w.id === 'ak') sights(-0.16, -0.06, g.userData.tipZ + 0.06);
+    else if (SIGHT_AT[w.id]) sights(...SIGHT_AT[w.id]);   // [ARMAS KRUNKER] el lanzacohetes y la ballesta llevan la mira sobre el tubo y el cuerpo
     else if (!L.scope) { if (opt) sights(-s[2] * 0.3, -s[2] * 0.12, g.userData.tipZ + 0.03); else g.add(box(0.01, 0.016, 0.012, 0, s[1] / 2 + 0.008, g.userData.tipZ + 0.035, dark)); }   // punto de mira sencillo
   } else {
     g.add(box(s[0], s[1], s[2], 0, 0, -s[2] / 2, wcol));
@@ -1883,6 +1957,76 @@ function burst(pos, color, n, speed) {
   }
 }
 
+/* [ARMAS KRUNKER] Proyectiles del lanzacohetes (Cometa) y la ballesta (Arpón). Se ven igual en línea y sin conexión;
+   sin conexión el daño lo calcula el cliente, en línea lo decide el servidor (mensajes proj/boom/hit). */
+const projs = [], _pStep = new THREE.Vector3(), _pDir = new THREE.Vector3(), _pLook = new THREE.Vector3();
+const projMats = {}, projMat = (c, basic) => projMats[c + basic] || (projMats[c + basic] = basic ? new THREE.MeshBasicMaterial({ color: c }) : new THREE.MeshLambertMaterial({ color: c }));
+function projMesh(w) {   // mirando hacia +z (lookAt)
+  const g = new THREE.Group(), add = (geo, mat, z) => { const m = new THREE.Mesh(geo, mat); m.position.z = z; g.add(m); return m; };
+  if (w.proj.splash) {
+    add(cylGeo(0.03, 0.03, 0.22, 10), projMat('#4f5a3c'), 0); add(cylGeo(0.042, 0.03, 0.08, 10), projMat('#c9cdd3'), 0.14); add(cylGeo(0, 0.042, 0.1, 10), projMat('#e5484d'), 0.22);
+    for (let i = 0; i < 4; i++) { const f = add(BG(0.004, 0.07, 0.07), projMat('#2b2f36'), -0.1); f.rotation.z = i * Math.PI / 4; }
+    add(cylGeo(0.045, 0.012, 0.16, 8), projMat('#ffb347', true), -0.2);   // llama
+  } else {
+    add(cylGeo(0.006, 0.006, 0.5, 6), projMat('#8a5a2b'), 0); add(cylGeo(0.0, 0.012, 0.05, 6), projMat('#b8bec8'), 0.27);
+    for (let i = 0; i < 3; i++) { const f = add(BG(0.003, 0.03, 0.07), projMat('#e5484d'), -0.2); f.rotation.z = i * TAU / 3; f.position.x = Math.sin(i * TAU / 3) * 0.012; f.position.y = Math.cos(i * TAU / 3) * 0.012; }
+  }
+  return g;
+}
+function spawnProj(owner, o, d, w, muzzle, own) {
+  const pr = { owner, w, pos: o.clone(), vel: d.clone().normalize().multiplyScalar(w.proj.v), t: 0, m: projMesh(w), off: muzzle ? muzzle.clone().sub(o) : new THREE.Vector3(), own, smoke: 0 };
+  scene.add(pr.m); projs.push(pr); placeProj(pr); return pr;
+}
+function placeProj(pr) { const k = Math.max(0, 1 - pr.t / 0.12); pr.m.position.copy(pr.pos).addScaledVector(pr.off, k); pr.m.lookAt(_pLook.copy(pr.m.position).add(pr.vel)); }   // sale de la boca del arma y enseguida sigue la línea de la mira
+function updateProjs(dt) {
+  for (let i = projs.length - 1; i >= 0; i--) {
+    const pr = projs[i], w = pr.w, g = w.proj.g || 0; pr.t += dt;
+    const vy = pr.vel.y - g * dt; _pStep.set(pr.vel.x * dt, (pr.vel.y + vy) / 2 * dt, pr.vel.z * dt); pr.vel.y = vy;
+    const L = _pStep.length(); let done = pr.t > w.proj.life;
+    if (!done && L > 1e-6) {
+      _pDir.copy(_pStep).divideScalar(L);
+      const r = hitscan(pr.pos, _pDir, pr.owner, L);
+      if (r.t < L) { projImpact(pr, r); done = true; } else pr.pos.add(_pStep);
+    }
+    if (done) { scene.remove(pr.m); projs.splice(i, 1); continue; }
+    placeProj(pr);
+    if (w.proj.splash && (pr.smoke -= dt) <= 0) { pr.smoke = 0.035; burst(pr.m.position, '#9aa0a8', 1, 0.35); }   // estela de humo
+  }
+}
+function projImpact(pr, r) {
+  const w = pr.w, local = !online && pr.owner && pr.owner.isPlayer;
+  if (w.proj.splash) {
+    if (pr.own || !online) explodeFx(r.point);   // en línea, los cohetes de los demás los dibuja el mensaje «boom» del servidor
+    if (!local) return;
+    const R = w.proj.splash;
+    for (const f of fighters) {
+      if (f === pr.owner || !f.alive || f.team === pr.owner.team) continue;
+      const cy = clamp(r.point.y, f.pos.y, f.pos.y + f.h), dist = f === r.f ? 0 : Math.hypot(f.pos.x - r.point.x, cy - r.point.y, f.pos.z - r.point.z);
+      if (dist > R) continue;
+      if (f !== r.f) { const to = { x: f.pos.x - r.point.x, y: f.pos.y + f.h / 2 - r.point.y, z: f.pos.z - r.point.z }, l = Math.hypot(to.x, to.y, to.z) || 1; if (rayWorld(r.point, { x: to.x / l, y: to.y / l, z: to.z / l }, l) < l - 0.3) continue; }   // una pared en medio protege
+      damage(f, Math.round(w.dmg * (1 - 0.75 * dist / R)), pr.owner, false, w.name);
+    }
+  } else {
+    burst(r.point, r.f ? '#ff5a5f' : '#c9b48a', 3, 2);
+    if (local && r.f) damage(r.f, (r.head && w.head) ? w.head : w.dmg * (r.head ? 2 : 1), pr.owner, r.head, w.name);
+  }
+}
+const boomFx = [];
+function explodeFx(p) {
+  burst(p, '#ffd166', 12, 7); burst(p, '#ff5a1f', 10, 5); burst(p, '#5c5f66', 8, 3);
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), new THREE.MeshBasicMaterial({ color: 0xffa13d, transparent: true, opacity: 0.9, depthWrite: false }));
+  m.position.copy(p); scene.add(m); boomFx.push({ m, t: 0 });
+  const d = player ? Math.hypot(p.x - player.pos.x, p.y - (player.pos.y + 1), p.z - player.pos.z) : 99;
+  sfx.boom(clamp(1 - d / 70, 0.08, 1)); addShake(clamp(1 - d / 18, 0, 1) * 0.7);
+}
+function updateBooms(dt) {
+  for (let i = boomFx.length - 1; i >= 0; i--) {
+    const b = boomFx[i]; b.t += dt; const k = b.t / 0.3;
+    if (k >= 1) { scene.remove(b.m); b.m.geometry.dispose(); b.m.material.dispose(); boomFx.splice(i, 1); continue; }
+    b.m.scale.setScalar(0.4 + k * 3.2); b.m.material.opacity = (1 - k) * 0.85; b.m.material.color.setHSL(0.09 - k * 0.07, 1, 0.6 - k * 0.25);
+  }
+}
+function clearProjs() { for (const pr of projs) scene.remove(pr.m); projs.length = 0; for (const b of boomFx) scene.remove(b.m); boomFx.length = 0; }
 /* =====================================================================
    Audio sintetizado
    ===================================================================== */
@@ -1913,7 +2057,8 @@ function noise(dur, vol, fc) {
   s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random() * 0.5, dur + 0.05);
 }
 const sfx = {
-  shot(w, v) { v = v == null ? 1 : v; if (v < 0.03) return; const big = w.id === 'lince' || w.id === 'sheriff' || w.id === 'precision'; noise(w.id === 'trueno' ? 0.24 : big ? 0.2 : 0.12, 0.45 * v, big ? 3600 : 2600); tone(big ? 190 : w.id === 'duo' ? 300 : 230, 60, 0.12, 'sawtooth', 0.16 * v); },
+  shot(w, v) { v = v == null ? 1 : v; if (v < 0.03) return; if (w.proj) return w.proj.splash ? (noise(0.42, 0.42 * v, 1500), tone(140, 55, 0.3, 'sawtooth', 0.14 * v)) : (tone(520, 170, 0.09, 'triangle', 0.2 * v), noise(0.06, 0.2 * v, 3200)); const big = w.id === 'lince' || w.id === 'sheriff' || w.id === 'precision'; noise(w.id === 'trueno' ? 0.24 : big ? 0.2 : 0.12, 0.45 * v, big ? 3600 : 2600); tone(big ? 190 : w.id === 'duo' ? 300 : 230, 60, 0.12, 'sawtooth', 0.16 * v); },
+  boom(v) { noise(0.8, 0.75 * v, 1100); tone(95, 32, 0.6, 'sawtooth', 0.3 * v); noise(0.25, 0.5 * v, 4200); },   // [ARMAS KRUNKER] explosión del cohete
   melee() { noise(0.09, 0.25, 2800); tone(600, 250, 0.08, 'triangle', 0.1); },
   draw() { tone(1100, 1700, 0.06, 'triangle', 0.05); noise(0.05, 0.06, 5200); },
   slide() { noise(0.4, 0.11, 900); tone(170, 80, 0.32, 'triangle', 0.05); },
@@ -1951,6 +2096,9 @@ const setTxt = (node, key, v) => { if (hudCache[key] !== v) { hudCache[key] = v;
 /* Iconos de armas: se dibujan con las mismas medidas que el modelo 3D */
 function weaponIcon(w) {
   const L = w.look || {}, sz = w.size, bl = (L.barrel || 0.4) * 0.6;
+  /* [ARMAS KRUNKER] siluetas propias: lanzacohetes (tubo con cohete y tobera) y ballesta (palas, cuerda y virote) */
+  if (L.tube) return '<svg viewBox="0 0 100 32" aria-hidden="true"><polygon points="2,9 12,11 12,19 2,21"/><rect x="12" y="11" width="62" height="8" rx="2"/><rect x="34" y="9" width="18" height="12" rx="2"/><polygon points="74,10 86,11 95,15 86,19 74,20"/><polygon points="40,19 46,19 45,28 39,28"/><polygon points="58,19 63,19 62,27 57,27"/></svg>';
+  if (L.bow) return '<svg viewBox="0 0 100 32" aria-hidden="true"><polygon points="4,14 30,12 30,19 8,24"/><rect x="28" y="12" width="52" height="6" rx="2"/><path d="M80 2 Q88 15 80 28" fill="none" stroke="currentColor" stroke-width="3.2"/><path d="M80 3 L52 15 L80 27" fill="none" stroke="currentColor" stroke-width="0.9"/><rect x="40" y="9.5" width="56" height="1.8"/><polygon points="36,18 42,18 40,27 35,27"/></svg>';
   const sc = 66 / (sz[2] + bl), x0 = 20, rl = sz[2] * sc, rh = clamp(sz[1] * sc * 1.5, 5, 9), top = 11;
   const r = (x, y, wd, h, extra) => '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + wd.toFixed(1) + '" height="' + h.toFixed(1) + '"' + (extra === undefined ? ' rx="1"' : extra) + '/>';
   let s = '<polygon points="' + [x0 - 17, top + 1, x0, top, x0, top + rh, x0 - 17, top + rh + 5].join(' ') + '"/>';
@@ -2199,6 +2347,7 @@ function playerShoot() {
   if (p.reload > 0 || p.fireCd > 0 || knifeT > 0) return;
   if (p.ammo <= 0) { startReload(); return; }
   p.ammo--; p.fireCd = w.interval; TUT.shots++;   // TUT: para el tutorial
+  if (w.burst) { p.burstLeft = p.burstLeft > 0 ? p.burstLeft - 1 : w.burst - 1; p.fireCd = p.burstLeft > 0 ? w.interval : w.burstCd; } else p.burstLeft = 0;   // [ARMAS KRUNKER] un clic = ráfaga completa; luego la pausa
   const base = aimDirOf(p);   // [NUEVO] la bala sale de donde apuntas (p.yaw/p.pitch), no de la cámara: el retroceso visual no la desvía
   const scoped = !!scopeKind(w) && p.aim > 0.85, tight = scoped && w.scopedSpread != null;
   let sp = tight ? w.scopedSpread : w.spread;
@@ -2210,6 +2359,7 @@ function playerShoot() {
   for (let i = 0; i < w.pellets; i++) {
     const d = spreadDir(base, sp);
     dirs.push([r3(d.x), r3(d.y), r3(d.z)]);
+    if (w.proj) { spawnProj(p, origin, d, w, muzzle, true); continue; }   // [ARMAS KRUNKER] cohete o virote
     const r = hitscan(origin, d, p, w.range); shootLife(origin, d, r.t);   // [MAPAS 2] gallinas y balón
     if (r.f) {
       let dm = (r.head && w.head) ? w.head : w.dmg * (r.head ? 2 : 1);
@@ -2242,6 +2392,7 @@ function meleeHit() {
 }
 function startReload() {
   const p = player, w = WEAPONS[p.wi];
+  p.burstLeft = 0;
   if (p.reload > 0 || p.ammo >= w.mag || knifeT > 0) return;
   p.reload = w.reload; reloadAnim = 1; sfx.reload();
   if (online) netSend({ t: 'reload' });
@@ -2251,7 +2402,7 @@ function updatePlayer(dt) {
   p.protect = Math.max(0, p.protect - dt); p.fireCd = Math.max(0, p.fireCd - dt); p.meleeCd = Math.max(0, (p.meleeCd || 0) - dt);
   if (!p.alive) {
     resetGameFeel();   // [NUEVO] al morir se quita el retroceso y el FOV extra
-    knifeT = 0; pendingMelee = 0; knifeG.visible = false; slot = 0; slotK = 0; slashT = 0;   // [NUEVO] al morir se suelta el cuchillo
+    knifeT = 0; pendingMelee = 0; knifeG.visible = false; slot = 0; slotK = 0; slashT = 0; p.burstLeft = 0;   // [NUEVO] al morir se suelta el cuchillo
     if (online) el.deathCount.textContent = net.mode === 'bomba' ? 'Reapareces en la siguiente ronda.' : 'Reapareces en ' + Math.max(1, Math.ceil((net.respawnAt - performance.now()) / 1000)) + ' s.';   // [BOMBA] sin reaparecer hasta la ronda siguiente   // [CORREGIDO] ya no se cambia de arma con 1-9: ahora es la tienda
     else if (simTime >= p.respawnAt) respawn(p);
     else el.deathCount.textContent = 'Reapareces en ' + Math.ceil(p.respawnAt - simTime) + ' s.';   // [CORREGIDO] ya no se cambia de arma con 1-9: ahora es la tienda
@@ -2278,7 +2429,7 @@ function updatePlayer(dt) {
   const eyeT = p.h - 0.2 - (p.slide > 0 ? 0.26 : 0); p.eye += (eyeT - p.eye) * Math.min(1, dt * 14);   // la cámara baja más al deslizarse
   // disparo y recarga
   if (p.reload > 0) { p.reload -= dt; if (p.reload <= 0) { p.reload = 0; p.ammo = w.mag; } }
-  if (mouseL) { if (slot === 1) playerMelee(); else playerShoot(); }   // [NUEVO] con el cuchillo en mano, el clic golpea
+  if (mouseL || (p.burstLeft > 0 && slot === 0)) { if (slot === 1) playerMelee(); else playerShoot(); }   // [ARMAS KRUNKER] la ráfaga se acaba aunque sueltes   // [NUEVO] con el cuchillo en mano, el clic golpea
   // cámara
   p.pitch = clamp(p.pitch, -1.5, 1.5);
   fixOffset.multiplyScalar(Math.exp(-GF.FIX_SMOOTH * dt)); if (fixOffset.lengthSq() < 1e-6) fixOffset.set(0, 0, 0);   // [PR1] se va disolviendo solo; el jugador sigue moviéndose con normalidad mientras tanto
@@ -2610,6 +2761,8 @@ function netHandle(m) {
     case 'gpick': { xmasDelGift(m.id); if (Array.isArray(m.tk)) net.tk = m.tk; if (m.p === net.id) { xmas.mine = m.n; updateXmasHud(); popGift(); } updateHudSlow(); return; }
     case 'ekill': { const e = xmas.elves.get(m.id); if (e) { e.alive = false; e.mesh.visible = false; } return; }
     case 'shot': return onNetShot(m);
+    case 'proj': return onNetProj(m);   // [ARMAS KRUNKER]
+    case 'boom': if (m.id !== net.id && Array.isArray(m.p)) explodeFx(new THREE.Vector3(m.p[0], m.p[1], m.p[2])); return;
     case 'hit': return onNetHit(m);
     case 'hurt': return onNetHurt(m);
     case 'kill': return onNetKill(m);
@@ -2827,6 +2980,12 @@ function onNetShot(m) {
   const pd = player ? Math.hypot(o.x - player.pos.x, o.z - player.pos.z) : 99;
   if (WEAPONS[m.c]) sfx.shot(WEAPONS[m.c], clamp(1 - pd / 55, 0, 1) * 0.7);
 }
+function onNetProj(m) {   // [ARMAS KRUNKER] cohete o virote de otro jugador
+  const w = WEAPONS[m.c]; if (!w || !w.proj || !Array.isArray(m.o) || !Array.isArray(m.v)) return;
+  const f = net.remotes.get(m.id), o = new THREE.Vector3(m.o[0], m.o[1], m.o[2]), v = new THREE.Vector3(m.v[0], m.v[1], m.v[2]);
+  flashChar(f); spawnProj(f, o, v, w, o.clone().addScaledVector(v.clone().normalize(), 0.7).add(new THREE.Vector3(0, -0.25, 0)), false);   // sale del arma del personaje, no de sus ojos
+  const pd = player ? Math.hypot(o.x - player.pos.x, o.z - player.pos.z) : 99; sfx.shot(w, clamp(1 - pd / 55, 0, 1) * 0.7);
+}
 function onNetHit(m) {
   dmgNumber(m.d, !!m.h, !!m.k);
   if (m.k) { if (Number.isFinite(m.cash)) { net.cash = m.cash; renderDeathPick(); } hitmark('kill'); return; }   // [NUEVO] tienda de armas: dinero por la baja
@@ -3041,7 +3200,7 @@ function animXmas(dt) {
 function clearFighters() {
   xmasClear(); xmas.on = false; document.body.classList.remove('xmas');   // [NAVIDAD]
   for (const f of fighters) { if (f.mesh) { scene.remove(f.mesh); scene.remove(f.label); } if (f.petObj) scene.remove(f.petObj); }
-  fighters = []; bots = []; player = null; net.remotes.clear();
+  fighters = []; bots = []; player = null; net.remotes.clear(); clearProjs();   // [ARMAS KRUNKER]
 }
 function startMatch() {
   if (!renderer) return;
@@ -4188,7 +4347,7 @@ function updateGoldFx(dt) {
 }
 function goldFlash() { if (!goldEl) return; goldEl.classList.remove('on'); void goldEl.offsetWidth; goldEl.classList.add('on'); }
 function updateFx(dt) {
-  updateGoldFx(dt);
+  updateGoldFx(dt); updateProjs(dt); updateBooms(dt);   // [ARMAS KRUNKER]
   updateDying(dt);
   for (const t of tracerPool) if (t.life > 0) { t.life -= dt; t.l.material.opacity = Math.max(0, t.life / 0.07) * 0.9; }
   for (const p of partPool) if (p.life > 0) {
