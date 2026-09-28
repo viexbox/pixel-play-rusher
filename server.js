@@ -429,6 +429,7 @@ class Room {
       this.wait = this.players.size < 2;
       if (!this.wait) { if (this.mode === 'bomba') this.bombTick(now, dt); else this.tl -= dt; this.zoneTick(now, dt); }
       if (this.mode === 'navidad') this.xmasTick(now, dt);   // [NAVIDAD]
+      this.projTick(now, dt);   // [ARMAS KRUNKER] cohetes y virotes en vuelo
       for (const p of this.players.values()) {
         if (!p.alive) { if (now >= p.respawnAt) this.spawn(p, now, 1500); }
         else if (now - p.lastHit > 4000 && p.hp < 100) p.hp = Math.min(100, p.hp + 18 * dt);
@@ -471,6 +472,7 @@ class Room {
   }
   tally() { const v = S.MAPS.map(() => 0); for (const x of (this.votes || new Map()).values()) v[x]++; return v; }
   startRound(now) {
+    this.projs = [];   // [ARMAS KRUNKER] sin proyectiles de la ronda anterior
     const votes = this.tally(), top = Math.max(...votes);          // el mapa más votado gana; en empate, al azar entre los empatados
     if (top > 0) { const win = votes.map((n, i) => (n === top ? i : -1)).filter(i => i >= 0), pick = win[Math.floor(Math.random() * win.length)]; if (pick !== this.map) { this.map = pick; this.world = worlds[pick]; this.broadcast({ t: 'map', map: pick }); } }
     this.phase = 'play'; this.tl = MATCH_TIME; this.tk = [0, 0]; this.zs = [0, 0]; this.bomb = null; this.bn = 0; this.newZone(now, true); this.rebalance();
@@ -574,8 +576,10 @@ class Room {
     if (!p.alive || this.phase !== 'play' || !this.gunsAllowed(p)) return;   // [NUEVO] sin armas de fuego en «Solo cuchillos» ni en el último nivel de la Carrera
     const w = S.WEAPONS[p.cls];
     if (now < p.reloadUntil || p.ammo <= 0) return;
-    if (now + 40 < p.nextFire) { p.rlv++; return; }
-    p.nextFire = Math.max(p.nextFire, now - 30) + w.interval * 1000;
+    /* [ARMAS KRUNKER] Fusil de ráfaga: cada bala «cuesta» la cadencia media (ráfaga + pausa), con crédito para las balas seguidas de una misma ráfaga */
+    const gap = w.burst ? ((w.burst - 1) * w.interval + w.burstCd) / w.burst : w.interval, slack = w.burst ? (w.burst - 1) * (gap - w.interval) * 1000 : 0;
+    if (now + 40 + slack < p.nextFire) { p.rlv++; return; }
+    p.nextFire = Math.max(p.nextFire, now - 30) + gap * 1000;
     p.ammo--; p.shots++;
     if (!Array.isArray(m.d) || m.d.length < 1) return;
     const eye = { x: p.x, y: p.y + p.h - 0.2, z: p.z };
@@ -585,6 +589,7 @@ class Room {
       p.aimv++; if (p.aimv % 25 === 1) log('Posible disparo fuera de la mira: ' + p.name + ' · ' + p.aimv + ' veces');
       if (AIM_CHECK) return;
     }
+    if (w.proj) return this.launch(p, w, o, m.d[0], now);   // [ARMAS KRUNKER] cohete o virote: vuela y se comprueba en cada tick
     const T = now - clamp(p.ping / 2 + 100, 100, 450);
     const agg = new Map(); let firstEnd = null;
     for (const dd of m.d.slice(0, w.pellets)) {
@@ -603,6 +608,44 @@ class Room {
     if (agg.size) p.hits++;
     if (firstEnd) this.broadcast({ t: 'shot', id: p.id, rl: p.role || 0, o: [r3(o.x), r3(o.y), r3(o.z)], e: firstEnd, c: p.cls }, p);
     for (const [v, a] of agg) this.damage(v, p, a.dmg, a.head, w.name, now);
+  }
+  /* [ARMAS KRUNKER] Proyectiles (lanzacohetes y ballesta): salen de la mira, avanzan con su velocidad y gravedad y en cada tick se prueba el tramo recorrido
+     contra paredes y jugadores (con la misma compensación de latencia que las balas). El cohete explota con daño en área si no hay pared en medio. */
+  launch(p, w, o, dd, now) {
+    if (!Array.isArray(dd) || dd.length !== 3 || !dd.every(Number.isFinite)) return;
+    const len = Math.hypot(dd[0], dd[1], dd[2]); if (len < 1e-6) return;
+    const v = { x: dd[0] / len * w.proj.v, y: dd[1] / len * w.proj.v, z: dd[2] / len * w.proj.v };
+    const pr = { p, w, x: o.x, y: o.y, z: o.z, v, t: 0, ep: p.ep, lag: clamp(p.ping / 2 + 100, 100, 450) };
+    (this.projs || (this.projs = [])).push(pr);
+    this.broadcast({ t: 'proj', id: p.id, o: [r3(o.x), r3(o.y), r3(o.z)], v: [r3(v.x), r3(v.y), r3(v.z)], c: p.cls }, p);
+  }
+  projTick(now, dt) {
+    if (!this.projs || !this.projs.length) return;
+    this.projs = this.projs.filter(pr => {
+      const w = pr.w, g = w.proj.g || 0; pr.t += dt;
+      if (pr.t > w.proj.life || !this.players.has(pr.p.id)) return false;
+      const nv = { x: pr.v.x, y: pr.v.y - g * dt, z: pr.v.z }, sx = (pr.v.x + nv.x) / 2 * dt, sy = (pr.v.y + nv.y) / 2 * dt, sz = (pr.v.z + nv.z) / 2 * dt;
+      const L = Math.hypot(sx, sy, sz); pr.v = nv; if (L < 1e-6) return true;
+      const o = { x: pr.x, y: pr.y, z: pr.z }, d = { x: sx / L, y: sy / L, z: sz / L };
+      const r = this.hitscan(pr.p, o, d, L, now - pr.lag, now);
+      if (r.t >= L && pr.y + sy > -2) { pr.x += sx; pr.y += sy; pr.z += sz; return true; }
+      const hit = { x: o.x + d.x * Math.max(0, r.t - 0.05), y: o.y + d.y * Math.max(0, r.t - 0.05), z: o.z + d.z * Math.max(0, r.t - 0.05) };
+      if (w.proj.splash) this.explode(pr.p, w, hit, r.who, now);
+      else if (r.who) { pr.p.hits++; this.damage(r.who, pr.p, r.head && w.head ? w.head : w.dmg * (r.head ? 2 : 1), r.head, w.name, now); }
+      return false;
+    });
+  }
+  explode(a, w, c, direct, now) {
+    this.broadcast({ t: 'boom', id: a.id, p: [r3(c.x), r3(c.y), r3(c.z)], c: a.cls });
+    const R = w.proj.splash; let any = false;
+    for (const v of this.players.values()) {
+      if (v === a || v.team === a.team || !v.alive || v.protectUntil > now) continue;
+      const cy = clamp(c.y, v.y, v.y + v.h), dist = v === direct ? 0 : Math.hypot(v.x - c.x, cy - c.y, v.z - c.z);
+      if (dist > R) continue;
+      if (v !== direct) { const to = { x: v.x - c.x, y: v.y + v.h / 2 - c.y, z: v.z - c.z }, l = Math.hypot(to.x, to.y, to.z) || 1; if (S.rayWorld(this.world.colliders, c, { x: to.x / l, y: to.y / l, z: to.z / l }, l) < l - 0.3) continue; }   // una pared en medio protege
+      any = true; this.damage(v, a, Math.round(w.dmg * (1 - 0.75 * dist / R)), false, w.name, now);
+    }
+    if (any) a.hits++;
   }
   /* [ANTITRAMPAS] Cada perdigón debe salir dentro del cono máximo del arma alrededor de la mira (yaw/pitch del último estado).
      El cliente manda su estado justo antes de disparar; para clientes antiguos se añade un margen por el giro desde ese estado. */

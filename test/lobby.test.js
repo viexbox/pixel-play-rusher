@@ -76,7 +76,7 @@ const has = (b, f) => b.msgs.some(f);
     $('#eqClose').click(); ok($('#lkChar #charView'), 'y al cerrarlo vuelve abajo a la derecha');
     $('#newsMap').click(); ok(!$('#lobbyC').hidden && !$('#tab-maps').hidden && w.document.body.classList.contains('tabopen'), 'la noticia del mapa abre la sección Mapas'); $('#topNav button[data-tab=home]').click(); ok($('#lobbyC').hidden && !w.document.body.classList.contains('tabopen'), 'y «Inicio» la cierra');
     ok($('#chat #chatIn') && $('#chatIn').getAttribute('placeholder').length > 5, 'entrada de texto (chat)');
-    ok($$('#classes .cls').length === S.WEAPONS.length && S.WEAPONS.length === 11 && $$('#classes .cls').some(e => /Vórtice/.test(e.textContent)) && $$('#classes .cls').some(e => /Centinela/.test(e.textContent)) && $$('#swColors .cs').length === COLORS_N(T) , 'equipamiento (11 clases, con la AK, el Vórtice y el Centinela) y colores listados');
+    ok($$('#classes .cls').length === S.WEAPONS.length && S.WEAPONS.length === 14 && $$('#classes .cls').some(e => /Vórtice/.test(e.textContent)) && $$('#classes .cls').some(e => /Centinela/.test(e.textContent)) && $$('#swColors .cs').length === COLORS_N(T) , 'equipamiento (14 clases, con la AK, el Vórtice y el Centinela) y colores listados');
     function COLORS_N(T) { return T.COLORS.length; }
     ok(/×\d/.test($('#eventBox').textContent) && $$('#daily li').length === 3, 'evento del día y 3 desafíos diarios');
     ok(await until(() => !$('#playOnline').disabled) && await until(() => /LOBBY/.test($('#chatCh').textContent), 4000), 'el chat del inicio se conecta al servidor (canal LOBBY)');

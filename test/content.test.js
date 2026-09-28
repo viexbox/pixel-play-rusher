@@ -6,7 +6,7 @@ let failed = 0; const ok = (c, m) => { console.log(c ? 'ok  ' : 'FALLO', m); if 
 const W = S.WEAPONS, isHex = h => /^#[0-9a-f]{6}$/i.test(h);
 
 console.log('=== Armas ===');
-ok(W.length === 11 && new Set(W.map(w => w.id)).size === 11, '11 armas con identificadores únicos');
+ok(W.length === 14 && new Set(W.map(w => w.id)).size === 14, '14 armas con identificadores únicos (las 11 de siempre y las 3 de Krunker)');
 ok(W.slice(0, 9).map(w => w.id).join() === 'asalto,rafaga,torrente,lince,trueno,sheriff,precision,duo,ak', 'las 9 de siempre conservan su número de clase (no se rompen las guardadas ni los eventos por arma)');
 const need = ['id', 'name', 'type', 'desc', 'dmg', 'interval', 'mag', 'reload', 'spread', 'pellets', 'range', 'kick', 'aimFov', 'speed', 'stats', 'col', 'size', 'look'];
 ok(W.every(w => need.every(k => w[k] !== undefined) && isHex(w.col) && w.size.length === 3 && w.stats.length === 3 && w.stats.every(x => x >= 1 && x <= 5) && w.dmg > 0 && w.interval > 0 && w.mag > 0 && w.reload > 0), 'todas tienen los campos que necesitan el servidor y el modelo 3D');

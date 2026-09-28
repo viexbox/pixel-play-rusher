@@ -28,8 +28,8 @@ const world = S.buildWorld(0);
   // --- HUD ---
   ok($('#wname').textContent === 'Lince' && /Francotirador/i.test($('#wtype').textContent), 'la caja de arma muestra nombre y tipo (Lince · Francotirador)');
   ok($('#wicon svg') && $('#wicon svg').innerHTML.length > 100, 'icono de arma dibujado (' + ($('#wicon svg') ? $('#wicon svg').innerHTML.length : 0) + ' bytes de SVG)');
-  ok($$('#pips i').length === 5 && $$('#pips i.on').length === 5, 'indicador de cargador con 5 balas encendidas');
-  ok($('#mag').textContent === '5' && $('#magmax').textContent === '/ 5', 'munición 5 / 5');
+  ok($$('#pips i').length === 3 && $$('#pips i.on').length === 3, 'indicador de cargador con 3 balas encendidas (Lince: 3 balas, como en Krunker)');
+  ok($('#mag').textContent === '3' && $('#magmax').textContent === '/ 3', 'munición 3 / 3');
   ok($('#hpnum').textContent === '100' && $('#hpbar').style.width === '100%', 'barra de vida al 100 %');
   ok(/^\d:\d\d$/.test($('#timer').textContent), 'reloj de partida (' + $('#timer').textContent + ')');
   ok($$('#liveRows li').length >= 5 && $$('#liveRows li.me').length >= 1, 'clasificación lateral con ' + $$('#liveRows li').length + ' filas y tu fila resaltada');

@@ -31,12 +31,13 @@ function clientChecks() {
   for (const K of S.KNIFE_SKINS) {
     const g = T.knifeMesh(K); let n = 0; const box = new THREE.Box3().setFromObject(g); g.traverse(o => { if (o.isMesh) n++; });
     kinds.add(K.kind || 'classic');
-    ok(n >= 4 && n <= 40 && box.min.z < -0.3 && box.max.z > 0.1, K.id + ': ' + (K.kind || 'classic') + ' con ' + n + ' piezas, hoja hasta z=' + box.min.z.toFixed(2) + ' y mango hasta z=' + box.max.z.toFixed(2));
+    ok(n >= 4 && n <= 40 && box.min.z < -0.24 && box.min.z > -0.45 && box.max.z > 0.1,   // [CUCHILLOS KRUNKER] hoja corta (≈ largo del mango), ya no como una espada
+       K.id + ': ' + (K.kind || 'classic') + ' con ' + n + ' piezas, hoja hasta z=' + box.min.z.toFixed(2) + ' y mango hasta z=' + box.max.z.toFixed(2));
   }
   ok(['classic', 'bayonet', 'dagger', 'butterfly', 'karambit', 'machete'].every(k => kinds.has(k)), 'hay seis modelos distintos: ' + [...kinds].join(', '));
   const bf = T.knifeMesh(S.KNIFE_SKINS.find(k => k.kind === 'butterfly'));
   T.setButterfly(bf, 0); const closed = new THREE.Box3().setFromObject(bf); T.setButterfly(bf, 1); const open = new THREE.Box3().setFromObject(bf);
-  ok(closed.min.z > -0.12 && open.min.z < -0.3, 'la mariposa se cierra (la hoja se recoge junto a la mano, z=' + closed.min.z.toFixed(2) + ') y se abre (z=' + open.min.z.toFixed(2) + ')');
+  ok(closed.min.z > -0.12 && open.min.z < -0.24, 'la mariposa se cierra (la hoja se recoge junto a la mano, z=' + closed.min.z.toFixed(2) + ') y se abre (z=' + open.min.z.toFixed(2) + ')');
   const fxK = S.KNIFE_SKINS.find(k => k.fx), m = (() => { let r = null; T.knifeMesh(fxK).traverse(o => { if (o.isMesh && o.material.emissiveMap) r = o.material; }); return r; })();
   const o0 = m && m.emissiveMap.offset.x; T.tickKnives(0.25);
   ok(m && m.emissiveMap.offset.x !== o0, fxK.n + ': la hoja tiene un mapa de luz y se desplaza cada fotograma (luces que se mueven)');

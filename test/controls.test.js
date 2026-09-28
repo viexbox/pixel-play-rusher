@@ -106,12 +106,13 @@ const frames = (n, dt = 0.05) => { for (let k = 0; k < n; k++) T.step(dt); };
       ok(maxSp <= 13, 'sin pasar nunca de 13 m/s, el límite que tolera el servidor (máx. ' + maxSp.toFixed(1) + ' m/s)');
       frames(80, 0.02); ok((P.hop || 1) < maxHop, 'el impulso se pierde poco a poco al pisar suelo'); }
     /* recargas más cortas */
-    ok(S.WEAPONS.every(w => w.reload <= 3.4 * 0.8 + 0.001) && S.WEAPONS.find(w => w.id === 'asalto').reload === 1.36, 'las recargas son un 20 % más cortas (Asalto 1,7 s → 1,36 s)');
+    ok(S.WEAPONS.every(w => w.reload <= 3.4 * 0.8 + 0.001) && S.WEAPONS.find(w => w.id === 'asalto').reload === 1.2, 'las recargas son un 20 % más cortas (Asalto 1,5 s → 1,2 s, como en Krunker)');
 
     /* ---------- Calidad adaptativa ---------- */
     ok(T.ratio === 1, 'calidad: parte de la resolución del dispositivo (×1 en esta prueba)');
     for (let k = 0; k < 40; k++) T.adaptQuality(0.02); ok(T.ratio === 1 && !T.shadowsOff, 'a 50 FPS no se toca nada');
     /* [FLUIDEZ] mide cada 1,5 s; a 30 FPS hacen falta dos mediciones seguidas; las sombras se apagan antes de bajar de ×1; a menos de 25 FPS basta una medición */
+    T.adaptQuality(0.6);   // un tirón de más de 0,5 s vacía la medición a medias (la de los 50 FPS y la que dejan los fotogramas reales de jsdom): así las mediciones empiezan en cero y la prueba no depende de la carga de la máquina
     for (let k = 0; k < 50; k++) T.adaptQuality(1 / 30); ok(T.ratio === 1 && !T.shadowsOff, 'una sola medición baja (1,5 s a 30 FPS) no basta: se evitan reacciones a un tirón puntual');
     for (let k = 0; k < 45; k++) T.adaptQuality(1 / 30); ok(T.ratio === 1 && T.shadowsOff === true && T.cfg.shadows === true, 'dos mediciones seguidas por debajo de 40 FPS: primero apaga las sombras (antes de bajar de ×1), sin tocar el ajuste guardado');
     for (let k = 0; k < 32; k++) T.adaptQuality(0.05); ok(T.ratio === 0.75, 'muy lento (20 FPS): baja la resolución en la primera medición (×1 → ×0,75)');
