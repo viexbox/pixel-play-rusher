@@ -66,7 +66,8 @@
 
   function renderSide() {
     const el = $('#pfList'); $$('#pfTabs button').forEach(b => b.classList.toggle('on', b.dataset.t === side));
-    if (!tk()) { el.innerHTML = '<p class="pf-hint">Inicia sesión con una cuenta online para tener amigos.</p>'; $('#pfReqN').textContent = ''; return; }
+    if (!tk()) { el.innerHTML = (window.pprPortalLogin && window.pprPortalLogin('amigos', 'pf-hint')) || '<p class="pf-hint">Inicia sesión con una cuenta online para tener amigos.</p>';   // [PORTALES]
+      $('#pfReqN').textContent = ''; return; }
     if (!social) { el.innerHTML = '<p class="pf-hint">Cargando…</p>'; return; }
     $('#pfReqN').textContent = social.incoming.length ? social.incoming.length : '';
     const row = (u, extra) => '<div class="pf-row" data-name="' + esc(u.username) + '"><span class="pf-mini">' + avatarHtml(u.avatar, 36) + '</span><span class="pf-rn"><b>' + vname(u) + '</b><small>' + (u.online ? '<i style="color:' + ONLINE[u.online][1] + '">●</i> ' + ONLINE[u.online][0] : esc(u.rank.n)) + '</small></span>' + (extra || '') + '</div>';
@@ -162,7 +163,7 @@
   }
   /* Etiqueta con el precio de referencia (media de las ventas de los últimos 30 días): barato, normal o caro */
   const refTag = l => !l.ref ? '<span class="ref">sin ventas aún</span>' : '<span class="ref ' + (l.price <= l.ref.avg * 0.75 ? 'lo' : l.price >= l.ref.avg * 1.5 ? 'hi' : '') + '" title="Últimas ' + l.ref.n + ' venta(s): entre ' + fmt(l.ref.min) + ' y ' + fmt(l.ref.max) + ' CR">media ' + fmt(l.ref.avg) + ' CR' + (l.price <= l.ref.avg * 0.75 ? ' · barato' : l.price >= l.ref.avg * 1.5 ? ' · caro' : '') + '</span>';
-  async function openMarket() { $('#marketScreen').hidden = false; if (!tk()) { $('#mkGrid').innerHTML = '<p class="pf-hint" style="padding:30px">Inicia sesión con una cuenta online para comprar y vender.</p>'; $('#mkCr').textContent = ''; return; } await P.load(); await loadMarket(); loadTrades(); }
+  async function openMarket() { $('#marketScreen').hidden = false; if (!tk()) { $('#mkGrid').innerHTML = (window.pprPortalLogin && window.pprPortalLogin('mercado', 'pf-hint mk-login')) || '<p class="pf-hint" style="padding:30px">Inicia sesión con una cuenta online para comprar y vender.</p>'; $('#mkCr').textContent = ''; return; } await P.load(); await loadMarket(); loadTrades(); }
   function closeMarket() { $('#marketScreen').hidden = true; toggleTrades(false); P.showTab('home'); }
   async function buy(id) {
     const l = mk && mk.listings.find(x => x.id === id); if (!l) return;
