@@ -75,9 +75,9 @@ const call = async (m, p, b, tk) => { const r = await fetch(B + p, { method: m, 
 
     /* ---------- Capturar zona ---------- */
     console.log('\n-- Capturar zona');
-    const rA = new Bot('RotA', { mode: 'zona' }), rB = new Bot('RotB', { mode: 'zona' }); const rw = await rA.connect(1); await rB.connect(1);   // sala aparte (mapa 1): nadie puntúa, solo se observa el traslado
     const zA = new Bot('ZonaA', { mode: 'zona' }), zB = new Bot('ZonaB', { mode: 'zona' }); const zw = await zA.connect(0); await zB.connect(0); await until(() => zA.pos && zB.pos);
     let Z = zw.zone; await Promise.all([zA.walkTo(Z.x + 9, Z.z - 2), zB.walkTo(Z.x + 9, Z.z + 2)]);   // primero esperan fuera de la zona (radio 5,5) para entrar a la vez: si uno llega mucho antes, puntúa a solas y la ronda acaba antes de la disputa
+    for (const k of [0.5, 1]) { for (const b of [zA, zB]) { b.pos.y = (Z.y || 0) * k; b.send({ t: 'st', ep: b.ep, x: b.pos.x, y: b.pos.y, z: b.pos.z, yaw: 0, pitch: 0, h: 1.8 }); } await sleep(200); }   // [MAPA ÚNICO] la zona puede estar en alto (la terraza de la torre, a 3,2 m): se sube en dos pasos, como por la rampa
     await Promise.all([zA.walkTo(Z.x, Z.z), zB.walkTo(Z.x + 1, Z.z)]);
     if (process.env.DBG) console.log('DBG zona', JSON.stringify(Z), 'A', JSON.stringify(zA.pos), 'B', JSON.stringify(zB.pos), 'msgs', zA.all('zone').length, JSON.stringify(zA.all('zone').slice(-2)), 'teams', zA.welcome.tm, zB.welcome.tm, 'fix', zA.all('fix').length, zB.all('fix').length);
     ok(await until(() => zA.all('zone').some(m => m.z && m.z.o === 2), 4000), 'si los dos equipos están dentro, la zona queda disputada (o = 2)');
@@ -88,6 +88,7 @@ const call = async (m, p, b, tk) => { const r = await fetch(B + p, { method: m, 
     ok(ez.tw === zw.tm && ez.tk[zw.tm] >= 3, 'gana el equipo que controló la zona');
     ok(ez.res.find(r => r[0] === zA.id)[4] > 0, 'y el jugador de la zona suma puntos personales (' + ez.res.find(r => r[0] === zA.id)[4] + ')'); zA.close(); zB.close(); await sleep(300);
     /* la zona cambia de sitio cada cierto tiempo */
+    const rA = new Bot('RotA', { mode: 'zona' }), rB = new Bot('RotB', { mode: 'zona' }); const rw = await rA.connect(0); await rB.connect(0);   // sala nueva cuando la anterior ya se ha vaciado: nadie puntúa, solo se observa el traslado
     ok(await until(() => rA.all('zone').some(m => m.z && Math.hypot(m.z.x - rw.zone.x, m.z.z - rw.zone.z) >= 20), 20000), 'la zona se traslada a otro punto al menos 20 m más allá al cabo de 16 s'); rA.close(); rB.close(); await sleep(300);
 
     /* ---------- Clasificatorio ---------- */
