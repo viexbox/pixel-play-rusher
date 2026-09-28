@@ -564,34 +564,7 @@ function archDetail(L, half) {
 function decorate(L, m) {
   const half = m.half;
   archDetail(L, half);
-  const wallTop = (color, step) => { // almenas sobre el muro perimetral
-    const y = L.wallH;
-    for (let s = -half + 1; s <= half - 1; s += step) {
-      decoBox(s, y, -half - 0.5, step * 0.5, 1.5, 1.0, color); decoBox(s, y, half + 0.5, step * 0.5, 1.5, 1.0, color);
-      decoBox(-half - 0.5, y, s, 1.0, 1.5, step * 0.5, color); decoBox(half + 0.5, y, s, 1.0, 1.5, step * 0.5, color);
-    }
-  };
-  if (L.decor === 'burg') {   // [MAPAS KRUNKER] Castillo Real: almenas en la muralla exterior, estandartes de cada equipo, bandera en la torre y antorchas
-    wallTop('#a39c8d', 4);
-    for (const sx of [-1, 1]) {
-      const col = sx < 0 ? '#ff3b48' : '#3a86ff';
-      for (const z of [-12, -8, 8, 12]) { decoBox(sx * 22.94, 1.2, z, 0.08, 2.2, 1.4, col); decoBox(sx * 22.93, 3.25, z, 0.1, 0.12, 1.6, '#2a1b3d'); }   // estandartes en la cara de la muralla que da al patio
-      for (const z of [-20, 20]) { decoBox(sx * 39.9, 3.4, z, 0.1, 2.8, 1.8, col); }
-      for (const z of [-6, 6]) { decoBox(sx * 22.9, 2.1, z, 0.25, 0.5, 0.25, '#4a3526'); decoBox(sx * 22.9, 2.6, z, 0.2, 0.3, 0.2, '#ffb02e', true); }   // antorchas junto a la puerta
-    }
-    decoBox(0, 4.8, 0, 0.16, 4.2, 0.16, '#2a1b3d'); decoBox(0.95, 7.8, 0, 1.8, 1.05, 0.06, '#ffd23f', true);                                       // bandera de la torre
-    for (const [x, z] of [[-3, 6.2], [3, 6.2], [-3, -6.2], [3, -6.2]]) { decoBox(x, 0, z, 0.9, 0.35, 0.9, '#5a8f3a'); }                            // arbustos junto a la torre
-  } else if (L.decor === 'port') {   // [MAPA 3] Puerto Industrial: farolas, franjas de aviso en los portones, bolardos, ventanas de las oficinas y rótulo de la nave
-    for (const [x, z] of [[-26, -12], [26, -12], [-26, 12], [26, 12], [-12, 10], [12, -10]]) { decoBox(x, 0, z, 0.22, 5.2, 0.22, '#39435a'); decoBox(x, 5.2, z, 0.9, 0.2, 0.5, '#fff3b0', true); }
-    for (const sx of [-1, 1]) {
-      for (let k = 0; k < 6; k++) decoBox(sx * 10.28, 3.3, -2.75 + k * 1.1, 0.06, 0.3, 0.55, k % 2 ? '#15151a' : '#ffc43d', true);     // franjas sobre el portón
-      for (const z of [-36, -40.2, 36, 40.2]) decoBox(sx * 33, 0, z, 0.5, 0.8, 0.5, '#ffc43d');                                           // bolardos
-      for (const z of [22, 28]) decoBox(sx * 24.03, 1.3, z, 0.06, 1.1, 1.4, '#2d4a7a');                                                    // ventanas de las oficinas (fachada de la base)
-      decoBox(sx * 19, 3.62, 25, 3.2, 0.06, 3.2, '#c9ced6');                                                                                  // claraboya en el tejado de las oficinas
-    }
-    decoBox(0, 4.0, -7.28, 6, 1.0, 0.06, '#e5533d', true); decoBox(0, 4.0, 7.28, 6, 1.0, 0.06, '#2f7bd9', true);                          // rótulos de la nave
-    decoBox(0, 9.7, -25.5, 2.9, 1.0, 0.06, '#9fd3ff', true);                                                                                  // ventana de la cabina de la grúa
-  } else if (L.decor === 'desert' && m.open) {   // [MAPAS KRUNKER 2] Tormenta de Arena: fachadas con detalle, tejados con trastos, cuerdas de ropa y palmeras
+  if (L.decor === 'desert' && m.open) {   // [MAPAS KRUNKER 2] Tormenta de Arena: fachadas con detalle, tejados con trastos, cuerdas de ropa y palmeras
     const hs = (a, b) => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return v - Math.floor(v); };
     const SHUT = ['#2f7f8f', '#3a6fb0', '#4f8f4a', '#9a4a3a', '#6b4a2a'], AWN = ['#d9463d', '#2f7fbf', '#e0a43a', '#3f9f6a', '#ffffff'];
     const TRIM = '#f4e6c8', GLASS = '#34444f', WOOD = '#6b4a2a', DARK = '#4a3527';
@@ -662,14 +635,6 @@ function decorate(L, m) {
       for (const z of [26.02, 29.98]) decoBox(sx * 14, 0, z, 24, 0.5, 0.06, '#8a6a42');   // zócalo oscuro dentro del túnel
       for (const [x, z] of [[41.4, -6.5], [41.4, 6.2], [33.5, -21]]) { decoBox(sx * x, 0, z, 0.7, 1.0, 0.7, '#4f6b7a'); decoBox(sx * x, 1.0, z, 0.74, 0.08, 0.74, '#3a4f5a'); }
     }
-  } else if (L.decor === 'town') {   // [MAPAS KRUNKER] Barrio Arcoíris: marcos de ventanas, farolas y pasos de cebra
-    for (const [x, z] of [[-24, -18], [24, -18], [-24, 18], [24, 18], [-8, -19.5], [8, 19.5]]) { decoBox(x, 0, z, 0.22, 4.2, 0.22, '#39435a'); decoBox(x, 4.2, z, 0.8, 0.22, 0.5, '#fff3b0', true); }
-    for (const sx of [-1, 1]) for (let k = 0; k < 6; k++) { decoBox(sx * 3, 0, -18 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); decoBox(sx * 3, 0, 12 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); }
-    for (const z of [-22.08, 21.88]) for (const x of [-26, -14, 14, 26]) decoBox(x, 2.45, z + 0.1, 2.6, 0.18, 0.12, '#ffffff');                // tejadillo blanco sobre cada puerta
-    for (let a = -40; a <= 40; a += 4) for (let y = 2.2; y < 6.5; y += 2.6) {   // ventanas en las fachadas altas del fondo
-      decoBox(a, y, -39.96, 1.6, 1.3, 0.06, '#2d4a7a'); decoBox(a, y, 39.96, 1.6, 1.3, 0.06, '#2d4a7a');
-      decoBox(-39.96, y, a, 0.06, 1.3, 1.6, '#2d4a7a'); decoBox(39.96, y, a, 0.06, 1.3, 1.6, '#2d4a7a');
-    }
   }
 }
 function buildMap(i) {
@@ -718,16 +683,16 @@ function lifeSpot(maxAbsX) {   // un punto de paso libre, lejos de las bases
 }
 function buildLife(L, m) {
   clearLife();
-  if (L.decor === 'burg') {   // [MAPAS KRUNKER] gallinas sueltas y un balón en el castillo (antes en Pueblo Duna)
+  if (L.decor === 'desert') {   // [MAPAS KRUNKER 2] gallinas sueltas y un balón en la plaza de Tormenta de Arena (antes en el Castillo)
     for (let i = 0; i < 7; i++) { const mesh = new THREE.Mesh(CHICKEN.geo, CHICKEN.mat), sp = lifeSpot(20); mesh.castShadow = true; mesh.userData.shared = true; const c = { mesh, pos: new THREE.Vector3(sp[0], 0, sp[1]), yaw: Math.random() * TAU, tx: sp[0], tz: sp[1], state: 'peck', t: Math.random() * 2, alive: true, respawn: 0, hop: 0 }; mesh.position.copy(c.pos); mapLife.add(mesh); life.chickens.push(c); }
     const ballTex = lifeTex('ball', (g, n) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, n, n); g.fillStyle = '#15151a'; for (const [x, y] of [[8, 12], [40, 12], [24, 36], [56, 40], [8, 52]]) { g.beginPath(); for (let k = 0; k < 5; k++) { const a = k / 5 * TAU - Math.PI / 2; g.lineTo(x + Math.cos(a) * 7, y + Math.sin(a) * 7); } g.fill(); } });
     const bm = new THREE.Mesh(new THREE.SphereGeometry(0.33, 18, 12), new THREE.MeshLambertMaterial({ map: ballTex })); bm.castShadow = true; mapLife.add(bm);
-    life.ball = { mesh: bm, home: new THREE.Vector3(12, 0, 0), e: { pos: new THREE.Vector3(12, 0, 0), vel: new THREE.Vector3(), hw: 0.3, h: 0.6, onGround: true }, cd: 0 };
+    life.ball = { mesh: bm, home: new THREE.Vector3(9, 0, 5.5), e: { pos: new THREE.Vector3(9, 0, 5.5), vel: new THREE.Vector3(), hw: 0.3, h: 0.6, onGround: true }, cd: 0 };
   }
-  if (L.decor === 'town') {   // motas de polen que flotan con el viento
+  if (L.decor === 'desert') {   // motas de arena que flotan con el viento
     const n = 260, pos = new Float32Array(n * 3); for (let i = 0; i < n; i++) { pos[i * 3] = (Math.random() - 0.5) * m.half * 2; pos[i * 3 + 1] = 0.3 + Math.random() * 7; pos[i * 3 + 2] = (Math.random() - 0.5) * m.half * 2; }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: '#ffffff', size: 0.06, transparent: true, opacity: 0.7, depthWrite: false }));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: '#f4dcaa', size: 0.06, transparent: true, opacity: 0.7, depthWrite: false }));
     mapLife.add(pts); life.dust = { pts, half: m.half };
   }
   if (L.water) {

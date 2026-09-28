@@ -58,8 +58,8 @@ async function walkPath(bot, path) {   // sigue el camino a 8 m/s mandando la po
     }
     /* ---------- 2) tramposo: atravesar paredes ---------- */
     console.log('\n=== Atravesar paredes ===');
-    const M = 0, WZ = 18, X0 = 23, X1 = 25, wall = S.buildWorld(M).colliders.find(c => Math.abs(c.minX - X0) < 0.01 && Math.abs(c.maxX - X1) < 0.01 && c.minZ < WZ && c.maxZ > WZ && c.minY === 0);   // muralla este de Castillo Real: 2 m de grosor
-    ok(!!wall && wall.maxY - wall.minY > 1.5, 'hay un tramo de muralla de 2 m de grosor en Castillo Real para probar (x de 23 a 25)');
+    const M = 0, WZ = -3.3, X0 = 14, X1 = 16, wall = S.buildWorld(M).colliders.find(c => Math.abs(c.minX - X0) < 0.01 && Math.abs(c.maxX - X1) < 0.01 && c.minZ < WZ && c.maxZ > WZ && c.minY === 0);   // pilar este del arco entre la plaza y el carril central (Tormenta de Arena): 2 m de grosor
+    ok(!!wall && wall.maxY - wall.minY > 1.5, 'hay un pilar de 2 m de grosor en Tormenta de Arena para probar (arco de la plaza, x de 14 a 16)');
     const ch = new Bot('Tramposo', {}); await ch.connect(M); await until(() => ch.pos); await sleep(1800);
     const A = { x: X0 - 0.4, z: WZ }; await walkPath(ch, groundPath(M, ch.pos, { x: X0 - 1.2, z: WZ }).concat([[A.x, A.z]])); await sleep(100);   // hasta una casilla libre y de ahí al borde del muro
     ok(Math.hypot(ch.pos.x - A.x, ch.pos.z - A.z) < 0.4 && ch.all('fix').length === 0, 'el tramposo llega andando (por el suelo, sin trampas) junto al muro: no hay correcciones (' + ch.all('fix').length + ')');

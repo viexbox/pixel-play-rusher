@@ -1,6 +1,6 @@
 'use strict';
-/* [SALAS] Con varios mapas, quien elige un mapa sin nadie entra en la partida del mismo modo que ya tiene gente (con un aviso),
-   en vez de quedarse solo esperando. Modos distintos no se mezclan, y si en su mapa hay gente, va con ellos. */
+/* [SALAS] Con un solo mapa (Tormenta de Arena), quien pide un mapa que ya no existe entra en el 0 con los que ya juegan en su modo;
+   modos distintos no se mezclan. (Con varios mapas, findRoom juntaba en otro mapa a quien iba a esperar solo, con un aviso.) */
 const { spawn } = require('child_process'); const path = require('path'); const fs = require('fs'); const WebSocket = require('ws');
 const PORT = 3195, WSU = 'ws://127.0.0.1:' + PORT + '/ws', DATA = '/tmp/ppr_rooms_merge';
 fs.rmSync(DATA, { recursive: true, force: true });
@@ -18,13 +18,12 @@ const welcome = c => c.msgs.find(m => m.t === 'welcome');
     await sleep(1200);
     const A = await join('Ana', 0, 'duelo'); await until(() => welcome(A));
     const B = await join('Beto', 1, 'duelo'); await until(() => welcome(B));
-    ok(welcome(B).room === welcome(A).room && welcome(B).map === 0, 'Beto eligió Barrio Arcoíris pero no había nadie: entra en la partida de Ana (Castillo Real)');
-    ok(await until(() => B.msgs.some(m => m.t === 'notice' && /para que no esperes solo/.test(m.m))), 'y se le avisa de por qué');
-    ok(!A.msgs.some(m => m.t === 'notice' && /no esperes solo/.test(m.m)), 'Ana (que ya estaba en su mapa) no recibe el aviso');
-    const C = await join('Cris', 1, 'cuchillos'); await until(() => welcome(C));
-    ok(welcome(C).room !== welcome(A).room && welcome(C).map === 1, 'otro modo (Solo cuchillos) no se mezcla: Cris abre su propia sala en Barrio Arcoíris');
-    const D = await join('Dani', 1, 'cuchillos'); await until(() => welcome(D));
-    ok(welcome(D).room === welcome(C).room && !D.msgs.some(m => m.t === 'notice' && /no esperes solo/.test(m.m)), 'y quien elige ese mismo mapa y modo va con Cris, sin aviso');
+    ok(welcome(B).room === welcome(A).room && welcome(B).map === 0, 'Beto pidió un mapa que ya no existe (el 1): juega en Tormenta de Arena con Ana');
+    ok(!A.msgs.some(m => m.t === 'notice' && /no esperes solo/.test(m.m)), 'Ana (que ya estaba en su mapa) no recibe ningún aviso');
+    const C = await join('Cris', 0, 'cuchillos'); await until(() => welcome(C));
+    ok(welcome(C).room !== welcome(A).room && welcome(C).map === 0, 'otro modo (Solo cuchillos) no se mezcla: Cris abre su propia sala');
+    const D = await join('Dani', 0, 'cuchillos'); await until(() => welcome(D));
+    ok(welcome(D).room === welcome(C).room && !D.msgs.some(m => m.t === 'notice' && /no esperes solo/.test(m.m)), 'y quien elige ese mismo modo va con Cris, sin aviso');
     for (const x of [A, B, C, D]) x.ws.close();
   } catch (e) { ok(false, 'excepción: ' + e.stack); }
   console.log(failed ? '\n' + failed + ' FALLOS' : '\nTODO CORRECTO'); srv.kill(); process.exit(failed ? 1 : 0);

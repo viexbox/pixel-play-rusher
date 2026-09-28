@@ -1,7 +1,7 @@
 'use strict';
-/* Vida de los mapas (solo decoración del navegador): en Castillo Real, gallinas que pasean y huyen, que se pueden abatir de un
-   disparo y reaparecen, y un balón que se chuta al pasar por encima y rebota en las paredes; en Barrio Arcoíris, polen en el aire
-   y al cambiar de mapa no queda ni una gallina. Cliente real en jsdom. */
+/* Vida del mapa (solo decoración del navegador): en la plaza de Tormenta de Arena, gallinas que pasean y huyen, que se pueden abatir de un
+   disparo y reaparecen, un balón que se chuta al pasar por encima y rebota en las paredes, y motas de arena en el aire; al reconstruir
+   el mapa no se duplica nada. Cliente real en jsdom. */
 const fs = require('fs'); const path = require('path'); const { JSDOM } = require('jsdom');
 const S = require('../public/shared.js');
 let failed = 0; const ok = (c, m) => { console.log(c ? 'ok  ' : 'FALLO', m); if (!c) failed++; };
@@ -21,11 +21,11 @@ const T = w.__T, THREE = w.THREE;
 const run = (sec, dt = 1 / 30) => { for (let t = 0; t < sec; t += dt) T.animMap(dt); };
 const fake = (x, z) => ({ alive: true, pos: new THREE.Vector3(x, 0, z), vel: new THREE.Vector3(), isPlayer: true, name: 'P' });
 
-console.log('=== Castillo Real ===');
+console.log('=== Tormenta de Arena ===');
 T.buildMap(0); T.fighters = [];
-ok(T.life.chickens.length >= 5 && T.life.ball && !T.life.dust, 'hay ' + T.life.chickens.length + ' gallinas y un balón');
+ok(T.life.chickens.length >= 5 && T.life.ball && T.life.dust, 'hay ' + T.life.chickens.length + ' gallinas, un balón y motas de arena');
 const c0 = T.life.chickens[0], start = c0.pos.clone(); run(8);
-ok(T.life.chickens.some(ch => ch.pos.distanceTo(start) > 0.5) && T.life.chickens.every(ch => Math.abs(ch.pos.x) < S.MAPS[0].half && Math.abs(ch.pos.z) < S.MAPS[0].half), 'las gallinas pasean y no se salen del castillo');
+ok(T.life.chickens.some(ch => ch.pos.distanceTo(start) > 0.5) && T.life.chickens.every(ch => Math.abs(ch.pos.x) < S.MAPS[0].half && Math.abs(ch.pos.z) < S.MAPS[0].half), 'las gallinas pasean y no se salen del mapa');
 const ch = T.life.chickens[1], me = fake(ch.pos.x + 1.5, ch.pos.z); T.fighters = [me]; const d0 = ch.pos.distanceTo(me.pos); run(1);
 ok(ch.state === 'flee' || ch.pos.distanceTo(me.pos) > d0 + 0.8, 'una gallina huye cuando se le acerca un jugador (de ' + d0.toFixed(1) + ' m a ' + ch.pos.distanceTo(me.pos).toFixed(1) + ' m)');
 T.fighters = [];
@@ -34,14 +34,13 @@ T.shootLife(o, dir, 50); ok(!target.alive && !target.mesh.visible, 'un disparo a
 run(35); ok(target.alive && target.mesh.visible, 'y al rato vuelve a aparecer');
 const ball = T.life.ball, b0 = ball.e.pos.clone(), kicker = fake(b0.x - 0.6, b0.z); kicker.vel.set(6, 0, 0); T.fighters = [kicker]; run(0.1); T.fighters = []; run(1.5);
 ok(ball.e.pos.x > b0.x + 2, 'pasar por encima del balón lo chuta en la dirección de la carrera (' + (ball.e.pos.x - b0.x).toFixed(1) + ' m)');
-ball.e.pos.set(12, 0, 0); ball.e.vel.set(0, 0, 0); T.shootLife(new THREE.Vector3(7, 0.33, 0), new THREE.Vector3(1, 0, 0), 50); run(1);
-ok(ball.e.pos.x > 13, 'un disparo también empuja el balón');
-ball.e.pos.set(12, 0, 0); ball.e.vel.set(-25, 0, 0); run(3);
+const H = ball.home; ball.e.pos.set(H.x, 0, H.z); ball.e.vel.set(0, 0, 0); T.shootLife(new THREE.Vector3(H.x - 5, 0.33, H.z), new THREE.Vector3(1, 0, 0), 50); run(1);
+ok(ball.e.pos.x > H.x + 1, 'un disparo también empuja el balón');
+ball.e.pos.set(H.x, 0, H.z); ball.e.vel.set(-25, 0, 0); run(3);
 ok(Math.abs(ball.e.pos.x) < S.MAPS[0].half && Math.abs(ball.e.pos.z) < S.MAPS[0].half && ball.e.pos.y > -1 && Number.isFinite(ball.e.pos.x), 'lanzado contra la torre rebota y se queda dentro del mapa');
 
-console.log('\n=== Barrio Arcoíris ===');
-T.buildMap(1); T.fighters = [];
-ok(T.life.dust && T.life.chickens.length === 0 && !T.life.ball && !T.life.water, 'polen flotando en el aire y, al cambiar de mapa, no queda ni una gallina ni el balón');
-run(2); ok(T.mapLife.children.length === 1, 'solo el polen en la vida del mapa (' + T.mapLife.children.length + ')');
+console.log('\n=== Al reconstruir el mapa ===');
+T.buildMap(0); T.fighters = [];
+const nCh = T.life.chickens.length; run(2); ok(nCh >= 5 && nCh <= 7 && T.mapLife.children.length === nCh + 2, 'no se duplican gallinas, balón ni arena (' + T.mapLife.children.length + ' piezas)');
 ok(errors.length === 0, 'sin errores de JavaScript (' + errors.length + (errors[0] ? ': ' + errors[0] : '') + ')');
 console.log(failed ? '\n' + failed + ' FALLOS' : '\nTODO CORRECTO'); process.exit(failed ? 1 : 0);

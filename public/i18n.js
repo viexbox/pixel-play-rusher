@@ -54,7 +54,7 @@
       'Mis partidas (este navegador)': 'My matches (this browser)', 'Modo de juego': 'Game mode', 'Modos de juego': 'Game modes',
       'Mostrar el chat': 'Show chat', 'Motivo': 'Reason', 'Moverte': 'Move', 'Muertes': 'Deaths', 'Más recientes': 'Newest',
       'Invitar amigos': 'Invite friends', 'Guardar progreso': 'Save progress', 'Más secciones': 'More sections', 'NIVEL': 'LEVEL', 'NUEVO': 'NEW', 'Castillo Real': 'Castillo Real', 'Barrio Arcoíris': 'Barrio Arcoíris',
-      'Castillo Real y Barrio Arcoíris, mapas nuevos': 'Castillo Real and Barrio Arcoíris, new maps', 'Puerto Industrial, mapa nuevo': 'Puerto Industrial, new map', 'Nivel 1': 'Level 1', 'Nombre nuevo': 'New name',
+      'Castillo Real y Barrio Arcoíris, mapas nuevos': 'Castillo Real and Barrio Arcoíris, new maps', 'Puerto Industrial, mapa nuevo': 'Puerto Industrial, new map', 'Tormenta de Arena': 'Tormenta de Arena', 'Tormenta de Arena, mapa nuevo': 'Tormenta de Arena, new map', 'Nivel 1': 'Level 1', 'Nombre nuevo': 'New name',
       'Nombre ofensivo': 'Offensive name', 'Normal': 'Normal', 'Noticias': 'News', 'Nv 1': 'Lv 1', 'ONLINE': 'ONLINE',
       'Ocultar el chat': 'Hide chat', 'Ocultar ✕': 'Hide ✕', 'Orden': 'Sort by', 'Otro': 'Other', 'PASE DE BATALLA': 'BATTLE PASS',
       'PASE GRATIS': 'FREE PASS', 'PIXEL PLAY': 'PIXEL PLAY', 'PROTEGIDO': 'PROTECTED', 'PX': 'PX',

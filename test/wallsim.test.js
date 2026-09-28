@@ -20,10 +20,8 @@ for (let m = 0; m < S.MAPS.length; m++) {
   }
   let nHigh = 0, badHigh = 0;
   /* también se simulan jugadores que EMPIEZAN en las zonas altas (azoteas, adarves, tejados, puentes): escaleras, bordes y caídas */
-  const HIGH = [[[0, 4.8, -2], [24, 3.6, 0], [-24, 3.6, 12], [14, 3.6, -32], [-14, 3.6, 36]],   // Castillo Real: azotea de la torre, adarves, tejado de la casa y de los establos
-    [[-14, 4.0, -26], [0, 4.0, 26], [26, 4.0, 26], [-26, 4.0, -26]],   // Barrio Arcoíris: tejados y puentes
-    [[-15, 2.6, -26], [0, 2.6, -25.8], [15, 2.6, -26], [19, 4.0, 22], [0, 4.0, 25], [-19, 4.0, 28]],   // [MAPA 3] Puerto Industrial: contenedores, pasarela, tejados de las oficinas y puente
-    [[0, 3.2, 2], [-8, 2.8, -29], [19, 2.8, -33], [10, 2.4, 32], [-14, 2.4, 25]]][m] || [];   // [MAPAS KRUNKER 2] Tormenta de Arena: terraza de la torre, balcón, nido y meseta (encima del túnel)
+  /* [MAPA ÚNICO] puntos de partida en alto por NOMBRE de mapa (los números cambian al quitar mapas) */
+  const HIGH = ({ 'Tormenta de Arena': [[0, 3.2, 2], [-8, 2.8, -29], [19, 2.8, -33], [10, 2.4, 32], [-14, 2.4, 25]] })[S.MAPS[m].name] || [];   // terraza de la torre, balcón, nido y meseta (encima del túnel)
   for (const [sx, sy, sz] of HIGH) for (const every of [3, 6, 9]) for (let k = 0; k < 4; k++) {
     const r = rnd(7000 + Math.round(sx * 10 + sz) + every * 31 + k), e = { pos: { x: sx, y: sy, z: sz }, vel: { x: 0, y: 0, z: 0 }, hw: 0.35, h: 1.8, onGround: true };
     let tx = sx, tz = sz, t = 0, prev = { x: sx, y: sy, z: sz };
@@ -40,7 +38,7 @@ for (let m = 0; m < S.MAPS.length; m++) {
 }
 ok(allBad === 0 && allN > 150000, 'total: ' + allBad + ' correcciones en ' + allN + ' posiciones');
 console.log('\n=== Casos concretos ===');
-const F = S.buildWorld(0), Fi = S.insetColliders(F.colliders, 0.3), P0 = { x: 22.6, y: 0, z: 18 };   // muralla este de Castillo Real (x 23–25)
+const F = { colliders: [{ minX: 23, maxX: 25, minZ: 0, maxZ: 40, minY: 0, maxY: 3.6 }] }, Fi = S.insetColliders(F.colliders, 0.3), P0 = { x: 22.6, y: 0, z: 18 };   // muro de 2 m de grosor (como la muralla del antiguo Castillo Real, x 23–25)
 ok(S.wallViolation(F.colliders, Fi, P0, 25.4, 0, 18, 1.8) === 'muro', 'saltar al otro lado de un muro de 2 m se detecta («muro»)');
 ok(S.wallViolation(F.colliders, Fi, P0, 24, 0, 18, 1.8) === 'dentro', 'acabar dentro del muro se detecta («dentro»)');
 ok(S.wallViolation(F.colliders, Fi, P0, 22.62, 0, 18.4, 1.8) === null, 'pegarse a la pared y avanzar por ella es legítimo');
@@ -54,5 +52,5 @@ for (let m = 0; m < S.MAPS.length; m++) {
     const zc = (c.minZ + c.maxZ) / 2, a = { x: c.minX - 0.5, y: 0, z: zc }, b = { x: c.maxX + 0.5, y: 0, z: zc };
     if (S.overlapAt(cols, a.x, 0, a.z, 0.4, 1.8) || S.overlapAt(cols, b.x, 0, b.z, 0.4, 1.8)) continue; tot++; if (S.wallViolation(cols, ins, a, b.x, 0, b.z, 1.8) === 'muro') det++; }
 }
-ok(tot > 30 && det === tot, 'atravesar de golpe CUALQUIER muro macizo (grosor ≥ 1,2 m) del mapa se detecta: ' + det + ' de ' + tot);
+ok(tot >= 15 && det === tot, 'atravesar de golpe CUALQUIER muro macizo (grosor ≥ 1,2 m) del mapa se detecta: ' + det + ' de ' + tot);
 console.log(failed ? '\n' + failed + ' FALLOS' : '\nTODO CORRECTO'); process.exit(failed ? 1 : 0);
