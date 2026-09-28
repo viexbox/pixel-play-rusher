@@ -10,7 +10,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, ms = 8000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (fn()) return true; } catch (e) { /* aún no */ } await sleep(25); } return false; }
 
 console.log('=== 1. Lista de mapas ===');
-ok(S.MAPS.length === 3 && S.MAPS[0].name === 'Castillo Real' && S.MAPS[1].name === 'Barrio Arcoíris' && S.MAPS[2].name === 'Puerto Industrial', 'tres mapas: ' + S.MAPS.map(m => m.name).join(', '));
+ok(S.MAPS.length === 4 && S.MAPS[0].name === 'Castillo Real' && S.MAPS[1].name === 'Barrio Arcoíris' && S.MAPS[2].name === 'Puerto Industrial' && S.MAPS[3].name === 'Tormenta de Arena', 'cuatro mapas: ' + S.MAPS.map(m => m.name).join(', '));
 ok(!JSON.stringify(S.MAPS.map(x => x.name)).match(/Nexus|Duna|Piscina|Almenas|Contenedores|Bosque|Fábrica|Cañón/), 'ningún mapa viejo (Nexus Outpost, Pueblo Duna, Villa Piscina…) sigue en la lista');
 ok(S.MAPS.every(m => m.look.pixel > 0), 'todos usan texturas pixeladas estilo Krunker (look.pixel)');
 
@@ -23,7 +23,12 @@ const CFG = [
   /* [MAPA 3] Puerto Industrial */
   { targets: { 'Contenedores (rojo)': [-15, 2.6, -26], 'Contenedores (azul)': [15, 2.6, -26], 'Pasarela': [0, 2.6, -25.8], 'Tejado de las oficinas (azul)': [19, 4.0, 22], 'Puente de las oficinas': [0, 4.0, 25],
       'Nave': [0, 0, 1.8], 'Oficina (interior)': [-19, 0, 27], 'Muelle norte': [0, 0, -31], 'Muelle sur': [0, 0, 17], 'Base roja': [-35, 0, 0], 'Base azul': [35, 0, 0] },
-    probe: { 'Tejado de las oficinas': [19, 4.0, 22], 'Contenedores': [15, 2.6, -26], 'Oficinas': [-19, 0, 27], 'Nave': [0, 0, 3], 'Base roja': [-35, 0, 0], 'Base azul': [35, 0, 0], 'Muelle norte': [0, 0, -31], 'Muelle sur': [0, 0, 17], 'Patio de carga': [20, 0, 0] } }
+    probe: { 'Tejado de las oficinas': [19, 4.0, 22], 'Contenedores': [15, 2.6, -26], 'Oficinas': [-19, 0, 27], 'Nave': [0, 0, 3], 'Base roja': [-35, 0, 0], 'Base azul': [35, 0, 0], 'Muelle norte': [0, 0, -31], 'Muelle sur': [0, 0, 17], 'Patio de carga': [20, 0, 0] } },
+  /* [MAPAS KRUNKER 2] Tormenta de Arena */
+  { targets: { 'Terraza de la torre': [0, 3.2, 2], 'Torre (interior)': [0, 0, 2], 'Nido (azul)': [19, 2.8, -33], 'Nido (rojo)': [-19, 2.8, -33], 'Balcón': [8, 2.8, -29], 'Túnel': [10, 0, 28],
+      'Meseta': [10, 2.4, 32], 'Largo norte': [0, 0, -24], 'Carril central': [22, 0, 0], 'Base roja': [-38, 0, 0], 'Base azul': [38, 0, 0] },
+    probe: { 'Terraza de la torre': [0, 3.2, 2], 'Torre': [0, 0, 2], 'Nido': [19, 2.8, -33], 'Balcón': [8, 2.8, -29], 'Túnel': [10, 0, 28], 'Meseta': [10, 2.4, 32], 'Base roja': [-38, 0, 0], 'Base azul': [38, 0, 0],
+      'Largo norte': [0, 0, -24], 'Callejón': [7, 0, -16], 'Carril central': [22, 0, 0], 'Plaza': [10, 0, 8] } }
 ];
 const allTags = new Set();
 for (let mi = 0; mi < S.MAPS.length; mi++) {

@@ -608,7 +608,7 @@ function decorate(L, m) {
           any = true; const r = hs(a, f), sh = SHUT[Math.floor(r * SHUT.length)];
           for (let y = 3.2, fl = 1; y + 1.8 < c.maxY - 0.3; y += 3, fl++) {
             const rr = hs(a + fl, f - fl);
-            Q(a, y, 0.03, 1.1, 1.4, 0.06, GLASS); Q(a, y - 0.16, 0.1, 1.5, 0.16, 0.2, TRIM); Q(a, y + 1.4, 0.07, 1.4, 0.14, 0.14, TRIM);          // cristal, alféizar y dintel
+            Q(a, y, 0.03, 1.1, 1.4, 0.06, GLASS); Q(a, y - 0.16, 0.1, 1.5, 0.16, 0.2, TRIM);                                                            // cristal y alféizar
             if (rr < 0.55) { Q(a - 0.82, y, 0.07, 0.5, 1.4, 0.06, sh); Q(a + 0.82, y, 0.07, 0.5, 1.4, 0.06, sh); }                              // contraventanas abiertas
             else if (rr < 0.72) { Q(a, y - 0.2, 0.45, 1.8, 0.12, 0.9, TRIM); Q(a, y - 0.08, 0.85, 1.8, 0.7, 0.05, WOOD); Q(a - 0.88, y - 0.08, 0.45, 0.05, 0.7, 0.9, WOOD); Q(a + 0.88, y - 0.08, 0.45, 0.05, 0.7, 0.9, WOOD); }   // balcón con barandilla
             else if (rr < 0.85) { Q(a, y + 1.6, 0.35, 1.5, 0.08, 0.7, AWN[Math.floor(rr * 97) % AWN.length]); }                                  // toldito
@@ -619,8 +619,6 @@ function decorate(L, m) {
             if (r < 0.2) Q(a, 2.6, 0.55, 2.2, 0.1, 1.1, AWN[Math.floor(r * 50) % AWN.length]);
             if (r > 0.3) { Q(a - 1.2, 0, 0.35, 0.5, 0.55, 0.5, '#b0633a'); Q(a - 1.2, 0.55, 0.35, 0.6, 0.45, 0.6, '#4f9a3a'); } }
           else { Q(a, 0.9, 0.03, 1.1, 1.2, 0.06, GLASS); Q(a, 0.76, 0.1, 1.5, 0.14, 0.2, TRIM); for (let k = -1; k <= 1; k++) Q(a + k * 0.35, 0.9, 0.1, 0.05, 1.2, 0.05, DARK); }
-          /* bandas entre plantas */
-          for (let y = 2.9; y < c.maxY - 0.5; y += 3) Q(a, y, 0.05, 3.02, 0.12, 0.1, TRIM);
         }
         if (any) fronts.push({ c, a0, a1, f, ax, sg });
       }
@@ -649,11 +647,11 @@ function decorate(L, m) {
     /* palmeras: tronco curvo por anillos y hojas que caen hacia fuera */
     const palm = (x, z, h, y0 = 0) => {
       const lean = hs(x, z) * TAU;
-      for (let k = 0; k < h; k += 0.5) { const t = k / h, ox = Math.cos(lean) * t * t * 0.9, oz = Math.sin(lean) * t * t * 0.9; decoBox(x + ox, y0 + k, z + oz, 0.44 - t * 0.14, 0.52, 0.44 - t * 0.14, k % 1 ? '#8a6a42' : '#76593a'); decoBox(x + ox, y0 + k + 0.44, z + oz, 0.5 - t * 0.14, 0.06, 0.5 - t * 0.14, '#5e4630'); }
+      for (let k = 0; k < h; k += 1) { const t = k / h, ox = Math.cos(lean) * t * t * 0.9, oz = Math.sin(lean) * t * t * 0.9; decoBox(x + ox, y0 + k, z + oz, 0.44 - t * 0.14, 1.02, 0.44 - t * 0.14, k % 2 ? '#8a6a42' : '#76593a'); }
       const tx = x + Math.cos(lean) * 0.9, tz = z + Math.sin(lean) * 0.9, ty = y0 + h;
       decoBox(tx, ty - 0.3, tz, 0.6, 0.5, 0.6, '#5a7a2a');
-      for (let i = 0; i < 7; i++) { const a = i / 7 * TAU + lean, ca = Math.cos(a), sa = Math.sin(a), col = i % 2 ? '#4f9a3a' : '#3f8a30';
-        for (let s = 0; s < 4; s++) decoBox(tx + ca * (0.5 + s * 0.6), ty + 0.1 - s * s * 0.14, tz + sa * (0.5 + s * 0.6), Math.abs(ca) * 0.6 + Math.abs(sa) * (0.5 - s * 0.08), 0.12, Math.abs(sa) * 0.6 + Math.abs(ca) * (0.5 - s * 0.08), col); }
+      for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + lean, ca = Math.cos(a), sa = Math.sin(a), col = i % 2 ? '#4f9a3a' : '#3f8a30';
+        for (let s = 0; s < 3; s++) decoBox(tx + ca * (0.5 + s * 0.6), ty + 0.1 - s * s * 0.14, tz + sa * (0.5 + s * 0.6), Math.abs(ca) * 0.6 + Math.abs(sa) * (0.5 - s * 0.08), 0.12, Math.abs(sa) * 0.6 + Math.abs(ca) * (0.5 - s * 0.08), col); }
     };
     for (const sx of [-1, 1]) { palm(sx * 12.5, -11, 6); palm(sx * 12.5, 11, 5.4); palm(sx * 40.5, -9, 6.2); palm(sx * 40.5, 9, 5.6); palm(sx * 33, -28.5, 5.8); palm(sx * 28.5, 21, 5.2); palm(sx * 5, 33, 4.6, 2.4); palm(sx * 24, 33, 4.2, 2.4); }
     /* toldos del color de cada equipo en la entrada de las bases y barriles */

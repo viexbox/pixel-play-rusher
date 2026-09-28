@@ -362,7 +362,7 @@ const MAPS = [
      por debajo (el paso subterráneo del largo sur, con salida al centro); callejones entre medias y un carril central estrecho. */
   {
     name: 'Tormenta de Arena', half: 44,
-    desc: 'Barrio del desierto como el Sandstorm de Krunker: pasillos largos entre edificios de pisos, torre con terraza en la plaza, balcón con nido de francotirador y un túnel bajo la meseta.',
+    desc: 'Barrio del desierto: pasillos largos entre edificios de pisos, torre con terraza en la plaza, balcón con nido de francotirador y un túnel bajo la meseta.',
     sky: ['#f0a95a', '#fbe3b8'], fog: '#f6ddb0', floor: ['#e2c08a', '#d7b37b'], out: '#d9b47c', pal: ['#e3c08d', '#c98158', '#6fb3c9', '#efe3cc', '#6aa84f'],
     look: { floor: 'pave', outFloor: 'sand', wall: 'sand', block: 'sand', crate: 'crate', plat: 'sand', sun: '#ffe2b0', decor: 'desert', pixel: 16, wallH: 12, trimBase: '#b08650', trimTop: '#f4e6c8' },
     /* Suelo transitable (mitad este; el oeste es su espejo): base, plaza, carril central, largo norte, meseta sur y callejones */
@@ -393,12 +393,12 @@ const MAPS = [
       const P = (x0, x1, z0, z1, y0, y1, c, t) => b.box(Math.min(x0, x1), Math.max(x0, x1), z0, z1, y0, y1, c, t);
       const crate = (x, z, s = 2, h = 2, y = 0) => P(x - s / 2, x + s / 2, z - s / 2, z + s / 2, y, y + h, WD, 'crate');
       const bags = (x0, x1, z0, z1) => P(x0, x1, z0, z1, 0, 1.1, '#b89a64', 'sand');   // sacos terreros
-      b.perimeter(44, 14, TN);
+      b.perimeter(44, 12, TN);
       /* ---------- edificios del borde: rellenan todo lo que no es suelo, en rectángulos (filas de 2 m fundidas) ----------
          altura por manzanas de 8 m: los que dan a la calle entre 6 y 9 m, los de detrás más altos (10-13 m), y cuatro colores de fachada */
       const open = this.open, C = 2, N = 44, hash = (i, j) => { const s = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return s - Math.floor(s); };
       const near = (cx, cz, r) => { for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) if (open(cx + dx * C, cz + dz * C)) return true; return false; };
-      const cellH = (cx, cz) => { if (open(cx, cz)) return 0; const bi = Math.floor(Math.abs(cx) / 8), bj = Math.floor((cz + 44) / 8), hv = hash(bi, bj); return near(cx, cz, 1) ? 6 + Math.floor(hv * 4) : near(cx, cz, 3) ? 10 + Math.floor(hv * 4) : 13; };
+      const cellH = (cx, cz) => { if (open(cx, cz)) return 0; const bi = Math.floor(Math.abs(cx) / 8), bj = Math.floor((cz + 44) / 8), hv = hash(bi, bj); return near(cx, cz, 1) ? 6 + Math.floor(hv * 4) : near(cx, cz, 3) ? 10 + Math.floor(hv * 3) : 12; };
       const COLS = [SA, TN, WH, TC], colOf = (x0, z0) => COLS[Math.floor(hash(Math.floor(Math.abs(x0) / 8) + 7, Math.floor((z0 + 44) / 8)) * 4)];
       const rects = [];   // filas de celdas iguales seguidas → un rectángulo; si la fila siguiente repite el tramo, se alarga
       for (let z = -N; z < N; z += C) {
@@ -419,7 +419,7 @@ const MAPS = [
       }
       P(-4.4, 4.4, -4.4, 4.4, TH, TH + 0.4, TN, 'sand');                                                                                             // terraza (arriba a 3,2 m)
       for (const s of [-1, 1]) { P(-4.4, 4.4, s * 4.4 - (s > 0 ? 0.4 : 0), s * 4.4 + (s < 0 ? 0.4 : 0), TH + 0.4, TH + 1.4, WH, 'adobe'); P(s * 4.4 - (s > 0 ? 0.4 : 0), s * 4.4 + (s < 0 ? 0.4 : 0), -4, -1.2, TH + 0.4, TH + 1.4, WH, 'adobe'); P(s * 4.4 - (s > 0 ? 0.4 : 0), s * 4.4 + (s < 0 ? 0.4 : 0), 1.2, 4, TH + 0.4, TH + 1.4, WH, 'adobe'); }   // pretil con hueco donde llegan las escaleras
-      b.run('W', 12, 0, 2.4, 8, 0, 0.4, TN, 'sand'); b.run('E', -12, 0, 2.4, 8, 0, 0.4, TN, 'sand');                                          // escaleras oeste y este a la terraza (8 peldaños → 3,2 m)
+      b.ramp(4.4, 12.4, -1.2, 1.2, 0, 3.2, 'W', '#cfa66e', 'sand'); b.ramp(-12.4, -4.4, -1.2, 1.2, 0, 3.2, 'E', '#cfa66e', 'sand');   // rampas de 8 m a la terraza (se baja deslizándose hacia el carril central)
       for (const cx of [-4, 4]) for (const cz of [-4, 4]) P(cx - 0.4, cx + 0.4, cz - 0.4, cz + 0.4, TH + 0.4, TH + 3, WH, 'adobe');   // pilares de las esquinas (con cúpula de adorno en el cliente)
       crate(-2.6, -2.6, 1.4, 1.4); crate(2.6, 2.6, 1.4, 1.4);
       for (const sx of [-1, 1]) {
@@ -427,14 +427,14 @@ const MAPS = [
         /* plaza: muretes, cajas y palmeras */
         P(...X(8, 11), -9.6, -9, 0, 1.2, SA, 'adobe'); P(...X(8, 11), 9, 9.6, 0, 1.2, SA, 'adobe'); crate(sx * 11, -6); crate(sx * 7, 7.5, 1.6, 1.6);
         /* ---------- carril central (estrecho, directo de la base a la plaza) ---------- */
-        bags(...X(20, 20.8), -3, 0.4); crate(sx * 25, 2.6, 1.6, 1.6); P(...X(14, 15), -4, -2.6, 0, 3, SA, 'adobe'); P(...X(14, 15), 2.6, 4, 0, 3, SA, 'adobe');   // arco de entrada a la plaza
-        P(...X(14, 15), -2.6, 2.6, 2.4, 3, SA, 'adobe');
+        bags(...X(20, 20.8), -3, 0.4); crate(sx * 25, 2.6, 1.6, 1.6); P(...X(14, 15), -4, -2.6, 0, 4.4, SA, 'adobe'); P(...X(14, 15), 2.6, 4, 0, 4.4, SA, 'adobe');   // arco de entrada a la plaza (alto: se pasa saltando al bajar deslizándose de la torre)
+        P(...X(14, 15), -2.6, 2.6, 3.8, 4.4, SA, 'adobe');
         /* ---------- base: patio con arco hacia el carril ---------- */
-        crate(sx * 36, -4); crate(sx * 36, 4); crate(sx * 34.6, 5.6, 1.4, 1.2); bags(...X(32, 32.8), -8.5, -6);
+        crate(sx * 36, -4); crate(sx * 36, 4); crate(sx * 33, 8.4, 1.4, 1.2); bags(...X(32, 32.8), -8.5, -6);
         /* ---------- largo norte: pasillo de 10 m entre edificios, balcón corrido a 2,8 m y nido a los lados ---------- */
         P(...X(0, 16), -30, -28, 0, 2.8, TN, 'sand');                                                                                               // balcón (la mitad de cada lado)
         P(...X(16, 22), -36, -28, 0, 2.8, TN, 'sand'); P(...X(16, 22), -28.4, -28, 2.8, 3.8, WH, 'adobe');                                             // nido con pretil
-        b.run(sx > 0 ? 'W' : 'E', sx * 29, -29, 2, 7, 0, 0.4, TN, 'sand');                                                                           // escalera al nido desde el extremo del largo
+        b.ramp(...X(22, 30), -30, -28, 0, 2.8, sx > 0 ? 'W' : 'E', '#cfa66e', 'sand');                                                             // rampa de 8 m al nido desde el extremo del largo
         crate(sx * 8, -23, 1.8, 1.8); crate(sx * 26, -25); bags(...X(14, 17), -21.4, -20.6); crate(sx * 32, -16, 1.6, 1.6);
         /* callejón plaza ↔ largo norte */
         crate(sx * 6, -16, 1.6, 1.6);
@@ -444,7 +444,6 @@ const MAPS = [
         b.run(sx > 0 ? 'W' : 'E', sx * 30, 24, 2, 6, 0, 0.4, TN, 'sand');                                                                             // escalera a la meseta desde el callejón sur
         b.run('S', 16, sx * 5, 2, 6, 0, 0.4, TN, 'sand');                                                                                             // escalera a la meseta desde la plaza
         P(...X(8, 12), 22, 22.5, 2.4, 3.4, SA, 'adobe'); P(...X(16, 22), 22, 22.5, 2.4, 3.4, SA, 'adobe'); crate(sx * 14, 32, 1.6, 1.6, 2.4); crate(sx * 22, 27, 1.4, 1.2, 2.4);   // pretil y cajas arriba
-        b.ramp(...X(26, 30), 30, 34, 0, 2.4, sx > 0 ? 'W' : 'E', '#cfa66e', 'sand');                                                                  // rampa para deslizarse desde la meseta
         crate(sx * 12, 16, 1.6, 1.6); crate(sx * 29, 14); bags(...X(22, 25), 18.6, 19.4);
       }
     }
@@ -661,8 +660,12 @@ function navDir(nav, field, x, z, y) {
 function buildWorld(i, onBox) {
   const m = MAPS[i], colliders = [], b = makeBuilder(onBox, colliders);
   m.build(b);
-  const waypoints = [];
-  for (let x = -(m.half - 4); x <= m.half - 4; x += 4) for (let z = -(m.half - 4); z <= m.half - 4; z += 4) if (!overlapAt(colliders, x, 0, z, 0.6, 1.8)) waypoints.push([x, z]);
+  let waypoints = [];
+  for (const st of [4, 2]) {   // [MAPAS KRUNKER 2] un mapa de calles estrechas (poco suelo libre) usa una rejilla de 2 m para tener puntos de sobra
+    waypoints = [];
+    for (let x = -(m.half - 4); x <= m.half - 4; x += st) for (let z = -(m.half - 4); z <= m.half - 4; z += st) if (!overlapAt(colliders, x, 0, z, 0.6, 1.8)) waypoints.push([x, z]);
+    if (waypoints.length >= 200) break;
+  }
   return { colliders, waypoints, half: m.half, map: m, spawns: m.spawns || null, zones: m.zones || null, areas: m.areas || [], nav: buildNav(colliders, m.half) };
 }
 
