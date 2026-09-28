@@ -354,6 +354,102 @@ const MAPS = [
       D(-6.6, 6.6, -31, -30, 11, 12, YL, 'metal'); D(-6.6, 6.6, -21, -20, 11, 12, YL, 'metal'); D(-1, 1, -31, -20, 11, 11.8, YL, 'metal');
       D(-1.4, 1.4, -27, -24, 9.6, 11, DK, 'metal'); D(-0.1, 0.1, -25.6, -25.4, 6.2, 9.6, '#2a2f38', 'metal'); D(-0.6, 0.6, -26.1, -24.9, 5.6, 6.2, '#e5533d', 'metal');
     }
+  },
+  /* ================= [MAPAS KRUNKER 2] TORMENTA DE ARENA (inspirado en «Sandstorm» de Krunker) =================
+     88 × 88 m pero NO es un cuadrado: el borde lo forman edificios de pisos de distintas alturas (open() dice qué suelo se pisa).
+     Simétrico de oeste (ROJO) a este (AZUL). Plaza central con la torre (planta baja con cuatro puertas y terraza a 3,2 m);
+     al norte, el «largo» norte: un pasillo largo con balcón y nido de francotirador; al sur, la meseta a 2,4 m con el túnel
+     por debajo (el paso subterráneo del largo sur, con salida al centro); callejones entre medias y un carril central estrecho. */
+  {
+    name: 'Tormenta de Arena', half: 44,
+    desc: 'Barrio del desierto como el Sandstorm de Krunker: pasillos largos entre edificios de pisos, torre con terraza en la plaza, balcón con nido de francotirador y un túnel bajo la meseta.',
+    sky: ['#f0a95a', '#fbe3b8'], fog: '#f6ddb0', floor: ['#e2c08a', '#d7b37b'], out: '#d9b47c', pal: ['#e3c08d', '#c98158', '#6fb3c9', '#efe3cc', '#6aa84f'],
+    look: { floor: 'sandfloor', outFloor: 'sand', wall: 'sand', block: 'sand', crate: 'crate', plat: 'sand', sun: '#ffe2b0', decor: 'desert', pixel: 16, wallH: 12, trimBase: '#b08650', trimTop: '#f4e6c8' },
+    /* Suelo transitable (mitad este; el oeste es su espejo): base, plaza, carril central, largo norte, meseta sur y callejones */
+    open(x, z) {
+      const ax = Math.abs(x), R = [[30, 42, -10, 10], [0, 14, -12, 12], [14, 30, -4, 4], [0, 34, -30, -20], [30, 34, -20, -10], [4, 10, -20, -12], [16, 22, -36, -30], [0, 30, 20, 34], [26, 32, 10, 20], [0, 6, 12, 20]];
+      return R.some(r => ax >= r[0] && ax <= r[1] && z >= r[2] && z <= r[3]);
+    },
+    spawns: {
+      1: [[-38, -8], [-39, -4], [-38, 0], [-39, 4], [-38, 8], [-35, -6], [-35, 6]],
+      0: [[38, -8], [39, -4], [38, 0], [39, 4], [38, 8], [35, -6], [35, 6]]
+    },
+    zones: [{ n: 'Torre', x: 0, z: 0, y: 3.2 }, { n: 'Largo norte', x: 0, z: -24, y: 0 }, { n: 'Meseta', x: 0, z: 32, y: 2.4 }],
+    bomb: [{ n: 'A', x: 0, z: -24, y: 0 }, { n: 'B', x: 0, z: 32, y: 2.4 }],   // [BOMBA] largo norte y meseta
+    areas: [
+      { n: 'Terraza de la torre', x0: -4, x1: 4, z0: -4, z1: 4, y0: 2.8, y1: 8 }, { n: 'Torre', x0: -4, x1: 4, z0: -4, z1: 4, y0: -1, y1: 2.8 },
+      { n: 'Nido', x0: -22, x1: -16, z0: -36, z1: -28, y0: 2.4, y1: 8 }, { n: 'Nido', x0: 16, x1: 22, z0: -36, z1: -28, y0: 2.4, y1: 8 },
+      { n: 'Balcón', x0: -16, x1: 16, z0: -30, z1: -28, y0: 2.4, y1: 8 },
+      { n: 'Túnel', x0: -30, x1: 30, z0: 22, z1: 30, y0: -1, y1: 1.9 },
+      { n: 'Meseta', x0: -30, x1: 30, z0: 20, z1: 34, y0: 2, y1: 8 },
+      { n: 'Base roja', x0: -44, x1: -30, z0: -10, z1: 10, y0: -1, y1: 3 }, { n: 'Base azul', x0: 30, x1: 44, z0: -10, z1: 10, y0: -1, y1: 3 },
+      { n: 'Largo norte', x0: -34, x1: 34, z0: -36, z1: -20, y0: -1, y1: 4 },
+      { n: 'Callejón', x0: -34, x1: 34, z0: -20, z1: -12, y0: -1, y1: 4 }, { n: 'Callejón', x0: -34, x1: 34, z0: 10, z1: 22, y0: -1, y1: 4 },
+      { n: 'Carril central', x0: -30, x1: 30, z0: -4, z1: 4, y0: -1, y1: 4 },
+      { n: 'Plaza', x0: -14, x1: 14, z0: -12, z1: 12, y0: -1, y1: 4 }
+    ],
+    build(b) {
+      const SA = '#e3c08d', TN = '#d6a86e', TC = '#c98158', WH = '#efe3cc', WD = '#a8753f', BL = '#3f8fb0';
+      const P = (x0, x1, z0, z1, y0, y1, c, t) => b.box(Math.min(x0, x1), Math.max(x0, x1), z0, z1, y0, y1, c, t);
+      const crate = (x, z, s = 2, h = 2, y = 0) => P(x - s / 2, x + s / 2, z - s / 2, z + s / 2, y, y + h, WD, 'crate');
+      const bags = (x0, x1, z0, z1) => P(x0, x1, z0, z1, 0, 1.1, '#b89a64', 'sand');   // sacos terreros
+      b.perimeter(44, 14, TN);
+      /* ---------- edificios del borde: rellenan todo lo que no es suelo, en rectángulos (filas de 2 m fundidas) ----------
+         altura por manzanas de 8 m: los que dan a la calle entre 6 y 9 m, los de detrás más altos (10-13 m), y cuatro colores de fachada */
+      const open = this.open, C = 2, N = 44, hash = (i, j) => { const s = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return s - Math.floor(s); };
+      const near = (cx, cz, r) => { for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) if (open(cx + dx * C, cz + dz * C)) return true; return false; };
+      const cellH = (cx, cz) => { if (open(cx, cz)) return 0; const bi = Math.floor(Math.abs(cx) / 8), bj = Math.floor((cz + 44) / 8), hv = hash(bi, bj); return near(cx, cz, 1) ? 6 + Math.floor(hv * 4) : near(cx, cz, 3) ? 10 + Math.floor(hv * 4) : 13; };
+      const COLS = [SA, TN, WH, TC], colOf = (x0, z0) => COLS[Math.floor(hash(Math.floor(Math.abs(x0) / 8) + 7, Math.floor((z0 + 44) / 8)) * 4)];
+      let prev = [];
+      for (let z = -N; z < N; z += C) {
+        const runs = []; let cur = null;
+        for (let x = -N; x <= N; x += C) {
+          const h = x < N ? cellH(x + C / 2, z + C / 2) : 0, c = h ? colOf(x + C / 2, z + C / 2) : '';
+          if (cur && (h !== cur.h || c !== cur.c)) { if (cur.h) runs.push(cur); cur = null; }
+          if (!cur && h) cur = { x0: x, x1: x + C, h, c, z0: z, z1: z + C }; else if (cur) cur.x1 = x + C;
+        }
+        for (const r of runs) { const p = prev.find(q => q.x0 === r.x0 && q.x1 === r.x1 && q.h === r.h && q.c === r.c && q.z1 === z); if (p) { p.z1 = z + C; r.merged = p; } }   // fundir con la fila anterior si es igual
+        prev = prev.filter(q => q.z1 < z).concat(runs.map(r => r.merged || r));
+        for (const q of prev) if (q.z1 < z) { /* ya cerrado */ }
+        this._runs = (this._runs || []); for (const r of runs) if (!r.merged) this._runs.push(r);
+      }
+      for (const r of this._runs) P(r.x0, r.x1, r.z0, r.z1, 0, r.h, r.c, 'sand'); this._runs = null;
+      /* ---------- plaza: torre central (planta baja hueca con 4 puertas, terraza a 3,2 m con pretil) ---------- */
+      const T = 0.5, TH = 2.8;
+      for (const s of [-1, 1]) {
+        P(-4, -1, s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), 0, TH, WH, 'sand'); P(1, 4, s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), 0, TH, WH, 'sand'); P(-1, 1, s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), 2.2, TH, WH, 'sand');   // norte / sur con puerta
+        P(s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), -4 + T, -1, 0, TH, WH, 'sand'); P(s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), 1, 4 - T, 0, TH, WH, 'sand'); P(s * 4 - (s > 0 ? T : 0), s * 4 + (s < 0 ? T : 0), -1, 1, 2.2, TH, WH, 'sand');
+      }
+      P(-4.4, 4.4, -4.4, 4.4, TH, TH + 0.4, TN, 'sand');                                                                                             // terraza (arriba a 3,2 m)
+      for (const s of [-1, 1]) { P(-4.4, 4.4, s * 4.4 - (s > 0 ? 0.4 : 0), s * 4.4 + (s < 0 ? 0.4 : 0), TH + 0.4, TH + 1.4, WH, 'sand'); P(s * 4.4 - (s > 0 ? 0.4 : 0), s * 4.4 + (s < 0 ? 0.4 : 0), -4, -1.2, TH + 0.4, TH + 1.4, WH, 'sand'); P(s * 4.4 - (s > 0 ? 0.4 : 0), s * 4.4 + (s < 0 ? 0.4 : 0), 1.2, 4, TH + 0.4, TH + 1.4, WH, 'sand'); }   // pretil con hueco donde llegan las escaleras
+      b.run('W', 12, 0, 2.4, 8, 0, 0.4, TN, 'sand'); b.run('E', -12, 0, 2.4, 8, 0, 0.4, TN, 'sand');                                          // escaleras oeste y este a la terraza (8 peldaños → 3,2 m)
+      crate(-2.6, -2.6, 1.4, 1.4); crate(2.6, 2.6, 1.4, 1.4);
+      for (const sx of [-1, 1]) {
+        const X = (a, c) => [sx * a, sx * c];
+        /* plaza: muretes, cajas y palmeras */
+        P(...X(8, 11), -9.6, -9, 0, 1.2, SA, 'sand'); P(...X(8, 11), 9, 9.6, 0, 1.2, SA, 'sand'); crate(sx * 11, -6); crate(sx * 7, 7.5, 1.6, 1.6);
+        /* ---------- carril central (estrecho, directo de la base a la plaza) ---------- */
+        bags(...X(20, 20.8), -3, 0.4); crate(sx * 25, 2.6, 1.6, 1.6); P(...X(14, 15), -4, -2.6, 0, 3, SA, 'sand'); P(...X(14, 15), 2.6, 4, 0, 3, SA, 'sand');   // arco de entrada a la plaza
+        P(...X(14, 15), -2.6, 2.6, 2.4, 3, SA, 'sand');
+        /* ---------- base: patio con arco hacia el carril ---------- */
+        crate(sx * 36, -4); crate(sx * 36, 4); crate(sx * 34.6, 5.6, 1.4, 1.2); bags(...X(32, 32.8), -8.5, -6);
+        /* ---------- largo norte: pasillo de 10 m entre edificios, balcón corrido a 2,8 m y nido a los lados ---------- */
+        P(...X(0, 16), -30, -28, 0, 2.8, TN, 'sand');                                                                                               // balcón (la mitad de cada lado)
+        P(...X(16, 22), -36, -28, 0, 2.8, TN, 'sand'); P(...X(16, 22), -28.4, -28, 2.8, 3.8, WH, 'sand');                                             // nido con pretil
+        b.run(sx > 0 ? 'W' : 'E', sx * 29, -29, 2, 7, 0, 0.4, TN, 'sand');                                                                           // escalera al nido desde el extremo del largo
+        crate(sx * 8, -23, 1.8, 1.8); crate(sx * 26, -25); bags(...X(14, 17), -21.4, -20.6); crate(sx * 32, -16, 1.6, 1.6);
+        /* callejón plaza ↔ largo norte */
+        crate(sx * 6, -16, 1.6, 1.6);
+        /* ---------- meseta sur (2,4 m) con el túnel por debajo (2 m de alto) de punta a punta y salida al centro ---------- */
+        P(...X(2, 26), 22, 26, 0, 2.4, TN, 'sand'); P(...X(0, 26), 30, 34, 0, 2.4, TN, 'sand'); P(...X(0, 26), 26, 30, 2.0, 2.4, TN, 'sand');      // techo del túnel
+        P(...X(0, 2), 22, 26, 2.0, 2.4, TN, 'sand');                                                                                                  // puente sobre la salida al centro
+        b.run(sx > 0 ? 'W' : 'E', sx * 30, 24, 2, 6, 0, 0.4, TN, 'sand');                                                                             // escalera a la meseta desde el callejón sur
+        b.run('S', 16, sx * 5, 2, 6, 0, 0.4, TN, 'sand');                                                                                             // escalera a la meseta desde la plaza
+        P(...X(8, 12), 22, 22.5, 2.4, 3.4, SA, 'sand'); P(...X(16, 22), 22, 22.5, 2.4, 3.4, SA, 'sand'); crate(sx * 14, 32, 1.6, 1.6, 2.4); crate(sx * 22, 27, 1.4, 1.2, 2.4);   // pretil y cajas arriba
+        b.ramp(...X(26, 30), 30, 34, 0, 2.4, sx > 0 ? 'W' : 'E', '#cfa66e', 'sand');                                                                  // rampa para deslizarse desde la meseta
+        crate(sx * 12, 16, 1.6, 1.6); crate(sx * 29, 14); bags(...X(22, 25), 18.6, 19.4);
+      }
+    }
   }
 ];
 

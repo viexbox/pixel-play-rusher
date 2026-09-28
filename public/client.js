@@ -571,6 +571,23 @@ function decorate(L, m) {
     }
     decoBox(0, 4.0, -7.28, 6, 1.0, 0.06, '#e5533d', true); decoBox(0, 4.0, 7.28, 6, 1.0, 0.06, '#2f7bd9', true);                          // rótulos de la nave
     decoBox(0, 9.7, -25.5, 2.9, 1.0, 0.06, '#9fd3ff', true);                                                                                  // ventana de la cabina de la grúa
+  } else if (L.decor === 'desert' && m.open) {   // [MAPAS KRUNKER 2] Tormenta de Arena: ventanas en las fachadas que dan a la calle y palmeras
+    for (const c of colliders) {
+      if (c.maxY < 5.9 || c.minY > 0.05) continue;
+      const faces = [[c.minX, c.maxX, c.minZ, 'z', -1], [c.minX, c.maxX, c.maxZ, 'z', 1], [c.minZ, c.maxZ, c.minX, 'x', -1], [c.minZ, c.maxZ, c.maxX, 'x', 1]];
+      for (const [a0, a1, f, ax, sg] of faces) for (let a = a0 + 1.5; a < a1 - 1; a += 3) {
+        const ox = ax === 'z' ? a : f + sg, oz = ax === 'z' ? f + sg : a; if (!m.open(ox, oz)) continue;
+        for (let y = 1.4; y + 1.6 < c.maxY - 0.4; y += 3) {
+          const px = ax === 'z' ? a : f + sg * 0.04, pz = ax === 'z' ? f + sg * 0.04 : a;
+          decoBox(px, y, pz, ax === 'z' ? 1.1 : 0.08, 1.4, ax === 'z' ? 0.08 : 1.1, '#3d4f5c');                                             // cristal oscuro
+          decoBox(ax === 'z' ? a : f + sg * 0.1, y - 0.14, ax === 'z' ? f + sg * 0.1 : a, ax === 'z' ? 1.4 : 0.2, 0.14, ax === 'z' ? 0.2 : 1.4, '#f4e6c8');   // alféizar
+        }
+      }
+    }
+    const palm = (x, z, h) => { for (let k = 0; k < h; k += 1) decoBox(x + Math.sin(k * 0.5) * 0.08, k, z, 0.36 - k * 0.012, 1.02, 0.36 - k * 0.012, k % 2 ? '#8a6a42' : '#7a5c38');
+      decoBox(x, h, z, 3.4, 0.22, 0.9, '#4f9a3a'); decoBox(x, h, z, 0.9, 0.22, 3.4, '#4f9a3a'); decoBox(x, h + 0.2, z, 2.2, 0.2, 2.2, '#5fb046'); decoBox(x, h - 0.35, z, 0.5, 0.4, 0.5, '#6b4a2a'); };
+    for (const sx of [-1, 1]) { palm(sx * 12.5, -11, 5); palm(sx * 12.5, 11, 4.4); palm(sx * 40.5, -9, 5.2); palm(sx * 40.5, 9, 4.6); palm(sx * 33, -28.5, 4.8); palm(sx * 28.5, 21, 4.4); palm(sx * 5, 33, 4.2 + 2.4); }
+    for (const sx of [-1, 1]) for (const z of [-16, 16]) { decoBox(sx * 34.5, 2.4, z, 0.1, 0.1, 3.2, '#6b4a2a'); decoBox(sx * 33.3, 2.3, z, 2.4, 0.08, 3.2, sx < 0 ? '#ff3b48' : '#3a86ff'); }   // toldos del color de cada equipo en las esquinas de las bases
   } else if (L.decor === 'town') {   // [MAPAS KRUNKER] Barrio Arcoíris: marcos de ventanas, farolas y pasos de cebra
     for (const [x, z] of [[-24, -18], [24, -18], [-24, 18], [24, 18], [-8, -19.5], [8, 19.5]]) { decoBox(x, 0, z, 0.22, 4.2, 0.22, '#39435a'); decoBox(x, 4.2, z, 0.8, 0.22, 0.5, '#fff3b0', true); }
     for (const sx of [-1, 1]) for (let k = 0; k < 6; k++) { decoBox(sx * 3, 0, -18 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); decoBox(sx * 3, 0, 12 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); }
