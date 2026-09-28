@@ -70,12 +70,16 @@ const tdot = t => '<i class="tdot t' + (t === 1 ? 1 : 0) + '"></i>';
    ===================================================================== */
 const canvas = $('#c');
 let renderer = null;
+/* [FLUIDEZ] En móviles (pantalla táctil sin ratón) sin antialias y con la resolución interna limitada a ×1,5: el antialias y las
+   pantallas ×3 son lo que más cuesta en un móvil y con su densidad de píxeles casi no se nota. En ordenador sigue igual (hasta ×2). */
+const COARSE = !!(window.matchMedia && !window.matchMedia('(any-pointer: fine)').matches && (('ontouchstart' in window) || navigator.maxTouchPoints > 0));
 try {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: !COARSE, powerPreference: 'high-performance' });
 } catch (e) {
   $('#glWarn').hidden = false; $('#play').disabled = true;
 }
-if (renderer) renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+let startRatio = Math.min(window.devicePixelRatio || 1, COARSE ? 1.5 : 2);
+if (renderer) renderer.setPixelRatio(startRatio);
 
 const scene = new THREE.Scene();
 const FOG = 0xffd9c0;
@@ -113,16 +117,23 @@ const sky = new THREE.Mesh(
 scene.add(sky);
 
 // nubes de bloques que siguen a la cámara y avanzan despacio
+/* [FLUIDEZ] Las ~80 cajas de las nubes se fusionan en 2 mallas (una por color): mismo aspecto, ~78 draw calls menos en cada fotograma */
 const cloudRoot = new THREE.Group(); sky.add(cloudRoot);
 (function () {
   const R = rngSeed(11), white = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false }), shade = new THREE.MeshBasicMaterial({ color: 0xe3ecff, fog: false });
+  const tmp = new THREE.Group(), parts = [];
   for (let i = 0; i < 18; i++) {
     const g = new THREE.Group(), a = R() * TAU, r = 140 + R() * 110, n = 3 + Math.floor(R() * 4);
     for (let k = 0; k < n; k++) {
       const m = new THREE.Mesh(new THREE.BoxGeometry(16 + R() * 26, 5 + R() * 5, 12 + R() * 16), k === 0 ? shade : white);
-      m.position.set(k * 13 - n * 6.5 + R() * 8, k === 0 ? -2 : R() * 4, R() * 12 - 6); g.add(m);
+      m.position.set(k * 13 - n * 6.5 + R() * 8, k === 0 ? -2 : R() * 4, R() * 12 - 6); g.add(m); parts.push(m);
     }
-    g.position.set(Math.cos(a) * r, 52 + R() * 60, Math.sin(a) * r); g.rotation.y = R() * TAU; cloudRoot.add(g);
+    g.position.set(Math.cos(a) * r, 52 + R() * 60, Math.sin(a) * r); g.rotation.y = R() * TAU; tmp.add(g);
+  }
+  tmp.updateMatrixWorld(true);
+  for (const mat of [shade, white]) {
+    const geos = parts.filter(m => m.material === mat).map(m => m.geometry.applyMatrix4(m.matrixWorld));
+    if (geos.length) cloudRoot.add(new THREE.Mesh(mergeGeometries(geos), mat));
   }
 })();
 
@@ -131,6 +142,8 @@ const cloudRoot = new THREE.Group(); sky.add(cloudRoot);
 /* [MÓVIL] Pantalla táctil sin ratón (móviles y tabletas): se juega con los controles táctiles (ver initTouch) */
 const TOUCH = !!(window.matchMedia && !window.matchMedia('(any-pointer: fine)').matches && (('ontouchstart' in window) || navigator.maxTouchPoints > 0));
 const HQ = cfg.hq != null ? !!cfg.hq : !(renderer && isSoftwareGL()) && !TOUCH;   // en móvil, calidad normal por defecto (va más fluido y gasta menos batería)
+const SOFT_GL = !!(renderer && isSoftwareGL());   // [FLUIDEZ] sin tarjeta gráfica: se empieza ya a resolución ×1 en vez de esperar a que la calidad automática baje
+if (SOFT_GL) { startRatio = Math.min(startRatio, 1); renderer.setPixelRatio(startRatio); }
 const hemi = new THREE.HemisphereLight(0xffffff, 0x9fb0ff, 0.66); scene.add(hemi);
 const sunLight = new THREE.DirectionalLight(0xfff1c9, 0.88);
 sunLight.position.set(52, 92, 34); scene.add(sunLight, sunLight.target);
@@ -4092,15 +4105,18 @@ function step(dt) {
    ×2 → ×1,5 → ×1 → ×0,75 y, agotados esos, apaga las sombras (que dibujan dos veces los objetos que las proyectan). Solo baja, nunca sube sola
    (así no hay parpadeos de calidad) y no toca los ajustes guardados: al recargar la página se vuelve a empezar. Desactivable con cfg.autoQuality = false.
    ===================================================================== */
+/* [FLUIDEZ] Más rápida: mide cada 1,5 s y, si va muy lento (< 25 FPS), baja ya en la primera medición y salta dos escalones de resolución.
+   Las sombras se apagan antes de bajar de ×1 (cuestan mucho y se nota menos que ver el juego borroso). */
 const QUALITY_RATIOS = [2, 1.5, 1, 0.75];
-let curRatio = Math.min(window.devicePixelRatio || 1, 2), qShadowsOff = false, qAcc = 0, qN = 0, qLow = 0;
+let curRatio = startRatio, qShadowsOff = false, qAcc = 0, qN = 0, qLow = 0;
 function adaptQuality(rawDt) {
   if (!renderer || cfg.autoQuality === false || state !== 'playing' || document.hidden || rawDt > 0.5) { qAcc = qN = 0; return; }   // pausas y pestañas ocultas no cuentan
-  qAcc += rawDt; qN++; if (qAcc < 2) return;
-  const fps = qN / qAcc; qAcc = qN = 0; qLow = fps < 40 ? qLow + 1 : 0; if (qLow < 2) return; qLow = 0;
-  const next = QUALITY_RATIOS.find(r => r < curRatio - 0.01);
+  qAcc += rawDt; qN++; if (qAcc < 1.5) return;
+  const fps = qN / qAcc, awful = fps < 25; qAcc = qN = 0; qLow = fps < 40 ? qLow + 1 : 0; if (qLow < (awful ? 1 : 2)) return; qLow = 0;
+  const lower = QUALITY_RATIOS.filter(r => r < curRatio - 0.01), shadowsOn = cfg.shadows && !qShadowsOff;
+  if (shadowsOn && (!lower.length || lower[0] < 1 - 0.01)) { qShadowsOff = true; applyShadows(); toast('Sombras desactivadas para ir más fluido'); return; }
+  const next = awful && lower[1] >= (shadowsOn ? 1 : 0) ? lower[1] : lower[0];
   if (next) { curRatio = next; renderer.setPixelRatio(next); resize(); toast('Calidad ajustada para ir más fluido'); }
-  else if (cfg.shadows && !qShadowsOff) { qShadowsOff = true; applyShadows(); toast('Sombras desactivadas para ir más fluido'); }
 }
 let orbitA = 0, last = performance.now();
 const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
