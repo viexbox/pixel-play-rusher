@@ -920,6 +920,7 @@ wss.on('connection', ws => {
     clearTimeout(helloTimer); connections.delete(ws); lobby.delete(ws);
     const n = (perIp.get(ip) || 1) - 1; if (n <= 0) perIp.delete(ip); else perIp.set(ip, n);
     if (ws.player && ws.player.room) ws.player.room.remove(ws.player);
+    if (ws.player && ws.player.visitAt) { admin.playTime(ws.player.src, Date.now() - ws.player.visitAt); ws.player.visitAt = 0; }   // [ESTADÍSTICAS]
     { const uid = ws.acctId || (ws.player && ws.player.acctUser && ws.player.acctUser.id); if (uid) setTimeout(() => { if (!acctSockets(uid).length) party.leave(uid); }, +process.env.PARTY_GRACE_MS || 60000); }   // [GRUPOS] se sale del grupo si pasa un minuto sin conexión (no en el salto de la lobby a la partida)
     if (ws.spec) { const r = ws.spec.room; r.specs.delete(ws.spec); if (!r.players.size && !r.specs.size) rooms.delete(r.id); }
   });
@@ -976,6 +977,7 @@ function onMessage(ws, m, now) {
     p.wantTeam = m.tm === 0 || m.tm === 1 ? m.tm : null;   // [NUEVO] bando elegido al entrar a partida
     p.acctUser = acct || null;   // [CORREGIDO] antes era `acct && !idt.role`: un influencer o administrador con cuenta jugaba desvinculado y no recibía PX, estadísticas, XP del pase ni clasificación por ID
     admin.count('join'); admin.count('class', cls); admin.count('map', map);
+    p.src = m.src === 'crazygames' || m.src === 'poki' ? m.src : 'web'; p.visitAt = Date.now(); admin.visit(acct ? 'a:' + acct.id : 'n:' + (idt.nameKey || idt.name), p.src);   // [ESTADÍSTICAS] de dónde viene y cuánto juega
     const mode = S.MODES[m.mode] ? m.mode : 'duelo', wantRanked = m.rk === 1 && mode === 'duelo'; admin.count('mode', wantRanked ? 'clasificatorio' : mode);
     if (m.rk === 1 && !wantRanked) { ws.send(JSON.stringify({ t: 'err', m: 'El clasificatorio solo se juega en Duelo por equipos.' })); return ws.close(); }
     if (wantRanked && !acct) { ws.send(JSON.stringify({ t: 'err', m: 'Para jugar el clasificatorio necesitas una cuenta online.' })); return ws.close(); }

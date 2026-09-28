@@ -48,7 +48,9 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 
 - Revisión de modos: las barras de los modos, el aviso de espera y «Eliminado» se colocan bajo el marcador con `--mbb` (lo mide client.js con un ResizeObserver sobre `#matchbar`); sin tienda de armas en Carrera y Solo cuchillos (`#death.noshop`, y el servidor rechaza `buy` con `reason: 'mode'`).
 
+- Estadísticas de jugadores (panel → Resumen → «Jugadores por día»): el cliente manda `src` (web/crazygames/poki) en el `hello`; `admin.visit()` y `admin.playTime()` guardan por día en `stats.json` (`ST.days`, `ST.first`, solo huellas sha1, 35 días); `GET /api/admin/player-stats`. Test `player-stats.test.js`.
+
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).
-- (Dueño) Dar de alta el juego en CrazyGames y Poki (pasos en README). Estadísticas de jugadores en el panel.
+- (Dueño) Dar de alta el juego en CrazyGames y Poki (pasos en README). 
 - Los `.glb` de `public/models/weapons` y `scripts/generate_weapons.py` ya no se usan.

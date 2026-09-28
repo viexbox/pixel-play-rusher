@@ -2471,7 +2471,7 @@ function startOnline() {
   catch (e) { return netFail('No se pudo abrir la conexión.'); }
   net.ws = ws; net.joined = false;
   const ptok = partyC.tok; partyC.tok = null;   // [GRUPOS] el billete del grupo se guarda ANTES: borrarlo después de asignar onopen lo borraba antes de enviarlo
-  ws.onopen = () => netSend({ t: 'hello', v: 1, n: cfg.name, map: cfg.map, c: cfg.cls, lk: [cfg.look.col, cfg.look.skin], adm: admToken(), inf: cfg.infKey || '', acct: acctToken(), mode: S.MODES[cfg.mode] ? cfg.mode : 'duelo', rk: cfg.ranked && cfg.mode === 'duelo' ? 1 : 0, tm: cfg.wantTeam, pt: ptok || undefined, jr: invite.room || undefined });   // [GRUPOS] billete del grupo (solo sirve una vez)
+  ws.onopen = () => netSend({ t: 'hello', v: 1, n: cfg.name, map: cfg.map, c: cfg.cls, lk: [cfg.look.col, cfg.look.skin], adm: admToken(), inf: cfg.infKey || '', acct: acctToken(), mode: S.MODES[cfg.mode] ? cfg.mode : 'duelo', rk: cfg.ranked && cfg.mode === 'duelo' ? 1 : 0, tm: cfg.wantTeam, pt: ptok || undefined, jr: invite.room || undefined, src: window.PPR_PORTAL ? window.PPR_PORTAL.name : 'web' });   // [ESTADÍSTICAS] src: desde dónde se juega (web, crazygames, poki)   // [GRUPOS] billete del grupo (solo sirve una vez)
   ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } try { netHandle(m); } catch (e) { console.error(e); } };
   ws.onclose = ev => {
     if (net.ws !== ws) return;

@@ -165,6 +165,21 @@ function bars(obj, labels, total) {
   for (const k of keys.slice(0, 9)) box.append(h('div', { class: 'bar' }, h('span', { text: labels[k] || k }), h('div', null, h('i', { style: 'width:' + Math.round(obj[k] / max * 100) + '%' })), h('span', { text: obj[k] })));
   return box;
 }
+/* [ESTADÍSTICAS] Jugadores únicos por día (30 días), en barras apiladas por origen: web, CrazyGames y Poki */
+const SRC_COL = { web: '#5aa9ff', crazygames: '#b07cff', poki: '#ffc43d' }, SRC_NAME = { web: 'Tu web', crazygames: 'CrazyGames', poki: 'Poki' };
+function dailyChart(days) {
+  const W = 600, H = 170, pad = 22, n = days.length, max = Math.max(4, ...days.map(d => d.uniques)), bw = (W - pad * 2) / n;
+  const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.setAttribute('class', 'svgchart'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Jugadores únicos por día');
+  const el = (tag, at, txt) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); if (txt != null) e.textContent = txt; svg.append(e); return e; };
+  el('line', { x1: pad, x2: W - pad, y1: H - pad, y2: H - pad, stroke: 'rgba(255,255,255,.2)' }); el('text', { x: 2, y: pad, fill: 'rgba(255,255,255,.55)', 'font-size': 10 }, String(max));
+  days.forEach((d, i) => {
+    let y = H - pad; const x = pad + i * bw + bw * 0.15, w = bw * 0.7;
+    for (const k of ['web', 'crazygames', 'poki']) { const v = d.src[k] || 0; if (!v) continue; const hgt = v / max * (H - pad * 2); y -= hgt; el('rect', { x, y, width: w, height: hgt, fill: SRC_COL[k] }).append(Object.assign(document.createElementNS(NS, 'title'), { textContent: d.d + ' · ' + SRC_NAME[k] + ': ' + v })); }
+    if (i % 5 === 4 || i === n - 1) el('text', { x: x + w / 2, y: H - 6, fill: 'rgba(255,255,255,.55)', 'font-size': 9, 'text-anchor': 'middle' }, d.d.slice(5));
+  });
+  return h('div', null, svg, h('p', { class: 'muted' }, ...Object.keys(SRC_COL).map(k => h('span', { style: 'margin-right:14px' }, h('i', { style: 'display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;background:' + SRC_COL[k] }), SRC_NAME[k]))));
+}
+const pct = v => (v === null || v === undefined ? '—' : Math.round(v * 100) + ' %');
 function chart(series) {
   const W = 600, H = 150, pad = 18, max = Math.max(4, ...series.map(s => s.players)), n = series.length;
   const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.setAttribute('class', 'svgchart'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Jugadores conectados en las últimas horas');
@@ -213,12 +228,21 @@ async function coinOp(name, op, cur, amount, reason) {
 const views = {
   backups: backupsView, events: eventsView,
   async overview() {
-    const o = await api('GET', '/overview'), T = o.totals;
+    const [o, ps] = await Promise.all([api('GET', '/overview'), api('GET', '/player-stats').catch(() => null)]), T = o.totals;
     const cards = h('div', { class: 'cards' },
       card('Jugadores en partida', o.online), card('En el lobby', o.lobby), card('Salas activas', o.rooms.length), card('Pico de jugadores', o.peak),
       card('Únicos 24 h', o.uniques24h), card('Únicos 7 días', o.uniques7d), card('Partidas jugadas', T.matches), card('Bajas totales', T.kills),
       card('Precisión global', Math.round(o.accuracy * 100) + ' %'), card('Mensajes de chat', T.messages), card('Reportes abiertos', o.openReports), card('Baneos activos', o.activeBans),
       card('Tiempo activo', fmtUp(o.uptime)), card('Memoria', fmtMB(o.mem.rss)), card('Carga CPU', o.load[0].toFixed(2)));
+    /* [ESTADÍSTICAS] cuánta gente juega, de dónde viene, cuánto rato y si vuelve */
+    const statsBox = ps && h('div', { class: 'box' }, h('h3', { text: 'Jugadores por día (últimos 30 días)' }),
+      h('div', { class: 'cards' }, card('Jugadores (7 días)', ps.week.uniques), card('Desde CrazyGames (7 días)', ps.week.src.crazygames), card('Desde tu web (7 días)', ps.week.src.web),
+        card('Minutos por sesión', ps.week.avgMin), card('Vuelven al día siguiente', pct(ps.week.d1))),
+      dailyChart(ps.days),
+      table(['Día', 'Jugadores', 'Nuevos', 'Repiten', 'Web', 'CrazyGames', 'Poki', 'Sesiones', 'Min/sesión', 'Vuelven al día sig.'], ps.days.slice(-14).reverse().map(d => h('tr', null,
+        h('td', { text: d.d }), h('td', { text: d.uniques }), h('td', { text: d.n }), h('td', { text: d.r }), h('td', { text: d.src.web }), h('td', { text: d.src.crazygames }), h('td', { text: d.src.poki }),
+        h('td', { text: d.sess }), h('td', { text: d.avgMin }), h('td', { text: pct(d.d1) })))),
+      h('p', { class: 'muted', text: 'Un jugador cuenta una vez al día (por su cuenta o su nombre; no se guardan nombres ni IPs). «Vuelven al día siguiente» = de los jugadores nuevos de un día, cuántos jugaron también el siguiente. Días en hora UTC.' }));
     const topRows = o.top.map((t, i) => h('tr', null, h('td', { text: i + 1 }), h('td', null, nameEl(t.n, t.r)), h('td', { text: MAPS[t.m] || '' }), h('td', { text: t.p + ' pts' })));
     const grid = h('div', { class: 'grid2' },
       h('div', { class: 'box' }, h('h3', { text: 'Jugadores conectados' }), chart(o.series)),
@@ -230,7 +254,7 @@ const views = {
         h('button', { class: 'btn sm red', text: 'Cerrar sala', onclick: () => act(() => api('POST', '/rooms/action', { id: r.id, action: 'close' }), 'Sala cerrada') }))));
     const st = await fetch('/api/status').then(r => r.json()).catch(() => null);   // [NUEVO] aviso si las cuentas se pueden perder al reiniciar el servidor
     const warn = st && st.storage && st.storage.warn ? h('div', { class: 'err', style: 'padding:12px 14px;border:2px solid #ff4d5a;border-radius:10px;margin:0 0 14px' }, h('b', { text: '⚠ Las cuentas pueden PERDERSE. ' }), 'Este servidor (' + st.storage.platform + ') borra su disco al reiniciar o redesplegar y no hay PostgreSQL configurado. Configura DATABASE_URL (PostgreSQL) o un disco persistente con DATA_DIR para que las cuentas se guarden de verdad.') : (st && st.storage ? h('p', { class: 'muted', text: 'Datos guardados en: ' + (st.storage.mode === 'postgres' ? 'PostgreSQL' : 'archivos del servidor') + '.' }) : null);
-    return h('div', null, h('h2', { text: 'Resumen del servidor' }), warn, cards, grid, h('h3', { text: 'Salas' }), table(['Sala', 'Mapa', 'Jugadores', 'Fase', 'Tiempo', ''], roomRows));
+    return h('div', null, h('h2', { text: 'Resumen del servidor' }), warn, cards, statsBox, grid, h('h3', { text: 'Salas' }), table(['Sala', 'Mapa', 'Jugadores', 'Fase', 'Tiempo', ''], roomRows));
   },
   async players() {
     const d = await api('GET', '/players');
