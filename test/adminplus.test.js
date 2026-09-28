@@ -26,7 +26,7 @@ class Bot {
     await A.register({ username: 'Fama_U', email: 'f@u.com', password: 'Clave-Segura-77' }, '1.1.1.1'); await A.register({ username: 'Norm_U', email: 'n@u.com', password: 'Clave-Segura-77' }, '1.1.1.2');
     const f = A.find('Fama_U'), n = A.find('Norm_U'); f.verified = true; const m = { points: 1000, kills: 5, deaths: 2, won: true, cls: 0, bestStreak: 3 };
     let rf = A.awardMatch(f, m), rn = A.awardMatch(n, m);
-    const EVM = require('../public/shared.js').todayEvent().mult || 1, BASE = Math.round(150 * EVM);   // [CORREGIDO] el evento del día (p. ej. «Viernes de bajas», +25 %) también cuenta: antes la prueba solo pasaba los días sin evento de PX
+    const EVM = S.eventMult(S.todayEvent(), m.cls) || 1, BASE = Math.round(150 * EVM);   // [CORREGIDO] el evento del día (p. ej. «Viernes de bajas», +25 %) también cuenta: antes la prueba solo pasaba los días sin evento de PX
     ok(rn.px === BASE && rf.px === Math.round(BASE * 1.2), 'con el bono por defecto (+20 %) un verificado gana un 20 % más que otro jugador (' + rf.px + ' vs ' + rn.px + ', evento del día ×' + EVM + ')');
     ok(rf.cr > rn.cr && rf.cr === Math.round(rn.cr * 1.2) || rf.cr === rn.cr + Math.round(rn.cr * 0.2), 'y sus Créditos también suben +20 % (' + rf.cr + ' vs ' + rn.cr + ')');
     ok(rf.ev.some(x => /Verificado \+20 %/.test(x)) && !rn.ev.some(x => /Verificado/.test(x)), 'el resumen de la partida lo muestra («Verificado +20 %»)');

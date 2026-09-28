@@ -111,9 +111,10 @@ const frames = (n, dt = 0.05) => { for (let k = 0; k < n; k++) T.step(dt); };
     /* ---------- Calidad adaptativa ---------- */
     ok(T.ratio === 1, 'calidad: parte de la resolución del dispositivo (×1 en esta prueba)');
     for (let k = 0; k < 40; k++) T.adaptQuality(0.02); ok(T.ratio === 1 && !T.shadowsOff, 'a 50 FPS no se toca nada');
-    for (let k = 0; k < 40; k++) T.adaptQuality(0.05); ok(T.ratio === 1, 'una sola medición baja (2 s a 20 FPS) no basta: se evitan reacciones a un tirón puntual');
-    for (let k = 0; k < 40; k++) T.adaptQuality(0.05); ok(T.ratio === 0.75, 'dos mediciones seguidas por debajo de 40 FPS bajan la resolución un escalón (×1 → ×0,75)');
-    for (let k = 0; k < 80; k++) T.adaptQuality(0.05); ok(T.shadowsOff === true && T.cfg.shadows === true, 'sin más resolución que bajar, apaga las sombras, sin tocar el ajuste guardado');
+    /* [FLUIDEZ] mide cada 1,5 s; a 30 FPS hacen falta dos mediciones seguidas; las sombras se apagan antes de bajar de ×1; a menos de 25 FPS basta una medición */
+    for (let k = 0; k < 50; k++) T.adaptQuality(1 / 30); ok(T.ratio === 1 && !T.shadowsOff, 'una sola medición baja (1,5 s a 30 FPS) no basta: se evitan reacciones a un tirón puntual');
+    for (let k = 0; k < 45; k++) T.adaptQuality(1 / 30); ok(T.ratio === 1 && T.shadowsOff === true && T.cfg.shadows === true, 'dos mediciones seguidas por debajo de 40 FPS: primero apaga las sombras (antes de bajar de ×1), sin tocar el ajuste guardado');
+    for (let k = 0; k < 32; k++) T.adaptQuality(0.05); ok(T.ratio === 0.75, 'muy lento (20 FPS): baja la resolución en la primera medición (×1 → ×0,75)');
     T.cfg.autoQuality = false; for (let k = 0; k < 100; k++) T.adaptQuality(0.05); T.cfg.autoQuality = true;
     ok(errors.length === 0, 'sin errores de JavaScript ' + JSON.stringify(errors));
   } catch (e) { console.log('EXCEPCIÓN', e); failed++; }
