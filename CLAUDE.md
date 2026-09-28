@@ -52,6 +52,8 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 
 - Portales: la Tienda se ve dentro de CrazyGames/Poki pero sin pagos con dinero (renderStore enseña solo ruleta de cuchillos, trajes y mascotas, que se pagan con PX). Los avisos de «inicia sesión» dentro del portal los da `portalLogin(key)` (client.js, también `window.pprPortalLogin` en bp.js y social.js) con un botón «Entrar con CrazyGames» (`[data-cglogin]` → `#cgLinkBtn`).
 
+- [ARMAS HD] Armas realistas «sin cubos»: `profGeo()` (perfil lateral con esquinas redondeadas extruido con bisel) y `buildRifleHD/buildAkHD/buildSniperHD/buildSmgHD/buildLmgHD/buildShotgunHD/buildRevolverHD/buildPistolHD` en client.js. Sin skin: tonos reales por arma (`REAL_BODY`, `REAL_PARTS`) y `realMat()` (MeshStandard: metal que brilla, polímero mate); con skin: sus colores y patrones (toon) sobre el mismo modelo. Miras redondeadas en `sights()` (mismas alturas: el apuntado sigue alineado). `gunLOD = 0` para las armas de los demás personajes (menos polígonos). Cuchillos estilo Krunker: hoja corta y gruesa (`BLADE_LEN`, `thick`), facetada (flatShading) y mango +12 %.
+
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).
 - (Dueño) Dar de alta el juego en CrazyGames y Poki (pasos en README). 
