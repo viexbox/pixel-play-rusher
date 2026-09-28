@@ -883,6 +883,8 @@ body:not(.playing) #menu::before{content:'';position:absolute;inset:0;background
 #lobbyTL #avatar{width:42px;height:42px;font-size:15px;border-width:2px}
 #lobbyTL .pinfo{min-width:150px}
 #lobbyTL #name{font-size:17px;padding:0 4px;background:none;text-shadow:0 2px 0 #000}
+/* [VERIFICADOS] el nombre del menú de arriba a la izquierda también sale dorado (antes «#lobbyTL #name» lo dejaba blanco) */
+body.verified #lobbyTL #name{color:#ffd54a;text-shadow:0 2px 0 #000,0 0 4px #ffb400,0 0 10px rgba(255,180,0,.85)}
 #lobbyTL .lvl{font-size:11px}
 #lobbyTL .lvl .bar{height:7px}
 #lobbyTL .krrow{flex:none}
