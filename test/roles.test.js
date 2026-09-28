@@ -53,6 +53,7 @@ function boot(url, withServer) {
     T.step(0.05); await sleep(700);
     ok(A.$('#hud').innerHTML.includes('rl-admin') && A.$('#liveRows').innerHTML.includes('vt'), 'la clasificación en vivo muestra el nombre dorado neón con el tic azul');
     const cssOk = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8'); ok(/\.rl-admin\{color:#ffd54a[^}]*text-shadow:[^}]*#ffb400/.test(cssOk) && /@keyframes goldn/.test(cssOk), 'el estilo .rl-admin es dorado con brillo neón animado');
+    ok(/body\.verified #lobbyTL #name\{color:#ffd54a/.test(cssOk), '[VERIFICADOS] el nombre del menú (#lobbyTL #name, que es blanco) también sale dorado para los verificados');
 
     /* ---------- Otros jugadores: influencer con tic azul, normal sin nada ---------- */
     const rival = new Bot('Rival'); const rm = await rival.connect(); let inf, mi;   // los equipos son aleatorios y no hay fuego amigo: el influencer debe ser del equipo contrario al rival
