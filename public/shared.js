@@ -102,15 +102,15 @@ const MAPS = [
       1: [[-35, -10], [-36, -6], [-35, -2], [-36, 2], [-35, 6], [-36, 10], [-33, 0]],
       0: [[35, -10], [36, -6], [35, -2], [36, 2], [35, 6], [36, 10], [33, 0]]
     },
-    zones: [{ n: 'Keep Roof', x: 0, z: 0, y: 4.8 }, { n: 'Market Street', x: 0, z: -24, y: 0 }, { n: 'Stables', x: 0, z: 21, y: 0 }],
+    zones: [{ n: 'Tejado de la torre', x: 0, z: 0, y: 4.8 }, { n: 'Calle del mercado', x: 0, z: -24, y: 0 }, { n: 'Establos', x: 0, z: 21, y: 0 }],
     bomb: [{ n: 'A', x: 0, z: -28, y: 0 }, { n: 'B', x: 0, z: 21, y: 0 }],   // [BOMBA] puntos de plantado: calle del mercado y establos
     areas: [
-      { n: 'Keep Roof', x0: -5, x1: 5, z0: -5, z1: 5, y0: 4, y1: 9 }, { n: 'Keep', x0: -5, x1: 5, z0: -5, z1: 5, y0: -1, y1: 4 },
-      { n: 'Ramparts', x0: -25, x1: -23, z0: -40, z1: 40, y0: 3, y1: 8 }, { n: 'Ramparts', x0: 23, x1: 25, z0: -40, z1: 40, y0: 3, y1: 8 },
-      { n: 'Rooftops', x0: -19, x1: 19, z0: -37, z1: -27, y0: 3, y1: 8 },
-      { n: 'Spawn Red', x0: -40, x1: -25, z0: -40, z1: 40, y0: -1, y1: 3 }, { n: 'Spawn Blue', x0: 25, x1: 40, z0: -40, z1: 40, y0: -1, y1: 3 },
-      { n: 'Market Street', x0: -23, x1: 23, z0: -40, z1: -15, y0: -1, y1: 4 }, { n: 'Stables', x0: -23, x1: 23, z0: 15, z1: 40, y0: -1, y1: 4 },
-      { n: 'Courtyard', x0: -23, x1: 23, z0: -15, z1: 15, y0: -1, y1: 4 }
+      { n: 'Tejado de la torre', x0: -5, x1: 5, z0: -5, z1: 5, y0: 4, y1: 9 }, { n: 'Torre', x0: -5, x1: 5, z0: -5, z1: 5, y0: -1, y1: 4 },
+      { n: 'Murallas', x0: -25, x1: -23, z0: -40, z1: 40, y0: 3, y1: 8 }, { n: 'Murallas', x0: 23, x1: 25, z0: -40, z1: 40, y0: 3, y1: 8 },
+      { n: 'Tejados', x0: -19, x1: 19, z0: -37, z1: -27, y0: 3, y1: 8 },
+      { n: 'Base roja', x0: -40, x1: -25, z0: -40, z1: 40, y0: -1, y1: 3 }, { n: 'Base azul', x0: 25, x1: 40, z0: -40, z1: 40, y0: -1, y1: 3 },
+      { n: 'Calle del mercado', x0: -23, x1: 23, z0: -40, z1: -15, y0: -1, y1: 4 }, { n: 'Establos', x0: -23, x1: 23, z0: 15, z1: 40, y0: -1, y1: 4 },
+      { n: 'Patio', x0: -23, x1: 23, z0: -15, z1: 15, y0: -1, y1: 4 }
     ],
     build(b) {
       const ST = '#b8b2a4', SD = '#8f887a', SL = '#a39c8c', WD = '#9b6a3c', RF = '#d6453d', HY = '#e8c252';
@@ -181,15 +181,15 @@ const MAPS = [
       1: [[-37, -10], [-38, -6], [-37, -2], [-38, 2], [-37, 6], [-38, 10], [-35, 0]],
       0: [[37, -10], [38, -6], [37, -2], [38, 2], [37, 6], [38, 10], [35, 0]]
     },
-    zones: [{ n: 'Fountain Plaza', x: 0, z: -8, y: 0 }, { n: 'North Houses', x: 14, z: -26, y: 0 }, { n: 'South Houses', x: -14, z: 26, y: 0 }],
+    zones: [{ n: 'Plaza de la fuente', x: 0, z: -8, y: 0 }, { n: 'Casas del norte', x: 14, z: -26, y: 0 }, { n: 'Casas del sur', x: -14, z: 26, y: 0 }],
     bomb: [{ n: 'A', x: 0, z: -18, y: 0 }, { n: 'B', x: 0, z: 18, y: 0 }],   // [BOMBA] puntos de plantado: calle norte y calle sur
     areas: [
-      { n: 'Rooftops', x0: -30, x1: 30, z0: -30, z1: -22, y0: 3, y1: 9 }, { n: 'Rooftops', x0: -30, x1: 30, z0: 22, z1: 30, y0: 3, y1: 9 },
-      { n: 'House', x0: -30, x1: -10, z0: -30, z1: -22, y0: -1, y1: 3 }, { n: 'House', x0: 10, x1: 30, z0: -30, z1: -22, y0: -1, y1: 3 },
-      { n: 'House', x0: -30, x1: -10, z0: 22, z1: 30, y0: -1, y1: 3 }, { n: 'House', x0: 10, x1: 30, z0: 22, z1: 30, y0: -1, y1: 3 },
-      { n: 'Spawn Red', x0: -42, x1: -32, z0: -20, z1: 20, y0: -1, y1: 3 }, { n: 'Spawn Blue', x0: 32, x1: 42, z0: -20, z1: 20, y0: -1, y1: 3 },
-      { n: 'Back Street', x0: -42, x1: 42, z0: -42, z1: -30, y0: -1, y1: 4 }, { n: 'Back Street', x0: -42, x1: 42, z0: 30, z1: 42, y0: -1, y1: 4 },
-      { n: 'Fountain Plaza', x0: -32, x1: 32, z0: -22, z1: 22, y0: -1, y1: 4 }
+      { n: 'Tejados', x0: -30, x1: 30, z0: -30, z1: -22, y0: 3, y1: 9 }, { n: 'Tejados', x0: -30, x1: 30, z0: 22, z1: 30, y0: 3, y1: 9 },
+      { n: 'Casa', x0: -30, x1: -10, z0: -30, z1: -22, y0: -1, y1: 3 }, { n: 'Casa', x0: 10, x1: 30, z0: -30, z1: -22, y0: -1, y1: 3 },
+      { n: 'Casa', x0: -30, x1: -10, z0: 22, z1: 30, y0: -1, y1: 3 }, { n: 'Casa', x0: 10, x1: 30, z0: 22, z1: 30, y0: -1, y1: 3 },
+      { n: 'Base roja', x0: -42, x1: -32, z0: -20, z1: 20, y0: -1, y1: 3 }, { n: 'Base azul', x0: 32, x1: 42, z0: -20, z1: 20, y0: -1, y1: 3 },
+      { n: 'Callejón', x0: -42, x1: 42, z0: -42, z1: -30, y0: -1, y1: 4 }, { n: 'Callejón', x0: -42, x1: 42, z0: 30, z1: 42, y0: -1, y1: 4 },
+      { n: 'Plaza de la fuente', x0: -32, x1: 32, z0: -22, z1: 22, y0: -1, y1: 4 }
     ],
     build(b) {
       const WH = '#f4f1ec', GY = '#8b8f9c', WD = '#b07a45', HG = '#43b85a', RD = '#ff5a5f', BL = '#3a86ff', YL = '#ffc43d', GN = '#2fbf71';

@@ -2038,6 +2038,8 @@ let deathLook = null, botCash = S.CONST.SHOP_START_CASH;   // [NUEVO] tienda de 
 /* [NUEVO] Tienda de armas de la pantalla de reaparición: 8 tarjetas (S.SHOP) con precio en Cash, estadísticas y compra; el resto de armas se elige gratis con 1–9, como antes. */
 function curCash() { return online ? (net.cash || 0) : botCash; }
 function renderDeathPick() {
+  /* [MODOS] En Carrera de armas el arma la da el nivel y en Solo cuchillos no hay armas: ahí no se enseña la tienda (antes se podía comprar y se perdía el dinero) */
+  const md = online ? S.MODES[net.mode || 'duelo'] : null; $('#death').classList.toggle('noshop', !!(md && (md.id === 'carrera' || !md.guns)));
   const cash = curCash(); $('#shopCashN').textContent = cash.toLocaleString('es-ES');
   $('#shopGrid').innerHTML = S.SHOP.map((item, si) => {
     const w = WEAPONS[item.wi], st = S.shopStats(w), owned = item.wi === cfg.cls, afford = cash >= item.price;
@@ -2046,7 +2048,7 @@ function renderDeathPick() {
       '<div class="wname"><b>' + esc(w.name) + '</b><em>$' + item.price.toLocaleString('es-ES') + '</em></div>' +
       '<div class="wtype">' + esc(w.type) + '</div>' +
       '<div class="wstats"><span>DMG <b>' + st.dmg + '</b></span><span>RPM <b>' + st.rpm + '</b></span><span>RNG <b>' + st.rng + '</b></span><span>ACC <b>' + st.acc + '%</b></span></div>' +
-      '<button type="button" data-si="' + si + '" ' + (owned || !afford ? 'disabled' : '') + '>' + (owned ? 'Equipada' : 'Purchase') + '</button></div>';   // [CORREGIDO] sin dinero suficiente también se deshabilita, no solo si ya está equipada
+      '<button type="button" data-si="' + si + '" ' + (owned || !afford ? 'disabled' : '') + '>' + (owned ? 'Equipada' : 'Comprar') + '</button></div>';   // [CORREGIDO] sin dinero suficiente también se deshabilita, no solo si ya está equipada
   }).join('');
 }
 /* Compra (o, si el arma no está en la tienda, cambio gratis como antes): equipa el arma elegida para el próximo respawn. */
@@ -4047,6 +4049,13 @@ function resize() {
   camera.aspect = w / h; camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', resize);
+/* [MODOS] --mbb: borde inferior del marcador de arriba (#matchbar), en px de maquetación (offset*, no afectado por el zoom del móvil).
+   Las barras de los modos (bomba, zona, regalos) y el aviso de espera se colocan justo debajo (index.html) y ya no quedan tapadas. */
+{
+  const mb = $('#matchbar'), hudEl = $('#hud');
+  const setMbb = () => { if (mb && hudEl && mb.offsetHeight) hudEl.style.setProperty('--mbb', (mb.offsetTop + mb.offsetHeight) + 'px'); };
+  if (mb && window.ResizeObserver) new ResizeObserver(setMbb).observe(mb); window.addEventListener('resize', setMbb);
+}
 
 /* =====================================================================
    Bucle principal

@@ -1046,6 +1046,7 @@ function onMessage(ws, m, now) {
     case 'cls': if (Number.isInteger(m.c) && m.c >= 0 && m.c < S.WEAPONS.length) p.nextCls = m.c; return;
     case 'buy': {   // [NUEVO] tienda de armas de la pantalla de reaparición
       const item = S.SHOP[m.i];
+      if (room.mode === 'carrera' || (S.MODES[room.mode] && !S.MODES[room.mode].guns)) return p.send(JSON.stringify({ t: 'buy', ok: false, i: m.i, reason: 'mode', cash: p.cash }));   // [MODOS] el arma la da el modo: no se cobra nada
       if (!Number.isInteger(m.i) || !item) return p.send(JSON.stringify({ t: 'buy', ok: false, i: m.i, reason: 'weapon' }));
       if (p.cash < item.price) return p.send(JSON.stringify({ t: 'buy', ok: false, i: m.i, reason: 'cash', cash: p.cash }));
       p.cash -= item.price; p.nextCls = item.wi;
