@@ -1,6 +1,6 @@
 # Krunxa · versión online
 
-Shooter en primera persona por bloques con **partidas online**, dos mapas estilo Krunker (**Castillo Real** y **Barrio Arcoíris**), modo **Desactivar bomba**, 8 clases, cuchillo y **clasificación global**.
+Shooter en primera persona por bloques con **partidas online**, tres mapas estilo Krunker (**Castillo Real**, **Barrio Arcoíris** y **Puerto Industrial**), modo **Desactivar bomba**, 8 clases, cuchillo y **clasificación global**.
 Este paquete contiene el juego (navegador) y un servidor Node.js pequeño que hace de sala de juego.
 
 ```
@@ -362,7 +362,7 @@ Alternativa (o complemento) a Stripe: el jugador paga directamente a tu PayPal y
 
 - **Colores y estilo:** variables CSS al inicio de `public/index.html`.
 - **Armas:** lista `WEAPONS` en `public/shared.js` (daño, cadencia, cargador, dispersión, alcance…). Como el servidor usa el mismo archivo, los cambios valen para todos a la vez.
-- **Mapas:** lista `MAPS` en `public/shared.js` (hoy **Castillo Real** y **Barrio Arcoíris**). Cada mapa es una función que coloca cajas: `b.addBox`, `b.box(x0, x1, z0, z1, y0, y1, color, tag)` por rangos y `b.run(dir, a, c, w, n, y0, rise, color, tag)` para escaleras rectas (`tag` fija la textura: `glass`, `helipad`, `crate`…). Un mapa puede declarar además `spawns` (apariciones por equipo), `zones` (zonas del modo captura, con altura) y `areas` (nombres para el rótulo «estás en…»). Añade uno y aparecerá en el menú y en el servidor; con varios mapas vuelve el voto de fin de ronda.
+- **Mapas:** lista `MAPS` en `public/shared.js` (hoy **Castillo Real**, **Barrio Arcoíris** y **Puerto Industrial**). Cada mapa es una función que coloca cajas: `b.addBox`, `b.box(x0, x1, z0, z1, y0, y1, color, tag)` por rangos y `b.run(dir, a, c, w, n, y0, rise, color, tag)` para escaleras rectas (`tag` fija la textura: `glass`, `helipad`, `crate`…). Un mapa puede declarar además `spawns` (apariciones por equipo), `zones` (zonas del modo captura, con altura) y `areas` (nombres para el rótulo «estás en…»). Añade uno y aparecerá en el menú y en el servidor; con varios mapas vuelve el voto de fin de ronda.
 - **Reglas:** duración, límite de bajas y tamaño de sala con las variables de entorno de arriba.
 
 ## 9. Problemas frecuentes
@@ -426,10 +426,11 @@ Al morir aparece la tienda (`#shop` en `public/index.html`): 8 tarjetas con icon
 - **`S.SHOP`** (en `public/shared.js`): ocho armas ya existentes del juego con su precio; `S.shopStats(arma)` calcula DMG/RPM/RNG/ACC a partir de los números reales del arma. Añadir un arma a la tienda es una línea.
 - **Pruebas:** `test/shop.test.js` (27 comprobaciones): economía en el servidor real (dinero inicial, recompensa por baja, compras válidas e inválidas, reinicio por ronda) y la tienda en el cliente (8 tarjetas, botón deshabilitado sin dinero suficiente, sin atajo de teclado).
 
-## Mapas: Castillo Real y Barrio Arcoíris
+## Mapas: Castillo Real, Barrio Arcoíris y Puerto Industrial
 
 - **Castillo Real** (80 × 80 m, estilo Krunker): torre del homenaje en el centro (se entra por dos puertas y se sube a la azotea por las escaleras norte y sur), murallas con tres puertas y adarve con almenas junto a cada base, calle del mercado con casas de tejado rojo (al tejado se sube saltando por las cajas) y establos con paja.
 - **Barrio Arcoíris** (84 × 84 m, estilo Krunker): plaza de la fuente con coches, setos y quioscos; casas de colores en las que se entra; camino por los tejados (escalera en la casa de cada base y puentes de tablones sobre el callejón y la calle) y fachadas altas de colores alrededor.
+- **Puerto Industrial** (84 × 84 m, estilo Krunker): nave de carga en el centro (hueca, portones al oeste y al este, puertas al norte y al sur, estanterías); al norte, patio de contenedores con una rampa por lado hasta el techo de los contenedores (2,6 m) y una pasarela de metal que los une (por debajo se pasa andando); al sur, oficinas del puerto (se entra) con una rampa por fuera hasta el tejado (4 m) y un puente de tablones entre los dos tejados. La grúa pórtico es decoración (solo sus patas son macizas) y alrededor hay mar (textura `sea`). Decorado `port` en `decorate()` de client.js.
 - Los dos son simétricos de oeste (ROJO) a este (AZUL) y tienen zonas para «Capturar zona», nombres de zona y navegación para los bots. Con varios mapas vuelve a aparecer la votación al terminar la ronda.
 - Las gallinas y el balón del castillo y el polen del barrio son decoración de cada navegador: en el online no se sincronizan (cada jugador ve los suyos).
 - Los mapas viejos (Nexus Outpost, Pueblo Duna, Villa Piscina) se quitaron: la clasificación se reinició una vez al cambiar (`LB_VERSION = 2` en server.js).
@@ -445,14 +446,14 @@ Al morir aparece la tienda (`#shop` en `public/index.html`): 8 tarjetas con icon
 - **Cómo se juega:** por rondas y sin reaparecer. En cada ronda un equipo **ataca** (planta la bomba en el punto **A** o **B**) y el otro **defiende** (lo impide o la desactiva). Los papeles se cambian cada ronda; en la primera ataca ROJO. Gana la partida el primer equipo que llega a **4 rondas**.
 - **Plantar y desactivar:** se mantiene pulsada la **E** (en el móvil, el botón **BOMBA**): 3 s dentro del círculo de A o B para plantar, 5 s junto a la bomba para desactivarla. Moverse o soltar la tecla cancela.
 - **Cómo acaba una ronda:** la bomba explota (35 s de mecha) → atacantes · la desactivan → defensores · un equipo entero eliminado → el otro · se acaba el tiempo (80 s) sin plantar → defensores. El ganador de cada ronda suma 50 puntos por jugador; plantar o desactivar da 100.
-- **Mapas:** cada mapa declara sus puntos en `bomb` (`public/shared.js`): Castillo Real (A en la calle del mercado, B en los establos) y Barrio Arcoíris (calles norte y sur). Tiempos en `S.BOMB`; en el servidor se pueden cambiar con `BOMB_WIN`, `BOMB_ROUND`, `BOMB_FUSE` y `BOMB_PAUSE`.
+- **Mapas:** cada mapa declara sus puntos en `bomb` (`public/shared.js`): Castillo Real (A en la calle del mercado, B en los establos) Barrio Arcoíris (calles norte y sur) y Puerto Industrial (muelle norte, bajo la grúa, y muelle sur). Tiempos en `S.BOMB`; en el servidor se pueden cambiar con `BOMB_WIN`, `BOMB_ROUND`, `BOMB_FUSE` y `BOMB_PAUSE`.
 - **Bots:** los atacantes van a un punto y plantan; los defensores vigilan los puntos y, si hay bomba, van a desactivarla.
 - **Código:** servidor en `server.js` (`bombStart`, `bombTick`, `bombEnd`, mensajes `bomb` y `bprog`; el cliente manda `bact`), interfaz en `public/modes.js` (`drawBomb`: aviso central, barra de progreso, puntos A/B en 3D, bomba parpadeando y cartel de resultado). Pruebas: `test/bomb.test.js` (servidor) y `test/bomb-ui.test.js` (interfaz).
 
 ## Rampas (slide hop estilo Krunker)
 
 - **Cómo se juega:** se sube andando o corriendo; cuesta abajo, **deslizándose** (Mayús) se gana velocidad hasta el tope del servidor (15,5 m/s, frente a ~11,8 en llano) y se sigue pegado a la rampa; si se **salta** al final se sale volando con todo el impulso. Deslizarse cuesta arriba frena.
-- **Dónde:** Castillo Real, dos por lado, del patio al adarve. Barrio Arcoíris, en el callejón entre las casas de cada fila, de la calle a los tejados.
+- **Dónde:** Castillo Real, dos por lado, del patio al adarve. Barrio Arcoíris, en el callejón entre las casas de cada fila, de la calle a los tejados. Puerto Industrial, del patio a los contenedores y de la calle al tejado de las oficinas.
 - **Código:** `b.ramp(x0, x1, z0, z1, y0, y1, dir, color, textura)` en `public/shared.js`. Para la física son escalones finos de 0,25 m (se suben solos con `CONST.STEP`, así que balas, bots y antitrampas no cambian) con `rp` = dirección de bajada y pendiente; `moveEntity` pega al jugador a la rampa al bajar y `moveStep` aplica `MOVE.RAMP_ACC` al deslizarse. El cliente la dibuja como una cuña (`rampGeo`). Prueba: `test/ramps.test.js`.
 
 ## CrazyGames y Poki (portales de juegos)

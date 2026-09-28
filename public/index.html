@@ -362,6 +362,7 @@ body.playing .chatrow:focus-within{opacity:1}
 #hud kbd{min-width:18px;padding:0 5px;margin-right:5px;background:transparent;color:#fff;border:1px solid rgba(255,255,255,.55);border-bottom-width:1px;border-radius:3px;font:800 10px var(--hudf);letter-spacing:0}
 
 /* Barra superior: puntos · reloj · líder */
+/* [MODOS] --mbb = borde inferior del marcador de arriba (lo mide client.js): las barras de los modos (bomba, zona, regalos) y el aviso de espera van justo debajo y ya no quedan tapadas */
 #matchbar{position:absolute;top:0;left:50%;transform:translateX(-50%);display:flex;align-items:stretch;filter:drop-shadow(0 6px 12px rgba(0,0,0,.35))}
 .mb-side{min-width:clamp(120px,13vw,190px);padding:9px 20px 11px;display:flex;flex-direction:column;justify-content:center;background:rgba(8,11,24,.74)}
 .mb-side small{font-size:10px;letter-spacing:.22em;font-weight:800;opacity:.65}
@@ -376,7 +377,7 @@ body.playing .chatrow:focus-within{opacity:1}
 #areaName{font-size:11px;letter-spacing:.16em;font-weight:900;color:#ffd23f;margin-top:2px;text-transform:uppercase;white-space:nowrap;text-shadow:0 1px 0 rgba(4,6,15,.9)}#areaName:empty{display:none}
 #goal{height:3px;background:rgba(255,255,255,.14);margin-top:6px}
 #goal i{display:block;height:100%;width:0;background:var(--volt);transition:width .3s}
-#banner{position:absolute;top:clamp(86px,11vh,110px);left:50%;transform:translateX(-50%);padding:6px 22px;font-size:13px;font-weight:800;letter-spacing:.2em;background:rgba(8,11,24,.82);border-left:3px solid var(--ice);border-right:3px solid var(--ice);animation:blink 1.4s ease-in-out infinite;white-space:nowrap}
+#banner{position:absolute;top:calc(var(--mbb,104px) + 44px);left:50%;transform:translateX(-50%);padding:6px 22px;font-size:13px;font-weight:800;letter-spacing:.2em;background:rgba(8,11,24,.82);border-left:3px solid var(--ice);border-right:3px solid var(--ice);animation:blink 1.4s ease-in-out infinite;white-space:nowrap}
 @keyframes blink{50%{opacity:.35}}
 
 /* Arriba a la izquierda: rendimiento y bajas */
@@ -540,10 +541,11 @@ body.playing .chatrow:focus-within{opacity:1}
 #board .tbl tr.me td{background:rgba(255,220,58,.16);color:var(--volt)}
 #board .tbl tr.first td.pos{color:var(--volt)}
 /* ---------- Pantalla de muerte: cabecera + tienda de armas (Cash) ---------- */
-#death{position:absolute;left:50%;top:8%;transform:translateX(-50%);width:min(900px,94vw);max-height:86vh;overflow:auto;text-align:left;padding:0 0 14px;pointer-events:auto}   /* [CORREGIDO] #death cuelga de #hud, que tiene pointer-events:none: sin esto, los clics en «Purchase» atravesaban el panel y llegaban al canvas, no al botón */
-#deathHead{text-align:center;padding:14px 20px 10px}
+#death{position:absolute;left:50%;top:calc(var(--mbb,104px) + 34px);transform:translateX(-50%);width:min(900px,94vw);max-height:calc(100vh - var(--mbb,104px) - 44px);overflow:auto;text-align:left;padding:0 0 14px;pointer-events:auto}   /* [CORREGIDO] #death cuelga de #hud, que tiene pointer-events:none: sin esto, los clics en «Purchase» atravesaban el panel y llegaban al canvas, no al botón */
+#deathHead{text-align:center;padding:14px 20px 10px}   /* [MODOS] #death empieza debajo del marcador y de la barra del modo (antes «ELIMINADO» los tapaba) */
 #deathHead h2{font-size:clamp(24px,3vw,34px);font-style:italic;font-weight:900;letter-spacing:.1em;color:var(--red);text-transform:uppercase;margin:0}
 #deathHead p{font-size:15px;margin-top:4px;letter-spacing:.04em}
+#death.noshop #shop,#death.noshop #shopToggle{display:none!important}   /* [MODOS] sin tienda en Carrera de armas y Solo cuchillos */
 #shopToggle{display:block;margin:10px auto 0;padding:5px 16px;background:rgba(255,255,255,.08);border:2px solid var(--ice);color:#fff;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
 #shopToggle:hover{background:var(--ice);color:#04202a}
 #shop{margin:12px 14px 0;background:linear-gradient(180deg,rgba(6,14,26,.97),rgba(4,9,18,.97));border:2px solid var(--ice);box-shadow:0 0 0 1px #000,0 0 34px -6px rgba(56,228,255,.6)}
@@ -764,11 +766,11 @@ body.hud-compact #liveRows li:nth-child(n+4):not(.me){display:none}body.hud-comp
 .mdl-sea{margin-top:12px}.mdl-sea h4{font-size:13px;letter-spacing:.14em;opacity:.7;margin-bottom:6px}.mdl-sea p{margin:6px 0;font-size:14px}.mdl-hint{opacity:.7;font-size:13px}.mdl-big{font-size:26px;font-weight:900;color:#38e4ff}
 .mdl-sea summary{cursor:pointer;margin:8px 0;font-weight:700}.mdl-tb{width:100%;border-collapse:collapse;font-size:13px}.mdl-tb td{padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.08)}
 .mdl-top{list-style:none;padding:0;margin:6px 0}.mdl-top li{display:grid;grid-template-columns:28px 1fr auto 60px;gap:8px;padding:4px 6px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.06)}.mdl-top i{font-style:normal;font-weight:800}.mdl-top em{font-style:normal;text-align:right;opacity:.85}
-#modeBar{position:absolute;top:92px;left:50%;transform:translateX(-50%);padding:5px 16px;background:rgba(4,6,15,.88);border:1px solid #38e4ff;border-radius:99px;font:800 12px var(--hudf);letter-spacing:.14em;color:#fff;pointer-events:none;white-space:nowrap}
-#zoneHud{position:absolute;top:88px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:6px 14px;background:rgba(4,6,15,.88);border:2px solid var(--c,#fff);border-radius:12px;font:800 12px var(--hudf);letter-spacing:.1em;color:#fff;pointer-events:none;white-space:nowrap}
+#modeBar{position:absolute;top:calc(var(--mbb,104px) + 6px);left:50%;transform:translateX(-50%);padding:5px 16px;background:rgba(4,6,15,.88);border:1px solid #38e4ff;border-radius:99px;font:800 12px var(--hudf);letter-spacing:.14em;color:#fff;pointer-events:none;white-space:nowrap}
+#zoneHud{position:absolute;top:calc(var(--mbb,104px) + 6px);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:6px 14px;background:rgba(4,6,15,.88);border:2px solid var(--c,#fff);border-radius:12px;font:800 12px var(--hudf);letter-spacing:.1em;color:#fff;pointer-events:none;white-space:nowrap}
 #zoneHud.mine{box-shadow:0 0 14px var(--c)}#zoneHud i{display:inline-block;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:18px solid var(--c,#fff);transition:transform .08s}
 /* [BOMBA] Desactivar bomba: aviso central, barra de plantar/desactivar y resultado de cada ronda */
-#bombHud{position:absolute;top:124px;left:50%;transform:translateX(-50%);min-width:280px;padding:7px 16px 9px;background:rgba(4,6,15,.88);border:2px solid var(--c,#ffd23f);border-radius:12px;text-align:center;font:800 13px var(--hudf);letter-spacing:.06em;color:#fff;pointer-events:none}
+#bombHud{position:absolute;top:calc(var(--mbb,104px) + 40px);left:50%;transform:translateX(-50%);min-width:280px;padding:7px 16px 9px;background:rgba(4,6,15,.88);border:2px solid var(--c,#ffd23f);border-radius:12px;text-align:center;font:800 13px var(--hudf);letter-spacing:.06em;color:#fff;pointer-events:none}
 #bombHud b{display:block;font-size:15px;color:var(--c,#ffd23f)}#bombHud span{display:block;margin-top:2px;opacity:.92}
 #bombHud .bbar{height:8px;margin-top:6px;border-radius:99px;background:rgba(255,255,255,.14);overflow:hidden;display:none}#bombHud.prog .bbar{display:block}
 #bombHud .bbar i{display:block;height:100%;width:0;background:var(--c,#ffd23f);transition:width .12s linear}
@@ -995,7 +997,7 @@ body:not(.playing) #chatTab{left:8px;right:auto}
 #invBox .rcard .act button.on{background:var(--rc);color:#0a0a12;border-color:#000}
 
 /* [NAVIDAD] contador de regalos */
-#xmasHud{position:absolute;left:50%;top:92px;transform:translateX(-50%);display:flex;align-items:baseline;gap:6px;padding:6px 16px;background:linear-gradient(90deg,rgba(224,58,58,.85),rgba(47,168,79,.85));border:2px solid #fff;border-radius:10px;font-size:22px;font-weight:900;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.4);pointer-events:none}
+#xmasHud{position:absolute;left:50%;top:calc(var(--mbb,104px) + 6px);transform:translateX(-50%);display:flex;align-items:baseline;gap:6px;padding:6px 16px;background:linear-gradient(90deg,rgba(224,58,58,.85),rgba(47,168,79,.85));border:2px solid #fff;border-radius:10px;font-size:22px;font-weight:900;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.4);pointer-events:none}
 #xmasHud small{font-size:12px;letter-spacing:.1em;text-transform:uppercase;opacity:.9}
 #xmasHud .gpop{position:absolute;left:100%;top:0;margin-left:8px;font-size:18px;color:#ffd23f;animation:gpop .9s ease-out forwards;white-space:nowrap}
 @keyframes gpop{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-26px)}}
@@ -1129,7 +1131,7 @@ body.touch canvas#c,body.touch #touchUI{zoom:var(--uizi,1)}
     <div class="mb-center"><div id="timer">3:00</div><div id="modeName"></div><div id="areaName"></div><div id="goal"><i id="goalfill"></i></div></div>
     <div class="mb-side mb-right"><small>EQUIPOS</small><b id="leadName">—</b><em id="leadPts">0 pts</em></div>
   </div>
-  <div id="banner" hidden>ESPERANDO RIVALES…</div>
+  <div id="banner" hidden>ESPERANDO RIVALES…</div><!-- [MODOS] #banner va debajo de la barra del modo: antes la tapaba -->
   <aside id="lb"><header><span>CLASIFICACIÓN</span><span id="lbPlace">1/1</span></header><ol id="liveRows"></ol></aside>
 
   <div id="brandHud">Krun<b>xa</b></div>
@@ -1215,7 +1217,7 @@ body.touch canvas#c,body.touch #touchUI{zoom:var(--uizi,1)}
   <div id="lobbyLeft">
     <section id="lobbyNews" class="lp" aria-label="Noticias">
       <h2 class="tabh"><span>Noticias</span></h2>
-      <button type="button" class="newsfeat" id="newsMap"><span class="thumb" id="newsThumb" aria-hidden="true"></span><span class="nt"><em class="chip hot">NUEVO</em><b>Castillo Real y Barrio Arcoíris, mapas nuevos</b></span></button>
+      <button type="button" class="newsfeat" id="newsMap"><span class="thumb" id="newsThumb" aria-hidden="true"></span><span class="nt"><em class="chip hot">NUEVO</em><b>Puerto Industrial, mapa nuevo</b></span></button>
       <div class="events">
         <h3>Evento de hoy</h3>
         <div id="eventBox"></div>

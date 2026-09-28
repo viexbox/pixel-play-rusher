@@ -288,6 +288,46 @@ function createAdmin(opts) {
   const cutSeen = () => { const t = now(); let n = 0; for (const k of Object.keys(ST.seen)) { if (t - ST.seen[k] > 30 * 86400000) delete ST.seen[k]; else n++; } if (n > 5000) { const ks = Object.keys(ST.seen).sort((a, b) => ST.seen[a] - ST.seen[b]); for (const k of ks.slice(0, n - 5000)) delete ST.seen[k]; } };
   function count(kind, key) { if (kind === 'join') { ST.joins++; } else if (kind === 'class') ST.perClass[key] = (ST.perClass[key] || 0) + 1; else if (kind === 'map') ST.perMap[key] = (ST.perMap[key] || 0) + 1; else if (kind === 'mode') ST.perMode = Object.assign(ST.perMode || {}, { [key]: ((ST.perMode || {})[key] || 0) + 1 }); else if (kind === 'msg') ST.messages++; statsS.save(); }
 
+  /* ---------- [ESTADÍSTICAS] Jugadores por día (UTC, últimos 35 días) ----------
+     Cada día guarda: jugadores únicos (u: huella → origen, +10 si era nuevo), nuevos y que repiten (r: ya había jugado otro día), de dónde
+     vienen (web, CrazyGames, Poki), sesiones online y segundos jugados. No se guardan nombres ni IPs: solo una huella corta (sha1) de la
+     cuenta o del nombre. ST.first = primer día de cada huella (60 días), para saber quién es nuevo. */
+  const SRC = ['web', 'crazygames', 'poki'], dayKey = t => new Date(t).toISOString().slice(0, 10);
+  const huella = k => crypto.createHash('sha1').update(String(k)).digest('base64').slice(0, 10);
+  const zeroSrc = () => ({ web: 0, crazygames: 0, poki: 0 });
+  function dayRec(d) { if (!ST.days) ST.days = {}; return ST.days[d] || (ST.days[d] = { u: {}, n: 0, r: 0, src: zeroSrc(), sess: 0, secs: 0, ssrc: zeroSrc() }); }
+  function pruneDays() {
+    const t = now(), minD = dayKey(t - 35 * 86400000), minF = dayKey(t - 60 * 86400000);
+    for (const d of Object.keys(ST.days || {})) if (d < minD) delete ST.days[d];
+    const f = ST.first || {}, ks = Object.keys(f); for (const k of ks) if (f[k] < minF) delete f[k];
+    if (ks.length > 60000) for (const k of Object.keys(f).sort((a, b) => (f[a] < f[b] ? -1 : 1)).slice(0, ks.length - 60000)) delete f[k];
+  }
+  function visit(key, src) {
+    if (!key) return; src = SRC.includes(src) ? src : 'web';
+    const d = dayKey(now()), rec = dayRec(d), h = huella(key); if (!ST.first) ST.first = {};
+    if (!(h in rec.u)) { const isNew = !ST.first[h] || ST.first[h] >= d; rec.u[h] = SRC.indexOf(src) + (isNew ? 10 : 0); rec.src[src]++; if (isNew) rec.n++; else rec.r++; }
+    if (!ST.first[h]) { ST.first[h] = d; if (Object.keys(ST.first).length % 500 === 0) pruneDays(); }
+    statsS.save();
+  }
+  function playTime(src, ms) {
+    if (!(ms > 0)) return; src = SRC.includes(src) ? src : 'web';
+    const rec = dayRec(dayKey(now())), s = Math.min(6 * 3600, Math.round(ms / 1000));   // una sesión de más de 6 h (pestaña olvidada) cuenta como 6 h
+    rec.sess++; rec.secs += s; rec.ssrc[src] = (rec.ssrc[src] || 0) + 1; statsS.save();
+  }
+  function playerStats() {
+    pruneDays(); const t = now(), out = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = dayKey(t - i * 86400000), r = (ST.days || {})[d], prev = (ST.days || {})[dayKey(t - (i + 1) * 86400000)];
+      if (!r) { out.push({ d, uniques: 0, n: 0, r: 0, src: zeroSrc(), sess: 0, avgMin: 0, d1: null }); continue; }
+      let d1 = null;   // de los nuevos del día anterior, qué parte volvió este día
+      if (prev) { const nw = Object.keys(prev.u).filter(h => prev.u[h] >= 10); if (nw.length) d1 = +(nw.filter(h => h in r.u).length / nw.length).toFixed(3); }
+      out.push({ d, uniques: Object.keys(r.u).length, n: r.n, r: r.r, src: r.src, sess: r.sess, avgMin: r.sess ? +(r.secs / r.sess / 60).toFixed(1) : 0, d1 });
+    }
+    const last7 = out.slice(-7), sum = (a, f) => a.reduce((s, x) => s + f(x), 0), d1s = last7.filter(x => x.d1 !== null);
+    return { days: out, week: { uniques: sum(last7, x => x.uniques), sess: sum(last7, x => x.sess), avgMin: sum(last7, x => x.sess) ? +(sum(last7, x => x.avgMin * x.sess) / sum(last7, x => x.sess)).toFixed(1) : 0,
+      src: SRC.reduce((o, k) => (o[k] = sum(last7, x => x.src[k] || 0), o), {}), d1: d1s.length ? +(sum(d1s, x => x.d1) / d1s.length).toFixed(3) : null } };
+  }
+
   /* ---------- Historial y análisis de comportamiento ---------- */
   function recordMatch(row) {
     row.id = ++histS.data.seq; row.ts = row.ts || now();
@@ -415,6 +455,7 @@ function createAdmin(opts) {
   const routes = {
     'GET /me': ({ s }) => ({ user: s.user, exp: s.exp, email: maskEmail(cred.data.email), smtp: smtpOn(), mustChange: !!s.setup }),
     'GET /overview': () => overview(),
+    'GET /player-stats': () => playerStats(),   // [ESTADÍSTICAS]
     'GET /players': () => ({ players: rt.players().map(playerPub), lobby: rt.lobbyClients().map(w => ({ name: w.lobbyName, role: w.role || 0, ip: w.ipKey })) }),
     'POST /player/action': ({ b, s }) => {
       const p = rt.findPlayer(b.id, b.name), act = String(b.action || ''), reason = cleanStr(b.reason, 120), minutes = clampN(b.minutes, 0, 60 * 24 * 365, 0);
@@ -543,7 +584,7 @@ function createAdmin(opts) {
     roleOf(name) { const nk = nameKey(name); if (!nk) return 0; if (nk === ADMIN_KEY) return 'admin'; if (isVerifiedName(name)) return 'inf'; return infS.data.list.some(i => i.active && i.nameKey === nk) ? 'inf' : 0; },
     isReserved(name) { const nk = nameKey(name); return !!nk && (nk.includes(ADMIN_KEY) || infS.data.list.some(i => i.active && i.nameKey === nk)); },
     banFor(name, ip) { return bans.check({ nameKey: nameKey(name), ipKey: ipKey(ip) }); }, banMessage: b => bans.message(b),
-    sendMail, smtpOn, stats: () => ST, resolveIdentity, checkChat, onChat, onLog, recordMatch, makeReport, count, handleHttp, handleUpgrade, flushAll,
+    sendMail, smtpOn, stats: () => ST, resolveIdentity, checkChat, onChat, onLog, recordMatch, makeReport, count, visit, playTime, playerStats, handleHttp, handleUpgrade, flushAll,
     settings: S_, maxPerRoom: () => S_.maintenance.on ? 0 : S_.maxPerRoom, roleOfToken: t => (fullToken(t) ? 'admin' : 0)
   };
 }

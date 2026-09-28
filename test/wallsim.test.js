@@ -21,7 +21,8 @@ for (let m = 0; m < S.MAPS.length; m++) {
   let nHigh = 0, badHigh = 0;
   /* también se simulan jugadores que EMPIEZAN en las zonas altas (azoteas, adarves, tejados, puentes): escaleras, bordes y caídas */
   const HIGH = [[[0, 4.8, -2], [24, 3.6, 0], [-24, 3.6, 12], [14, 3.6, -32], [-14, 3.6, 36]],   // Castillo Real: azotea de la torre, adarves, tejado de la casa y de los establos
-    [[-14, 4.0, -26], [0, 4.0, 26], [26, 4.0, 26], [-26, 4.0, -26]]][m] || [];   // Barrio Arcoíris: tejados y puentes
+    [[-14, 4.0, -26], [0, 4.0, 26], [26, 4.0, 26], [-26, 4.0, -26]],   // Barrio Arcoíris: tejados y puentes
+    [[-15, 2.6, -26], [0, 2.6, -25.8], [15, 2.6, -26], [19, 4.0, 22], [0, 4.0, 25], [-19, 4.0, 28]]][m] || [];   // [MAPA 3] Puerto Industrial: contenedores, pasarela, tejados de las oficinas y puente
   for (const [sx, sy, sz] of HIGH) for (const every of [3, 6, 9]) for (let k = 0; k < 4; k++) {
     const r = rnd(7000 + Math.round(sx * 10 + sz) + every * 31 + k), e = { pos: { x: sx, y: sy, z: sz }, vel: { x: 0, y: 0, z: 0 }, hw: 0.35, h: 1.8, onGround: true };
     let tx = sx, tz = sz, t = 0, prev = { x: sx, y: sy, z: sz };

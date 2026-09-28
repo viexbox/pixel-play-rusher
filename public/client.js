@@ -274,6 +274,11 @@ const TEX = {
     for (let i = 0; i < 34; i++) { g.fillStyle = rgba(R() < 0.5 ? '0,0,0' : '255,255,255', 0.05 + R() * 0.06); g.beginPath(); g.arc(R() * S, R() * S, 16 + R() * 40, 0, TAU); g.fill(); }
     for (let i = 0; i < 1800; i++) { const x = R() * S, y = R() * S, l = 3 + R() * 7; if (R() < 0.6) DK(g, 0.1 + R() * 0.28, x, y, 1 + R(), l); else LT(g, 0.12 + R() * 0.25, x, y, 1 + R(), l); }
   } },
+  sea: { tile: 10, draw(g, S, R) {   // [MAPA 3] agua del puerto, fuera del recinto: olas en líneas claras y oscuras (el color lo da m.out)
+    white(g, S);
+    for (let y = 0; y < S; y += 12) for (let x = 0; x < S; x += 6) { const yy = y + Math.sin((x / S) * TAU * 3 + y * 0.7) * 4; LT(g, 0.22, x, yy, 6, 2); DK(g, 0.08, x, yy + 5, 6, 3); }
+    for (let i = 0; i < 40; i++) LT(g, 0.3 + R() * 0.3, R() * S, R() * S, 4 + R() * 10, 1);
+  } },
   sandfloor: { tile: 8, draw(g, S, R) {
     white(g, S);
     for (let y = 0; y < S; y += 10) for (let x = 0; x < S; x += 4) { const yy = y + Math.sin((x / S) * TAU * 2 + y * 0.31) * 3; DK(g, 0.06, x, yy, 4, 2); LT(g, 0.16, x, yy + 2, 4, 1); }
@@ -556,6 +561,16 @@ function decorate(L, m) {
     }
     decoBox(0, 4.8, 0, 0.16, 4.2, 0.16, '#2a1b3d'); decoBox(0.95, 7.8, 0, 1.8, 1.05, 0.06, '#ffd23f', true);                                       // bandera de la torre
     for (const [x, z] of [[-3, 6.2], [3, 6.2], [-3, -6.2], [3, -6.2]]) { decoBox(x, 0, z, 0.9, 0.35, 0.9, '#5a8f3a'); }                            // arbustos junto a la torre
+  } else if (L.decor === 'port') {   // [MAPA 3] Puerto Industrial: farolas, franjas de aviso en los portones, bolardos, ventanas de las oficinas y rótulo de la nave
+    for (const [x, z] of [[-26, -12], [26, -12], [-26, 12], [26, 12], [-12, 10], [12, -10]]) { decoBox(x, 0, z, 0.22, 5.2, 0.22, '#39435a'); decoBox(x, 5.2, z, 0.9, 0.2, 0.5, '#fff3b0', true); }
+    for (const sx of [-1, 1]) {
+      for (let k = 0; k < 6; k++) decoBox(sx * 10.28, 3.3, -2.75 + k * 1.1, 0.06, 0.3, 0.55, k % 2 ? '#15151a' : '#ffc43d', true);     // franjas sobre el portón
+      for (const z of [-36, -40.2, 36, 40.2]) decoBox(sx * 33, 0, z, 0.5, 0.8, 0.5, '#ffc43d');                                           // bolardos
+      for (const z of [22, 28]) decoBox(sx * 24.03, 1.3, z, 0.06, 1.1, 1.4, '#2d4a7a');                                                    // ventanas de las oficinas (fachada de la base)
+      decoBox(sx * 19, 3.62, 25, 3.2, 0.06, 3.2, '#c9ced6');                                                                                  // claraboya en el tejado de las oficinas
+    }
+    decoBox(0, 4.0, -7.28, 6, 1.0, 0.06, '#e5533d', true); decoBox(0, 4.0, 7.28, 6, 1.0, 0.06, '#2f7bd9', true);                          // rótulos de la nave
+    decoBox(0, 9.7, -25.5, 2.9, 1.0, 0.06, '#9fd3ff', true);                                                                                  // ventana de la cabina de la grúa
   } else if (L.decor === 'town') {   // [MAPAS KRUNKER] Barrio Arcoíris: marcos de ventanas, farolas y pasos de cebra
     for (const [x, z] of [[-24, -18], [24, -18], [-24, 18], [24, 18], [-8, -19.5], [8, 19.5]]) { decoBox(x, 0, z, 0.22, 4.2, 0.22, '#39435a'); decoBox(x, 4.2, z, 0.8, 0.22, 0.5, '#fff3b0', true); }
     for (const sx of [-1, 1]) for (let k = 0; k < 6; k++) { decoBox(sx * 3, 0, -18 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); decoBox(sx * 3, 0, 12 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); }
@@ -2038,6 +2053,8 @@ let deathLook = null, botCash = S.CONST.SHOP_START_CASH;   // [NUEVO] tienda de 
 /* [NUEVO] Tienda de armas de la pantalla de reaparición: 8 tarjetas (S.SHOP) con precio en Cash, estadísticas y compra; el resto de armas se elige gratis con 1–9, como antes. */
 function curCash() { return online ? (net.cash || 0) : botCash; }
 function renderDeathPick() {
+  /* [MODOS] En Carrera de armas el arma la da el nivel y en Solo cuchillos no hay armas: ahí no se enseña la tienda (antes se podía comprar y se perdía el dinero) */
+  const md = online ? S.MODES[net.mode || 'duelo'] : null; $('#death').classList.toggle('noshop', !!(md && (md.id === 'carrera' || !md.guns)));
   const cash = curCash(); $('#shopCashN').textContent = cash.toLocaleString('es-ES');
   $('#shopGrid').innerHTML = S.SHOP.map((item, si) => {
     const w = WEAPONS[item.wi], st = S.shopStats(w), owned = item.wi === cfg.cls, afford = cash >= item.price;
@@ -2046,7 +2063,7 @@ function renderDeathPick() {
       '<div class="wname"><b>' + esc(w.name) + '</b><em>$' + item.price.toLocaleString('es-ES') + '</em></div>' +
       '<div class="wtype">' + esc(w.type) + '</div>' +
       '<div class="wstats"><span>DMG <b>' + st.dmg + '</b></span><span>RPM <b>' + st.rpm + '</b></span><span>RNG <b>' + st.rng + '</b></span><span>ACC <b>' + st.acc + '%</b></span></div>' +
-      '<button type="button" data-si="' + si + '" ' + (owned || !afford ? 'disabled' : '') + '>' + (owned ? 'Equipada' : 'Purchase') + '</button></div>';   // [CORREGIDO] sin dinero suficiente también se deshabilita, no solo si ya está equipada
+      '<button type="button" data-si="' + si + '" ' + (owned || !afford ? 'disabled' : '') + '>' + (owned ? 'Equipada' : 'Comprar') + '</button></div>';   // [CORREGIDO] sin dinero suficiente también se deshabilita, no solo si ya está equipada
   }).join('');
 }
 /* Compra (o, si el arma no está en la tienda, cambio gratis como antes): equipa el arma elegida para el próximo respawn. */
@@ -2454,7 +2471,7 @@ function startOnline() {
   catch (e) { return netFail('No se pudo abrir la conexión.'); }
   net.ws = ws; net.joined = false;
   const ptok = partyC.tok; partyC.tok = null;   // [GRUPOS] el billete del grupo se guarda ANTES: borrarlo después de asignar onopen lo borraba antes de enviarlo
-  ws.onopen = () => netSend({ t: 'hello', v: 1, n: cfg.name, map: cfg.map, c: cfg.cls, lk: [cfg.look.col, cfg.look.skin], adm: admToken(), inf: cfg.infKey || '', acct: acctToken(), mode: S.MODES[cfg.mode] ? cfg.mode : 'duelo', rk: cfg.ranked && cfg.mode === 'duelo' ? 1 : 0, tm: cfg.wantTeam, pt: ptok || undefined, jr: invite.room || undefined });   // [GRUPOS] billete del grupo (solo sirve una vez)
+  ws.onopen = () => netSend({ t: 'hello', v: 1, n: cfg.name, map: cfg.map, c: cfg.cls, lk: [cfg.look.col, cfg.look.skin], adm: admToken(), inf: cfg.infKey || '', acct: acctToken(), mode: S.MODES[cfg.mode] ? cfg.mode : 'duelo', rk: cfg.ranked && cfg.mode === 'duelo' ? 1 : 0, tm: cfg.wantTeam, pt: ptok || undefined, jr: invite.room || undefined, src: window.PPR_PORTAL ? window.PPR_PORTAL.name : 'web' });   // [ESTADÍSTICAS] src: desde dónde se juega (web, crazygames, poki)   // [GRUPOS] billete del grupo (solo sirve una vez)
   ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } try { netHandle(m); } catch (e) { console.error(e); } };
   ws.onclose = ev => {
     if (net.ws !== ws) return;
@@ -3810,7 +3827,7 @@ function initMenu() {
   $('#eqClose').addEventListener('click', closeEq);
   window.addEventListener('keydown', e => { if (e.key === 'Escape') closeEq(); });
   $('#newsMap').addEventListener('click', () => showTab('maps'));
-  $('#newsThumb').style.backgroundImage = 'url(' + mapImg(0) + ')';
+  $('#newsThumb').style.backgroundImage = 'url(' + mapImg(S.MAPS.length - 1) + ')';   // [MAPA 3] la noticia enseña el mapa más nuevo
   $('#passRow').addEventListener('click', () => { const b = document.querySelector('.nav button[data-tab=pass]'); if (b) b.click(); });
   const setDiff = d => { cfg.diff = d; saveCfg(); $$('#diff button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.d === d))); };
   $('#diff').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setDiff(+b.dataset.d); });
@@ -4047,6 +4064,13 @@ function resize() {
   camera.aspect = w / h; camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', resize);
+/* [MODOS] --mbb: borde inferior del marcador de arriba (#matchbar), en px de maquetación (offset*, no afectado por el zoom del móvil).
+   Las barras de los modos (bomba, zona, regalos) y el aviso de espera se colocan justo debajo (index.html) y ya no quedan tapadas. */
+{
+  const mb = $('#matchbar'), hudEl = $('#hud');
+  const setMbb = () => { if (mb && hudEl && mb.offsetHeight) hudEl.style.setProperty('--mbb', (mb.offsetTop + mb.offsetHeight) + 'px'); };
+  if (mb && window.ResizeObserver) new ResizeObserver(setMbb).observe(mb); window.addEventListener('resize', setMbb);
+}
 
 /* =====================================================================
    Bucle principal

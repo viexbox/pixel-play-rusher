@@ -1,5 +1,5 @@
 'use strict';
-/* [MAPAS KRUNKER] Los dos mapas (Castillo Real y Barrio Arcoíris): lista, geometría, apariciones y zonas, alcanzabilidad caminando
+/* [MAPAS KRUNKER] Los mapas (Castillo Real, Barrio Arcoíris y Puerto Industrial): lista, geometría, apariciones y zonas, alcanzabilidad caminando
    (sin saltar) y sin trampas, navegación de los bots, servidor real (apariciones por equipo, zonas con altura, limpieza de la
    clasificación) y cliente (texturas, lotes, configuración antigua). Sustituye a nexus.test.js, del mapa que ya no existe. */
 const { spawn } = require('child_process'); const path = require('path'); const fs = require('fs'); const WebSocket = require('ws'); const { JSDOM } = require('jsdom');
@@ -10,16 +10,20 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, ms = 8000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (fn()) return true; } catch (e) { /* aún no */ } await sleep(25); } return false; }
 
 console.log('=== 1. Lista de mapas ===');
-ok(S.MAPS.length === 2 && S.MAPS[0].name === 'Castillo Real' && S.MAPS[1].name === 'Barrio Arcoíris', 'dos mapas: ' + S.MAPS.map(m => m.name).join(', '));
+ok(S.MAPS.length === 3 && S.MAPS[0].name === 'Castillo Real' && S.MAPS[1].name === 'Barrio Arcoíris' && S.MAPS[2].name === 'Puerto Industrial', 'tres mapas: ' + S.MAPS.map(m => m.name).join(', '));
 ok(!JSON.stringify(S.MAPS.map(x => x.name)).match(/Nexus|Duna|Piscina|Almenas|Contenedores|Bosque|Fábrica|Cañón/), 'ningún mapa viejo (Nexus Outpost, Pueblo Duna, Villa Piscina…) sigue en la lista');
-ok(S.MAPS.every(m => m.look.pixel > 0), 'los dos usan texturas pixeladas estilo Krunker (look.pixel)');
+ok(S.MAPS.every(m => m.look.pixel > 0), 'todos usan texturas pixeladas estilo Krunker (look.pixel)');
 
 /* destinos que se tienen que poder alcanzar CAMINANDO (x, altura de los pies, z) y puntos que caen en cada zona con nombre */
 const CFG = [
   { targets: { 'Keep Roof': [0, 4.8, 0], 'Keep': [0, 0, 0], 'Ramparts (oeste)': [-24.3, 3.6, 0], 'Ramparts (este)': [24, 3.6, 0], 'Market Street': [0, 0, -24], 'Stables': [11, 0, 34], 'Courtyard': [12, 0, 0], 'Spawn Red': [-35, 0, 0], 'Spawn Blue': [35, 0, 0] },
-    probe: { 'Keep Roof': [0, 4.8, 2], 'Keep': [0, 0, 2], 'Ramparts': [24, 3.6, 0], 'Rooftops': [14, 3.6, -32], 'Spawn Red': [-35, 0, 0], 'Spawn Blue': [35, 0, 0], 'Market Street': [0, 0, -24], 'Stables': [11, 0, 34], 'Courtyard': [12, 0, 0] } },
+    probe: { 'Tejado de la torre': [0, 4.8, 2], 'Torre': [0, 0, 2], 'Murallas': [24, 3.6, 0], 'Tejados': [14, 3.6, -32], 'Base roja': [-35, 0, 0], 'Base azul': [35, 0, 0], 'Calle del mercado': [0, 0, -24], 'Establos': [11, 0, 34], 'Patio': [12, 0, 0] } },
   { targets: { 'Rooftops (base roja)': [-26, 4.0, -26], 'Rooftops (base azul)': [26, 4.0, 26], 'Puente central': [0, 4.0, -26], 'Casa (interior)': [14, 0, -26], 'Casa sur (interior)': [-26, 0, 26], 'Fountain Plaza': [0, 0, -8], 'Back Street': [0, 0, -36], 'Spawn Red': [-37, 0, 0], 'Spawn Blue': [37, 0, 0] },
-    probe: { 'Rooftops': [-14, 4.0, -26], 'House': [14, 0, -26], 'Spawn Red': [-37, 0, 0], 'Spawn Blue': [37, 0, 0], 'Back Street': [0, 0, -36], 'Fountain Plaza': [0, 0, -8] } }
+    probe: { 'Tejados': [-14, 4.0, -26], 'Casa': [14, 0, -26], 'Base roja': [-37, 0, 0], 'Base azul': [37, 0, 0], 'Callejón': [0, 0, -36], 'Plaza de la fuente': [0, 0, -8] } },
+  /* [MAPA 3] Puerto Industrial */
+  { targets: { 'Contenedores (rojo)': [-15, 2.6, -26], 'Contenedores (azul)': [15, 2.6, -26], 'Pasarela': [0, 2.6, -25.8], 'Tejado de las oficinas (azul)': [19, 4.0, 22], 'Puente de las oficinas': [0, 4.0, 25],
+      'Nave': [0, 0, 1.8], 'Oficina (interior)': [-19, 0, 27], 'Muelle norte': [0, 0, -31], 'Muelle sur': [0, 0, 17], 'Base roja': [-35, 0, 0], 'Base azul': [35, 0, 0] },
+    probe: { 'Tejado de las oficinas': [19, 4.0, 22], 'Contenedores': [15, 2.6, -26], 'Oficinas': [-19, 0, 27], 'Nave': [0, 0, 3], 'Base roja': [-35, 0, 0], 'Base azul': [35, 0, 0], 'Muelle norte': [0, 0, -31], 'Muelle sur': [0, 0, 17], 'Patio de carga': [20, 0, 0] } }
 ];
 const allTags = new Set();
 for (let mi = 0; mi < S.MAPS.length; mi++) {
@@ -36,7 +40,7 @@ for (let mi = 0; mi < S.MAPS.length; mi++) {
   /* apariciones y zonas */
   const sp = world.spawns, free = (x, y, z) => !S.overlapAt(cols, x, y, z, 0.6, 1.8);
   ok(sp[1].length >= 6 && sp[0].length >= 6 && sp[1].every(([x, z]) => free(x, 0, z)) && sp[0].every(([x, z]) => free(x, 0, z)), 'cada equipo tiene ' + sp[1].length + ' puntos de aparición libres');
-  ok(sp[1].every(([x, z]) => S.areaAt(mi, x, 0, z) === 'Spawn Red') && sp[0].every(([x, z]) => S.areaAt(mi, x, 0, z) === 'Spawn Blue'), 'el equipo rojo aparece en Spawn Red y el azul en Spawn Blue');
+  ok(sp[1].every(([x, z]) => S.areaAt(mi, x, 0, z) === 'Base roja') && sp[0].every(([x, z]) => S.areaAt(mi, x, 0, z) === 'Base azul'), 'el equipo rojo aparece en Spawn Red y el azul en Spawn Blue');
   const cen = l => [l.reduce((a, p) => a + p[0], 0) / l.length, l.reduce((a, p) => a + p[1], 0) / l.length]; const [rx, rz] = cen(sp[1]), [bx, bz] = cen(sp[0]);
   ok(Math.hypot(rx - bx, rz - bz) > 60, 'las dos bases están lejos: ' + Math.hypot(rx - bx, rz - bz).toFixed(0) + ' m en línea recta');
   const zs = m.zones; ok(zs.length >= 3 && zs.every(z => free(z.x, z.y + 0.01, z.z) && (z.y === 0 || S.overlapAt(cols, z.x, z.y - 0.1, z.z, 0.3, 0.2))), zs.length + ' zonas de captura, cada una sobre suelo firme y libre a su altura (' + zs.map(z => z.n + ' ' + z.y + ' m').join(', ') + ')'.replace(/ 0 m/g, ''));
@@ -121,7 +125,7 @@ Bot.n = 20;
     await until(() => a.pos && b.pos, 5000);
     const T = { [a.welcome.tm]: a, [b.welcome.tm]: b };
     ok(a.welcome.tm !== b.welcome.tm && T[0] && T[1], 'el servidor reparte los dos jugadores en equipos distintos (' + a.welcome.tm + ' y ' + b.welcome.tm + ')');
-    ok(T[1] && T[1].pos && S.areaAt(0, T[1].pos.x, 0, T[1].pos.z) === 'Spawn Red' && T[0] && T[0].pos && S.areaAt(0, T[0].pos.x, 0, T[0].pos.z) === 'Spawn Blue',
+    ok(T[1] && T[1].pos && S.areaAt(0, T[1].pos.x, 0, T[1].pos.z) === 'Base roja' && T[0] && T[0].pos && S.areaAt(0, T[0].pos.x, 0, T[0].pos.z) === 'Base azul',
       'cada uno aparece en su base: el rojo en Spawn Red (' + (T[1].pos.x | 0) + ', ' + (T[1].pos.z | 0) + ') y el azul en Spawn Blue (' + (T[0].pos.x | 0) + ', ' + (T[0].pos.z | 0) + ')');
     const z0 = a.welcome.zone; ok(z0 && z0.n === zs[0].n && z0.y === zs[0].y && z0.x === zs[0].x && z0.z === zs[0].z, 'la primera zona es ' + zs[0].n + ', con nombre y altura en el mensaje (' + JSON.stringify(z0 && { n: z0.n, y: z0.y }) + ')');
     await until(() => new Set(a.all('zone').map(x => x.z && x.z.n)).size >= 3, 20000);
