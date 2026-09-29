@@ -10,7 +10,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, ms = 8000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (fn()) return true; } catch (e) { /* aún no */ } await sleep(25); } return false; }
 
 console.log('=== 1. Lista de mapas ===');
-ok(S.MAPS.length === 1 && S.MAPS[0].name === 'Tormenta de Arena', 'un solo mapa: ' + S.MAPS.map(m => m.name).join(', '));
+ok(S.MAPS.length === 2 && S.MAPS[0].name === 'Tormenta de Arena' && S.MAPS[1].name === 'Base Glaciar', 'dos mapas: ' + S.MAPS.map(m => m.name).join(', '));
 ok(!JSON.stringify(S.MAPS.map(x => x.name)).match(/Nexus|Duna|Piscina|Almenas|Contenedores|Bosque|Fábrica|Cañón|Castillo|Barrio|Puerto/), 'ningún mapa viejo (Nexus Outpost, Pueblo Duna, Villa Piscina…) sigue en la lista');
 ok(S.MAPS.every(m => m.look.pixel > 0), 'todos usan texturas pixeladas estilo Krunker (look.pixel)');
 
@@ -20,7 +20,12 @@ const CFG = [
   { targets: { 'Terraza de la torre': [0, 3.2, 2], 'Torre (interior)': [0, 0, 2], 'Nido (azul)': [19, 2.8, -33], 'Nido (rojo)': [-19, 2.8, -33], 'Balcón': [8, 2.8, -29], 'Túnel': [10, 0, 28],
       'Meseta': [10, 2.4, 32], 'Largo norte': [0, 0, -24], 'Carril central': [22, 0, 0], 'Base roja': [-38, 0, 0], 'Base azul': [38, 0, 0] },
     probe: { 'Terraza de la torre': [0, 3.2, 2], 'Torre': [0, 0, 2], 'Nido': [19, 2.8, -33], 'Balcón': [8, 2.8, -29], 'Túnel': [10, 0, 28], 'Meseta': [10, 2.4, 32], 'Base roja': [-38, 0, 0], 'Base azul': [38, 0, 0],
-      'Largo norte': [0, 0, -24], 'Callejón': [7, 0, -16], 'Carril central': [22, 0, 0], 'Plaza': [10, 0, 8] } }
+      'Largo norte': [0, 0, -24], 'Callejón': [7, 0, -16], 'Carril central': [22, 0, 0], 'Plaza': [10, 0, 8] } },
+  /* [MAPAS KRUNKER 3] Base Glaciar */
+  { targets: { 'Radar': [0, 2.8, 1.8], 'Torre (azul)': [20, 4.4, -24], 'Torre (roja)': [-20, 4.4, -24], 'Cresta': [-8, 2.4, -32.5], 'Entreplanta': [6, 2.8, 34], 'Hangar': [0, 0, 29],
+      'Bosque': [0, 0, -24], 'Carril central': [22, 0, 0], 'Base roja': [-36, 0, 0], 'Base azul': [36, 0, 0] },
+    probe: { 'Radar': [0, 2.8, 1], 'Torre de vigilancia': [20, 4.4, -24], 'Cresta': [-8, 2.4, -32.5], 'Entreplanta': [6, 2.8, 34], 'Hangar': [0, 0, 29], 'Base roja': [-36, 0, 0], 'Base azul': [36, 0, 0],
+      'Bosque': [0, 0, -24], 'Depósito': [20, 0, 20], 'Carril central': [22, 0, 0], 'Lago helado': [8, 0, 8] } }
 ];
 const allTags = new Set();
 for (let mi = 0; mi < S.MAPS.length; mi++) {

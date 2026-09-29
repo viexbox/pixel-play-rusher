@@ -29,7 +29,7 @@ ok(W[L[0]].id === 'ak' && W[L[L.length - 1]].id === 'lince', 'empieza en el AK y
 ok(L.slice(0, 2).join() === '8,0', 'los dos primeros niveles no cambian (las pruebas y los jugadores conocen ese comienzo)');
 
 console.log('\n=== Mapas ===');
-const M = S.MAPS; ok(M.length === 1 && M[0].name === 'Tormenta de Arena', 'un solo mapa: Tormenta de Arena (los demás se quitaron)');
+const M = S.MAPS; ok(M.length === 2 && M[0].name === 'Tormenta de Arena' && M[1].name === 'Base Glaciar', 'dos mapas: Tormenta de Arena y Base Glaciar');
 
 ok(Object.entries(M[0].look).every(([k, v]) => typeof v === 'string' || typeof v === 'number') && M[0].look.decor === 'desert' && M[0].look.outFloor === 'sand' && typeof M[0].open === 'function', 'el mapa declara su aspecto (decorado «desert», suelo exterior de arena) y su forma (open)');
 ok(M.every(m => m.name && m.desc.length > 30 && m.sky.length === 2 && m.pal.length === 5 && m.floor.length === 2 && isHex(m.fog) && isHex(m.out) && m.half >= 36), 'nombre, descripción, cielo, niebla, suelo y paleta completos');

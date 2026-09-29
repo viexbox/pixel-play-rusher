@@ -75,9 +75,9 @@ async function register(U, name, email, pw) { U.$('#tabRegister').click(); U.$('
     ok(await until(() => !A.$('#playOnline').disabled), 'el cliente detecta el servidor'); A.$('#playOnline').click(); A.$('#eqPlay').click(); ok(await until(() => A.T.state === 'playing' && A.T.net.id != null), 'la cuenta entra a jugar online');
     const pl = (await adm('GET', '/players')).j.players.find(p => p.name === 'Zoe_7'); ok(!!pl, 'y en la sala aparece con el nombre de la cuenta (Zoe_7)');
     await adm('POST', '/rooms/action', { id: pl.room, action: 'end' });
-    ok(await until(() => !A.$('#end').hidden && A.$('#endMaps').hidden), 'al acabar la ronda aparece la pantalla final (sin votación de mapa: solo hay uno)');   // [MAPA ÚNICO]
+    ok(await until(() => !A.$('#end').hidden && !A.$('#endMaps').hidden), 'al acabar la ronda aparece la pantalla final con el selector para votar el siguiente mapa');
     const cur = A.T.curMap;
-    ok(await until(() => A.T.curMap === 0 && cur === 0, 3000), 'el jugador sigue en Tormenta de Arena, el único mapa');
+    ok(await until(() => A.T.curMap === 0 && cur === 0, 3000), 'sin votos, el jugador sigue en Tormenta de Arena');
     ok(await until(() => A.$('#end').hidden, 8000), 'al acabar el descanso la nueva ronda empieza en el mismo mapa');
     ok(A.T.curMap === 0 && A.$('#end').hidden, 'y la ronda nueva empieza: la pantalla final se cierra y el mapa sigue siendo Tormenta de Arena');
     /* ---------- Cerrar sesión ---------- */
