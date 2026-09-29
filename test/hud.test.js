@@ -52,8 +52,10 @@ const world = S.buildWorld(0);
   const bot = T.fighters.find(f => !f.isPlayer && f.alive); bot.team = 1 - T.player.team;   // ahora hay equipos: se dispara a un rival
   const eye = () => ({ x: T.player.pos.x, y: T.player.pos.y + T.player.eye, z: T.player.pos.z });
   let placed = false;
-  for (let k = 0; k < 96 * 4 && !placed; k++) {   // 96 direcciones y, si no hay 22 m despejados desde donde aparece el jugador, 20, 18 y 16 m
-    const a = (k % 96) / 96 * Math.PI * 2, R = [22, 20, 18, 16][Math.floor(k / 96)], x = T.player.pos.x + Math.cos(a) * R, z = T.player.pos.z + Math.sin(a) * R;
+  const RS = [22, 20, 18, 16, 14, 12, 10];
+  for (let k = 0; k < 96 * RS.length * 2 && !placed; k++) {   // 96 direcciones y, si no hay 22 m despejados desde donde aparece el jugador, 20, 18… 10 m
+    if (k === 96 * RS.length) { T.player.pos.set(-27, 0, 0); T.player.vel.set(0, 0, 0); }   // [MAPA ÚNICO] calles estrechas: si no hay hueco, el jugador pasa al carril central (una recta larga) y se busca otra vez
+    const a = (k % 96) / 96 * Math.PI * 2, R = RS[Math.floor(k / 96) % RS.length], x = T.player.pos.x + Math.cos(a) * R, z = T.player.pos.z + Math.sin(a) * R;
     if (Math.abs(x) > 56 || Math.abs(z) > 56 || S.overlapAt(world.colliders, x, 0, z, 0.4, 1.8)) continue;
     const o = eye(); const clear = ty => { const t = { x, y: ty, z }, d = { x: t.x - o.x, y: t.y - o.y, z: t.z - o.z }, l = Math.hypot(d.x, d.y, d.z); d.x /= l; d.y /= l; d.z /= l; return S.rayWorld(world.colliders, o, d, l) >= l - 0.05; };
     if ([0.4, 1.1, 1.7].every(clear)) { bot.pos.set(x, 0, z); placed = true; }   // línea de tiro libre a tres alturas (piernas, pecho y cabeza): un obstáculo bajo a medio camino podía tapar el cuerpo
