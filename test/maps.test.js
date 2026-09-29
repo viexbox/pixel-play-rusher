@@ -10,7 +10,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, ms = 8000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (fn()) return true; } catch (e) { /* aún no */ } await sleep(25); } return false; }
 
 console.log('=== 1. Lista de mapas ===');
-ok(S.MAPS.length === 2 && S.MAPS[0].name === 'Tormenta de Arena' && S.MAPS[1].name === 'Base Glaciar', 'dos mapas: ' + S.MAPS.map(m => m.name).join(', '));
+ok(S.MAPS.length === 3 && S.MAPS[0].name === 'Tormenta de Arena' && S.MAPS[1].name === 'Base Glaciar' && S.MAPS[2].name === 'Ciudad Nocturna', 'tres mapas: ' + S.MAPS.map(m => m.name).join(', '));
 ok(!JSON.stringify(S.MAPS.map(x => x.name)).match(/Nexus|Duna|Piscina|Almenas|Contenedores|Bosque|Fábrica|Cañón|Castillo|Barrio|Puerto/), 'ningún mapa viejo (Nexus Outpost, Pueblo Duna, Villa Piscina…) sigue en la lista');
 ok(S.MAPS.every(m => m.look.pixel > 0), 'todos usan texturas pixeladas estilo Krunker (look.pixel)');
 
@@ -25,7 +25,14 @@ const CFG = [
   { targets: { 'Radar': [0, 2.8, 1.8], 'Torre (azul)': [20, 4.4, -24], 'Torre (roja)': [-20, 4.4, -24], 'Cresta': [-8, 2.4, -32.5], 'Entreplanta': [6, 2.8, 34], 'Hangar': [0, 0, 29],
       'Bosque': [0, 0, -24], 'Carril central': [22, 0, 0], 'Base roja': [-36, 0, 0], 'Base azul': [36, 0, 0] },
     probe: { 'Radar': [0, 2.8, 1], 'Torre de vigilancia': [20, 4.4, -24], 'Cresta': [-8, 2.4, -32.5], 'Entreplanta': [6, 2.8, 34], 'Hangar': [0, 0, 29], 'Base roja': [-36, 0, 0], 'Base azul': [36, 0, 0],
-      'Bosque': [0, 0, -24], 'Depósito': [20, 0, 20], 'Carril central': [22, 0, 0], 'Lago helado': [8, 0, 8] } }
+      'Bosque': [0, 0, -24], 'Depósito': [20, 0, 20], 'Carril central': [22, 0, 0], 'Lago helado': [8, 0, 8] } },
+  /* [MAPAS KRUNKER 4] Ciudad Nocturna (128 × 128 m): se entra en las oficinas, el edificio central, el mercado y las casas; tejados a 7,6 m por escaleras y pasarelas */
+  { targets: { 'Puente': [0, 3.2, 0], 'Terraza del cine': [10, 2.8, -48], 'Azotea': [0, 3.2, 43], 'Mercado': [10, 0, 43], 'Casa (azul)': [39, 0, 45.5], 'Casa (roja)': [-39, 0, 45.5],
+      'Oficinas (azul, 1.ª planta)': [26, 3.8, -24], 'Oficinas (roja, 1.ª planta)': [-26, 3.8, -24], 'Tejado de las oficinas': [28, 7.6, -17], 'Edificio central (1.ª planta)': [-2, 3.8, -28],
+      'Tejado del edificio central': [0, 7.6, -24], 'Pasarela': [12, 7.6, -25], 'Avenida': [0, 0, -41], 'Gasolinera': [30, 0, 19], 'Patio': [32, 0, 38], 'Base roja': [-56, 0, 0], 'Base azul': [56, 0, 0] },
+    probe: { 'Puente': [0, 3.2, 0], 'Tejados': [28, 7.6, -17], 'Edificio central (1.ª planta)': [-2, 3.8, -28], 'Edificio central': [-2, 0, -28], 'Mercado': [10, 0, 43], 'Casa': [39, 0, 45.5],
+      'Oficinas (1.ª planta)': [26, 3.8, -24], 'Oficinas': [26, 0, -24], 'Terraza del cine': [10, 2.8, -48], 'Azotea': [0, 3.2, 43], 'Base roja': [-56, 0, 0], 'Base azul': [56, 0, 0],
+      'Avenida': [0, 0, -41], 'Gasolinera': [30, 0, 10], 'Patio': [32, 0, 38], 'Marquesina': [30, 4.25, 14], 'Callejón': [9, 0, -24], 'Calle sur': [20, 0, 32], 'Carril central': [22, 0, 0], 'Plaza': [10, 0, 8] } }
 ];
 const allTags = new Set();
 for (let mi = 0; mi < S.MAPS.length; mi++) {
@@ -36,7 +43,7 @@ for (let mi = 0; mi < S.MAPS.length; mi++) {
   const wrong = Object.entries(cfg.probe).filter(([n, p]) => S.areaAt(mi, ...p) !== n);
   ok(wrong.length === 0, 'S.areaAt() reconoce cada zona con nombre (' + Object.keys(cfg.probe).join(', ') + ')' + (wrong.length ? ' — fallan: ' + wrong.map(([n, p]) => n + '→«' + S.areaAt(mi, ...p) + '»').join(', ') : ''));
   const finite = boxes.every(b => [b.cx, b.y0, b.cz, b.w, b.h, b.d].every(Number.isFinite) && b.w > 0 && b.h > 0 && b.d > 0);
-  ok(finite && cols.length >= 150 && cols.length <= 500, cols.length + ' cajas macizas, todas con medidas válidas');
+  ok(finite && cols.length >= 150 && cols.length <= (m.half > 44 ? 850 : 500), cols.length + ' cajas macizas, todas con medidas válidas');   // [MAPAS KRUNKER 4] la Ciudad Nocturna (128 m, 7 edificios por dentro) llega a 800: sigue costando ~8 µs mover a un jugador
   const lim = m.half + 2.01; ok(cols.every(c => c.minX >= -lim && c.maxX <= lim && c.minZ >= -lim && c.maxZ <= lim && c.maxY <= 12), 'todo cabe dentro del recinto (' + m.half * 2 + ' × ' + m.half * 2 + ' m) y por debajo de 12 m');
   ok(world.waypoints.length >= 200 && world.waypoints.every(([x, z]) => !S.overlapAt(cols, x, 0, z, 0.6, 1.8)), world.waypoints.length + ' puntos de paso para los bots, todos libres');
   /* apariciones y zonas */
@@ -48,7 +55,7 @@ for (let mi = 0; mi < S.MAPS.length; mi++) {
   const zs = m.zones; ok(zs.length >= 3 && zs.every(z => free(z.x, z.y + 0.01, z.z) && (z.y === 0 || S.overlapAt(cols, z.x, z.y - 0.1, z.z, 0.3, 0.2))), zs.length + ' zonas de captura, cada una sobre suelo firme y libre a su altura (' + zs.map(z => z.n + ' ' + z.y + ' m').join(', ') + ')'.replace(/ 0 m/g, ''));
   ok(zs.some(z => z.y === 0), 'hay zonas a ras de suelo (para las salas con bots)');
   /* alcanzabilidad caminando */
-  const STEP = 0.55, RES = 0.5, HALF = 50, N = 200, cell = v => Math.floor((v + HALF) / RES), ctr = i => -HALF + (i + 0.5) * RES;
+  const STEP = 0.55, RES = 0.5, HALF = m.half + 6, N = HALF * 2 / RES, cell = v => Math.floor((v + HALF) / RES), ctr = i => -HALF + (i + 0.5) * RES;
 const surf = new Array(N * N);
 for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
   const x = ctr(i), z = ctr(j), hs = new Set([0]); for (const c of cols) if (x + 0.35 > c.minX && x - 0.35 < c.maxX && z + 0.35 > c.minZ && z - 0.35 < c.maxZ) hs.add(c.maxY);

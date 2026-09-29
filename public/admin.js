@@ -6,7 +6,7 @@ const TICK = '<svg class="vt" viewBox="0 0 24 24" role="img" aria-label="Cuenta 
 const SK = 'ppr.admin.token', GAME_KEY = 'ppr.admtoken';
 let token = null, ws = null, wsTimer = 0, tab = 'overview', me = null, pollTimer = 0, meInfo = {};
 const chatItems = []; let unreadChat = 0, unreadRep = 0, chatPaused = false;
-const MAPS = ['Tormenta de Arena'];   // [MAPA ÚNICO]
+const MAPS = ['Tormenta de Arena', 'Base Glaciar', 'Ciudad Nocturna'];   // [MAPAS KRUNKER 4] mismos índices que S.MAPS
 
 function h(tag, props) {
   const e = document.createElement(tag);
