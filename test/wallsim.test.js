@@ -22,7 +22,8 @@ for (let m = 0; m < S.MAPS.length; m++) {
   /* también se simulan jugadores que EMPIEZAN en las zonas altas (azoteas, adarves, tejados, puentes): escaleras, bordes y caídas */
   /* [MAPA ÚNICO] puntos de partida en alto por NOMBRE de mapa (los números cambian al quitar mapas) */
   const HIGH = ({ 'Tormenta de Arena': [[0, 3.2, 2], [-8, 2.8, -29], [19, 2.8, -33], [10, 2.4, 32], [-14, 2.4, 25]],
-    'Base Glaciar': [[1.8, 2.8, 1.8], [-8, 2.4, -32.5], [20, 4.4, -24], [6, 2.8, 34]] })[S.MAPS[m].name] || [];   // [MAPAS KRUNKER 3] radar, cresta, torre y entreplanta   // terraza de la torre, balcón, nido y meseta (encima del túnel)
+    'Base Glaciar': [[1.8, 2.8, 1.8], [-8, 2.4, -32.5], [20, 4.4, -24], [6, 2.8, 34]],
+    'Ciudad Nocturna': [[0, 3.2, 0], [10, 2.8, -48], [0, 3.2, 43], [26, 3.8, -24], [28, 7.6, -17], [0, 7.6, -24], [30, 4.25, 14]] })[S.MAPS[m].name] || [];   // [MAPAS KRUNKER 4] puente, terraza del cine, azotea, 1.ª planta y tejado de las oficinas, tejado central y marquesina   // [MAPAS KRUNKER 3] radar, cresta, torre y entreplanta   // terraza de la torre, balcón, nido y meseta (encima del túnel)
   for (const [sx, sy, sz] of HIGH) for (const every of [3, 6, 9]) for (let k = 0; k < 4; k++) {
     const r = rnd(7000 + Math.round(sx * 10 + sz) + every * 31 + k), e = { pos: { x: sx, y: sy, z: sz }, vel: { x: 0, y: 0, z: 0 }, hw: 0.35, h: 1.8, onGround: true };
     let tx = sx, tz = sz, t = 0, prev = { x: sx, y: sy, z: sz };
