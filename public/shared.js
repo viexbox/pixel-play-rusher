@@ -29,6 +29,15 @@ const WEAPONS = [
 /* Miras: `fov` es el factor de campo de visión al apuntar (menor = más zoom); `h` la altura de la línea de mira sobre el arma. */
 /* [AJUSTE estilo Krunker] Recargas un 20 % más cortas: menos tiempo indefenso, más ritmo de combate. El servidor usa los mismos valores. */
 WEAPONS.forEach(w => { w.reload = +(w.reload * 0.8).toFixed(2); });
+/* [PISTOLA] Arma secundaria de todas las clases, como en Krunker: se saca con 2 (o la rueda) y tiene su propio cargador.
+   No es una clase (no está en WEAPONS ni en la tienda); el servidor la usa cuando el disparo llega con s = 1. No se usa en «Solo cuchillos» ni en la Carrera. */
+/* [RACHAS] Nuke como en Krunker: con 25 bajas seguidas sin morir caen todos los rivales vivos (en Duelo por equipos y Capturar zona). Bajas múltiples: menos de 4 s entre una y otra. */
+CONST.NUKE = 25; CONST.MULTI_MS = 4000;
+/* [VIDA POR CLASE] Como en Krunker, cada clase tiene su vida: el francotirador aguanta menos (Hunter, 60) y la ametralladora más (Spray N Pray, 170). */
+const CLASS_HP = { lince: 60, precision: 90, centinela: 90, torrente: 170, cometa: 130 };
+WEAPONS.forEach(w => { w.hp = CLASS_HP[w.id] || 100; });
+const maxHp = cls => (WEAPONS[cls] && WEAPONS[cls].hp) || 100;
+const SECONDARY = { id: 'pistola', name: 'Pistola', type: 'Pistola', desc: 'Arma secundaria de todas las clases.', dmg: 20, head: 30, interval: 0.15, mag: 10, reload: 0.7, spread: 0.012, pellets: 1, range: 90, kick: 0.012, fall: [25, 60, 0.6], aimFov: 0.86, speed: 1, stats: [2, 3, 3], col: '#8a8f9c', size: [0.05, 0.08, 0.2], look: { barrel: 0.3 }, optics: ['hierro'], secondary: true };
 
 const OPTICS = {
   hierro: { name: 'Mira de hierro', kind: 'iron', fov: 0.86, h: 0.093 },
@@ -1014,7 +1023,7 @@ function viewmodelSight(pose, sight) {
   return { x: x + pose.px, y: y + pose.py, z: z + pose.pz };
 }
 
-const api = { KNIFE_ROULETTE, OUTFIT_ROULETTE, rouletteDef, rouletteOdds, PETS, OUTFITS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, BOMB, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
+const api = { SECONDARY, maxHp, KNIFE_ROULETTE, OUTFIT_ROULETTE, rouletteDef, rouletteOdds, PETS, OUTFITS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, BOMB, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

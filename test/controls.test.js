@@ -41,31 +41,31 @@ const frames = (n, dt = 0.05) => { for (let k = 0; k < n; k++) T.step(dt); };
     ok(/AK/i.test($('#wname').textContent) && $('#wicon svg') && $('#slot1 svg') && /CUCHILLO/i.test($('#slot1').textContent), 'HUD: se ve el arma actual con su icono y la ranura del cuchillo');
 
     /* ---------- Rueda del ratón ---------- */
-    let e = wheel(100); ok(T.slot === 1 && e.defaultPrevented, 'una vuelta de rueda cambia al cuchillo AL INSTANTE (sin esperas) y no hace scroll de la página');
-    ok($('#slot1').classList.contains('on') && !$('#slot0').classList.contains('on') && $('#ammobox').classList.contains('knife'), 'el HUD marca el cuchillo como ranura activa y atenúa la munición');
-    frames(4, 0.05); ok(T.slotK === 1 && T.gun.visible === false && T.knifeG.visible === true, 'la transición termina en ~0,11 s: arma guardada, cuchillo en mano');
-    wheel(100); ok(T.slot === 1, 'un segundo giro casi a la vez se ignora (evita rebotes)');
+    let e = wheel(100); ok(T.slot === 2 && T.player.sec === true && e.defaultPrevented, 'una vuelta de rueda saca la pistola AL INSTANTE (como en Krunker: principal ↔ secundaria) y no hace scroll de la página');   // [PISTOLA]
+    ok($('#slot2').classList.contains('on') && !$('#slot0').classList.contains('on') && !$('#ammobox').classList.contains('knife'), 'el HUD marca la pistola como ranura activa');
+    frames(4, 0.05); ok(T.slotK === 0 && T.gun.visible === true && T.knifeG.visible === false, 'con la pistola en la mano se ve el arma (no el cuchillo)');
+    wheel(100); ok(T.slot === 2, 'un segundo giro casi a la vez se ignora (evita rebotes)');
     await sleep(200); wheel(-100); ok(T.slot === 0, 'pasado el enfriamiento (0,14 s), la rueda hacia el otro lado vuelve al arma'); frames(4); ok(T.gun.visible === true && T.knifeG.visible === false, 'y el arma vuelve a verse');
-    await sleep(200); for (let k = 0; k < 10; k++) wheel(3); ok(T.slot === 1, 'un trackpad (muchos giros pequeños que suman) cambia una sola vez'); await sleep(200);
+    await sleep(200); for (let k = 0; k < 10; k++) wheel(3); ok(T.slot === 2, 'un trackpad (muchos giros pequeños que suman) cambia una sola vez'); await sleep(200);
     for (let k = 0; k < 10; k++) wheel(100); ok(T.slot === 0, 'un giro rapidísimo de 10 pasos cuenta como un único cambio'); await sleep(200);
     T.cfg.wheelSwap = false; e = wheel(100); ok(T.slot === 0 && e.defaultPrevented, 'con la opción desactivada la rueda no cambia de arma (y sigue sin hacer scroll)'); T.cfg.wheelSwap = true; await sleep(200);
     Object.defineProperty(w.document, 'pointerLockElement', { configurable: true, get: () => null }); T.fallback = true; w.document.dispatchEvent(new w.Event('pointerlockchange'));   // sin bloqueo de puntero (modo de reserva)
-    e = wheel(100); ok(T.slot === 1 && T.state === 'playing', 'también funciona en el modo sin bloqueo de puntero (navegadores o iframes que no lo permiten)'); await sleep(200); wheel(100); await sleep(200);
+    e = wheel(100); ok(T.slot === 2 && T.state === 'playing', 'también funciona en el modo sin bloqueo de puntero (navegadores o iframes que no lo permiten)'); await sleep(200); wheel(100); await sleep(200);
     Object.defineProperty(w.document, 'pointerLockElement', { configurable: true, get: () => w.document.querySelector('canvas') }); w.document.dispatchEvent(new w.Event('pointerlockchange')); ok(T.slot === 0 && T.state === 'playing', 'y se vuelve al arma con el puntero bloqueado otra vez');
 
     /* ---------- Teclas ---------- */
-    T.player.reload = 0.8; key('Digit2'); ok(T.slot === 1 && T.player.reload === 0, 'la tecla 2 saca el cuchillo y cancela una recarga en curso');
+    T.player.reload = 0.8; key('Digit3'); ok(T.slot === 1 && T.player.reload === 0, 'la tecla 3 saca el cuchillo y cancela una recarga en curso'); key('Digit2'); ok(T.slot === 2 && T.player.sec === true, 'la tecla 2 saca la pistola'); key('Digit1'); ok(T.slot === 0 && !T.player.sec, 'y la 1 vuelve a la principal');
     key('Digit1'); ok(T.slot === 0, 'la tecla 1 vuelve al arma'); key('KeyQ'); ok(T.slot === 1, 'Q saca el cuchillo'); key('KeyQ'); ok(T.slot === 1, 'una segunda Q ya no vuelve al arma: golpea, con el cuchillo todavía en la mano'); key('KeyE'); ok(T.slot === 0, 'y E es ahora el camino de vuelta al arma principal');
 
     /* ---------- Cuchillo en mano ---------- */
-    key('Digit2'); frames(4); T.player.fireCd = 0; const ammo0 = T.player.ammo; T.setMouseR(true); frames(6); ok(T.player.aim < 0.01, 'con el cuchillo en mano no se puede apuntar');
+    key('Digit3'); frames(4); T.player.fireCd = 0; const ammo0 = T.player.ammo; T.setMouseR(true); frames(6); ok(T.player.aim < 0.01, 'con el cuchillo en mano no se puede apuntar');
     key('KeyR'); ok(T.player.reload === 0, 'ni recargar'); T.player.meleeCd = 0; T.setMouse(true); frames(1);
     ok(T.player.ammo === ammo0 && T.player.meleeCd > 0.5 && T.player.meleeCd <= 0.55, 'el clic golpea en vez de disparar: no gasta munición y el golpe tiene 0,55 s de enfriamiento (el servidor pide ≥ 0,48 s)');
     frames(3, 0.05); ok(T.knifeG.visible, 'durante el golpe el cuchillo se ve moverse'); T.setMouse(false); T.setMouseR(false); frames(10);
     key('Digit1'); frames(4); T.player.fireCd = 0; T.setMouse(true); frames(2); T.setMouse(false); ok(T.player.ammo < ammo0, 'y con el arma en mano el clic vuelve a disparar');
 
     /* ---------- Muerte: se suelta el cuchillo ---------- */
-    key('Digit2'); ok(T.slot === 1, 'con el cuchillo…'); T.player.alive = false; frames(2); ok(T.slot === 0 && T.slotK === 0, '…al morir se vuelve al arma principal');
+    key('Digit3'); ok(T.slot === 1, 'con el cuchillo…'); T.player.alive = false; frames(2); ok(T.slot === 0 && T.slotK === 0, '…al morir se vuelve al arma principal');
     T.player.alive = true; T.player.hp = 100;
 
     /* ---------- HUD de vida ---------- */

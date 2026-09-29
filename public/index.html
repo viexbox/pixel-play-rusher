@@ -505,8 +505,9 @@ body.playing .chatrow:focus-within{opacity:1}
 
 #ammobox{--wc:var(--volt);position:absolute;right:20px;bottom:20px;width:clamp(250px,24vw,330px);padding:10px 14px 12px}
 .am-slots{display:flex;gap:6px;margin-bottom:10px}
+.cls .hpv{display:block;font:700 10px/1.2 var(--hudf,inherit);font-style:normal;color:#ff7a8a;margin-top:2px}   /* [VIDA POR CLASE] */
 .am-slot{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:9px;border:1px solid transparent;background:rgba(255,255,255,.05);opacity:.5;transition:opacity .1s,background .1s,border-color .1s,transform .1s}
-.am-slot.on{flex:2.2 1 0;opacity:1;background:rgba(255,255,255,.12);border-color:var(--wc);box-shadow:0 0 14px -2px var(--wc);transform:translateY(-1px)}   /* la ranura activa se ve al instante */
+.am-slot.on{flex:3.2 1 0;opacity:1;background:rgba(255,255,255,.12);border-color:var(--wc);box-shadow:0 0 14px -2px var(--wc);transform:translateY(-1px)}   /* la ranura activa se ve al instante */
 .am-slot kbd{flex:none;font:700 10px/1 var(--hudf);min-width:16px;padding:3px 4px;text-align:center;border-radius:4px;background:rgba(255,255,255,.16);color:#fff}
 .am-slot:not(.on) b{display:none}   /* la ranura inactiva queda compacta (tecla + icono); la activa enseña su nombre completo */
 .am-slot .ic{flex:none;width:44px;height:16px;color:#fff;fill:#fff;display:block}
@@ -807,6 +808,13 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
 /* Cartel del equipo asignado */
 #teamBanner{position:fixed;left:50%;top:22%;transform:translate(-50%,-14px);text-align:center;pointer-events:none;opacity:0;z-index:30;padding:14px 46px 16px;background:linear-gradient(90deg,transparent,rgba(6,9,22,.86) 16%,rgba(6,9,22,.86) 84%,transparent);transition:opacity .25s,transform .25s}
 #teamBanner.on{opacity:1;transform:translate(-50%,0)}
+/* [RACHAS] avisos de baja doble/triple, racha y Nuke */
+#announce{position:fixed;left:50%;top:29%;transform:translate(-50%,0) scale(.8);text-align:center;pointer-events:none;opacity:0;z-index:31;transition:opacity .2s,transform .2s;white-space:nowrap}
+#announce.on{opacity:1;transform:translate(-50%,0) scale(1)}
+#announce b{display:block;font:italic 900 44px/1 var(--hudf,inherit);letter-spacing:.04em;color:#fff;text-shadow:0 0 18px var(--ac,#ffd23f),0 3px 0 rgba(0,0,0,.55)}
+#announce small{display:block;font:700 13px/1.4 var(--hudf,inherit);letter-spacing:.3em;color:var(--ac,#ffd23f);margin-top:6px;text-shadow:0 2px 0 rgba(0,0,0,.6)}
+#nukeFlash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:40;transition:opacity 1.8s ease-out}
+#nukeFlash.on{opacity:1;transition:none}
 #teamBanner small{display:block;font-size:13px;letter-spacing:.32em;opacity:.8}
 #teamBanner b{display:block;font-size:clamp(30px,5.4vw,58px);font-style:italic;font-weight:900;letter-spacing:.06em;line-height:1.05}
 #teamBanner em{display:block;font-style:normal;font-size:13px;letter-spacing:.12em;opacity:.85;margin-top:4px}
@@ -1080,6 +1088,7 @@ body.touch.playing:not(.dead) #touchUI{display:block}
 #touchUI #tCrouch{right:max(104px,calc(env(safe-area-inset-right) + 80px));bottom:24px}
 #touchUI #tReload{right:max(132px,calc(env(safe-area-inset-right) + 108px));bottom:92px;width:60px;height:60px;font-size:9px}
 #touchUI #tKnife{right:max(30px,env(safe-area-inset-right));bottom:230px;width:60px;height:60px;font-size:9px}
+#touchUI #tSec{right:max(30px,env(safe-area-inset-right));bottom:300px;width:60px;height:60px;font-size:9px}   /* [PISTOLA] */
 #touchUI .tbtn[hidden]{display:none}
 /* [PORTALES] dentro de CrazyGames/Poki: sin enlaces externos ni compras con dinero */
 html.portal #discordBtn,html.portal .pt-ref,html.portal #logoutBtn{display:none!important}   /* [PORTALES] la Tienda sí se ve (solo lo que se compra con PX; renderStore quita los pagos con dinero) */
@@ -1138,6 +1147,7 @@ body.touch canvas#c,body.touch #touchUI{zoom:var(--uizi,1)}
   <div id="brandHud">Krun<b>xa</b></div>
   <div id="killcard"></div>
   <div id="teamBanner"></div>
+  <div id="announce" aria-live="polite"></div><div id="nukeFlash"></div>
   <div id="toast"></div>
 
   <!-- [REDISEÑO] HUD: vida (abajo izquierda) · ranuras de arma y munición (abajo derecha) -->
@@ -1149,7 +1159,8 @@ body.touch canvas#c,body.touch #touchUI{zoom:var(--uizi,1)}
   <div id="ammobox" class="plate">
     <div class="am-slots" id="slots">
       <div class="am-slot on" id="slot0"><kbd>1</kbd><span id="wicon"></span><b id="wname">Asalto</b></div>
-      <div class="am-slot" id="slot1"><kbd>2</kbd><span class="ic"><svg viewBox="0 0 44 16" aria-hidden="true"><path d="M2 9.5 L27 6 L40 8 L27 10.6 Z"/><rect x="26" y="4.5" width="3" height="8" rx="1"/><rect x="29" y="6" width="13" height="4" rx="1.5" opacity=".7"/></svg></span><b>Cuchillo</b></div>
+      <div class="am-slot" id="slot2"><kbd>2</kbd><span class="ic" id="wicon2"></span><b>Pistola</b></div>
+      <div class="am-slot" id="slot1"><kbd>3</kbd><span class="ic"><svg viewBox="0 0 44 16" aria-hidden="true"><path d="M2 9.5 L27 6 L40 8 L27 10.6 Z"/><rect x="26" y="4.5" width="3" height="8" rx="1"/><rect x="29" y="6" width="13" height="4" rx="1.5" opacity=".7"/></svg></span><b>Cuchillo</b></div>
     </div>
     <div class="am-main"><div id="wtype"></div><div class="am-num"><strong id="mag">30</strong><span id="magmax">/ 30</span></div></div>
     <div class="am-pips" id="pips"></div>

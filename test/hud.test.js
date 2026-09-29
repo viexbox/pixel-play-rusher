@@ -30,7 +30,7 @@ const world = S.buildWorld(0);
   ok($('#wicon svg') && $('#wicon svg').innerHTML.length > 100, 'icono de arma dibujado (' + ($('#wicon svg') ? $('#wicon svg').innerHTML.length : 0) + ' bytes de SVG)');
   ok($$('#pips i').length === 3 && $$('#pips i.on').length === 3, 'indicador de cargador con 3 balas encendidas (Lince: 3 balas, como en Krunker)');
   ok($('#mag').textContent === '3' && $('#magmax').textContent === '/ 3', 'munición 3 / 3');
-  ok($('#hpnum').textContent === '100' && $('#hpbar').style.width === '100%', 'barra de vida al 100 %');
+  ok($('#hpnum').textContent === '60' && $('#hpbar').style.width === '100%', 'barra de vida llena con la vida de la clase (Lince: 60, como el Hunter de Krunker)');   // [VIDA POR CLASE]
   ok(/^\d:\d\d$/.test($('#timer').textContent), 'reloj de partida (' + $('#timer').textContent + ')');
   ok($$('#liveRows li').length >= 5 && $$('#liveRows li.me').length >= 1, 'clasificación lateral con ' + $$('#liveRows li').length + ' filas y tu fila resaltada');
   ok(/Tormenta de Arena/i.test($('#modeName').textContent), 'la barra superior indica el mapa (' + $('#modeName').textContent + ')');
