@@ -26,7 +26,7 @@
       'Buscar objeto o vendedor': 'Search item or seller', 'CAMBIAR': 'SWITCH', 'CHAT': 'CHAT', 'CLASIFICACIÓN': 'LEADERBOARD', 'CR': 'CR',
       'Cab.': 'HS', 'Cambiar arma con la rueda': 'Switch weapon with the mouse wheel', 'Cambiar de clase al reaparecer': 'Change class on respawn',
       'Cambiar de mira (AK y Lince)': 'Change sight (AK and Lynx)',
-      'Cambiar entre arma y cuchillo (con el cuchillo en mano, el clic golpea)': 'Switch between weapon and knife (with the knife out, click stabs)',
+      'Cambiar entre el arma principal y la pistola': 'Switch between your main weapon and the pistol', 'Pistola (arma secundaria)': 'Pistol (secondary weapon)',
       'Cambiar nombre': 'Change name', 'Cambiar vista (V)': 'Change view (V)', 'Campo de visión': 'Field of view', 'Cancelar': 'Cancel',
       'Cerrar': 'Close', 'Cerrar el equipamiento': 'Close loadout', 'Cerrar sesión': 'Log out', 'Clase': 'Class', 'Clasificación': 'Leaderboard',
       'Clasificación de la partida': 'Match scoreboard', 'Clic der.': 'Right click', 'Clic izq.': 'Left click', 'Color del equipo': 'Team colour',
