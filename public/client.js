@@ -2914,13 +2914,47 @@ function setNetMsg(t) { const e = $('#netMsg'); e.textContent = t || ''; e.hidde
 /* [PORTALES] Invitaciones: ?sala=N (o la invitación del portal: roomId + mode) lleva a la sala de un amigo; en CrazyGames, el multijugador
    instantáneo (o llegar por una invitación) entra directo a jugar online en cuanto hay servidor. Al estar en una sala, el portal enseña su botón «Invitar». */
 const invite = { room: null, auto: false, done: false };
+const pvq = { create: false, code: '' };   // [SALAS PRIVADAS] crear una sala privada o entrar con el código de un amigo (se usa una vez, al conectar)
 (function readInvite() {
   const P = window.PPR_PORTAL, get = k => { try { return (P && P.inviteParam(k)) || new URLSearchParams(location.search).get(k); } catch (e) { return null; } };
-  const apply = () => { const r = parseInt(get('roomId') || get('sala'), 10), md = get('mode'); if (r > 0) { invite.room = r; invite.auto = true; if (md && S.MODES[md] && !S.MODES[md].event) { cfg.mode = md; cfg.ranked = false; } } if (P && P.instant()) invite.auto = true; };
+  const apply = () => { const cd = String(get('codigo') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6); if (cd.length === 6) { pvq.code = cd; invite.auto = true; }   // [SALAS PRIVADAS] ?codigo=ABC123
+    const r = parseInt(get('roomId') || get('sala'), 10), md = get('mode'); if (r > 0) { invite.room = r; invite.auto = true; if (md && S.MODES[md] && !S.MODES[md].event) { cfg.mode = md; cfg.ranked = false; } } if (P && P.instant()) invite.auto = true; };
   if (P) P.onReady(() => { apply(); autoJoin(); }); else apply();
 })();
 function autoJoin() { if (invite.auto && !invite.done && serverOK && state === 'menu' && !net.ws) { invite.done = true; setTimeout(() => { if (state === 'menu') startOnline(); }, 400); } }
+/* [SALAS PRIVADAS] Ventana «Sala privada» (en la lobby): crear una sala con el mapa y el modo elegidos, o entrar con el código de un amigo */
+const privLink = code => { const u = new URL(location.href); u.search = ''; u.hash = ''; u.searchParams.set('codigo', code); return u.href; };
+function pvShow() {
+  const c = $('#pvChip'); if (!c) return; c.hidden = !net.pc;
+  if (net.pc) c.innerHTML = '<small>SALA PRIVADA</small><b>' + esc(net.pc) + '</b><button type="button" id="pvCopy">Copiar enlace</button>';
+  const ib = $('#inviteBtn'); if (ib) ib.textContent = net.pc ? 'Copiar código de la sala (' + net.pc + ')' : 'Invitar amigos';
+}
+function openPrivate() {
+  const box = $('#refModal') || (() => { const d = document.createElement('div'); d.id = 'refModal'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true'); d.innerHTML = '<div id="refBox"></div>'; document.body.appendChild(d); d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-rx]')) d.hidden = true; }); return d; })();
+  const inner = $('#refBox'); box.hidden = false;
+  const m = S.MODES[cfg.mode] ? cfg.mode : 'duelo';
+  inner.innerHTML = '<h2>🔒 Sala privada</h2>' +
+    '<p class="ref-how">Crea una partida solo para ti y tus amigos: nadie más puede entrar sin el código. Sin bots y sin clasificatorio.</p>' +
+    '<p class="pv-sel">Mapa: <b>' + esc(S.MAPS[cfg.map].name) + '</b> · Modo: <b>' + esc(S.MODES[m].name) + '</b><br><small>(cámbialos en la lobby antes de crearla)</small></p>' +
+    '<button type="button" class="pv-create" id="pvCreate">Crear sala privada</button>' +
+    '<div class="pv-or"><span>o entra en la de un amigo</span></div>' +
+    '<div class="ref-link"><input id="pvCode" maxlength="6" autocomplete="off" spellcheck="false" placeholder="CÓDIGO" aria-label="Código de la sala"><button type="button" id="pvJoin">Unirse</button></div>' +
+    '<p class="note small" id="pvMsg" role="status"></p><button type="button" class="ref-x" data-rx>Cerrar</button>';
+  const go = (create, code) => {
+    if (!serverOK) { $('#pvMsg').textContent = 'El modo online no está disponible ahora mismo.'; return; }
+    pvq.create = create; pvq.code = code || ''; cfg.ranked = false; box.hidden = true; startOnline();
+  };
+  $('#pvCreate').addEventListener('click', () => go(true, ''));
+  const join = () => { const c = $('#pvCode').value.toUpperCase().replace(/[^A-Z0-9]/g, ''); if (c.length !== 6) { $('#pvMsg').textContent = 'El código tiene 6 letras y números.'; return; } go(false, c); };
+  $('#pvJoin').addEventListener('click', join); $('#pvCode').addEventListener('keydown', e => { if (e.key === 'Enter') join(); });
+  $('#pvCode').focus();
+}
+async function copyPrivate() {
+  if (!net.pc) return; const url = privLink(net.pc);
+  try { await navigator.clipboard.writeText(url); toast('Enlace de la sala privada copiado (código ' + net.pc + '): pásaselo a tus amigos.'); } catch (e) { toast('Código de la sala: ' + net.pc); }
+}
 async function copyInvite() {
+  if (net.pc) return copyPrivate();   // [SALAS PRIVADAS] en una sala privada, el enlace lleva el código
   const room = net.room; if (!room) return;
   const P = window.PPR_PORTAL, params = { roomId: String(room), mode: net.mode || 'duelo' };
   let url = P ? await P.inviteLink(params) : null;
@@ -2985,8 +3019,9 @@ function startOnline() {
   try { ws = new WebSocket(wsUrl()); }
   catch (e) { return netFail('No se pudo abrir la conexión.'); }
   net.ws = ws; net.joined = false;
-  const ptok = partyC.tok; partyC.tok = null;   // [GRUPOS] el billete del grupo se guarda ANTES: borrarlo después de asignar onopen lo borraba antes de enviarlo
-  ws.onopen = () => netSend({ t: 'hello', v: 1, n: cfg.name, map: cfg.map, c: cfg.cls, lk: [cfg.look.col, cfg.look.skin], adm: admToken(), inf: cfg.infKey || '', acct: acctToken(), mode: S.MODES[cfg.mode] ? cfg.mode : 'duelo', rk: cfg.ranked && cfg.mode === 'duelo' ? 1 : 0, tm: cfg.wantTeam, pt: ptok || undefined, jr: invite.room || undefined, src: window.PPR_PORTAL ? window.PPR_PORTAL.name : 'web' });   // [ESTADÍSTICAS] src: desde dónde se juega (web, crazygames, poki)   // [GRUPOS] billete del grupo (solo sirve una vez)
+  const ptok = partyC.tok; partyC.tok = null;
+  const pvo = { c: pvq.create, k: pvq.code }; pvq.create = false; pvq.code = '';   // [SALAS PRIVADAS] solo para esta conexión   // [GRUPOS] el billete del grupo se guarda ANTES: borrarlo después de asignar onopen lo borraba antes de enviarlo
+  ws.onopen = () => netSend({ t: 'hello', v: 1, n: cfg.name, map: cfg.map, c: cfg.cls, lk: [cfg.look.col, cfg.look.skin], adm: admToken(), inf: cfg.infKey || '', acct: acctToken(), mode: S.MODES[cfg.mode] ? cfg.mode : 'duelo', rk: cfg.ranked && cfg.mode === 'duelo' ? 1 : 0, tm: cfg.wantTeam, pt: ptok || undefined, jr: invite.room || undefined, pv: pvo.c ? 1 : undefined, pc: pvo.k || undefined, src: window.PPR_PORTAL ? window.PPR_PORTAL.name : 'web' });   // [ESTADÍSTICAS] src: desde dónde se juega (web, crazygames, poki)   // [GRUPOS] billete del grupo (solo sirve una vez)
   ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } try { netHandle(m); } catch (e) { console.error(e); } };
   ws.onclose = ev => {
     if (net.ws !== ws) return;
@@ -3108,7 +3143,7 @@ function netHandle(m) {
 }
 function onWelcome(m) {
   clearTimeout(net.timer); net.joined = true; net.tries = 0; net.id = m.id; setNetMsg('');
-  net.room = m.spec ? null : m.room; invite.room = null;   // [PORTALES] la invitación solo sirve una vez
+  net.room = m.spec ? null : m.room; invite.room = null; net.pc = m.spec ? '' : (m.pc || ''); pvShow();   // [SALAS PRIVADAS] código de la sala, si es privada   // [PORTALES] la invitación solo sirve una vez
   if (!m.spec) { const ib = $('#inviteBtn'); if (ib) ib.hidden = false; if (window.PPR_PORTAL) window.PPR_PORTAL.showInvite({ roomId: String(m.room), mode: S.MODES[m.mode] ? m.mode : 'duelo' }); }
   { const ec = $('#endCr'), er = $('#endRank'); if (ec) ec.hidden = true; if (er) er.hidden = true; }
   net.mode = S.MODES[m.mode] ? m.mode : 'duelo'; net.ranked = !!m.rk; net.zone = m.zone || null; net.bomb = m.b || null; net.bprog = null; { const tb = $('#tBomb'); if (tb) tb.hidden = net.mode !== 'bomba'; } net.gl = 0; net.rank = null; net.spec = !!m.spec;   // [NUEVO] modo de la sala
@@ -3561,7 +3596,7 @@ function resumeGame() {
 }
 function leaveToMenu() {
   if (online) netDisconnect();
-  net.room = null; { const ib = $('#inviteBtn'); if (ib) ib.hidden = true; } if (window.PPR_PORTAL) window.PPR_PORTAL.hideInvite();   // [PORTALES] fuera de la sala no hay invitación
+  net.room = null; net.pc = ''; pvShow(); { const ib = $('#inviteBtn'); if (ib) ib.hidden = true; } if (window.PPR_PORTAL) window.PPR_PORTAL.hideInvite();   // [PORTALES] fuera de la sala no hay invitación
   online = false; net.spec = false; document.body.classList.remove('spectating'); if (window.PPR_BP.onSpectate) window.PPR_BP.onSpectate(false); state = 'menu'; clearFighters(); $('#again').hidden = false; $('#endNext').hidden = true; hud.hidden = true; $('#pause').hidden = true; $('#end').hidden = true; $('#menu').hidden = false;
   document.body.classList.remove('playing'); gun.visible = false; el.scope.hidden = true; el.optic.hidden = true;
   camera.fov = 60; camera.updateProjectionMatrix();
@@ -4259,7 +4294,7 @@ function partyInvite(name) { if (!acctToken()) return toast('Inicia sesión con 
 const partyIsLead = () => !!(partyC.st && partyC.st.id && partyC.st.lead === cfg.name);
 function renderParty() {
   const box = $('#partyBox'); if (!box) return; const p = partyC.st;
-  if (!p || !p.id) { box.innerHTML = '<button type="button" class="pt-inv" data-pt="friends">＋ Jugar con amigos</button> <button type="button" class="pt-inv pt-ref" data-pt="ref">🎁 Invita y gana PX</button>' + (remote && remote.daily && !remote.daily.claimed ? ' <button type="button" class="pt-inv pt-ref pt-daily" data-pt="daily">📅 Premio diario</button>' : ''); box.classList.remove('on'); return; }
+  if (!p || !p.id) { box.innerHTML = '<button type="button" class="pt-inv" data-pt="friends">＋ Jugar con amigos</button> <button type="button" class="pt-inv pt-priv" data-pt="priv">🔒 Sala privada</button> <button type="button" class="pt-inv pt-ref" data-pt="ref">🎁 Invita y gana PX</button>' + (remote && remote.daily && !remote.daily.claimed ? ' <button type="button" class="pt-inv pt-ref pt-daily" data-pt="daily">📅 Premio diario</button>' : ''); box.classList.remove('on'); return; }
   box.classList.add('on');
   const lead = partyIsLead(), me = (p.members.find(x => x.u === cfg.name) || {});
   box.innerHTML = '<div class="pt-head"><b>Grupo</b><span>' + p.members.length + '/' + p.max + '</span></div><div class="pt-list">' +
@@ -4433,6 +4468,7 @@ function initMenu() {
   $('#partyBox').addEventListener('click', e => { const b = e.target.closest('[data-pt]'); if (!b) return; const a = b.dataset.pt;
     if (a === 'friends') { if (!acctToken()) return toast('Inicia sesión con una cuenta online para jugar en grupo con tus amigos.'); return showTab('profile'); }
     if (a === 'ref') return openReferral();   // [INVITACIONES]
+    if (a === 'priv') return openPrivate();   // [SALAS PRIVADAS]
     if (a === 'daily') return openDaily();   // [DIARIO]
     if (a === 'leave') return lobbySend({ t: 'pleave' });
     if (a === 'kick') return lobbySend({ t: 'pkick', u: b.dataset.u });
@@ -4445,6 +4481,7 @@ function initMenu() {
   $('#lbScope').value = 'local';
   $('#resume').addEventListener('click', resumeGame);
   $('#inviteBtn').addEventListener('click', copyInvite);
+  document.addEventListener('click', e => { if (e.target && e.target.id === 'pvCopy') copyPrivate(); });   // [SALAS PRIVADAS] botón del código en la partida
   { const lp = $('#lobbyPlay'); if (lp && window.ResizeObserver) new ResizeObserver(() => document.documentElement.style.setProperty('--lpH', lp.offsetHeight + 'px')).observe(lp); }   // [LOBBY PRO] los botones de grupo van encima del panel de modos   // [PORTALES] enlace para que un amigo entre en esta sala
   $('#quit').addEventListener('click', leaveToMenu);
   $('#again').addEventListener('click', startMatch);
