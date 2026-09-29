@@ -305,7 +305,9 @@ const MAPS = [
     bomb: [{ n: 'A', x: 0, z: -41, y: 0 }, { n: 'B', x: 0, z: 43, y: 3.2 }],   // [BOMBA] avenida y azotea
     areas: [
       { n: 'Puente', x0: -10, x1: 10, z0: -2, z1: 2, y0: 2.5, y1: 8 },
-      { n: 'Tejados', x0: -34.5, x1: 34.5, z0: -34, z1: -13.5, y0: 7, y1: 14 }, { n: 'Marquesina', x0: -36.5, x1: -23.5, z0: 11, z1: 17, y0: 3.8, y1: 9 }, { n: 'Marquesina', x0: 23.5, x1: 36.5, z0: 11, z1: 17, y0: 3.8, y1: 9 },
+      { n: 'Tejados', x0: -34.5, x1: 34.5, z0: -34.5, z1: -13.5, y0: 7, y1: 14 },
+      { n: 'Edificio central (1.ª planta)', x0: -6, x1: 6, z0: -34, z1: -14, y0: 3.4, y1: 7.2 }, { n: 'Edificio central', x0: -6, x1: 6, z0: -34, z1: -14, y0: -1, y1: 3.4 },
+      { n: 'Mercado', x0: -22, x1: 22, z0: 36, z1: 50, y0: -1, y1: 2.6 }, { n: 'Casa', x0: -44, x1: -34, z0: 41, z1: 50, y0: -1, y1: 3.4 }, { n: 'Casa', x0: 34, x1: 44, z0: 41, z1: 50, y0: -1, y1: 3.4 }, { n: 'Marquesina', x0: -36.5, x1: -23.5, z0: 11, z1: 17, y0: 3.8, y1: 9 }, { n: 'Marquesina', x0: 23.5, x1: 36.5, z0: 11, z1: 17, y0: 3.8, y1: 9 },
       { n: 'Oficinas (1.ª planta)', x0: -34, x1: -20, z0: -28, z1: -14, y0: 3.4, y1: 8 }, { n: 'Oficinas (1.ª planta)', x0: 20, x1: 34, z0: -28, z1: -14, y0: 3.4, y1: 8 },
       { n: 'Oficinas', x0: -34, x1: -20, z0: -28, z1: -14, y0: -1, y1: 3.4 }, { n: 'Oficinas', x0: 20, x1: 34, z0: -28, z1: -14, y0: -1, y1: 3.4 },
       { n: 'Terraza del cine', x0: -24, x1: 24, z0: -50, z1: -46.5, y0: 2.2, y1: 8 },
@@ -329,8 +331,8 @@ const MAPS = [
       const open = this.open, C = 2, N = 64, hash = (i, j) => { const s = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return s - Math.floor(s); };
       const near = (cx, cz) => { for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) if (open(cx + dx * C, cz + dz * C)) return true; return false; };
       const blk = (cx, cz) => hash(Math.floor(Math.abs(cx) / 10), Math.floor((cz + 64) / 10));
-      const mid = (cx, cz) => Math.abs(cx) < 6 && cz > -34 && cz < -14;   // bloque central del norte: tejado a 7,6 m al que se llega por las pasarelas
-      const cellH = (cx, cz) => open(cx, cz) ? 0 : mid(cx, cz) ? 7.6 : near(cx, cz) ? 8 + Math.floor(blk(cx, cz) * 4) : 12;
+      const mid = (cx, cz) => Math.abs(cx) < 6 && cz > -34 && cz < -14;   // bloque central del norte: edificio de dos plantas (tejado a 7,6 m, al que llegan las pasarelas)
+      const cellH = (cx, cz) => open(cx, cz) || mid(cx, cz) ? 0 : near(cx, cz) ? 8 + Math.floor(blk(cx, cz) * 4) : 12;   // el bloque central es un edificio hueco (se construye aparte)
       const COLS = ['#7d4b43', '#6f7482', '#4e5668', '#8b7766'], TEXOF = { '#7d4b43': 'brick', '#6f7482': 'concrete', '#4e5668': 'glass', '#8b7766': 'brick', '#3e4454': 'concrete' };
       const colOf = (x, z) => mid(x, z) ? '#6f7482' : near(x, z) ? COLS[Math.floor(hash(Math.floor(Math.abs(x) / 10) + 7, Math.floor((z + 64) / 10)) * 4)] : '#3e4454';
       /* rectángulos grandes (voraz: se alarga en x y luego en z mientras la altura y el color coincidan): menos cajas que fila a fila */
@@ -349,13 +351,28 @@ const MAPS = [
       b.ramp(10, 18, -1.2, 1.2, 0, 3.2, 'W', ST, 'concrete'); b.ramp(-18, -10, -1.2, 1.2, 0, 3.2, 'E', ST, 'concrete');
       for (const x of [-7, 0, 7]) for (const z of [-1.7, 1.7]) P(x - 0.3, x + 0.3, z - 0.3, z + 0.3, 0, 2.8, DK, 'metal');   // pilares
       for (const s of [-1, 1]) P(-8.5, 8.5, s * 2 - (s > 0 ? 0.2 : 0), s * 2 + (s < 0 ? 0.2 : 0), 3.2, 4.1, DK, 'metal');   // barandillas (abiertas en los extremos, donde llegan las rampas)
+      /* muro con huecos (puertas y ventanas): along = 'x' (va a lo largo de x, en z = f) o 'z' (a lo largo de z, en x = f);
+         holes = [[u0, u1, [[v0, v1], …]], …] en coordenadas del lado este; sx = −1 lo refleja al oeste */
+      const mkWall = sx => (along, f, a0, a1, y0, y1, holes, c, t) => {
+        const seg = (u0, u1, v0, v1) => { if (u1 - u0 < 0.01 || v1 - v0 < 0.01) return; if (along === 'x') P(sx * u0, sx * u1, f - 0.2, f + 0.2, v0, v1, c, t); else P(sx * (f - 0.2), sx * (f + 0.2), u0, u1, v0, v1, c, t); };
+        let u = a0; for (const [h0, h1, vs] of holes) { seg(u, h0, y0, y1); let v = y0; for (const [v0, v1] of vs) { seg(h0, h1, v, v0); v = v1; } seg(h0, h1, v, y1); u = h1; } seg(u, a1, y0, y1);
+      };
+      const G2 = [[1.1, 2.3], [4.8, 6.2]], D2 = [[0, 2.5], [4.8, 6.2]], U2 = [[4.8, 6.2]];   // ventana abajo y arriba / puerta y ventana arriba / solo arriba
+      /* ---------- EDIFICIO CENTRAL (norte): dos plantas, puertas a los cuatro lados, escalera abajo (este) y escalera al tejado (oeste) ---------- */
+      {
+        const W = mkWall(1), CB = '#6b6f86';
+        W('x', -14, -6, 6, 0, 7.2, [[-4.5, -2.5, G2], [-1, 1, D2], [4.4, 5.4, U2]], CB, 'brick');                                      // fachada sur (a la plaza)
+        W('x', -34, -6, 6, 0, 7.2, [[-4.5, -2.5, G2], [-1, 1, D2], [2.5, 4.5, G2]], CB, 'brick');                                       // fachada norte (a la avenida)
+        for (const f of [-6, 6]) W('z', f, -33.8, -14.2, 0, 7.2, [[-31, -29, G2], [-27.5, -26.5, U2], [-22.5, -20.5, U2], [-19, -17, D2]], CB, 'brick');   // fachadas a los callejones
+        b.run('N', -15, 3.2, 2, 10, 0, 0.38, DK, 'metal');                                                                                // escalera a la 1.ª planta (3,8 m)
+        P(-5.8, 2.2, -33.8, -14.2, 3.4, 3.8, FL, 'concrete'); P(4.2, 5.8, -33.8, -14.2, 3.4, 3.8, FL, 'concrete'); P(2.2, 4.2, -33.8, -25, 3.4, 3.8, FL, 'concrete');   // suelo de arriba (hueco sobre la escalera)
+        b.run('S', -33.4, -3.2, 2, 10, 3.8, 0.38, DK, 'metal', 3.8);                                                                      // escalera al tejado (7,6 m)
+        P(-6.2, -4.2, -34.2, -13.8, 7.2, 7.6, DK, 'concrete'); P(-2.2, 6.2, -34.2, -13.8, 7.2, 7.6, DK, 'concrete'); P(-4.2, -2.2, -23.4, -13.8, 7.2, 7.6, DK, 'concrete'); P(-4.2, -2.2, -34.2, -33.4, 7.2, 7.6, DK, 'concrete');   // tejado con hueco
+        P(-4.5, -1.5, -29.5, -28.7, 0, 1.1, WD, 'wood'); P(-0.5, 1.5, -20, -18, 0, 1.2, WD, 'crate'); P(0.5, 3, -30.5, -29.5, 3.8, 4.7, WD, 'wood'); P(-1.5, 0.5, -19, -18, 3.8, 4.7, WD, 'wood');   // mostrador, caja y mesas
+        P(1, 3, -31, -29, 7.6, 8.8, '#9aa0ab', 'metal');                                                                                // aparato de aire en el tejado
+      }
       for (const sx of [-1, 1]) {
-        const X = (a, c) => [sx * a, sx * c];
-        /* muro con huecos: along = 'x' (va a lo largo de x, en z = f) o 'z' (a lo largo de z, en x = f); holes = [[u0, u1, [[v0, v1], …]], …] en coordenadas del lado este */
-        const wall = (along, f, a0, a1, y0, y1, holes, c, t) => {
-          const seg = (u0, u1, v0, v1) => { if (u1 - u0 < 0.01 || v1 - v0 < 0.01) return; if (along === 'x') P(sx * u0, sx * u1, f - 0.2, f + 0.2, v0, v1, c, t); else P(sx * (f - 0.2), sx * (f + 0.2), u0, u1, v0, v1, c, t); };
-          let u = a0; for (const [h0, h1, vs] of holes) { seg(u, h0, y0, y1); let v = y0; for (const [v0, v1] of vs) { seg(h0, h1, v, v0); v = v1; } seg(h0, h1, v, y1); u = h1; } seg(u, a1, y0, y1);
-        };
+        const X = (a, c) => [sx * a, sx * c], wall = mkWall(sx);
         /* ---------- plaza: quioscos, jardineras y coches ---------- */
         P(...X(12, 14), -11, -9, 0, 2.4, '#3f6f8f', 'metal'); P(...X(12, 14), 9, 11, 0, 2.4, '#8f3f6f', 'metal');
         P(...X(3, 6.5), 7.5, 8.5, 0, 0.9, CN, 'concrete'); P(...X(3, 6.5), -8.5, -7.5, 0, 0.9, CN, 'concrete');
@@ -375,7 +392,7 @@ const MAPS = [
         P(...X(42, 45), -35.4, -34.8, 0, 2.4, DK, 'metal'); bus(...X(27, 36), -46.4, -43.8, '#e0a43a');                                                                             // parada de autobús (pared de atrás)
         crate(sx * 46, -46, 1.8, 1.8); crate(sx * 50, -30, 1.6, 1.6); crate(sx * 9, -24, 1.4, 1.2); P(...X(10.6, 11.6), -31, -28.6, 0, 1.3, '#2f6b4a', 'metal');   // callejón: contenedor
         /* ---------- OFICINAS: dos plantas (suelo de arriba a 3,8 m), puertas, ventanas y escalera por dentro ---------- */
-        const G = [[1.1, 2.3], [4.8, 6.2]], D = [[0, 2.5], [4.8, 6.2]], U = [[4.8, 6.2]];   // ventana abajo y arriba / puerta y ventana arriba / solo arriba
+        const G = G2, D = D2, U = U2;
         wall('x', -28, 20, 34, 0, 7.2, [[21.5, 23.5, G], [26, 28, D], [30.5, 32.5, G]], OF, 'brick');                                  // fachada norte (a la avenida)
         wall('x', -14, 20, 34, 0, 7.2, [[21.5, 23.5, G], [25, 27, D], [29, 31, G]], OF, 'brick');                                      // fachada sur (al carril)
         wall('z', 20, -27.8, -14.2, 0, 7.2, [[-26, -24, G], [-22, -20, D], [-18, -16, G]], OF, 'brick');                                // fachada oeste (a la plaza)
@@ -393,7 +410,7 @@ const MAPS = [
         P(...X(6, 19.8), -26, -24, 7.2, 7.6, ST, 'metal'); P(...X(6, 19.8), -26.2, -26, 7.6, 8.5, DK, 'metal'); P(...X(6, 19.8), -24, -23.8, 7.6, 8.5, DK, 'metal');
         P(...X(22, 24), -20, -19, 0, 1.1, WD, 'wood'); P(...X(27, 29.5), -25, -24, 0, 1.1, WD, 'wood');                                  // mostradores abajo
         P(...X(22.5, 25), -26, -25, 3.8, 4.7, WD, 'wood'); P(...X(26, 28.5), -17.5, -16.5, 3.8, 4.7, WD, 'wood');                        // mesas arriba
-        P(...X(1.5, 3.5), -31, -28.5, 7.6, 8.8, '#9aa0ab', 'metal'); crate(sx * 3.5, -18, 1.6, 1.2, 7.6);                             // tejado del bloque central: aparato y caja
+        crate(sx * 4.6, -17, 1.4, 1.2, 7.6);                                                                                            // caja en el tejado del edificio central
         crate(sx * 37.5, -12, 1.6, 1.6); crate(sx * 17.8, -31.5, 1.4, 1.2); P(...X(37, 38.6), -31.5, -29.5, 0, 1.3, '#2f6b4a', 'metal');
         /* ---------- gasolinera (junto a la calle sur): surtidores y coche ---------- */
         for (const x of [26, 30, 34]) P(...X(x - 0.5, x + 0.5), 13.6, 14.4, 0, 1.6, '#d9d9df', 'metal');
@@ -402,15 +419,24 @@ const MAPS = [
         crate(sx * 37, 19.2, 1.6, 1.1); crate(sx * 37, 17.6, 1.6, 2.2); crate(sx * 37, 16, 1.6, 3.3);                             // cajas en escalera para subir a la marquesina
         car(sx * 30, 17.3, true, '#b8323a'); crate(sx * 22, 10, 1.6, 1.6);
         /* ---------- sur: azotea a 3,2 m (rampa desde la calle y escalera desde el patio) ---------- */
-        P(...X(0, 22), 36, 50, 0, 3.2, '#5c6170', 'concrete');
+        /* MERCADO: la azotea es el techo (2,8-3,2 m) de un mercado en el que se entra por la calle (puerta ancha en el centro) y por el patio */
+        P(...X(0, 22.2), 36, 50, 2.8, 3.2, '#5c6170', 'concrete');
+        wall('x', 36, 0, 22.2, 0, 2.8, [[0, 2, [[0, 2.4]]], [4.5, 6.5, [[1, 2]]], [13, 15.5, [[1, 2]]]], '#5c6170', 'concrete');
+        wall('z', 22, 36.2, 50, 0, 2.8, [[38, 40, [[0, 2.4]]], [45, 47, [[1, 2]]]], '#5c6170', 'concrete');
+        P(...X(4, 7), 41, 42, 0, 1.1, WD, 'wood'); P(...X(12, 15), 44.5, 45.5, 0, 1.1, WD, 'wood'); P(...X(17, 19.5), 39.5, 40.5, 0, 1.1, WD, 'wood'); crate(sx * 9, 48, 1.6, 1.6);   // puestos del mercado
         b.ramp(...X(8, 11), 28, 36, 0, 3.2, 'S', ST, 'concrete');                                                                      // rampa de 8 m de la calle a la azotea
         b.run(sx > 0 ? 'W' : 'E', sx * 30, 43, 2, 8, 0, 0.4, CN, 'concrete');                                                            // escalera desde el patio (8 peldaños → 3,2 m)
         P(...X(14, 20), 36, 36.3, 3.2, 4.1, DK, 'metal');                                                                                // pretil (el centro, abierto: se ve la azotea desde la calle)
         P(...X(6, 8.4), 45, 47.5, 3.2, 4.4, '#9aa0ab', 'metal'); P(...X(15, 16.6), 44, 47, 3.2, 4.8, '#9aa0ab', 'metal');               // aparatos de aire acondicionado
         car(sx * 20, 23, true, '#6a3fa0'); car(sx * 36, 30, false, '#d9d9df'); bus(...X(24, 33), 26.4, 29, '#2f8f6a');
         P(...X(3.6, 5.6), 24, 25.8, 0, 2.4, '#8f3f6f', 'metal'); P(...X(15, 17.5), 21.5, 22.3, 0, 1.2, CN, 'concrete');                // quiosco y murete en la calle sur
-        P(...X(32, 38), 44, 46.6, 0, 2.6, '#8a5e50', 'metal'); P(...X(6.5, 9.5), 4.2, 5, 0, 1.1, CN, 'concrete'); P(...X(6.5, 9.5), -5, -4.2, 0, 1.1, CN, 'concrete');   // contenedor en el patio y muretes en la plaza crate(sx * 3, 17, 1.6, 1.6); crate(sx * 14, 16, 1.4, 1.2); crate(sx * 42, 22.5);
-        P(...X(26, 28.6), 38.5, 40.5, 0, 2.4, sx < 0 ? '#c0392b' : '#2f7fbf', 'metal'); crate(sx * 41, 48, 1.8, 1.8); crate(sx * 41, 40, 1.6, 1.6);   // patio
+        P(...X(24, 27), 46.5, 49, 0, 2.6, '#8a5e50', 'metal'); P(...X(6.5, 9.5), 4.2, 5, 0, 1.1, CN, 'concrete'); P(...X(6.5, 9.5), -5, -4.2, 0, 1.1, CN, 'concrete');   // contenedor en el patio y muretes en la plaza crate(sx * 3, 17, 1.6, 1.6); crate(sx * 14, 16, 1.4, 1.2); crate(sx * 42, 22.5);
+        P(...X(26, 28.6), 38.5, 40.5, 0, 2.4, sx < 0 ? '#c0392b' : '#2f7fbf', 'metal'); crate(sx * 41.5, 47.5, 1.4, 1.2); crate(sx * 41, 38.8, 1.6, 1.6);   // patio
+        /* CASA DEL PATIO: una planta, puerta y ventanas (la parte de atrás son los edificios del borde) */
+        wall('z', 34, 41.2, 50, 0, 3.4, [[44, 46, [[0, 2.5]]], [47.5, 49, [[1.1, 2.3]]]], '#8b7766', 'brick');
+        wall('x', 41, 34, 44, 0, 3.4, [[35.5, 37, [[1.1, 2.3]]], [38.5, 40.5, [[0, 2.5]]], [41.5, 43, [[1.1, 2.3]]]], '#8b7766', 'brick');
+        P(...X(33.8, 44), 40.8, 50, 3.4, 3.8, '#6b4a3a', 'roof');
+        P(...X(37, 39.5), 46.5, 48, 0, 0.9, WD, 'wood');                                                                                  // mesa
       }
     }
   }
