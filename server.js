@@ -142,7 +142,7 @@ class Player {
     this.kills = 0; this.deaths = 0; this.points = 0; this.hs = 0; this.streak = 0; this.bestStreak = 0; this.acctUser = null; this.team = 0;
     this.protectUntil = 0; this.respawnAt = 0; this.lastHit = 0; this.lastSt = 0;
     this.cash = S.CONST.SHOP_START_CASH;   // [NUEVO] tienda de armas: dinero de partida, se reinicia cada ronda y se gana matando
-    this.ammo = 0; this.reloadUntil = 0; this.nextFire = 0; this.nextMelee = 0;
+    this.ammo = 0; this.reloadUntil = 0; this.nextFire = 0; this.nextMelee = 0; this.ammo2 = 0; this.reloadUntil2 = 0; this.nextFire2 = 0;   // [PISTOLA] cargador y cadencia de la secundaria
     this.hist = []; this.ping = 60; this.joinedAt = Date.now(); this.room = null; this.gl = 0; this.mmr = 0;   // gl: nivel en la Carrera de armas · mmr: puntuación clasificatoria
   }
   send(str) {
@@ -420,7 +420,7 @@ class Room {
     p.x = best[0]; p.y = 0; p.z = best[1]; p.yaw = Math.atan2(best[0], best[1]); p.pitch = 0; p.h = 1.8;
     p.hp = 100; p.alive = true; p.ep++; p.cls = this.classFor(p);
     const w = S.WEAPONS[p.cls];
-    p.ammo = w.mag; p.reloadUntil = 0; p.nextFire = now + 300; p.protectUntil = now + (protectMs || 1500); p.lastHit = now; p.lastSt = now;
+    p.ammo = w.mag; p.reloadUntil = 0; p.nextFire = now + 300; p.ammo2 = S.SECONDARY.mag; p.reloadUntil2 = 0; p.nextFire2 = now + 300; p.protectUntil = now + (protectMs || 1500); p.lastHit = now; p.lastSt = now;
     p.hist = [{ t: now, x: p.x, y: p.y, z: p.z, h: p.h }];
     this.broadcast({ t: 'spawn', id: p.id, x: r3(p.x), y: 0, z: r3(p.z), yaw: r3(p.yaw), ep: p.ep, c: p.cls, hp: 100 });
   }
@@ -575,13 +575,15 @@ class Room {
   }
   onShoot(p, m, now) {
     if (!p.alive || this.phase !== 'play' || !this.gunsAllowed(p)) return;   // [NUEVO] sin armas de fuego en «Solo cuchillos» ni en el último nivel de la Carrera
-    const w = S.WEAPONS[p.cls];
-    if (now < p.reloadUntil || p.ammo <= 0) return;
+    const sec = m.s === 1;   // [PISTOLA] disparo con la secundaria: su propio cargador, recarga y cadencia (no en la Carrera)
+    if (sec && this.mode === 'carrera') return;
+    const w = sec ? S.SECONDARY : S.WEAPONS[p.cls], A = sec ? 'ammo2' : 'ammo', RU = sec ? 'reloadUntil2' : 'reloadUntil', NF = sec ? 'nextFire2' : 'nextFire';
+    if (now < p[RU] || p[A] <= 0) return;
     /* [ARMAS KRUNKER] Fusil de ráfaga: cada bala «cuesta» la cadencia media (ráfaga + pausa), con crédito para las balas seguidas de una misma ráfaga */
     const gap = w.burst ? ((w.burst - 1) * w.interval + w.burstCd) / w.burst : w.interval, slack = w.burst ? (w.burst - 1) * (gap - w.interval) * 1000 : 0;
-    if (now + 40 + slack < p.nextFire) { p.rlv++; return; }
-    p.nextFire = Math.max(p.nextFire, now - 30) + gap * 1000;
-    p.ammo--; p.shots++;
+    if (now + 40 + slack < p[NF]) { p.rlv++; return; }
+    p[NF] = Math.max(p[NF] || 0, now - 30) + gap * 1000;
+    p[A]--; p.shots++;
     if (!Array.isArray(m.d) || m.d.length < 1) return;
     const eye = { x: p.x, y: p.y + p.h - 0.2, z: p.z };
     let o = eye;
@@ -607,7 +609,7 @@ class Room {
       }
     }
     if (agg.size) p.hits++;
-    if (firstEnd) this.broadcast({ t: 'shot', id: p.id, rl: p.role || 0, o: [r3(o.x), r3(o.y), r3(o.z)], e: firstEnd, c: p.cls }, p);
+    if (firstEnd) this.broadcast({ t: 'shot', id: p.id, rl: p.role || 0, o: [r3(o.x), r3(o.y), r3(o.z)], e: firstEnd, c: p.cls, s: sec ? 1 : undefined }, p);
     for (const [v, a] of agg) this.damage(v, p, a.dmg, a.head, w.name, now);
   }
   /* [ARMAS KRUNKER] Proyectiles (lanzacohetes y ballesta): salen de la mira, avanzan con su velocidad y gravedad y en cada tick se prueba el tramo recorrido
@@ -1092,6 +1094,10 @@ function onMessage(ws, m, now) {
     case 'melee': return room.onMelee(p, m, now);
     case 'bact': p.bact = m.on === 1 && room.mode === 'bomba'; return;   // [BOMBA] mantener E: plantar o desactivar
     case 'reload': {
+      if (m.s === 1) {   // [PISTOLA] recarga de la secundaria
+        if (!p.alive || now < p.reloadUntil2 || p.ammo2 >= S.SECONDARY.mag) return;
+        p.reloadUntil2 = now + S.SECONDARY.reload * 900; p.ammo2 = S.SECONDARY.mag; return;
+      }
       if (!p.alive || now < p.reloadUntil) return;
       const w = S.WEAPONS[p.cls]; if (p.ammo >= w.mag) return;
       p.reloadUntil = now + w.reload * 900; p.ammo = w.mag; return;

@@ -1467,7 +1467,7 @@ function buildCrossbowHD(k, w, s, L, bl) {
 const GUN_BUILDERS = {
   asalto: buildRifleHD, precision: buildRifleHD, centinela: buildRifleHD, ak: buildAkHD, lince: buildSniperHD,
   rafaga: (k, w, s, L, bl) => buildSmgHD(k, w, s, L, bl, {}), vortice: (k, w, s, L, bl) => buildSmgHD(k, w, s, L, bl, { supp: true, foregrip: true }),
-  torrente: buildLmgHD, trueno: buildShotgunHD, sheriff: buildRevolverHD, duo: buildPistolHD,
+  torrente: buildLmgHD, trueno: buildShotgunHD, sheriff: buildRevolverHD, duo: buildPistolHD, pistola: buildPistolHD,
   triada: buildBullpupHD, cometa: buildLauncherHD, arpon: buildCrossbowHD   // [ARMAS KRUNKER]
 };
 /* [REALISTAS] Tono de cada arma sin skin (cuerpo): pavonado, polímero verde oliva, arena, acero inoxidable… y el resto de piezas de verdad */
@@ -2174,15 +2174,25 @@ function playerHurtFx(amount, ax, az) {
   addShake(0.2 + clamp(amount / 100, 0, 1) * 0.55);
 }
 
-let slot = 0, slotK = 0, slashT = 0;            // slotK: 0..1 = cuánto está sacado el cuchillo (animación); slashT: golpe con el cuchillo en mano
+let slot = 0, slotK = 0, slashT = 0;            // slot: 0 = arma principal, 1 = cuchillo, 2 = pistola (secundaria); slotK: 0..1 = cuánto está sacado el cuchillo (animación); slashT: golpe con el cuchillo en mano
+/* [PISTOLA] Arma en la mano: la principal de la clase o la pistola secundaria (S.SECONDARY). p.sec dice cuál; cada una lleva su cargador (p.ammo / p.ammo2) */
+const PW = p => (p && p.sec ? S.SECONDARY : WEAPONS[p.wi]);
+const secOK = () => gunsOK() && !(online && net.mode === 'carrera');   // sin pistola en la Carrera (el arma la da el nivel)
+function useSec(on) {   // cambia entre la principal y la pistola: intercambia los cargadores y el modelo en la mano
+  const p = player; on = !!on && secOK(); if (!p || !!p.sec === on) return;
+  const a = p.ammo; p.ammo = p.ammo2 == null ? S.SECONDARY.mag : p.ammo2; p.ammo2 = a; p.sec = on; p.reload = 0; p.burstLeft = 0; p.fireCd = Math.max(p.fireCd || 0, 0.12);
+  buildGun(PW(p)); if (typeof hudCache !== 'undefined') hudCache.wi = -1;
+}
 let wheelAcc = 0, wheelT = 0, wheelLock = 0;    // acumulador y enfriamiento de la rueda
 const SLOT_TIME = 0.11, WHEEL_STEP = 30, WHEEL_LOCK_MS = 140;
 function setSlot(s) {
   if (!gunsOK()) s = 1;   // [NUEVO] en «Solo cuchillos» y en el último nivel de la Carrera solo hay cuchillo
   const p = player; if (!p || !p.alive || state !== 'playing' || s === slot) return;
+  if (s === 2 && !secOK()) return;
+  if (s !== 1) useSec(s === 2);
   slot = s; p.reload = 0; pendingMelee = 0; inspectT = 0; if (s === 1) knifeFlip = 0; sfx.draw(); updateSlotHud();
 }
-function resetSlot() { slot = gunsOK() ? 0 : 1; slotK = 0; slashT = 0; if (typeof updateSlotHud === 'function' && el.slots) updateSlotHud(); }
+function resetSlot() { if (player) { player.sec = false; player.ammo2 = S.SECONDARY.mag; } slot = gunsOK() ? 0 : 1; slotK = 0; slashT = 0; if (typeof updateSlotHud === 'function' && el.slots) updateSlotHud(); }
 /* Rueda: normaliza el tamaño del giro (ratón clásico, ratón libre o trackpad), cambia en cuanto se supera un pequeño umbral y
    deja un enfriamiento corto para que un giro rápido o la inercia del trackpad no hagan rebotar el cambio.
    Durante el enfriamiento los giros se descartan (no se acumulan), así un giro «de más» nunca anula el siguiente gesto. */
@@ -2196,7 +2206,7 @@ function onWheel(e) {
   if (t - wheelT > 250) wheelAcc = 0;                                        // una pausa larga = gesto nuevo
   wheelT = t; wheelAcc += dy;
   if (Math.abs(wheelAcc) < WHEEL_STEP) return;
-  wheelAcc = 0; wheelLock = t + WHEEL_LOCK_MS; setSlot(1 - slot);
+  wheelAcc = 0; wheelLock = t + WHEEL_LOCK_MS; setSlot(secOK() ? (slot === 0 ? 2 : 0) : 1 - slot);   // [PISTOLA] la rueda alterna principal y pistola (como en Krunker); sin pistola, arma y cuchillo
 }
 const ease01 = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
 let flashes = [], gunKick = 0, reloadAnim = 0, altHand = 0;
@@ -2351,7 +2361,7 @@ const hud = $('#hud'), el = {
   myPts: $('#myPts'), myKD: $('#myKD'), leadName: $('#leadName'), leadPts: $('#leadPts'), banner: $('#banner'),
   live: $('#liveRows'), lbPlace: $('#lbPlace'), feed: $('#feed'), cross: $('#crosshair'), hitmark: $('#hitmark'), dmgnums: $('#dmgnums'), killcard: $('#killcard'),
   scope: $('#scope'), optic: $('#optic'), scZoom: $('#scZoom'), scRange: $('#scRange'), vig: $('#dmgvig'), dir: $('#dmgdir'), lowhp: $('#lowhp'), toast: $('#toast'),
-  hpbox: $('#hpbox'), hpghost: $('#hpghost'), slots: $('#slots'), slot0: $('#slot0'), slot1: $('#slot1'),   // [REDISEÑO] rastro de daño y ranuras de arma
+  hpbox: $('#hpbox'), hpghost: $('#hpghost'), slots: $('#slots'), slot0: $('#slot0'), slot1: $('#slot1'), slot2: $('#slot2'),   // [REDISEÑO] rastro de daño y ranuras de arma
   hpbar: $('#hpbar'), hpnum: $('#hpnum'), hpProt: $('#hpProt'), streakPips: [...document.querySelectorAll('#hpStreak i')],
   ammobox: $('#ammobox'), wname: $('#wname'), wtype: $('#wtype'), wicon: $('#wicon'), mag: $('#mag'), magmax: $('#magmax'), pips: $('#pips'),
   reload: $('#amReload'), reloadBar: $('#amReloadBar'), reloadmsg: $('#reloadmsg'),
@@ -2455,7 +2465,8 @@ function updateHudSlow() {
   if (!el.board.hidden) el.boardRows.innerHTML = tableRows(s, player);
 }
 function buildAmmoUi(w) {
-  el.wname.textContent = w.name; el.wtype.textContent = w.type + (w.optics ? ' · ' + opticOf(w).name : ''); $('#optHint').hidden = !w.optics; el.wicon.innerHTML = weaponIcon(w);
+  const pw = WEAPONS[player.wi] || w;   // [PISTOLA] la ranura 1 siempre enseña la principal; la munición y el tipo, el arma que llevas en la mano
+  el.wname.textContent = pw.name; if (el.slot2 && !el.slot2.dataset.ic) { el.slot2.dataset.ic = 1; $('#wicon2').innerHTML = weaponIcon(S.SECONDARY); } el.wtype.textContent = w.type + (w.optics ? ' · ' + opticOf(w).name : ''); $('#optHint').hidden = !w.optics; el.wicon.innerHTML = weaponIcon(pw);
   el.magmax.textContent = '/ ' + w.mag; el.pips.innerHTML = '<i></i>'.repeat(w.mag); el.ammobox.style.setProperty('--wc', w.col);
   hudCache.pips = -1;
 }
@@ -2463,11 +2474,11 @@ function buildAmmoUi(w) {
 /* [NUEVO] Preferencias del HUD: tamaño de las tarjetas (variable CSS --hs) y modo compacto */
 function applyHudPrefs() { document.documentElement.style.setProperty('--hs', String(clamp(+cfg.hudScale || 100, 80, 120) / 100)); document.body.classList.toggle('hud-compact', !!cfg.hudCompact); }
 function updateSlotHud() {
-  el.slot0.classList.toggle('on', slot === 0); el.slot1.classList.toggle('on', slot === 1);
+  el.slot0.classList.toggle('on', slot === 0); el.slot1.classList.toggle('on', slot === 1); if (el.slot2) { el.slot2.classList.toggle('on', slot === 2); el.slot2.hidden = !secOK(); }
   el.ammobox.classList.toggle('knife', slot === 1);
 }
 function updateHudFast() {
-  const p = player, w = WEAPONS[p.wi];
+  const p = player, w = PW(p);
   setTxt(el.timer, 'tm', fmtTime(timeLeft)); el.timer.classList.toggle('low', timeLeft <= 10 && !(online && net.wait));
   const hp = Math.max(0, Math.ceil(p.hp));
   setTxt(el.hpnum, 'hp', hp); el.hpbar.style.width = clamp(p.hp, 0, 100) + '%';
@@ -2477,7 +2488,7 @@ function updateHudFast() {
   el.lowhp.classList.toggle('on', p.alive && p.hp < 30);
   el.hpProt.hidden = !(p.alive && p.protect > 0);
   const st = Math.min(5, p.streak || 0); if (hudCache.st !== st) { hudCache.st = st; el.streakPips.forEach((n, i) => n.classList.toggle('on', i < st)); }
-  if (hudCache.wi !== p.wi) { hudCache.wi = p.wi; buildAmmoUi(w); }
+  const wk = p.wi + (p.sec ? 's' : ''); if (hudCache.wi !== wk) { hudCache.wi = wk; buildAmmoUi(w); }
   setTxt(el.mag, 'mag', p.ammo); el.mag.classList.toggle('low', p.ammo <= Math.ceil(w.mag * 0.25));
   if (hudCache.pips !== p.ammo) { hudCache.pips = p.ammo; const k = el.pips.children; for (let i = 0; i < k.length; i++) k[i].classList.toggle('on', i < p.ammo); }
   const rel = p.reload > 0; el.reload.classList.toggle('on', rel); if (rel) el.reloadBar.style.width = (1 - p.reload / w.reload) * 100 + '%';
@@ -2588,7 +2599,7 @@ const TUT_STEPS = [
   { pc: 'Dispara con clic izquierdo', tc: 'Mantén pulsado DISPARAR', ok: () => TUT.shots >= 3 || !gunsOK() },   // en «Solo cuchillos» no hay armas: se salta
   { pc: 'Salta con Espacio', tc: 'Pulsa SALTAR', ok: p => !p.onGround && p.vel.y > 1 },
   { pc: 'Corre hacia delante y pulsa Mayús para deslizarte', tc: 'Corre y pulsa AGACHAR para deslizarte', ok: p => p.slide > 0 },
-  { pc: 'Saca el cuchillo con Q (o 2) y golpea con clic', tc: 'Pulsa CUCHILLO para sacarlo', ok: () => slot === 1 },
+  { pc: 'Saca el cuchillo con Q (o 3) y golpea con clic', tc: 'Pulsa CUCHILLO para sacarlo', ok: () => slot === 1 },
   { pc: '¡Listo! Juega online para ganar PX: tienda, ruletas y pase de batalla', tc: '¡Listo! Juega online para ganar PX: tienda, ruletas y pase de batalla', end: true }
 ];
 function startTutorial(force) {
@@ -2613,7 +2624,7 @@ function tickTutorial() {
   if (st.ok(player)) { sfx.gold(); TUT.i++; TUT.t = 0; if (TUT.i === 2) TUT.shots = 0; drawTutorial(); if (TUT.el) TUT.el.classList.add('tut-ok'); }
 }
 function playerShoot() {
-  const p = player, w = WEAPONS[p.wi];
+  const p = player, w = PW(p);
   if (p.reload > 0 || p.fireCd > 0 || knifeT > 0) return;
   if (p.ammo <= 0) { startReload(); return; }
   p.ammo--; p.fireCd = w.interval; TUT.shots++;   // TUT: para el tutorial
@@ -2640,7 +2651,7 @@ function playerShoot() {
     if (i < 3 || w.pellets === 1) tracer(muzzle, r.point, online && player.rl ? '#ffd23f' : '#fff1b8');
   }
   if (online) netSend({ t: 'st', ep: net.ep, x: r3(p.pos.x), y: r3(p.pos.y), z: r3(p.pos.z), yaw: r3(p.yaw), pitch: r3(p.pitch), h: r3(p.h) });   // [ANTITRAMPAS] el servidor comprueba el disparo con la mira de este mismo instante
-  if (online) netSend({ t: 'shoot', o: [r3(origin.x), r3(origin.y), r3(origin.z)], d: dirs });
+  if (online) netSend({ t: 'shoot', o: [r3(origin.x), r3(origin.y), r3(origin.z)], d: dirs, s: p.sec ? 1 : undefined });   // [PISTOLA] s = 1: disparo con la secundaria
   sfx.shot(w, 1);
   if (scoped) { el.scope.classList.add('kick'); setTimeout(() => el.scope.classList.remove('kick'), 120); }
   if (w.scope && w.interval > 0.5) setTimeout(() => { if (state === 'playing' || state === 'paused') sfx.bolt(); }, 380);
@@ -2661,18 +2672,18 @@ function meleeHit() {
   if (online) netSend({ t: 'melee', d: [r3(d.x), r3(d.y), r3(d.z)] });
 }
 function startReload() {
-  const p = player, w = WEAPONS[p.wi];
+  const p = player, w = PW(p);
   p.burstLeft = 0;
   if (p.reload > 0 || p.ammo >= w.mag || knifeT > 0) return;
   p.reload = w.reload; reloadAnim = 1; sfx.reload();
-  if (online) netSend({ t: 'reload' });
+  if (online) netSend({ t: 'reload', s: p.sec ? 1 : undefined });
 }
 function updatePlayer(dt) {
-  const p = player, w = WEAPONS[p.wi];
+  const p = player, w = PW(p);
   p.protect = Math.max(0, p.protect - dt); p.fireCd = Math.max(0, p.fireCd - dt); p.meleeCd = Math.max(0, (p.meleeCd || 0) - dt);
   if (!p.alive) {
     resetGameFeel();   // [NUEVO] al morir se quita el retroceso y el FOV extra
-    knifeT = 0; pendingMelee = 0; knifeG.visible = false; slot = 0; slotK = 0; slashT = 0; p.burstLeft = 0;   // [NUEVO] al morir se suelta el cuchillo
+    knifeT = 0; pendingMelee = 0; knifeG.visible = false; slot = 0; slotK = 0; slashT = 0; p.burstLeft = 0; if (p.sec) { p.sec = false; p.ammo2 = S.SECONDARY.mag; buildGun(WEAPONS[p.wi]); }   // [PISTOLA] al morir se vuelve a la principal   // [NUEVO] al morir se suelta el cuchillo
     if (online) el.deathCount.textContent = net.mode === 'bomba' ? 'Reapareces en la siguiente ronda.' : 'Reapareces en ' + Math.max(1, Math.ceil((net.respawnAt - performance.now()) / 1000)) + ' s.';   // [BOMBA] sin reaparecer hasta la ronda siguiente   // [CORREGIDO] ya no se cambia de arma con 1-9: ahora es la tienda
     else if (simTime >= p.respawnAt) respawn(p);
     else el.deathCount.textContent = 'Reapareces en ' + Math.ceil(p.respawnAt - simTime) + ' s.';   // [CORREGIDO] ya no se cambia de arma con 1-9: ahora es la tienda
@@ -2684,7 +2695,7 @@ function updatePlayer(dt) {
   const sinY = Math.sin(p.yaw), cosY = Math.cos(p.yaw);
   let wx = -sinY * fwd + cosY * str, wz = -cosY * fwd - sinY * str;
   const wl = Math.hypot(wx, wz); if (wl > 0) { wx /= wl; wz /= wl; }
-  p.aim = clamp(p.aim + ((mouseR && slot === 0 ? 1 : 0) - p.aim) * Math.min(1, dt * 22), 0, 1);   // [AJUSTE] apuntado más rápido (antes 14)   // [NUEVO] sin apuntar con el cuchillo
+  p.aim = clamp(p.aim + ((mouseR && slot !== 1 ? 1 : 0) - p.aim) * Math.min(1, dt * 22), 0, 1);   // [AJUSTE] apuntado más rápido (antes 14)   // [NUEVO] sin apuntar con el cuchillo
   const crouching = !!keys.ShiftLeft || !!keys.ShiftRight;   // [CONTROLES] Mayús = agacharse/deslizar (antes era «correr»; ya no hay una tecla de correr aparte, como en Krunker)
   let speed = crouching ? CROUCH : SPRINT;   // se corre siempre a lo que antes era la velocidad de «sprint»: sin un paso intermedio de «caminar»
   if (p.aim > 0.3) speed *= 0.85;   // [AJUSTE] apuntar frena menos (antes 0,72)
@@ -2699,7 +2710,7 @@ function updatePlayer(dt) {
   const eyeT = p.h - 0.2 - (p.slide > 0 ? 0.26 : 0); p.eye += (eyeT - p.eye) * Math.min(1, dt * 14);   // la cámara baja más al deslizarse
   // disparo y recarga
   if (p.reload > 0) { p.reload -= dt; if (p.reload <= 0) { p.reload = 0; p.ammo = w.mag; } }
-  if (mouseL || (p.burstLeft > 0 && slot === 0)) { if (slot === 1) playerMelee(); else playerShoot(); }   // [ARMAS KRUNKER] la ráfaga se acaba aunque sueltes   // [NUEVO] con el cuchillo en mano, el clic golpea
+  if (mouseL || (p.burstLeft > 0 && slot !== 1)) { if (slot === 1) playerMelee(); else playerShoot(); }   // [ARMAS KRUNKER] la ráfaga se acaba aunque sueltes   // [NUEVO] con el cuchillo en mano, el clic golpea
   // cámara
   p.pitch = clamp(p.pitch, -1.5, 1.5);
   fixOffset.multiplyScalar(Math.exp(-GF.FIX_SMOOTH * dt)); if (fixOffset.lengthSq() < 1e-6) fixOffset.set(0, 0, 0);   // [PR1] se va disolviendo solo; el jugador sigue moviéndose con normalidad mientras tanto
@@ -2742,7 +2753,7 @@ function updatePlayer(dt) {
   /* [NUEVO] Viewmodel (S.createViewmodel, en shared.js): vaivén senoidal según la velocidad y lerp suave al apuntar, con el arma desplazada justo para que su
      punto de mira (sightH sobre el origen del arma) caiga en el centro de la pantalla. Las demás animaciones (retroceso, recarga, cambio de arma, deslizamiento) van en `extra`. */
   const pose = viewmodel.update(dt, {
-    speed: moving, onGround: p.onGround, adsTarget: !!(mouseR && slot === 0),
+    speed: moving, onGround: p.onGround, adsTarget: !!(mouseR && slot !== 1),
     hip: { x: w.dual ? 0 : (long ? 0.17 : 0.2), y: -0.2, z: long ? -0.42 : -0.35 }, sight: opt ? { x: 0, y: adsSightY(w, opt), z: 0 } : null,
     extra: { py: -sw * 0.42 - slideK * 0.045, pz: gunKick * 0.07 + sw * 0.1, rx: gunKick * 0.06 - Math.sin(reloadAnim * Math.PI) * 0.6 - sw * 0.9, ry: sw * 0.3, rz: Math.sin(reloadAnim * Math.PI) * 0.25 + slideK * 0.12 }
   });
@@ -3248,7 +3259,7 @@ function onNetShot(m) {
   const dir = e.clone().sub(o).normalize(), start = o.clone().addScaledVector(dir, 0.7); start.y -= 0.25;
   tracer(start, e, m.rl ? '#ffd23f' : '#ffb3b6');
   const pd = player ? Math.hypot(o.x - player.pos.x, o.z - player.pos.z) : 99;
-  if (WEAPONS[m.c]) sfx.shot(WEAPONS[m.c], clamp(1 - pd / 55, 0, 1) * 0.7);
+  const sw = m.s ? S.SECONDARY : WEAPONS[m.c]; if (sw) sfx.shot(sw, clamp(1 - pd / 55, 0, 1) * 0.7);   // [PISTOLA]
 }
 function onNetProj(m) {   // [ARMAS KRUNKER] cohete o virote de otro jugador
   const w = WEAPONS[m.c]; if (!w || !w.proj || !Array.isArray(m.o) || !Array.isArray(m.v)) return;
@@ -3302,7 +3313,7 @@ function onNetRank(m) {   // puntuación clasificatoria tras la ronda (se enseñ
   e.innerHTML = 'CLASIFICATORIO · <b>' + (m.delta >= 0 ? '+' : '') + m.delta + '</b> → ' + m.mmr + ' pts · <b>' + esc(m.league) + '</b>' + (m.up ? ' · ¡SUBES DE LIGA!' : m.down ? ' · bajas de liga' : '') + (m.games <= 10 ? ' <small>(colocación ' + m.games + '/10)</small>' : '');
 }
 function onNetTeam(m) { // el servidor equilibra los equipos entre rondas
-  if (m.id === net.id) { player.team = m.tm; buildGun(WEAPONS[player.wi]); toast('Cambias al equipo ' + TEAMS[m.tm].n + ' para equilibrar'); teamBanner(m.tm, 'Equipos equilibrados'); updateHudSlow(); return; }
+  if (m.id === net.id) { player.team = m.tm; buildGun(PW(player)); toast('Cambias al equipo ' + TEAMS[m.tm].n + ' para equilibrar'); teamBanner(m.tm, 'Equipos equilibrados'); updateHudSlow(); return; }
   const f = net.remotes.get(m.id); if (!f || f.team === m.tm) return;
   f.team = m.tm; f.color = TEAMS[m.tm].c; scene.remove(f.mesh); scene.remove(f.label);
   f.mesh = buildBot(f.color, f.wi, f.seed, f.skin, f.accent); f.label = makeLabel(f.name, f.rl, f.team); f.mesh.visible = f.alive; f.label.visible = f.alive;
@@ -3818,7 +3829,7 @@ function updateLobby() {
   updateEquip();
 }
 function cycleOptic() {
-  const p = player, w = WEAPONS[p.wi]; if (!w.optics || p.aim > 0.3 || p.reload > 0) return;
+  const p = player, w = PW(p); if (!w.optics || p.aim > 0.3 || p.reload > 0) return;
   const next = w.optics[(w.optics.indexOf(opticIdOf(w)) + 1) % w.optics.length];
   cfg.optics[w.id] = next; saveCfg(); buildGun(w); buildAmmoUi(w); toast('Mira: ' + OPTICS[next].name); sfx.reload();
 }
@@ -4454,7 +4465,7 @@ document.addEventListener('pointerlockchange', () => {
 document.addEventListener('pointerlockerror', () => { fallback = true; });
 document.addEventListener('mousemove', e => {
   if (state !== 'playing' || !player || !player.alive || !(locked || fallback)) return;
-  const k = 0.0022 * cfg.sens * (player.aim > 0.3 ? aimFovOf(WEAPONS[player.wi]) + 0.15 : 1);
+  const k = 0.0022 * cfg.sens * (player.aim > 0.3 ? aimFovOf(PW(player)) + 0.15 : 1);
   player.yaw -= (e.movementX || 0) * k; player.pitch -= (e.movementY || 0) * k;
 });
 document.addEventListener('mousedown', e => {
@@ -4473,9 +4484,9 @@ document.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'Tab') { el.board.hidden = false; updateHudSlow(); }
   if (e.code === 'Escape' && !locked && el.death.hidden) pauseGame();   // [NUEVO] con la tienda abierta el cursor ya está libre: Escape no debe abrir la pausa encima
-  if (e.code === 'KeyR' && player.alive && slot === 0) startReload();   // con el cuchillo en mano no se recarga
+  if (e.code === 'KeyR' && player.alive && slot !== 1) startReload();   // con el cuchillo en mano no se recarga
   if (e.code === 'KeyE' && online && net.mode === 'bomba') netSend({ t: 'bact', on: 1 });   // [BOMBA] mantener E: plantar o desactivar
-  if (e.code === 'Digit1') setSlot(0); else if (e.code === 'Digit2' || e.code === 'Digit3') setSlot(1); else if (e.code === 'KeyE') setSlot(0);   // [CONTROLES] 1/E = arma principal, 2/3 = cuchillo
+  if (e.code === 'Digit1') setSlot(0); else if (e.code === 'Digit2') setSlot(secOK() ? 2 : 1); else if (e.code === 'Digit3') setSlot(1); else if (e.code === 'KeyE') setSlot(0);   // [PISTOLA] 1/E = arma principal, 2 = pistola, 3 = cuchillo
   if (e.code === 'KeyQ') { if (slot !== 1) setSlot(1); else playerMelee(); }   // [CONTROLES] Q: si no tienes el cuchillo en la mano, lo saca; si ya lo tienes, golpea
   if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && player.alive && S.startSlide(player)) sfx.slide();   // [CONTROLES] agacharse en marcha (ahora con Mayús) = deslizarse (reglas en S.MOVE)
   if (e.code === 'Space' && player.alive) jumpQueued = true;   // [CONTROLES] salto de pulsación única: se arma aquí (una vez) y se consume en el siguiente paso de física
@@ -4502,13 +4513,13 @@ function initTouch() {
   const ui = document.createElement('div'); ui.id = 'touchUI';
   const B = (id, txt, cls) => '<button type="button" id="' + id + '" class="tbtn ' + (cls || '') + '">' + txt + '</button>';
   ui.innerHTML = '<div class="tzone tz-move"></div><div class="tzone tz-look"></div><div class="tjoy" hidden><i></i></div>' +
-    B('tFire', 'DISPARAR', 'big') + B('tAim', 'APUNTAR') + B('tJump', 'SALTAR') + B('tCrouch', 'AGACHAR') + B('tReload', 'RECARGAR') + B('tKnife', 'CUCHILLO') + B('tBomb', 'BOMBA') + B('tBoard', 'TAB', 'sm') + B('tPause', '❚❚', 'sm') +
+    B('tFire', 'DISPARAR', 'big') + B('tAim', 'APUNTAR') + B('tJump', 'SALTAR') + B('tCrouch', 'AGACHAR') + B('tReload', 'RECARGAR') + B('tKnife', 'CUCHILLO') + B('tSec', 'PISTOLA') + B('tBomb', 'BOMBA') + B('tBoard', 'TAB', 'sm') + B('tPause', '❚❚', 'sm') +
     '<div id="tRotate">Gira el móvil para jugar en horizontal</div>';
   document.body.appendChild(ui); ui.querySelector('#tBomb').hidden = true;
   const joy = ui.querySelector('.tjoy'), knob = joy.querySelector('i'), R = 56, act = {};   // act: qué hace cada dedo (por identificador)
   const alive = () => state === 'playing' && player && player.alive;
   const look = (t, a) => {   // mirar con el dedo (misma sensibilidad que el ratón, un poco más rápida para el pulgar)
-    const k = 0.0048 * cfg.sens * (player && player.aim > 0.3 ? aimFovOf(WEAPONS[player.wi]) + 0.15 : 1);
+    const k = 0.0048 * cfg.sens * (player && player.aim > 0.3 ? aimFovOf(PW(player)) + 0.15 : 1);
     if (alive()) { player.yaw -= (t.clientX - a.x) * k; player.pitch -= (t.clientY - a.y) * k; }
     a.x = t.clientX; a.y = t.clientY;
   };
@@ -4520,7 +4531,8 @@ function initTouch() {
     else if (!on) return;
     else if (id === 'tAim') { mouseR = !mouseR; ui.querySelector('#tAim').classList.toggle('on', mouseR); }
     else if (id === 'tJump') { if (alive()) jumpQueued = true; }
-    else if (id === 'tReload') { if (alive() && slot === 0) startReload(); }
+    else if (id === 'tReload') { if (alive() && slot !== 1) startReload(); }
+    else if (id === 'tSec') { if (!alive()) return; setSlot(slot === 2 ? 0 : 2); }   // [PISTOLA]
     else if (id === 'tKnife') { if (!alive()) return; if (slot !== 1) setSlot(1); else setSlot(0); }
     else if (id === 'tPause') pauseGame();
   };
@@ -4701,7 +4713,7 @@ buildMap(cfg.map); applyShadows(); initMenu(); resize(); setInterval(() => { if 
 Object.assign(window.PPR_BP, { partyInvite, petSvg, unlockedColors: () => unlocked(), pickColor, currentColor: () => cfg.look.col,   // [INVENTARIO]
   gunPreview: (wid, skinId) => { const w = WEAPONS.find(x => x.id === wid); return w ? gunModel(w, 0, null, skinId) : null; },   // [3D] el arma con su skin, igual que en la partida
   limit: () => teamLimit, cfg, saveCfg, net: () => net, netSend, sfx, curMap: () => curMap, player: () => player, camera: () => camera, scene: () => scene, THREE, startSpectate, stopSpectate, specCycle, setSpecView: v => { net.specView = v; }, gunsOK, setCr: n => { if (remote) { remote.credits = n; renderCr(); } }, S, fmt: fmtKr, esc, toast, acctToken, apiUrl, acctPost, remote: () => remote, showTab, syncRemote, setPx: n => { if (remote) { remote.px = n; renderKr(); } },
-  rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(WEAPONS[player.wi]); setPreviewPet(); updatePreview(); if ($('#petsBox')) renderPets(); if ($('#outfitsBox')) renderOutfits(); if ($('#knivesBox')) renderKnives(); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
+  rebuild() { buildKnifeModel(); if (player && state !== 'menu') buildGun(PW(player)); setPreviewPet(); updatePreview(); if ($('#petsBox')) renderPets(); if ($('#outfitsBox')) renderOutfits(); if ($('#knivesBox')) renderKnives(); }, weaponName: id => (WEAPONS.find(w => w.id === id) || {}).name || id });
 requestAnimationFrame(frame);
 if (CFG_SERVER) document.querySelectorAll('.legal a[href]').forEach(a => { const h = a.getAttribute('href'); if (!/^[a-z]+:/i.test(h)) a.href = apiUrl(h); });   // [PORTALES] Términos y Privacidad apuntan al servidor aunque la página esté en otra web
 if (window.PPR_PORTAL) window.PPR_PORTAL.loadingDone();   // [PORTALES] el juego ya está listo
