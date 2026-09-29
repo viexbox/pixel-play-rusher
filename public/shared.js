@@ -322,6 +322,7 @@ const MAPS = [
       const CN = '#6f7482', DK = '#3a3f4b', ST = '#6c7180', WD = '#8a6a42', OF = '#8a5e50', FL = '#4a4f5c';
       const P = (x0, x1, z0, z1, y0, y1, c, t) => b.box(Math.min(x0, x1), Math.max(x0, x1), Math.min(z0, z1), Math.max(z0, z1), y0, y1, c, t);
       const crate = (x, z, s = 2, h = 2, y = 0) => P(x - s / 2, x + s / 2, z - s / 2, z + s / 2, y, y + h, WD, 'crate');
+      const bus = (x0, x1, z0, z1, col) => P(x0, x1, z0, z1, 0, 3, col, 'metal');   // autobús aparcado (9 × 2,6 × 3 m): tapa las líneas de tiro largas; ventanas y ruedas en el cliente
       const car = (x, z, alongX, col) => alongX ? P(x - 2, x + 2, z - 0.95, z + 0.95, 0, 1.4, col, 'metal') : P(x - 0.95, x + 0.95, z - 2, z + 2, 0, 1.4, col, 'metal');   // coche aparcado (las ruedas y cristales, en el cliente)
       b.perimeter(64, 12, DK);
       /* ---------- edificios del borde (filas de 2 m fundidas en rectángulos): los que dan a la calle entre 8 y 11 m y de colores; los de detrás, 12 m y de un solo color ---------- */
@@ -360,8 +361,10 @@ const MAPS = [
         P(...X(3, 6.5), 7.5, 8.5, 0, 0.9, CN, 'concrete'); P(...X(3, 6.5), -8.5, -7.5, 0, 0.9, CN, 'concrete');
         car(sx * 8, -12.3, true, sx < 0 ? '#c8c9cf' : '#2d2f36'); crate(sx * 14.8, 12.8, 1.4, 1.2);
         /* ---------- carril central (30 m): bolardos, contenedor, barreras y cajas ---------- */
-        P(...X(22, 22.8), -1, 2.2, 0, 1.1, CN, 'concrete'); P(...X(28, 29.8), -3.8, -2.2, 0, 1.6, '#2f6b4a', 'metal'); crate(sx * 34, 2.8, 1.4, 1.2);
-        P(...X(40, 40.6), -2.6, 0.8, 0, 1.1, CN, 'concrete'); crate(sx * 45, -2.6, 1.6, 1.6);
+        P(...X(22, 22.8), -1, 2.2, 0, 1.1, CN, 'concrete'); P(...X(28, 29.8), -3.8, -2.2, 0, 1.6, '#2f6b4a', 'metal'); crate(sx * 26, 2.6, 1.4, 1.2);
+        P(...X(40, 40.6), -3.6, -0.6, 0, 1.1, CN, 'concrete'); crate(sx * 45, -2.6, 1.6, 1.6);
+        bus(...X(31, 40), 1, 3.6, sx < 0 ? '#c0392b' : '#2f7fbf');                                                                      // autobús en el carril central
+        P(...X(47, 47.8), -7, -3, 0, 1.2, CN, 'concrete'); P(...X(47, 47.8), 3, 7, 0, 1.2, CN, 'concrete');                                // barricadas a la salida de la base
         /* ---------- base: marquesinas de metro (macizas) y cajas ---------- */
         P(...X(57, 62), -12, -8, 0, 3, DK, 'metal'); P(...X(57, 62), 8, 12, 0, 3, DK, 'metal');
         crate(sx * 51, -10, 1.6, 1.6); crate(sx * 51, 10, 1.6, 1.6); crate(sx * 50, 0, 1.4, 1.2);
@@ -369,7 +372,7 @@ const MAPS = [
         P(...X(0, 24), -50, -46.5, 0, 2.8, CN, 'concrete'); P(...X(0, 22), -46.8, -46.5, 2.8, 3.7, DK, 'metal');                        // terraza y pretil
         b.ramp(...X(24, 32), -50, -47, 0, 2.8, sx > 0 ? 'W' : 'E', ST, 'concrete');                                                     // rampa de 8 m desde la avenida
         car(sx * 8, -37.2, true, sx < 0 ? '#b8323a' : '#2d6fb8'); car(sx * 18, -43, true, '#d9d9df'); car(sx * 40, -41, false, '#e8c21a'); car(sx * 30, -36.8, true, '#6a3fa0');
-        P(...X(42, 45), -35.4, -34.8, 0, 2.4, DK, 'metal');                                                                             // parada de autobús (pared de atrás)
+        P(...X(42, 45), -35.4, -34.8, 0, 2.4, DK, 'metal'); bus(...X(27, 36), -46.4, -43.8, '#e0a43a');                                                                             // parada de autobús (pared de atrás)
         crate(sx * 46, -46, 1.8, 1.8); crate(sx * 50, -30, 1.6, 1.6); crate(sx * 9, -24, 1.4, 1.2); P(...X(10.6, 11.6), -31, -28.6, 0, 1.3, '#2f6b4a', 'metal');   // callejón: contenedor
         /* ---------- OFICINAS: dos plantas (suelo de arriba a 3,8 m), puertas, ventanas y escalera por dentro ---------- */
         const G = [[1.1, 2.3], [4.8, 6.2]], D = [[0, 2.5], [4.8, 6.2]], U = [[4.8, 6.2]];   // ventana abajo y arriba / puerta y ventana arriba / solo arriba
@@ -404,8 +407,10 @@ const MAPS = [
         b.run(sx > 0 ? 'W' : 'E', sx * 30, 43, 2, 8, 0, 0.4, CN, 'concrete');                                                            // escalera desde el patio (8 peldaños → 3,2 m)
         P(...X(14, 20), 36, 36.3, 3.2, 4.1, DK, 'metal');                                                                                // pretil (el centro, abierto: se ve la azotea desde la calle)
         P(...X(6, 8.4), 45, 47.5, 3.2, 4.4, '#9aa0ab', 'metal'); P(...X(15, 16.6), 44, 47, 3.2, 4.8, '#9aa0ab', 'metal');               // aparatos de aire acondicionado
-        car(sx * 20, 23, true, '#6a3fa0'); car(sx * 36, 30, false, '#d9d9df'); crate(sx * 3, 17, 1.6, 1.6); crate(sx * 14, 16, 1.4, 1.2); crate(sx * 42, 22.5);
-        P(...X(26, 28.6), 38.5, 40.5, 0, 2.4, sx < 0 ? '#c0392b' : '#2f7fbf', 'metal'); crate(sx * 38, 47, 1.8, 1.8); crate(sx * 41, 40, 1.6, 1.6);   // patio
+        car(sx * 20, 23, true, '#6a3fa0'); car(sx * 36, 30, false, '#d9d9df'); bus(...X(24, 33), 26.4, 29, '#2f8f6a');
+        P(...X(3.6, 5.6), 24, 25.8, 0, 2.4, '#8f3f6f', 'metal'); P(...X(15, 17.5), 21.5, 22.3, 0, 1.2, CN, 'concrete');                // quiosco y murete en la calle sur
+        P(...X(32, 38), 44, 46.6, 0, 2.6, '#8a5e50', 'metal'); P(...X(6.5, 9.5), 4.2, 5, 0, 1.1, CN, 'concrete'); P(...X(6.5, 9.5), -5, -4.2, 0, 1.1, CN, 'concrete');   // contenedor en el patio y muretes en la plaza crate(sx * 3, 17, 1.6, 1.6); crate(sx * 14, 16, 1.4, 1.2); crate(sx * 42, 22.5);
+        P(...X(26, 28.6), 38.5, 40.5, 0, 2.4, sx < 0 ? '#c0392b' : '#2f7fbf', 'metal'); crate(sx * 41, 48, 1.8, 1.8); crate(sx * 41, 40, 1.6, 1.6);   // patio
       }
     }
   }

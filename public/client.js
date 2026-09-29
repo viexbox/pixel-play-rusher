@@ -660,6 +660,13 @@ function decorate(L, m) {
         for (const v of [-0.6, 0.6]) { Q(2.01, v, 0.8, 0.04, 0.4, 0.2, '#fff6d8', true); Q(-2.01, v, 0.85, 0.04, 0.4, 0.16, '#ff2b3a', true); }
         continue;
       }
+      /* autobús (9 × 2,6 × 3): ventanas encendidas, ruedas, faros y letrero */
+      if (Math.abs(h - 3) < 0.01 && Math.abs(Math.max(w, d) - 9) < 0.01 && Math.abs(Math.min(w, d) - 2.6) < 0.01) {
+        const ax = w > d, Q = (u, v, y, lu, lv, hh, col, basic) => decoBox(ax ? cx + u : cx + v, y, ax ? cz + v : cz + u, ax ? lu : lv, hh, ax ? lv : lu, col, basic);
+        for (const v of [-1.32, 1.32]) { Q(0.3, v, 1.4, 7.6, 0.04, 0.9, '#f2d79a', true); for (let u = -3.2; u < 3.8; u += 1.5) Q(u, v * 1.01, 1.4, 0.1, 0.05, 0.9, '#20242e'); for (const u of [-3, 3]) Q(u, v, 0, 1, 0.14, 0.8, '#111318'); }
+        Q(4.52, 0, 1.3, 0.04, 2.2, 1.1, '#bfe8ff', true); Q(4.52, 0, 2.55, 0.05, 1.6, 0.3, '#ff9a3c', true); for (const v of [-0.9, 0.9]) Q(4.52, v, 0.5, 0.05, 0.35, 0.2, '#fff6d8', true);
+        continue;
+      }
       if (c.minY > 0.05 || h < 7.5) continue;
       /* edificios: fachadas que dan a la calle */
       const faces = [[c.minX, c.maxX, c.minZ, 'z', -1], [c.minX, c.maxX, c.maxZ, 'z', 1], [c.minZ, c.maxZ, c.minX, 'x', -1], [c.minZ, c.maxZ, c.maxX, 'x', 1]];
