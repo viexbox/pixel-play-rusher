@@ -281,88 +281,119 @@ const MAPS = [
     }
   },
   /* ================= [MAPAS KRUNKER 4] CIUDAD NOCTURNA (de noche, con neones) =================
-     88 × 88 m y NO es un cuadrado: el borde son edificios altos de ladrillo, hormigón y cristal (open() dice qué suelo se pisa).
-     Simétrico de oeste (ROJO) a este (AZUL). En la plaza central, el puente elevado (3,2 m, rampas de 8 m); al norte, la avenida
-     de neón (ancha, con coches aparcados y la terraza del cine a 2,8 m con rampas); al sur, los callejones y la azotea a 3,2 m
-     (rampas desde la calle); bases con pasos a las tres calles. Los neones, ventanas encendidas y carteles son decoración del cliente. */
+     128 × 128 m (más grande que los otros, como los mapas de Krunker) y NO es un cuadrado: el borde son edificios de ladrillo,
+     hormigón y cristal (open() dice qué suelo se pisa). Simétrico de oeste (ROJO) a este (AZUL).
+     Plaza central con el puente elevado (3,2 m, rampas de 8 m); al norte, la avenida de neón (larga, para francotiradores,
+     con coches y la terraza del cine a 2,8 m) y las OFICINAS: edificio de dos plantas en el que se entra (puertas, escalera
+     y ventanas para disparar desde dentro); al sur, la calle con la azotea (3,2 m, rampas), el patio y la gasolinera.
+     Los neones, ventanas encendidas y carteles son decoración del cliente. */
   {
-    name: 'Ciudad Nocturna', half: 44,
-    desc: 'Ciudad de noche llena de neones: puente elevado sobre la plaza, avenida ancha con coches y la terraza del cine, y una azotea con rampas entre callejones.',
+    name: 'Ciudad Nocturna', half: 64,
+    desc: 'Ciudad de noche llena de neones: puente elevado sobre la plaza, avenida larga con coches y la terraza del cine, oficinas de dos plantas en las que se entra y una azotea con rampas.',
     sky: ['#070a1c', '#2a2150'], fog: '#1a1836', floor: ['#3b3f4c', '#353946'], out: '#2c2f3a', pal: ['#4e5668', '#ff2bd6', '#22e6ff', '#7d4b43', '#ffd23f'],
     look: { floor: 'asphalt', outFloor: 'asphalt', wall: 'concrete', block: 'concrete', crate: 'crate', plat: 'concrete', sun: '#b9c8ff', decor: 'neon', night: true, pixel: 16, wallH: 12, trimBase: '#2b2f3a', trimTop: '#8a91a3' },
     open(x, z) {
-      const ax = Math.abs(x), R = [[30, 42, -10, 10], [0, 14, -12, 12], [14, 30, -4, 4], [0, 34, -35, -20], [30, 34, -20, -10], [6, 12, -20, -12], [0, 28, 18, 36], [26, 34, 10, 24], [0, 4, 12, 18], [10, 14, 12, 18]];
+      const ax = Math.abs(x), R = [[48, 62, -12, 12], [0, 16, -14, 14], [16, 48, -4, 4], [0, 52, -50, -34], [48, 52, -34, -12], [6, 12, -34, -14], [12, 40, -34, -10],
+        [0, 44, 20, 36], [44, 52, 12, 36], [0, 4, 14, 20], [12, 16, 14, 20], [0, 44, 36, 50], [20, 40, 8, 20]];
       return R.some(r => ax >= r[0] && ax <= r[1] && z >= r[2] && z <= r[3]);
     },
     spawns: {
-      1: [[-36, -6], [-37, -2], [-36, 2], [-37, 6], [-34, -4], [-34, 4], [-39, 0]],
-      0: [[36, -6], [37, -2], [36, 2], [37, 6], [34, -4], [34, 4], [39, 0]]
+      1: [[-56, -8], [-57, -4], [-56, 0], [-57, 4], [-56, 8], [-53, -5], [-53, 5]],
+      0: [[56, -8], [57, -4], [56, 0], [57, 4], [56, 8], [53, -5], [53, 5]]
     },
-    zones: [{ n: 'Puente', x: 0, z: 0, y: 3.2 }, { n: 'Avenida', x: 0, z: -25, y: 0 }, { n: 'Azotea', x: 0, z: 31, y: 3.2 }],
-    bomb: [{ n: 'A', x: 0, z: -25, y: 0 }, { n: 'B', x: 0, z: 31, y: 3.2 }],   // [BOMBA] avenida y azotea
+    zones: [{ n: 'Puente', x: 0, z: 0, y: 3.2 }, { n: 'Avenida', x: 0, z: -41, y: 0 }, { n: 'Azotea', x: 0, z: 43, y: 3.2 }],
+    bomb: [{ n: 'A', x: 0, z: -41, y: 0 }, { n: 'B', x: 0, z: 43, y: 3.2 }],   // [BOMBA] avenida y azotea
     areas: [
-      { n: 'Puente', x0: -8, x1: 8, z0: -2, z1: 2, y0: 2.5, y1: 8 },
-      { n: 'Terraza del cine', x0: -20, x1: 20, z0: -35, z1: -31, y0: 2.2, y1: 8 },
-      { n: 'Azotea', x0: -18, x1: 18, z0: 26, z1: 36, y0: 2.5, y1: 8 },
-      { n: 'Base roja', x0: -44, x1: -30, z0: -10, z1: 10, y0: -1, y1: 4 }, { n: 'Base azul', x0: 30, x1: 44, z0: -10, z1: 10, y0: -1, y1: 4 },
-      { n: 'Avenida', x0: -34, x1: 34, z0: -36, z1: -20, y0: -1, y1: 4 },
-      { n: 'Callejón', x0: -34, x1: 34, z0: -20, z1: -12, y0: -1, y1: 4 }, { n: 'Callejón', x0: -34, x1: 34, z0: 10, z1: 38, y0: -1, y1: 4 },
-      { n: 'Carril central', x0: -30, x1: 30, z0: -4, z1: 4, y0: -1, y1: 4 },
-      { n: 'Plaza', x0: -14, x1: 14, z0: -12, z1: 12, y0: -1, y1: 4 }
+      { n: 'Puente', x0: -10, x1: 10, z0: -2, z1: 2, y0: 2.5, y1: 8 },
+      { n: 'Oficinas (1.ª planta)', x0: -34, x1: -20, z0: -28, z1: -14, y0: 3.4, y1: 8 }, { n: 'Oficinas (1.ª planta)', x0: 20, x1: 34, z0: -28, z1: -14, y0: 3.4, y1: 8 },
+      { n: 'Oficinas', x0: -34, x1: -20, z0: -28, z1: -14, y0: -1, y1: 3.4 }, { n: 'Oficinas', x0: 20, x1: 34, z0: -28, z1: -14, y0: -1, y1: 3.4 },
+      { n: 'Terraza del cine', x0: -24, x1: 24, z0: -50, z1: -46.5, y0: 2.2, y1: 8 },
+      { n: 'Azotea', x0: -22, x1: 22, z0: 36, z1: 50, y0: 2.5, y1: 8 },
+      { n: 'Base roja', x0: -64, x1: -48, z0: -12, z1: 12, y0: -1, y1: 4 }, { n: 'Base azul', x0: 48, x1: 64, z0: -12, z1: 12, y0: -1, y1: 4 },
+      { n: 'Avenida', x0: -52, x1: 52, z0: -52, z1: -34, y0: -1, y1: 4 },
+      { n: 'Gasolinera', x0: -40, x1: -20, z0: 8, z1: 20, y0: -1, y1: 4 }, { n: 'Gasolinera', x0: 20, x1: 40, z0: 8, z1: 20, y0: -1, y1: 4 },
+      { n: 'Patio', x0: -44, x1: -22, z0: 36, z1: 50, y0: -1, y1: 4 }, { n: 'Patio', x0: 22, x1: 44, z0: 36, z1: 50, y0: -1, y1: 4 },
+      { n: 'Callejón', x0: -52, x1: 52, z0: -34, z1: -4, y0: -1, y1: 4 }, { n: 'Calle sur', x0: -52, x1: 52, z0: 14, z1: 36, y0: -1, y1: 4 },
+      { n: 'Carril central', x0: -48, x1: 48, z0: -4, z1: 4, y0: -1, y1: 4 },
+      { n: 'Plaza', x0: -16, x1: 16, z0: -14, z1: 14, y0: -1, y1: 4 }
     ],
     build(b) {
-      const CN = '#6f7482', DK = '#3a3f4b', ST = '#6c7180', WD = '#8a6a42', RD = '#c0392b', BL = '#2f7fbf';
-      const P = (x0, x1, z0, z1, y0, y1, c, t) => b.box(Math.min(x0, x1), Math.max(x0, x1), z0, z1, y0, y1, c, t);
+      const CN = '#6f7482', DK = '#3a3f4b', ST = '#6c7180', WD = '#8a6a42', OF = '#8a5e50', FL = '#4a4f5c';
+      const P = (x0, x1, z0, z1, y0, y1, c, t) => b.box(Math.min(x0, x1), Math.max(x0, x1), Math.min(z0, z1), Math.max(z0, z1), y0, y1, c, t);
       const crate = (x, z, s = 2, h = 2, y = 0) => P(x - s / 2, x + s / 2, z - s / 2, z + s / 2, y, y + h, WD, 'crate');
       const car = (x, z, alongX, col) => alongX ? P(x - 2, x + 2, z - 0.95, z + 0.95, 0, 1.4, col, 'metal') : P(x - 0.95, x + 0.95, z - 2, z + 2, 0, 1.4, col, 'metal');   // coche aparcado (las ruedas y cristales, en el cliente)
-      b.perimeter(44, 12, DK);
-      /* ---------- edificios del borde (filas de 2 m fundidas en rectángulos): los que dan a la calle entre 8 y 12 m, los de detrás 13-15 m ---------- */
-      const open = this.open, C = 2, N = 44, hash = (i, j) => { const s = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return s - Math.floor(s); };
-      const near = (cx, cz, r) => { for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) if (open(cx + dx * C, cz + dz * C)) return true; return false; };
-      const cellH = (cx, cz) => { if (open(cx, cz)) return 0; const hv = hash(Math.floor(Math.abs(cx) / 8), Math.floor((cz + 44) / 8)); return near(cx, cz, 1) ? 8 + Math.floor(hv * 5) : near(cx, cz, 3) ? 13 + Math.floor(hv * 3) : 16; };
+      b.perimeter(64, 12, DK);
+      /* ---------- edificios del borde (filas de 2 m fundidas en rectángulos): los que dan a la calle entre 8 y 11 m y de colores; los de detrás, 12 m y de un solo color ---------- */
+      const open = this.open, C = 2, N = 64, hash = (i, j) => { const s = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return s - Math.floor(s); };
+      const near = (cx, cz) => { for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) if (open(cx + dx * C, cz + dz * C)) return true; return false; };
+      const blk = (cx, cz) => hash(Math.floor(Math.abs(cx) / 10), Math.floor((cz + 64) / 10));
+      const cellH = (cx, cz) => open(cx, cz) ? 0 : near(cx, cz) ? 8 + Math.floor(blk(cx, cz) * 4) : 12;
       const COLS = ['#7d4b43', '#6f7482', '#4e5668', '#8b7766'], TEXOF = { '#7d4b43': 'brick', '#6f7482': 'concrete', '#4e5668': 'glass', '#8b7766': 'brick', '#3e4454': 'concrete' };
-      const colOf = (x, z) => near(x, z, 3) ? COLS[Math.floor(hash(Math.floor(Math.abs(x) / 8) + 7, Math.floor((z + 44) / 8)) * 4)] : '#3e4454';   // los de detrás, de un solo color (menos cajas)
-      const rects = [];
-      for (let z = -N; z < N; z += C) {
-        let cur = null; const row = [];
-        for (let x = -N; x <= N; x += C) {
-          const h = x < N ? cellH(x + C / 2, z + C / 2) : 0, c = h ? colOf(x + C / 2, z + C / 2) : '';
-          if (cur && (h !== cur.h || c !== cur.c)) { row.push(cur); cur = null; }
-          if (!cur && h) cur = { x0: x, x1: x + C, h, c }; else if (cur) cur.x1 = x + C;
-        }
-        for (const r of row) { const q = rects.find(q => q.z1 === z && q.x0 === r.x0 && q.x1 === r.x1 && q.h === r.h && q.c === r.c); if (q) q.z1 = z + C; else rects.push(Object.assign(r, { z0: z, z1: z + C })); }
+      const colOf = (x, z) => near(x, z) ? COLS[Math.floor(hash(Math.floor(Math.abs(x) / 10) + 7, Math.floor((z + 64) / 10)) * 4)] : '#3e4454';
+      /* rectángulos grandes (voraz: se alarga en x y luego en z mientras la altura y el color coincidan): menos cajas que fila a fila */
+      const M = N * 2 / C, key = [], used = new Uint8Array(M * M);
+      for (let j = 0; j < M; j++) for (let i = 0; i < M; i++) { const cx = -N + i * C + C / 2, cz = -N + j * C + C / 2, h = cellH(cx, cz); key.push(h ? h + colOf(cx, cz) : ''); }
+      for (let j = 0; j < M; j++) for (let i = 0; i < M; i++) {
+        const k = key[j * M + i]; if (!k || used[j * M + i]) continue;
+        let w = 1; while (i + w < M && key[j * M + i + w] === k && !used[j * M + i + w]) w++;
+        let d = 1; while (j + d < M) { let ok = true; for (let q = 0; q < w && ok; q++) ok = key[(j + d) * M + i + q] === k && !used[(j + d) * M + i + q]; if (!ok) break; d++; }
+        for (let a = 0; a < d; a++) for (let q = 0; q < w; q++) used[(j + a) * M + i + q] = 1;
+        const cx = -N + i * C + C / 2, cz = -N + j * C + C / 2, c = colOf(cx, cz);
+        P(-N + i * C, -N + (i + w) * C, -N + j * C, -N + (j + d) * C, 0, cellH(cx, cz), c, TEXOF[c]);
       }
-      for (const r of rects) P(r.x0, r.x1, r.z0, r.z1, 0, r.h, r.c, TEXOF[r.c]);
       /* ---------- plaza: puente elevado (tablero de 2,8 a 3,2 m, se pasa por debajo) con rampas de 8 m al carril central ---------- */
-      P(-8, 8, -2, 2, 2.8, 3.2, ST, 'concrete');
-      b.ramp(8, 16, -1.2, 1.2, 0, 3.2, 'W', ST, 'concrete'); b.ramp(-16, -8, -1.2, 1.2, 0, 3.2, 'E', ST, 'concrete');
-      for (const x of [-5, 0, 5]) for (const z of [-1.7, 1.7]) P(x - 0.3, x + 0.3, z - 0.3, z + 0.3, 0, 2.8, DK, 'metal');   // pilares
-      for (const s of [-1, 1]) { P(-6.5, 6.5, s * 2 - (s > 0 ? 0.2 : 0), s * 2 + (s < 0 ? 0.2 : 0), 3.2, 4.1, DK, 'metal'); }  // barandillas (abiertas en los extremos, donde llegan las rampas)
+      P(-10, 10, -2, 2, 2.8, 3.2, ST, 'concrete');
+      b.ramp(10, 18, -1.2, 1.2, 0, 3.2, 'W', ST, 'concrete'); b.ramp(-18, -10, -1.2, 1.2, 0, 3.2, 'E', ST, 'concrete');
+      for (const x of [-7, 0, 7]) for (const z of [-1.7, 1.7]) P(x - 0.3, x + 0.3, z - 0.3, z + 0.3, 0, 2.8, DK, 'metal');   // pilares
+      for (const s of [-1, 1]) P(-8.5, 8.5, s * 2 - (s > 0 ? 0.2 : 0), s * 2 + (s < 0 ? 0.2 : 0), 3.2, 4.1, DK, 'metal');   // barandillas (abiertas en los extremos, donde llegan las rampas)
       for (const sx of [-1, 1]) {
         const X = (a, c) => [sx * a, sx * c];
-        /* plaza: quioscos, jardineras y coches */
-        P(...X(10, 12), -8.5, -6.5, 0, 2.4, '#3f6f8f', 'metal'); P(...X(10, 12), 6.5, 8.5, 0, 2.4, '#8f3f6f', 'metal');
-        P(...X(3, 6), 6.5, 7.5, 0, 0.9, CN, 'concrete'); P(...X(3, 6), -7.5, -6.5, 0, 0.9, CN, 'concrete');
-        car(sx * 7, -10.5, true, sx < 0 ? '#c8c9cf' : '#2d2f36'); crate(sx * 12.5, 10.8, 1.4, 1.2);
-        /* ---------- carril central: bolardos, contenedor y cajas ---------- */
-        P(...X(20, 20.8), -1, 2.2, 0, 1.1, CN, 'concrete'); P(...X(25, 26.8), -3.8, -2.2, 0, 1.6, '#2f6b4a', 'metal'); crate(sx * 23, 2.8, 1.4, 1.2);
-        /* ---------- base: marquesina de metro (maciza) y cajas ---------- */
-        P(...X(38.5, 42), -10, -6, 0, 3, DK, 'metal'); P(...X(38.5, 42), 6, 10, 0, 3, DK, 'metal');
-        crate(sx * 33, -8.2, 1.6, 1.6); crate(sx * 33, 8.2, 1.6, 1.6); crate(sx * 31.5, 0, 1.4, 1.2);
-        /* ---------- avenida norte: coches aparcados, parada de autobús y la terraza del cine (2,8 m) con rampa ---------- */
-        P(...X(0, 20), -35, -31.5, 0, 2.8, CN, 'concrete');                                                                                // terraza (mitad de cada lado)
-        P(...X(0, 18), -31.8, -31.5, 2.8, 3.7, DK, 'metal');                                                                                 // pretil de la terraza
-        b.ramp(...X(20, 28), -35, -32, 0, 2.8, sx > 0 ? 'W' : 'E', ST, 'concrete');                                                          // rampa de 8 m desde el extremo de la avenida
-        car(sx * 6, -22.5, true, sx < 0 ? '#b8323a' : '#2d6fb8'); car(sx * 16, -27, true, '#d9d9df'); car(sx * 29, -24, false, '#e8c21a');
-        P(...X(10, 13), -21.2, -20.6, 0, 2.4, DK, 'metal');                                                                                  // parada de autobús (pared de atrás)
-        crate(sx * 32, -14, 1.6, 1.6); crate(sx * 8, -15.5, 1.4, 1.2); P(...X(10.6, 11.6), -18.6, -16.2, 0, 1.3, '#2f6b4a', 'metal');   // callejón: contenedor
+        /* muro con huecos: along = 'x' (va a lo largo de x, en z = f) o 'z' (a lo largo de z, en x = f); holes = [[u0, u1, [[v0, v1], …]], …] en coordenadas del lado este */
+        const wall = (along, f, a0, a1, y0, y1, holes, c, t) => {
+          const seg = (u0, u1, v0, v1) => { if (u1 - u0 < 0.01 || v1 - v0 < 0.01) return; if (along === 'x') P(sx * u0, sx * u1, f - 0.2, f + 0.2, v0, v1, c, t); else P(sx * (f - 0.2), sx * (f + 0.2), u0, u1, v0, v1, c, t); };
+          let u = a0; for (const [h0, h1, vs] of holes) { seg(u, h0, y0, y1); let v = y0; for (const [v0, v1] of vs) { seg(h0, h1, v, v0); v = v1; } seg(h0, h1, v, y1); u = h1; } seg(u, a1, y0, y1);
+        };
+        /* ---------- plaza: quioscos, jardineras y coches ---------- */
+        P(...X(12, 14), -11, -9, 0, 2.4, '#3f6f8f', 'metal'); P(...X(12, 14), 9, 11, 0, 2.4, '#8f3f6f', 'metal');
+        P(...X(3, 6.5), 7.5, 8.5, 0, 0.9, CN, 'concrete'); P(...X(3, 6.5), -8.5, -7.5, 0, 0.9, CN, 'concrete');
+        car(sx * 8, -12.3, true, sx < 0 ? '#c8c9cf' : '#2d2f36'); crate(sx * 14.8, 12.8, 1.4, 1.2);
+        /* ---------- carril central (30 m): bolardos, contenedor, barreras y cajas ---------- */
+        P(...X(22, 22.8), -1, 2.2, 0, 1.1, CN, 'concrete'); P(...X(28, 29.8), -3.8, -2.2, 0, 1.6, '#2f6b4a', 'metal'); crate(sx * 34, 2.8, 1.4, 1.2);
+        P(...X(40, 40.6), -2.6, 0.8, 0, 1.1, CN, 'concrete'); crate(sx * 45, -2.6, 1.6, 1.6);
+        /* ---------- base: marquesinas de metro (macizas) y cajas ---------- */
+        P(...X(57, 62), -12, -8, 0, 3, DK, 'metal'); P(...X(57, 62), 8, 12, 0, 3, DK, 'metal');
+        crate(sx * 51, -10, 1.6, 1.6); crate(sx * 51, 10, 1.6, 1.6); crate(sx * 50, 0, 1.4, 1.2);
+        /* ---------- avenida norte (104 m de punta a punta): coches, parada de autobús y la terraza del cine (2,8 m) con rampa ---------- */
+        P(...X(0, 24), -50, -46.5, 0, 2.8, CN, 'concrete'); P(...X(0, 22), -46.8, -46.5, 2.8, 3.7, DK, 'metal');                        // terraza y pretil
+        b.ramp(...X(24, 32), -50, -47, 0, 2.8, sx > 0 ? 'W' : 'E', ST, 'concrete');                                                     // rampa de 8 m desde la avenida
+        car(sx * 8, -37.2, true, sx < 0 ? '#b8323a' : '#2d6fb8'); car(sx * 18, -43, true, '#d9d9df'); car(sx * 40, -41, false, '#e8c21a'); car(sx * 30, -36.8, true, '#6a3fa0');
+        P(...X(42, 45), -35.4, -34.8, 0, 2.4, DK, 'metal');                                                                             // parada de autobús (pared de atrás)
+        crate(sx * 46, -46, 1.8, 1.8); crate(sx * 50, -30, 1.6, 1.6); crate(sx * 9, -24, 1.4, 1.2); P(...X(10.6, 11.6), -31, -28.6, 0, 1.3, '#2f6b4a', 'metal');   // callejón: contenedor
+        /* ---------- OFICINAS: dos plantas (suelo de arriba a 3,8 m), puertas, ventanas y escalera por dentro ---------- */
+        const G = [[1.1, 2.3], [4.8, 6.2]], D = [[0, 2.5], [4.8, 6.2]], U = [[4.8, 6.2]];   // ventana abajo y arriba / puerta y ventana arriba / solo arriba
+        wall('x', -28, 20, 34, 0, 7.2, [[21.5, 23.5, G], [26, 28, D], [30.5, 32.5, G]], OF, 'brick');                                  // fachada norte (a la avenida)
+        wall('x', -14, 20, 34, 0, 7.2, [[21.5, 23.5, G], [25, 27, D], [29, 31, G]], OF, 'brick');                                      // fachada sur (al carril)
+        wall('z', 20, -27.8, -14.2, 0, 7.2, [[-26, -24, G], [-22, -20, D], [-18, -16, G]], OF, 'brick');                                // fachada oeste (a la plaza)
+        wall('z', 34, -27.8, -14.2, 0, 7.2, [[-26.5, -24.5, U], [-21, -19, U]], OF, 'brick');                                          // fachada este (la escalera va por dentro)
+        P(...X(20.2, 31.8), -27.8, -14.2, 3.4, 3.8, FL, 'concrete'); P(...X(31.8, 33.8), -27.8, -26, 3.4, 3.8, FL, 'concrete');          // suelo de arriba (hueco sobre la escalera)
+        P(...X(31.6, 31.8), -26, -16, 3.8, 4.8, DK, 'metal');                                                                           // barandilla del hueco
+        b.run('N', -14.6, sx * 32.8, 2, 10, 0, 0.38, DK, 'metal');                                                                       // escalera: de la puerta sur a la planta de arriba (10 peldaños → 3,8 m)
+        P(...X(19.8, 34.2), -28.2, -13.8, 7.2, 7.6, DK, 'concrete');                                                                     // tejado
+        P(...X(22, 24), -20, -19, 0, 1.1, WD, 'wood'); P(...X(27, 29.5), -25, -24, 0, 1.1, WD, 'wood');                                  // mostradores abajo
+        P(...X(22.5, 25), -24, -23, 3.8, 4.7, WD, 'wood'); P(...X(26, 28.5), -18.5, -17.5, 3.8, 4.7, WD, 'wood');                        // mesas arriba
+        crate(sx * 37.5, -12, 1.6, 1.6); crate(sx * 17.8, -31.5, 1.4, 1.2); P(...X(37, 38.6), -31.5, -29.5, 0, 1.3, '#2f6b4a', 'metal');
+        /* ---------- gasolinera (junto a la calle sur): surtidores y coche ---------- */
+        for (const x of [26, 30, 34]) P(...X(x - 0.5, x + 0.5), 13.6, 14.4, 0, 1.6, '#d9d9df', 'metal');
+        for (const x of [24.2, 35.8]) for (const z of [11.8, 16.2]) P(...X(x - 0.2, x + 0.2), z - 0.2, z + 0.2, 0, 4.2, '#2a2e36', 'metal');   // postes de la marquesina
+        car(sx * 30, 17.3, true, '#b8323a'); crate(sx * 22, 10, 1.6, 1.6); crate(sx * 38, 10.5, 1.4, 1.2);
         /* ---------- sur: azotea a 3,2 m (rampa desde la calle y escalera desde el patio) ---------- */
-        P(...X(0, 18), 26, 36, 0, 3.2, '#5c6170', 'concrete');
-        b.ramp(...X(7, 10), 18, 26, 0, 3.2, 'S', ST, 'concrete');                                                                            // rampa de 8 m de la calle a la azotea
-        b.run(sx > 0 ? 'W' : 'E', sx * 26, 31, 2, 8, 0, 0.4, CN, 'concrete');                                                                // escalera desde el patio (8 peldaños → 3,2 m)
-        P(...X(11, 16), 26, 26.3, 3.2, 4.1, DK, 'metal');                                                                                     // pretil (el centro, abierto: se ve la azotea desde la calle)
-        P(...X(6, 8.4), 33, 35.4, 3.2, 4.4, '#9aa0ab', 'metal'); P(...X(12, 13.6), 32.5, 35, 3.2, 4.8, '#9aa0ab', 'metal');                  // aparatos de aire acondicionado
-        car(sx * 20, 21.5, true, '#6a3fa0'); crate(sx * 13, 15, 1.6, 1.6); crate(sx * 29, 14); crate(sx * 22.5, 34, 1.8, 1.8); P(...X(2, 3.2), 13.5, 16, 0, 1.3, '#2f6b4a', 'metal');
+        P(...X(0, 22), 36, 50, 0, 3.2, '#5c6170', 'concrete');
+        b.ramp(...X(8, 11), 28, 36, 0, 3.2, 'S', ST, 'concrete');                                                                      // rampa de 8 m de la calle a la azotea
+        b.run(sx > 0 ? 'W' : 'E', sx * 30, 43, 2, 8, 0, 0.4, CN, 'concrete');                                                            // escalera desde el patio (8 peldaños → 3,2 m)
+        P(...X(14, 20), 36, 36.3, 3.2, 4.1, DK, 'metal');                                                                                // pretil (el centro, abierto: se ve la azotea desde la calle)
+        P(...X(6, 8.4), 45, 47.5, 3.2, 4.4, '#9aa0ab', 'metal'); P(...X(15, 16.6), 44, 47, 3.2, 4.8, '#9aa0ab', 'metal');               // aparatos de aire acondicionado
+        car(sx * 20, 23, true, '#6a3fa0'); car(sx * 36, 30, false, '#d9d9df'); crate(sx * 3, 17, 1.6, 1.6); crate(sx * 14, 16, 1.4, 1.2); crate(sx * 42, 22.5);
+        P(...X(26, 28.6), 38.5, 40.5, 0, 2.4, sx < 0 ? '#c0392b' : '#2f7fbf', 'metal'); crate(sx * 38, 47, 1.8, 1.8); crate(sx * 41, 40, 1.6, 1.6);   // patio
       }
     }
   }

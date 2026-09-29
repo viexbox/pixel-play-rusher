@@ -692,22 +692,37 @@ function decorate(L, m) {
     for (const sx of [-1, 1]) {
       const tc = sx < 0 ? '#ff3b48' : '#3a86ff';
       /* puente: neón por debajo del tablero y en lo alto de las barandillas */
-      for (const z of [-2.02, 2.02]) { decoBox(sx * 4, 2.7, z, 8, 0.08, 0.06, '#22e6ff', true); decoBox(sx * 3.25, 4.1, z - Math.sign(z) * 0.1, 6.5, 0.05, 0.06, '#ff2bd6', true); }
-      /* farolas: plaza, avenida y carril central */
-      for (const [x, z] of [[13, -11], [13, 11], [4, -21], [18, -21], [26, -34.2], [24, -4.6], [6, 17.4], [18, 17.4]]) { decoBox(sx * x, 0, z, 0.16, 4.2, 0.16, '#2a2e36'); decoBox(sx * x, 4.2, z, 0.6, 0.14, 0.34, '#2a2e36'); decoBox(sx * x, 4.1, z, 0.44, 0.1, 0.24, '#fff0c8', true); }
+      for (const z of [-2.02, 2.02]) { decoBox(sx * 5, 2.7, z, 10, 0.08, 0.06, '#22e6ff', true); decoBox(sx * 4.25, 4.1, z - Math.sign(z) * 0.1, 8.5, 0.05, 0.06, '#ff2bd6', true); }
+      /* farolas: plaza, avenida, carril central y calle sur */
+      for (const [x, z] of [[15, -13.2], [15, 13.2], [20, -35.2], [36, -35.2], [36, -49.2], [30, -3.6], [42, 3.6], [8, 20.6], [24, 21], [40, 35.4]]) { decoBox(sx * x, 0, z, 0.16, 4.2, 0.16, '#2a2e36'); decoBox(sx * x, 4.2, z, 0.6, 0.14, 0.34, '#2a2e36'); decoBox(sx * x, 4.1, z, 0.44, 0.1, 0.24, '#fff0c8', true); }
       /* marcas de la calzada: línea discontinua en la avenida y en el carril central, paso de cebra a la entrada de la plaza */
-      for (let x = 1; x < 30; x += 3) decoBox(sx * (x + 0.75), 0, -28.5, 1.5, 0.02, 0.16, '#e9e4d0');
-      for (let x = 17.5; x < 30; x += 3) decoBox(sx * (x + 0.75), 0, 0, 1.5, 0.02, 0.16, '#e9e4d0');
-      for (let z = -3.4; z < 3.5; z += 0.9) { if (Math.abs(z) < 1.4) continue; decoBox(sx * 15, 0, z, 1.6, 0.02, 0.45, '#e9e4d0'); }
-      /* parada de autobús: techo y anuncio iluminado */
-      decoBox(sx * 11.5, 2.4, -21.3, 3.4, 0.12, 1.6, '#2a2e36'); decoBox(sx * 11.5, 0.6, -20.55, 1.4, 1.5, 0.06, '#9fe8ff', true); decoBox(sx * 11.5, 0, -20.3, 2.4, 0.45, 0.4, '#555b66');
+      for (let x = 1; x < 50; x += 3) decoBox(sx * (x + 0.75), 0, -42, 1.5, 0.02, 0.16, '#e9e4d0');
+      for (let x = 19.5; x < 47; x += 3) decoBox(sx * (x + 0.75), 0, 0, 1.5, 0.02, 0.16, '#e9e4d0');
+      for (let z = -3.4; z < 3.5; z += 0.9) { if (Math.abs(z) < 1.4) continue; decoBox(sx * 19, 0, z, 1.6, 0.02, 0.45, '#e9e4d0'); }
+      /* parada de autobús: techo, anuncio iluminado y banco */
+      decoBox(sx * 43.5, 2.4, -35.9, 3.4, 0.12, 2.2, '#2a2e36'); decoBox(sx * 43.5, 0.6, -35.45, 1.4, 1.5, 0.06, '#9fe8ff', true); decoBox(sx * 43.5, 0, -36.3, 2.4, 0.45, 0.4, '#555b66');
       /* terraza del cine: bombillas en el borde */
-      for (let x = 0.6; x < 18; x += 0.9) decoBox(sx * x, 2.75, -31.45, 0.14, 0.14, 0.14, '#ffe27a', true);
+      for (let x = 0.6; x < 22; x += 0.9) decoBox(sx * x, 2.75, -46.45, 0.14, 0.14, 0.14, '#ffe27a', true);
+      /* oficinas: lámparas en el techo de las dos plantas y neón en la cornisa */
+      for (const y of [3.34, 7.14]) for (const [x, z] of [[23.5, -17.5], [23.5, -24.5], [28.5, -17.5], [28.5, -24.5]]) decoBox(sx * x, y, z, 1.8, 0.06, 0.5, '#e8f2ff', true);
+      decoBox(sx * 27, 7.25, -28.25, 14, 0.1, 0.06, '#22e6ff', true); decoBox(sx * 27, 7.25, -13.75, 14, 0.1, 0.06, '#ff2bd6', true);
+      /* oficinas: franja entre plantas, marcos de las ventanas con luz y toldo en las puertas (mismos huecos que en shared.js) */
+      for (const z of [-28.25, -13.75]) decoBox(sx * 27, 3.4, z, 14.5, 0.4, 0.1, '#c9b8a6');
+      for (const x of [19.75, 34.25]) decoBox(sx * x, 3.4, -21, 0.1, 0.4, 14.5, '#c9b8a6');
+      const win = (ax, f, u0, u1, v0, v1, out) => { const c = (u0 + u1) / 2, w = u1 - u0; if (ax === 'x') { decoBox(sx * c, v0 - 0.12, f + out * 0.25, w + 0.3, 0.12, 0.2, '#c9b8a6'); decoBox(sx * c, v1, f + out * 0.22, w + 0.2, 0.06, 0.06, '#9fe8ff', true); } else { decoBox(sx * (f + out * 0.25), v0 - 0.12, c, 0.2, 0.12, w + 0.3, '#c9b8a6'); decoBox(sx * (f + out * 0.22), v1, c, 0.06, 0.06, w + 0.2, '#9fe8ff', true); } };
+      for (const [u0, u1] of [[21.5, 23.5], [26, 28], [30.5, 32.5]]) { win('x', -28, u0, u1, 4.8, 6.2, -1); if (u0 !== 26) win('x', -28, u0, u1, 1.1, 2.3, -1); }
+      for (const [u0, u1] of [[21.5, 23.5], [25, 27], [29, 31]]) { win('x', -14, u0, u1, 4.8, 6.2, 1); if (u0 !== 25) win('x', -14, u0, u1, 1.1, 2.3, 1); }
+      for (const [u0, u1] of [[-26, -24], [-22, -20], [-18, -16]]) { win('z', 20, u0, u1, 4.8, 6.2, -1); if (u0 !== -22) win('z', 20, u0, u1, 1.1, 2.3, -1); }
+      for (const [u0, u1] of [[-26.5, -24.5], [-21, -19]]) win('z', 34, u0, u1, 4.8, 6.2, 1);
+      decoBox(sx * 27, 2.55, -28.9, 3, 0.1, 1.4, '#2a2e36'); decoBox(sx * 26, 2.55, -13.3, 3, 0.1, 1.4, '#2a2e36'); decoBox(sx * 19.3, 2.55, -21, 1.4, 0.1, 3, '#2a2e36');
+      /* gasolinera: marquesina con neón (los postes son macizos) */
+      decoBox(sx * 30, 4.2, 14, 12.4, 0.35, 5.2, '#2a2e36'); decoBox(sx * 30, 4.12, 14, 11, 0.06, 4, '#f4f7ff', true);
+      for (const z of [11.38, 16.62]) decoBox(sx * 30, 4.3, z, 12.4, 0.14, 0.06, '#3dff9a', true);
       /* base: neón del color del equipo en las marquesinas y bandera */
-      for (const z of [-6, 6]) decoBox(sx * 38.45, 2.7, z + (z < 0 ? -2 : 2), 0.06, 0.12, 4, tc, true);
-      decoBox(sx * 41.5, 0, 0, 0.12, 5, 0.12, '#2a2e36'); decoBox(sx * 41.5, 3.8, 0.8, 0.06, 1, 1.6, tc, true);
-      /* azotea: neón en el pretil y luces de aviso */
-      decoBox(sx * 13.5, 4.1, 26.15, 5, 0.06, 0.3, '#22e6ff', true); decoBox(sx * 5, 3.15, 25.96, 10, 0.08, 0.06, '#ff2bd6', true);
+      for (const z of [-10, 10]) decoBox(sx * 56.95, 2.7, z, 0.06, 0.12, 4, tc, true);
+      decoBox(sx * 61.5, 0, 0, 0.12, 5, 0.12, '#2a2e36'); decoBox(sx * 61.5, 3.8, 0.8, 0.06, 1, 1.6, tc, true);
+      /* azotea: neón en el pretil y en el borde */
+      decoBox(sx * 17, 4.1, 36.15, 6, 0.06, 0.3, '#22e6ff', true); decoBox(sx * 7, 3.15, 35.96, 14, 0.08, 0.06, '#ff2bd6', true);
     }
   }
   if (L.decor === 'desert' && m.open) {   // [MAPAS KRUNKER 2] Tormenta de Arena: fachadas con detalle, tejados con trastos, cuerdas de ropa y palmeras
@@ -862,12 +877,14 @@ function buildLife(L, m) {
       const t = new THREE.CanvasTexture(c), mesh = new THREE.Mesh(new THREE.PlaneGeometry(wide, wide / 4), new THREE.MeshBasicMaterial({ map: t, transparent: true }));
       mesh.position.set(x, y, z); mesh.rotation.y = ry; mapLife.add(mesh); if (blink) life.signs.push({ mat: mesh.material, ph: x * 0.7 + z });
     };
-    sign('KRUNXA', '#ff2bd6', 0, 7.6, 35.9, Math.PI, 12, false);
-    sign('CINE', '#ffd23f', 0, 5.6, -34.9, 0, 9, false);
-    sign('HOTEL', '#22e6ff', 13.9, 5.2, 8, -Math.PI / 2, 6, true); sign('RAMEN', '#ff5a3c', -13.9, 5.2, 8, Math.PI / 2, 6, true);
-    sign('24 H', '#3dff9a', 13.9, 5.2, -8, -Math.PI / 2, 6, false); sign('BAR', '#9b5cff', -13.9, 5.2, -8, Math.PI / 2, 6, true);
-    sign('ARCADE', '#22e6ff', 20, 5, -19.9, Math.PI, 7, false); sign('PIZZA', '#ffd23f', -20, 5, -19.9, Math.PI, 7, true);
-    const n = 900, pos = new Float32Array(n * 6); for (let i = 0; i < n; i++) { const x = (Math.random() - 0.5) * m.half * 2, y = Math.random() * 18, z = (Math.random() - 0.5) * m.half * 2; pos.set([x, y, z, x + 0.05, y + 0.55, z], i * 6); }
+    sign('KRUNXA', '#ff2bd6', 0, 7.6, 49.9, Math.PI, 12, false);
+    sign('CINE', '#ffd23f', 0, 5.8, -49.9, 0, 9, false);
+    sign('HOTEL', '#22e6ff', 15.9, 5.2, 9, -Math.PI / 2, 6, true); sign('RAMEN', '#ff5a3c', -15.9, 5.2, 9, Math.PI / 2, 6, true);
+    sign('24 H', '#3dff9a', 15.9, 5.2, -7, -Math.PI / 2, 5, false); sign('BAR', '#9b5cff', -15.9, 5.2, -7, Math.PI / 2, 5, true);
+    sign('ARCADE', '#22e6ff', 44, 5.2, -34.1, Math.PI, 6, false); sign('PIZZA', '#ffd23f', -44, 5.2, -34.1, Math.PI, 6, true);
+    sign('OFICINAS', '#22e6ff', 27, 3.2, -28.25, Math.PI, 4, false); sign('OFICINAS', '#22e6ff', -27, 3.2, -28.25, Math.PI, 4, false);
+    sign('GAS 24H', '#3dff9a', 30, 5.1, 16.65, 0, 4.4, false); sign('GAS 24H', '#3dff9a', -30, 5.1, 16.65, 0, 4.4, true);
+    const n = 1400, pos = new Float32Array(n * 6); for (let i = 0; i < n; i++) { let x, z; do { x = (Math.random() - 0.5) * m.half * 2; z = (Math.random() - 0.5) * m.half * 2; } while (Math.abs(x) > 19.6 && Math.abs(x) < 34.4 && z > -28.4 && z < -13.6); const y = Math.random() * 18; pos.set([x, y, z, x + 0.05, y + 0.55, z], i * 6); }   // no llueve dentro de las oficinas
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     const lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: '#9fb4ff', transparent: true, opacity: 0.32, depthWrite: false }));
     mapLife.add(lines); life.rain = { lines };
