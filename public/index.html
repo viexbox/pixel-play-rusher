@@ -39,7 +39,7 @@
 <!-- /SEO -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Bungee&family=Exo+2:ital,wght@0,600;0,700;0,800;1,700;1,800;1,900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Bungee&family=Lilita+One&family=Exo+2:ital,wght@0,600;0,700;0,800;1,700;1,800;1,900&display=swap" rel="stylesheet">
 <style>
 :root{
   --ink:#0a0e1e; --volt:#ffdc3a; --ice:#38e4ff; --red:#ff3b56; --ok:#37f29a; --violet:#8b5cf6;
@@ -1165,6 +1165,34 @@ body.touch canvas#c,body.touch #touchUI{zoom:var(--uizi,1)}
 #partyBox .pt-inv{border-radius:5px;border-style:solid;border-width:1px;background:linear-gradient(180deg,rgba(22,24,48,.85),rgba(8,9,20,.92));box-shadow:0 8px 20px rgba(0,0,0,.4);transition:transform .12s,box-shadow .12s}
 #partyBox .pt-inv:hover{transform:translateY(-2px);box-shadow:0 0 16px rgba(255,210,63,.4)}
 @media (prefers-reduced-motion:reduce){#brandTop .logo,#lobbyCenter .mode::after,#menu .lvl .bar b,#lkChar::before{animation:none}}
+
+/* ===== [LETRAS KRUNKER] Letra gruesa y redondeada (Lilita One), blanca con contorno negro, como la de Krunker: menú, botones, títulos y números grandes del HUD ===== */
+:root{--kf:'Lilita One','Bungee','Exo 2',sans-serif;--kol:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 -2px 0 #000,0 2px 0 #000,-2px 0 0 #000,2px 0 0 #000,0 4px 0 rgba(0,0,0,.45);--kol1:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 2px 0 rgba(0,0,0,.5)}
+#lkMenu #topNav button,#lkMenu #subNav button,#lkMenu .passrow{font-family:var(--kf);font-weight:400;font-style:normal;letter-spacing:.02em;text-shadow:var(--kol)}
+#lkMenu #topNav button,#lkMenu #subNav button{font-size:clamp(16px,1.4vw,21px)}
+#lkMenu .passrow{font-size:clamp(18px,1.75vw,26px)}
+#lkMenu .passrow em{font-family:var(--kf);font-size:13px}
+#lobbyCenter .mode b{font-family:var(--kf);font-weight:400;letter-spacing:.02em}
+#lobbyCenter #playOnline b{font-size:clamp(34px,3.7vw,54px);text-shadow:0 3px 0 rgba(0,0,0,.25)}
+#lobbyCenter #play b{text-shadow:var(--kol)}
+#lobbyCenter .mode small{font-family:var(--kf);font-weight:400;font-style:normal;font-size:15px;letter-spacing:.04em}
+#menu .tabh span{font-family:var(--kf);font-weight:400;font-style:normal;font-size:16px;letter-spacing:.04em}
+#menu .lp h3{font-family:var(--kf);font-weight:400;font-style:normal;font-size:14px;letter-spacing:.06em;text-shadow:var(--kol1)}
+#menu .modebar,#menu .modebar button,#menu .mapbtn{font-family:var(--kf);font-weight:400;font-style:normal;letter-spacing:.03em}
+#menu #lobbyTL #name{font-family:var(--kf);font-weight:400;font-style:normal;letter-spacing:.03em;text-shadow:var(--kol1)}
+#menu .lvl,#menu .kr b,#menu .kr small,#menu .pstats strong,#menu .pstats span{font-family:var(--kf);font-weight:400;font-style:normal}
+#menu .kr b,#menu .pstats strong{text-shadow:var(--kol1)}
+#menu .newsfeat b,#menu #eventBox b,#menu .daily{font-family:var(--kf);font-weight:400;font-style:normal;letter-spacing:.02em}
+#lobbyPlay .mcard,#lobbyPlay #serverBtn,#lobbyPlay #modeBtn,#partyBox .pt-inv{font-family:var(--kf);font-weight:400;font-style:normal;letter-spacing:.03em}
+#lkChar .lkinfo b,#lkChar .lkbtn{font-family:var(--kf);font-weight:400;letter-spacing:.03em}
+#lkChar .lkinfo b{font-size:clamp(22px,2vw,30px);text-shadow:var(--kol)}
+#brandTop .tag span{font-family:var(--kf);font-weight:400;font-style:normal;letter-spacing:.3em}
+#announce b{font-family:var(--kf);font-style:normal;font-weight:400;letter-spacing:.03em;text-shadow:var(--kol),0 0 22px var(--ac,#ffd23f)}
+#announce small{font-family:var(--kf);font-weight:400}
+#hpnum,#mag,#timer{font-family:var(--kf);font-weight:400;font-style:normal;letter-spacing:0;text-shadow:var(--kol)}
+#lb header,#wname,#wtype{font-family:var(--kf);font-weight:400;font-style:normal}
+#menu .lp{word-spacing:.06em}
+#lkMenu,#menu .daily,#menu .newsfeat b,#menu #eventBox b,#menu .tabh,#menu .modebar,#lobbyCenter .mode,#partyBox,#lkChar,#announce,#lb header,#wtype,#lobbyPlay .mcard,#lobbyPlay #modeBtn{word-spacing:.2em}
 </style>
 </head>
 <body>
