@@ -418,11 +418,11 @@ class Room {
       if (score > bs) { bs = score; best = s; }
     }
     p.x = best[0]; p.y = 0; p.z = best[1]; p.yaw = Math.atan2(best[0], best[1]); p.pitch = 0; p.h = 1.8;
-    p.hp = 100; p.alive = true; p.ep++; p.cls = this.classFor(p);
+    p.alive = true; p.ep++; p.cls = this.classFor(p); p.maxHp = S.maxHp(p.cls); p.hp = p.maxHp;   // [VIDA POR CLASE]
     const w = S.WEAPONS[p.cls];
     p.ammo = w.mag; p.reloadUntil = 0; p.nextFire = now + 300; p.ammo2 = S.SECONDARY.mag; p.reloadUntil2 = 0; p.nextFire2 = now + 300; p.protectUntil = now + (protectMs || 1500); p.lastHit = now; p.lastSt = now;
     p.hist = [{ t: now, x: p.x, y: p.y, z: p.z, h: p.h }];
-    this.broadcast({ t: 'spawn', id: p.id, x: r3(p.x), y: 0, z: r3(p.z), yaw: r3(p.yaw), ep: p.ep, c: p.cls, hp: 100 });
+    this.broadcast({ t: 'spawn', id: p.id, x: r3(p.x), y: 0, z: r3(p.z), yaw: r3(p.yaw), ep: p.ep, c: p.cls, hp: p.hp });
   }
   tick(now, dt) {
     this.fillBots(now);
@@ -433,7 +433,7 @@ class Room {
       this.projTick(now, dt);   // [ARMAS KRUNKER] cohetes y virotes en vuelo
       for (const p of this.players.values()) {
         if (!p.alive) { if (now >= p.respawnAt) this.spawn(p, now, 1500); }
-        else if (now - p.lastHit > 4000 && p.hp < 100) p.hp = Math.min(100, p.hp + 18 * dt);
+        else if (now - p.lastHit > 4000 && p.hp < (p.maxHp || 100)) p.hp = Math.min(p.maxHp || 100, p.hp + 18 * dt);
         if (p.isBot && p.alive) this.botThink(p, now, dt);
       }
       if (this.tl <= 0 && this.mode !== 'bomba') this.endRound(now);

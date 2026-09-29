@@ -2481,8 +2481,9 @@ function updateHudFast() {
   const p = player, w = PW(p);
   setTxt(el.timer, 'tm', fmtTime(timeLeft)); el.timer.classList.toggle('low', timeLeft <= 10 && !(online && net.wait));
   const hp = Math.max(0, Math.ceil(p.hp));
-  setTxt(el.hpnum, 'hp', hp); el.hpbar.style.width = clamp(p.hp, 0, 100) + '%';
-  if (hudCache.hpw !== hp) { hudCache.hpw = hp; el.hpghost.style.width = clamp(p.hp, 0, 100) + '%'; }   // [NUEVO] el rastro (barra blanca) se vacía después de la barra: se ve el daño recién recibido
+  const hpPct = clamp(p.hp / S.maxHp(p.wi) * 100, 0, 100);   // [VIDA POR CLASE] la barra es el porcentaje de la vida de tu clase
+  setTxt(el.hpnum, 'hp', hp); el.hpbar.style.width = hpPct + '%';
+  if (hudCache.hpw !== hp) { hudCache.hpw = hp; el.hpghost.style.width = hpPct + '%'; }   // [NUEVO] el rastro (barra blanca) se vacía después de la barra: se ve el daño recién recibido
   el.hpbox.classList.toggle('low', p.alive && p.hp < 30);
   const hc = p.hp < 30 ? 'low' : p.hp < 60 ? 'mid' : ''; if (hudCache.hpc !== hc) { hudCache.hpc = hc; el.hpbar.className = hc; }
   el.lowhp.classList.toggle('on', p.alive && p.hp < 30);
@@ -2550,7 +2551,7 @@ function renderDeathPick() {
       '<div class="wpic">' + (WICON[w.name] || '') + '</div>' +
       '<div class="wname"><b>' + esc(w.name) + '</b><em>$' + item.price.toLocaleString('es-ES') + '</em></div>' +
       '<div class="wtype">' + esc(w.type) + '</div>' +
-      '<div class="wstats"><span>DMG <b>' + st.dmg + '</b></span><span>RPM <b>' + st.rpm + '</b></span><span>RNG <b>' + st.rng + '</b></span><span>ACC <b>' + st.acc + '%</b></span></div>' +
+      '<div class="wstats"><span>HP <b>' + w.hp + '</b></span><span>DMG <b>' + st.dmg + '</b></span><span>RPM <b>' + st.rpm + '</b></span><span>RNG <b>' + st.rng + '</b></span><span>ACC <b>' + st.acc + '%</b></span></div>' +
       '<button type="button" data-si="' + si + '" ' + (owned || !afford ? 'disabled' : '') + '>' + (owned ? 'Equipada' : 'Comprar') + '</button></div>';   // [CORREGIDO] sin dinero suficiente también se deshabilita, no solo si ya está equipada
   }).join('');
 }
@@ -2577,14 +2578,15 @@ function pickSpawn(f) {
 }
 function respawn(f) {
   const s = pickSpawn(f);
-  f.pos.set(s[0], 0, s[1]); f.vel.set(0, 0, 0); f.hp = 100; f.alive = true; f.protect = 1.5; f.h = 1.8; f.lastAttacker = null;
+  f.pos.set(s[0], 0, s[1]); f.vel.set(0, 0, 0); f.alive = true; f.protect = 1.5; f.h = 1.8; f.lastAttacker = null;
   f.yaw = Math.atan2(s[0], s[1]); f.pitch = 0;
   if (f.mesh) { resetPose(f); f.mesh.visible = true; f.label.visible = true; }
   if (f.isPlayer) {
-    f.wi = cfg.cls; const w = WEAPONS[f.wi]; f.ammo = w.mag; f.reload = 0; f.fireCd = 0.3; f.slide = 0; f.aim = 0; f.eye = 1.6;
+    f.wi = cfg.cls; const w = WEAPONS[f.wi]; f.hp = S.maxHp(f.wi); f.ammo = w.mag;   // [VIDA POR CLASE]
+    f.reload = 0; f.fireCd = 0.3; f.slide = 0; f.aim = 0; f.eye = 1.6;
     buildGun(w); resetSlot(); el.death.hidden = true; deathLook = null; sfx.spawn(); if (f.isPlayer) { document.body.classList.remove('dead'); fixOffset.set(0, 0, 0); if (state === 'playing') requestLock(); }   // [NUEVO] se reaparece con el arma principal en mano, se recupera el bloqueo del puntero y el cursor vuelve a ocultarse; [PR1] sin desfase de la vida anterior
   } else {
-    f.wi = BOT_WEAPONS[irand(0, BOT_WEAPONS.length - 1)]; setOutfit(f, f.wi);
+    f.wi = BOT_WEAPONS[irand(0, BOT_WEAPONS.length - 1)]; f.hp = S.maxHp(f.wi); setOutfit(f, f.wi);
     f.ai = { wp: null, repath: 0, stuck: 0, last: new THREE.Vector3(s[0], 0, s[1]), stuckT: 0, strafe: 1, strafeT: 0, scan: rand(0, 0.3), target: null, seen: false, react: 0, burst: 0, pause: rand(0.2, 0.6), cd: 0, walk: 0 };
   }
 }
@@ -2690,7 +2692,7 @@ function updatePlayer(dt) {
     return;
   }
   // regeneración (en línea la calcula el servidor)
-  if (!online && simTime - p.lastHit > 4 && p.hp < 100) p.hp = Math.min(100, p.hp + 18 * dt);
+  if (!online && simTime - p.lastHit > 4 && p.hp < S.maxHp(p.wi)) p.hp = Math.min(S.maxHp(p.wi), p.hp + 18 * dt);   // [VIDA POR CLASE]
   const fwd = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0) - touchMove.y, str = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + touchMove.x;   // [MÓVIL] el joystick se suma al teclado
   const sinY = Math.sin(p.yaw), cosY = Math.cos(p.yaw);
   let wx = -sinY * fwd + cosY * str, wz = -cosY * fwd - sinY * str;
@@ -3229,7 +3231,7 @@ function removeRemote(id) {
 }
 function applySpawnLocal(m) {
   const p = player;
-  p.pos.set(m.x, m.y, m.z); p.vel.set(0, 0, 0); p.hp = 100; p.alive = true; p.protect = 1.5; p.h = 1.8; p.yaw = m.yaw; p.pitch = 0; net.ep = m.ep; spawnAt = performance.now();
+  p.pos.set(m.x, m.y, m.z); p.vel.set(0, 0, 0); p.hp = m.hp || S.maxHp(m.c); p.alive = true; p.protect = 1.5; p.h = 1.8; p.yaw = m.yaw; p.pitch = 0; net.ep = m.ep; spawnAt = performance.now();
   p.wi = m.c; const w = WEAPONS[p.wi];
   p.ammo = w.mag; p.reload = 0; p.fireCd = 0.3; p.slide = 0; p.aim = 0; p.eye = 1.6; p.meleeCd = 0;
   buildGun(w); resetSlot(); gun.visible = true; el.death.hidden = true; deathLook = null; sfx.spawn(); document.body.classList.remove('dead'); fixOffset.set(0, 0, 0); if (state === 'playing') requestLock();   // [NUEVO] se recupera el bloqueo del puntero al reaparecer y el cursor vuelve a ocultarse; [PR1] sin desfase de la vida anterior
@@ -3780,7 +3782,7 @@ function showTab(name) {
   if (name === 'inv' && window.PPR_BP.renderInventory) window.PPR_BP.renderInventory();   // [INVENTARIO]
 }
 function buildClassButtons() {
-  $('#classes').innerHTML = WEAPONS.map((w, i) => '<button class="cls" data-i="' + i + '" aria-pressed="' + (i === cfg.cls) + '" title="' + esc(w.desc) + '"><span class="ic">' + weaponIcon(w) + '</span><span><b>' + esc(w.name) + '</b><small>' + esc(w.type) + '</small></span><span class="mt"><i style="--v:' + w.stats[0] * 20 + '%"></i><i style="--v:' + w.stats[1] * 20 + '%"></i><i style="--v:' + w.stats[2] * 20 + '%"></i></span></button>').join('');
+  $('#classes').innerHTML = WEAPONS.map((w, i) => '<button class="cls" data-i="' + i + '" aria-pressed="' + (i === cfg.cls) + '" title="' + esc(w.desc) + '"><span class="ic">' + weaponIcon(w) + '</span><span><b>' + esc(w.name) + '</b><small>' + esc(w.type) + '</small><em class="hpv">❤ ' + w.hp + '</em></span><span class="mt"><i style="--v:' + w.stats[0] * 20 + '%"></i><i style="--v:' + w.stats[1] * 20 + '%"></i><i style="--v:' + w.stats[2] * 20 + '%"></i></span></button>').join('');
 }
 /* Vista previa de cada mapa: una captura real del propio mapa (public/maps/mapN.jpg; el archivo único las lleva incrustadas) */
 const mapImg = i => (window.MAP_IMGS && window.MAP_IMGS[i]) || 'maps/map' + i + '.jpg';

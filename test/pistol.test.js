@@ -1,5 +1,5 @@
 'use strict';
-/* [PISTOLA] Arma secundaria de todas las clases (como en Krunker): definición, cliente (tecla 2, rueda, ranura del HUD, botón táctil)
+/* [PISTOLA] [VIDA POR CLASE] Arma secundaria de todas las clases y vida distinta por clase (como en Krunker): definición, cliente (tecla 2, rueda, ranura del HUD, botón táctil)
    y servidor real: cargador propio, recarga propia, daño, nombre en la baja, la principal no gasta su cargador y sin pistola en la Carrera. */
 const { spawn } = require('child_process'); const path = require('path'); const fs = require('fs'); const WebSocket = require('ws'); const { JSDOM } = require('jsdom');
 const S = require('../public/shared.js');
@@ -77,6 +77,14 @@ const aim = (A, x, y, z) => { const dx = x - A.pos.x, dy = y - 1.6, dz = z - A.p
       ok(await until(() => A.has('kill', m => m.k === A.id && m.w === 'Pistola'), 1500), 'cinco disparos al cuerpo eliminan y la baja lleva el nombre «Pistola»');
       A.close(); V.close(); await sleep(400);
     }
+    /* [VIDA POR CLASE] la vida al aparecer depende de la clase: Torrente 170, Lince 60, Asalto 100 */
+    { const mk = (n, c) => { const b = new Bot(n); b.connect = function () { return new Promise(res => { this.ws = new WebSocket('ws://127.0.0.1:' + PORT + '/ws', { headers: { 'X-Forwarded-For': '10.9.6.' + (++Bot.n) } }); this.ws.on('open', () => this.send({ t: 'hello', v: 1, n: this.name, map: 0, c }));
+        this.ws.on('message', d => { const m = JSON.parse(d); this.msgs.push(m); this.on(m); if (m.t === 'welcome') { this.id = m.id; this.welcome = m; res(m); } }); this.ws.on('error', () => {}); }); }; return b; };
+      const T = mk('Tanque', 2), L = mk('Hunter', 3), As = mk('Soldado', 0); await T.connect(); await L.connect(); await As.connect(); await until(() => T.pos && L.pos && As.pos, 4000);
+      const hpOf = b => { const m = b.msgs.find(x => x.t === 'spawn' && x.id === b.id); return m && m.hp; };
+      ok(hpOf(T) === 170 && hpOf(L) === 60 && hpOf(As) === 100, 'vida al aparecer según la clase: Torrente ' + hpOf(T) + ', Lince ' + hpOf(L) + ', Asalto ' + hpOf(As));
+      ok(S.maxHp(2) === 170 && S.maxHp(3) === 60 && S.maxHp(12) === 130 && S.maxHp(6) === 90 && S.maxHp(0) === 100, 'S.maxHp: 170 ametralladora, 60 francotirador, 130 lanzacohetes, 90 semiautomático, 100 el resto');
+      T.close(); L.close(); As.close(); await sleep(300); }
     /* en la Carrera de armas no hay pistola: el arma la da el nivel */
     { const mk = (n) => { const b = new Bot(n); b.connect = function () { return new Promise(res => { this.ws = new WebSocket('ws://127.0.0.1:' + PORT + '/ws', { headers: { 'X-Forwarded-For': '10.9.7.' + (++Bot.n) } }); this.ws.on('open', () => this.send({ t: 'hello', v: 1, n: this.name, map: 0, c: 0, mode: 'carrera' }));
         this.ws.on('message', d => { const m = JSON.parse(d); this.msgs.push(m); this.on(m); if (m.t === 'welcome') { this.id = m.id; this.welcome = m; res(m); } }); this.ws.on('error', () => {}); }); }; return b; };
