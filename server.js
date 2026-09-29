@@ -768,7 +768,10 @@ const SITE_URL = String(process.env.PUBLIC_URL || '').replace(/\/+$/, '');
 /* [SEO] Verificación de propiedad para Google Search Console y Bing Webmaster Tools: se pega el código que dan (solo el valor de content="…",
    o la etiqueta <meta> entera) en GOOGLE_SITE_VERIFICATION / BING_SITE_VERIFICATION y el servidor lo pone en la página principal. */
 const verifyToken = v => { v = String(v || '').trim(); const m = v.match(/content=["']([^"']+)["']/i); if (m) v = m[1]; return /^[A-Za-z0-9_\-]{10,100}$/.test(v) ? v : ''; };
-const VERIFY_TAGS = [['google-site-verification', verifyToken(process.env.GOOGLE_SITE_VERIFICATION)], ['msvalidate.01', verifyToken(process.env.BING_SITE_VERIFICATION)]].filter(x => x[1]).map(([n, v]) => '<meta name="' + n + '" content="' + v + '">').join('\n');
+/* [ANUNCIOS] ID de editor de AdSense (ca-pub-…): con él la página lleva la etiqueta google-adsense-account y se sirve /ads.txt,
+   que es lo que Google pide para verificar la web y aprobar la cuenta (aunque los anuncios aún estén apagados: ADS_PROVIDER vacío) */
+const ADSENSE_PUB = /^ca-pub-\d{10,20}$/.test(String(process.env.ADS_CLIENT || '').trim()) ? String(process.env.ADS_CLIENT).trim() : '';
+const VERIFY_TAGS = [['google-site-verification', verifyToken(process.env.GOOGLE_SITE_VERIFICATION)], ['msvalidate.01', verifyToken(process.env.BING_SITE_VERIFICATION)], ['google-adsense-account', ADSENSE_PUB]].filter(x => x[1]).map(([n, v]) => '<meta name="' + n + '" content="' + v + '">').join('\n');
 function siteUrl(req) {
   if (SITE_URL) return SITE_URL;
   const host = String(req.headers.host || '').replace(/[^A-Za-z0-9.:\-\[\]]/g, '') || 'localhost';
@@ -809,6 +812,11 @@ const server = http.createServer((req, res) => {
   if (p === '/robots.txt') {   // [SEO] los buscadores pueden indexar el juego, pero no el panel ni la API
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
     return res.end('User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ' + siteUrl(req) + '/sitemap.xml\n');
+  }
+  if (p === '/ads.txt') {   // [ANUNCIOS] vendedores autorizados (IAB): solo si hay ID de AdSense
+    if (!ADSENSE_PUB) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Not found'); }
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+    return res.end('google.com, ' + ADSENSE_PUB.replace(/^ca-/, '') + ', DIRECT, f08c47fec0942fa0\n');
   }
   if (p === '/sitemap.xml') {
     const base = siteUrl(req), u = (loc, pr) => '<url><loc>' + base + loc + '</loc><priority>' + pr + '</priority></url>';

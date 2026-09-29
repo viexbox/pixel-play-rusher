@@ -317,7 +317,7 @@ Alternativa (o complemento) a Stripe: el jugador paga directamente a tu PayPal y
 | `GOOGLE_SITE_VERIFICATION` | *(vacío)* | Código de verificación de Google Search Console (método «Etiqueta HTML»: el valor de `content` o la etiqueta entera) |
 | `BING_SITE_VERIFICATION` | *(vacío)* | Lo mismo para Bing Webmaster Tools (`msvalidate.01`) |
 | `ADS_PROVIDER` | *(vacío)* | Anuncios: `h5` (Google AdSense · H5 Games Ads) o `test` (anuncio falso para probar). Vacío = sin anuncios |
-| `ADS_CLIENT` | *(vacío)* | Tu ID de editor de AdSense (`ca-pub-…`), necesario con `h5` |
+| `ADS_CLIENT` | *(vacío)* | Tu ID de editor de AdSense (`ca-pub-…`), necesario con `h5`. Con solo esto (sin `ADS_PROVIDER`) la página ya lleva la etiqueta `google-adsense-account` y se sirve `/ads.txt`: es lo que pide AdSense para verificar y aprobar la web |
 | `ADS_SLOT` | *(vacío)* | ID del bloque de anuncio para el banner de la pantalla de muerte (opcional) |
 | `ADS_REWARD_PX` · `ADS_PER_DAY` · `ADS_COOLDOWN_S` | `25` · `10` · `45` | PX por anuncio con recompensa, anuncios con premio al día por cuenta y segundos entre anuncios |
 | `DAILY_PX` | `50,75,100,125,150,200,400` | Premios del premio diario (uno por día de la racha) |
