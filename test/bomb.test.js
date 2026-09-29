@@ -37,7 +37,7 @@ async function kill(att, vic, how) {
 const bombs = b => b.all('bomb').map(m => m.b);
 const lastBomb = b => { const x = b.last('bomb'); return x && x.b; };
 const waitBomb = (b, f, ms) => until(() => b.msgs.some(m => m.t === 'bomb' && m.b && f(m.b)), ms || 20000).then(r => r && [...b.msgs].reverse().find(m => m.t === 'bomb' && m.b && f(m.b)).b);   // busca en todo lo recibido: cada condición lleva el número de ronda
-const hold = async (b, ms) => { b.send({ t: 'bact', on: 1 }); const t0 = Date.now(); while (Date.now() - t0 < ms) { b.send({ t: 'st', ep: b.ep, x: b.pos.x, y: 0, z: b.pos.z, yaw: 0, pitch: 0, h: 1.8 }); await sleep(100); } b.send({ t: 'bact', on: 0 }); };
+const hold = async (b, ms) => { b.send({ t: 'bact', on: 1 }); const t0 = Date.now(); while (Date.now() - t0 < ms) { b.send({ t: 'st', ep: b.ep, x: b.pos.x, y: b.pos.y || 0, z: b.pos.z, yaw: 0, pitch: 0, h: 1.8 }); await sleep(100); } b.send({ t: 'bact', on: 0 }); };
 const A = S.MAPS[0].bomb[0];
 
 (async () => {
@@ -74,9 +74,9 @@ const A = S.MAPS[0].bomb[0];
     ok(b2 && b2.att === 0, 'ronda 2: los papeles se cambian y ahora ataca AZUL');
     ok(await until(() => r.all('spawn').length >= 2 && a.all('spawn').length >= 2, 3000), 'y todos reaparecen al empezar la ronda');
     const att2 = byTeam(0), def2 = byTeam(1); const B2 = S.MAPS[0].bomb[1];
-    await until(() => Date.now() - att2.spawnAt > 600, 3000); await att2.walkTo(B2.x, B2.z); await hold(att2, 3400);
+    await until(() => Date.now() - att2.spawnAt > 600, 3000); att2.pos.y = B2.y || 0; await att2.walkTo(B2.x, B2.z); await hold(att2, 3400);   // [MAPA ÚNICO] B puede estar en alto (la meseta de Tormenta de Arena, a 2,4 m)
     const pl2 = await waitBomb(def2, b => b.st === 'planted' && b.n === 2, 3000); ok(pl2 && pl2.site === 'B', 'AZUL planta en B');
-    await def2.walkTo(pl2.x - 1, pl2.z); def2.send({ t: 'bact', on: 1 });
+    if (pl2) def2.pos.y = pl2.y || 0; await def2.walkTo(pl2.x - 1, pl2.z); def2.send({ t: 'bact', on: 1 });
     const e2 = await waitBomb(def2, b => b.st === 'pause' && b.n === 2, 9000); def2.send({ t: 'bact', on: 0 });
     ok(e2 && e2.why === 'desactivada' && e2.w === 1 && e2.tk[1] === 2, 'ROJO la desactiva (sin moverse durante 5 s): ronda para ROJO, 2 – 0 (' + JSON.stringify(e2 && { why: e2.why, w: e2.w, tk: e2.tk }) + ')');
     /* ---------- Ronda 3: ataca ROJO; AZUL elimina al atacante, que no reaparece ---------- */

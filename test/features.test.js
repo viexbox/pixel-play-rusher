@@ -101,8 +101,8 @@ const start = async cls => { const B = boot(); await sleep(250); B.$$('#classes 
   /* ---------- Selección de mapa al terminar (entrenamiento) ---------- */
   { const { T, $, $$ } = await start(0); const cur = T.curMap; T.endMatch();
     ok(!$('#end').hidden && !$('#endMaps').hidden && S.MAPS.length >= 2 && cur === 0, 'al terminar aparece el selector de mapa (hay ' + S.MAPS.length + ' mapas para elegir)');
-    const pick = $$('#endMaps button, #endMaps .emap').find(b => /Arco/.test(b.textContent)); if (pick) pick.click();
-    ok(!!pick && T.cfg.map === 1, 'elegir «Barrio Arcoíris» lo guarda para la siguiente partida');
+    const pick = $$('#endMaps button, #endMaps .emap').find(b => /Glaciar/.test(b.textContent)); if (pick) pick.click();
+    ok(!!pick && T.cfg.map === 1, 'elegir «Base Glaciar» lo guarda para la siguiente partida');
     $('#again').click(); settle(T, 5); ok(T.state === 'playing' && T.curMap === 1, '«Jugar otra vez» empieza en el mapa elegido: ' + S.MAPS[1].name + ' (' + T.state + ')'); T.cfg.map = 0; }
   /* ---------- Equipos azul y rojo (entrenamiento) ---------- */
   { const mine = []; let first = null;

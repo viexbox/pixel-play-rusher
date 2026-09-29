@@ -77,9 +77,9 @@ async function register(U, name, email, pw) { U.$('#tabRegister').click(); U.$('
     await adm('POST', '/rooms/action', { id: pl.room, action: 'end' });
     ok(await until(() => !A.$('#end').hidden && !A.$('#endMaps').hidden), 'al acabar la ronda aparece la pantalla final con el selector para votar el siguiente mapa');
     const cur = A.T.curMap;
-    ok(await until(() => A.T.curMap === 0 && cur === 0, 3000), 'el jugador sigue en Nexus Outpost, el único mapa');
+    ok(await until(() => A.T.curMap === 0 && cur === 0, 3000), 'sin votos, el jugador sigue en Tormenta de Arena');
     ok(await until(() => A.$('#end').hidden, 8000), 'al acabar el descanso la nueva ronda empieza en el mismo mapa');
-    ok(A.T.curMap === 0 && A.$('#end').hidden, 'y la ronda nueva empieza: la pantalla final se cierra y el mapa sigue siendo Nexus Outpost');
+    ok(A.T.curMap === 0 && A.$('#end').hidden, 'y la ronda nueva empieza: la pantalla final se cierra y el mapa sigue siendo Tormenta de Arena');
     /* ---------- Cerrar sesión ---------- */
     A.$('#logoutBtn').click(); await sleep(400);
     ok(!A.w.localStorage.getItem('ppr.acct') && A.T.remote === null && (await api('GET', '/me', null, tok)).status === 401, 'cerrar sesión borra el token del navegador y lo invalida en el servidor');

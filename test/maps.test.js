@@ -1,5 +1,5 @@
 'use strict';
-/* [MAPAS KRUNKER] Los mapas (Castillo Real, Barrio Arcoíris y Puerto Industrial): lista, geometría, apariciones y zonas, alcanzabilidad caminando
+/* [MAPA ÚNICO] El mapa (Tormenta de Arena; antes también Castillo Real, Barrio Arcoíris y Puerto Industrial): lista, geometría, apariciones y zonas, alcanzabilidad caminando
    (sin saltar) y sin trampas, navegación de los bots, servidor real (apariciones por equipo, zonas con altura, limpieza de la
    clasificación) y cliente (texturas, lotes, configuración antigua). Sustituye a nexus.test.js, del mapa que ya no existe. */
 const { spawn } = require('child_process'); const path = require('path'); const fs = require('fs'); const WebSocket = require('ws'); const { JSDOM } = require('jsdom');
@@ -10,25 +10,22 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, ms = 8000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (fn()) return true; } catch (e) { /* aún no */ } await sleep(25); } return false; }
 
 console.log('=== 1. Lista de mapas ===');
-ok(S.MAPS.length === 4 && S.MAPS[0].name === 'Castillo Real' && S.MAPS[1].name === 'Barrio Arcoíris' && S.MAPS[2].name === 'Puerto Industrial' && S.MAPS[3].name === 'Tormenta de Arena', 'cuatro mapas: ' + S.MAPS.map(m => m.name).join(', '));
-ok(!JSON.stringify(S.MAPS.map(x => x.name)).match(/Nexus|Duna|Piscina|Almenas|Contenedores|Bosque|Fábrica|Cañón/), 'ningún mapa viejo (Nexus Outpost, Pueblo Duna, Villa Piscina…) sigue en la lista');
+ok(S.MAPS.length === 2 && S.MAPS[0].name === 'Tormenta de Arena' && S.MAPS[1].name === 'Base Glaciar', 'dos mapas: ' + S.MAPS.map(m => m.name).join(', '));
+ok(!JSON.stringify(S.MAPS.map(x => x.name)).match(/Nexus|Duna|Piscina|Almenas|Contenedores|Bosque|Fábrica|Cañón|Castillo|Barrio|Puerto/), 'ningún mapa viejo (Nexus Outpost, Pueblo Duna, Villa Piscina…) sigue en la lista');
 ok(S.MAPS.every(m => m.look.pixel > 0), 'todos usan texturas pixeladas estilo Krunker (look.pixel)');
 
 /* destinos que se tienen que poder alcanzar CAMINANDO (x, altura de los pies, z) y puntos que caen en cada zona con nombre */
 const CFG = [
-  { targets: { 'Keep Roof': [0, 4.8, 0], 'Keep': [0, 0, 0], 'Ramparts (oeste)': [-24.3, 3.6, 0], 'Ramparts (este)': [24, 3.6, 0], 'Market Street': [0, 0, -24], 'Stables': [11, 0, 34], 'Courtyard': [12, 0, 0], 'Spawn Red': [-35, 0, 0], 'Spawn Blue': [35, 0, 0] },
-    probe: { 'Tejado de la torre': [0, 4.8, 2], 'Torre': [0, 0, 2], 'Murallas': [24, 3.6, 0], 'Tejados': [14, 3.6, -32], 'Base roja': [-35, 0, 0], 'Base azul': [35, 0, 0], 'Calle del mercado': [0, 0, -24], 'Establos': [11, 0, 34], 'Patio': [12, 0, 0] } },
-  { targets: { 'Rooftops (base roja)': [-26, 4.0, -26], 'Rooftops (base azul)': [26, 4.0, 26], 'Puente central': [0, 4.0, -26], 'Casa (interior)': [14, 0, -26], 'Casa sur (interior)': [-26, 0, 26], 'Fountain Plaza': [0, 0, -8], 'Back Street': [0, 0, -36], 'Spawn Red': [-37, 0, 0], 'Spawn Blue': [37, 0, 0] },
-    probe: { 'Tejados': [-14, 4.0, -26], 'Casa': [14, 0, -26], 'Base roja': [-37, 0, 0], 'Base azul': [37, 0, 0], 'Callejón': [0, 0, -36], 'Plaza de la fuente': [0, 0, -8] } },
-  /* [MAPA 3] Puerto Industrial */
-  { targets: { 'Contenedores (rojo)': [-15, 2.6, -26], 'Contenedores (azul)': [15, 2.6, -26], 'Pasarela': [0, 2.6, -25.8], 'Tejado de las oficinas (azul)': [19, 4.0, 22], 'Puente de las oficinas': [0, 4.0, 25],
-      'Nave': [0, 0, 1.8], 'Oficina (interior)': [-19, 0, 27], 'Muelle norte': [0, 0, -31], 'Muelle sur': [0, 0, 17], 'Base roja': [-35, 0, 0], 'Base azul': [35, 0, 0] },
-    probe: { 'Tejado de las oficinas': [19, 4.0, 22], 'Contenedores': [15, 2.6, -26], 'Oficinas': [-19, 0, 27], 'Nave': [0, 0, 3], 'Base roja': [-35, 0, 0], 'Base azul': [35, 0, 0], 'Muelle norte': [0, 0, -31], 'Muelle sur': [0, 0, 17], 'Patio de carga': [20, 0, 0] } },
   /* [MAPAS KRUNKER 2] Tormenta de Arena */
   { targets: { 'Terraza de la torre': [0, 3.2, 2], 'Torre (interior)': [0, 0, 2], 'Nido (azul)': [19, 2.8, -33], 'Nido (rojo)': [-19, 2.8, -33], 'Balcón': [8, 2.8, -29], 'Túnel': [10, 0, 28],
       'Meseta': [10, 2.4, 32], 'Largo norte': [0, 0, -24], 'Carril central': [22, 0, 0], 'Base roja': [-38, 0, 0], 'Base azul': [38, 0, 0] },
     probe: { 'Terraza de la torre': [0, 3.2, 2], 'Torre': [0, 0, 2], 'Nido': [19, 2.8, -33], 'Balcón': [8, 2.8, -29], 'Túnel': [10, 0, 28], 'Meseta': [10, 2.4, 32], 'Base roja': [-38, 0, 0], 'Base azul': [38, 0, 0],
-      'Largo norte': [0, 0, -24], 'Callejón': [7, 0, -16], 'Carril central': [22, 0, 0], 'Plaza': [10, 0, 8] } }
+      'Largo norte': [0, 0, -24], 'Callejón': [7, 0, -16], 'Carril central': [22, 0, 0], 'Plaza': [10, 0, 8] } },
+  /* [MAPAS KRUNKER 3] Base Glaciar */
+  { targets: { 'Radar': [0, 2.8, 1.8], 'Torre (azul)': [20, 4.4, -24], 'Torre (roja)': [-20, 4.4, -24], 'Cresta': [-8, 2.4, -32.5], 'Entreplanta': [6, 2.8, 34], 'Hangar': [0, 0, 29],
+      'Bosque': [0, 0, -24], 'Carril central': [22, 0, 0], 'Base roja': [-36, 0, 0], 'Base azul': [36, 0, 0] },
+    probe: { 'Radar': [0, 2.8, 1], 'Torre de vigilancia': [20, 4.4, -24], 'Cresta': [-8, 2.4, -32.5], 'Entreplanta': [6, 2.8, 34], 'Hangar': [0, 0, 29], 'Base roja': [-36, 0, 0], 'Base azul': [36, 0, 0],
+      'Bosque': [0, 0, -24], 'Depósito': [20, 0, 20], 'Carril central': [22, 0, 0], 'Lago helado': [8, 0, 8] } }
 ];
 const allTags = new Set();
 for (let mi = 0; mi < S.MAPS.length; mi++) {
@@ -117,7 +114,7 @@ Bot.n = 20;
 (async () => {
   fs.rmSync(D, { recursive: true, force: true }); fs.mkdirSync(D, { recursive: true });
   /* la clasificación guardada trae entradas de mapas que no existen (97 y 99, además del 0): al arrancar solo debe quedar la del mapa 0 */
-  fs.writeFileSync(path.join(D, 'leaderboard.json'), JSON.stringify({ v: 2, entries: [{ m: 0, n: 'Ana', p: 900, k: 9, d: 1, h: 2, c: 'Ráfaga', df: -1, t: 1 }, { m: 97, n: 'Berta', p: 800, k: 8, d: 2, h: 1, c: 'Ráfaga', df: -1, t: 1 }, { m: 99, n: 'Carla', p: 700, k: 7, d: 3, h: 0, c: 'Ráfaga', df: -1, t: 1 }] }));
+  fs.writeFileSync(path.join(D, 'leaderboard.json'), JSON.stringify({ v: 3, entries: [{ m: 0, n: 'Ana', p: 900, k: 9, d: 1, h: 2, c: 'Ráfaga', df: -1, t: 1 }, { m: 97, n: 'Berta', p: 800, k: 8, d: 2, h: 1, c: 'Ráfaga', df: -1, t: 1 }, { m: 99, n: 'Carla', p: 700, k: 7, d: 3, h: 0, c: 'Ráfaga', df: -1, t: 1 }] }));
   const srv = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], { env: Object.assign({}, process.env, { PORT: String(PORT), DATA_DIR: D, WALL_CHECK: '0', REQUIRE_TERMS: '0', FILL_BOTS: '0', ZONE_MOVE_SECS: '1', ADMIN_PASSWORD: 'Nexus-Admin-2026xyz' }), stdio: ['ignore', 'pipe', 'pipe'] });
   let out = ''; srv.stdout.on('data', d => { out += d; }); srv.stderr.on('data', d => { out += d; });
   try {
@@ -153,7 +150,7 @@ Bot.n = 20;
   w.eval(client.slice(0, i) + 'window.__M = { buildMap, mapGroup, MAPS, TEX, get cfg() { return cfg; }, get curMap() { return curMap; }, get mapHalf() { return mapHalf; } };\n' + client.slice(i));
   const M = w.__M;
   ok(M.cfg.map === 0 && errors.length === 0, 'una configuración guardada con un mapa que ya no existe («map: 4») se corrige a 0 y el juego arranca sin errores (' + errors.length + ')');
-  ok(M.curMap === 0 && M.mapHalf === 40 && M.MAPS[0].name === 'Castillo Real', 'el cliente construye Castillo Real al arrancar');
+  ok(M.curMap === 0 && M.mapHalf === 44 && M.MAPS[0].name === 'Tormenta de Arena', 'el cliente construye Tormenta de Arena al arrancar');
   ok([...allTags].every(t => M.TEX[t]), 'todas las etiquetas de textura que usan los mapas (' + [...allTags].sort().join(', ') + ') existen en el cliente');
   for (let mi = 0; mi < M.MAPS.length; mi++) {
     M.buildMap(mi); const meshes = []; M.mapGroup.traverse(o => { if (o.isMesh) meshes.push(o); });

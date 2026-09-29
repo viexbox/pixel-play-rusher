@@ -72,7 +72,7 @@ const aim = (A, x, y, z) => { const dx = x - A.pos.x, dy = y - 1.6, dz = z - A.p
 
     /* --- Cometa: el cohete vuela, explota junto al rival y le hace daño en área --- */
     { const d = await withCls(12, 'Cohete'); ok(!!d, 'duelo preparado con el lanzacohetes');
-      if (d) { const { A, V } = d, t = { x: V.pos.x, z: V.pos.z }, dx = t.x - A.pos.x, dz = t.z - A.pos.z, l = Math.hypot(dx, dz), side = { x: -dz / l * 1.5, z: dx / l * 1.5 };
+      if (d) { const { A, V } = d, t = { x: V.pos.x, z: V.pos.z }, dx = t.x - A.pos.x, dz = t.z - A.pos.z, l = Math.hypot(dx, dz), side = { x: -dx / l * 1.5, z: -dz / l * 1.5 };   // 1,5 m por delante del rival, en el lado del que dispara (siempre a la vista)
         const t0 = Date.now(); A.send({ t: 'shoot', o: [A.pos.x, 1.6, A.pos.z], d: [aim(A, t.x + side.x, 0, t.z + side.z)] });
         ok(await until(() => V.has('proj', m => m.id === A.id && m.c === 12), 2000), 'el rival recibe el cohete en vuelo (para dibujarlo)');
         ok(await until(() => V.has('boom'), 3000) && Date.now() - t0 > (l / 45) * 1000 * 0.5, 'explota al llegar al suelo, no al instante (' + (Date.now() - t0) + ' ms para ' + l.toFixed(1) + ' m)');

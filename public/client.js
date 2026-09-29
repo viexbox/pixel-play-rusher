@@ -279,6 +279,36 @@ const TEX = {
     for (let y = 0; y < S; y += 12) for (let x = 0; x < S; x += 6) { const yy = y + Math.sin((x / S) * TAU * 3 + y * 0.7) * 4; LT(g, 0.22, x, yy, 6, 2); DK(g, 0.08, x, yy + 5, 6, 3); }
     for (let i = 0; i < 40; i++) LT(g, 0.3 + R() * 0.3, R() * S, R() * S, 4 + R() * 10, 1);
   } },
+  /* [MAPAS KRUNKER 3] nieve: montículos suaves con sombra azulada y brillos */
+  snow: { tile: 8, draw(g, S, R) {
+    white(g, S);
+    for (let i = 0; i < 26; i++) { g.fillStyle = rgba('70,100,150', 0.06 + R() * 0.07); g.beginPath(); g.ellipse(R() * S, R() * S, 20 + R() * 70, 8 + R() * 26, R() * 3, 0, TAU); g.fill(); }
+    for (let i = 0; i < 260; i++) LT(g, 0.5 + R() * 0.5, R() * S, R() * S, 1 + R() * 2, 1 + R() * 2);
+    speckle(g, S, R, 700, 0.06);
+  } },
+  /* roca en estratos con grietas */
+  rock: { tile: 5, draw(g, S, R) {
+    white(g, S); let y = 0;
+    while (y < S) { const h = 14 + R() * 30; for (let x = 0; x < S; x += 8) DK(g, 0.05 + R() * 0.06, x, y + Math.sin(x * 0.05 + y) * 3, 8, h); DK(g, 0.28, 0, y, S, 2); LT(g, 0.18, 0, y + 2, S, 2); y += h; }
+    for (let i = 0; i < 7; i++) crack(g, R, R() * S, R() * S, 34);
+    for (let i = 0; i < 30; i++) DK(g, 0.08 + R() * 0.12, R() * S, R() * S, 6 + R() * 20, 3 + R() * 6);
+    speckle(g, S, R, 1500, 0.18);
+  } },
+  /* hielo: vetas claras y grietas finas */
+  ice: { tile: 3, draw(g, S, R) {
+    white(g, S);
+    for (let i = 0; i < 18; i++) { g.strokeStyle = rgba('255,255,255', 0.6); g.lineWidth = 2 + R() * 3; g.beginPath(); const x = R() * S; g.moveTo(x, 0); g.lineTo(x + (R() - 0.5) * 80, S); g.stroke(); }
+    for (let i = 0; i < 9; i++) { g.strokeStyle = rgba('40,90,130', 0.3); g.lineWidth = 1; g.beginPath(); let x = R() * S, y = R() * S; g.moveTo(x, y); for (let k = 0; k < 5; k++) { x += (R() - 0.5) * 50; y += (R() - 0.5) * 50; g.lineTo(x, y); } g.stroke(); }
+    speckle(g, S, R, 400, 0.08);
+  } },
+  /* troncos apilados en horizontal (cabañas) */
+  logs: { tile: 2.4, draw(g, S, R) {
+    white(g, S); const n = 6, h = S / n;
+    for (let i = 0; i < n; i++) { const y = i * h; LT(g, 0.25, 0, y + 2, S, h * 0.25); DK(g, 0.18, 0, y + h * 0.65, S, h * 0.35); DK(g, 0.55, 0, y + h - 3, S, 3);
+      for (let k = 0; k < 3; k++) { g.fillStyle = rgba('0,0,0', 0.25); g.beginPath(); g.ellipse(R() * S, y + h * 0.5, 5, 3, 0, 0, TAU); g.fill(); }
+      for (let x = 0; x < S; x += 6) DK(g, R() * 0.06, x, y, 3, h); }
+    speckle(g, S, R, 600, 0.12);
+  } },
   /* [MAPAS KRUNKER 2] enlucido de adobe: manchas suaves, churretes que bajan, grietas y algún trozo caído que deja ver el ladrillo */
   adobe: { tile: 4, draw(g, S, R) {
     white(g, S);
@@ -564,34 +594,43 @@ function archDetail(L, half) {
 function decorate(L, m) {
   const half = m.half;
   archDetail(L, half);
-  const wallTop = (color, step) => { // almenas sobre el muro perimetral
-    const y = L.wallH;
-    for (let s = -half + 1; s <= half - 1; s += step) {
-      decoBox(s, y, -half - 0.5, step * 0.5, 1.5, 1.0, color); decoBox(s, y, half + 0.5, step * 0.5, 1.5, 1.0, color);
-      decoBox(-half - 0.5, y, s, 1.0, 1.5, step * 0.5, color); decoBox(half + 0.5, y, s, 1.0, 1.5, step * 0.5, color);
+  if (L.decor === 'snow' && m.open) {   // [MAPAS KRUNKER 3] Base Glaciar: nieve encima de todo, pinos, cabañas, hangar, tanques y farolas
+    const hs = (a, b) => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return v - Math.floor(v); }, SNOW = '#f7fbff', PINE = '#2f5a3c', PINE2 = '#3a6b48';
+    const pine = (x, z, y0, k) => { k = k || 1; decoBox(x, y0 + 1.6 * k, z, 3.4 * k, 1.3 * k, 3.4 * k, PINE); decoBox(x, y0 + 2.9 * k, z, 2.8 * k, 0.1, 2.8 * k, SNOW); decoBox(x, y0 + 2.7 * k, z, 2.6 * k, 1.1 * k, 2.6 * k, PINE2);
+      decoBox(x, y0 + 3.8 * k, z, 2.0 * k, 0.1, 2.0 * k, SNOW); decoBox(x, y0 + 3.7 * k, z, 1.8 * k, 1.0 * k, 1.8 * k, PINE); decoBox(x, y0 + 4.7 * k, z, 1.0 * k, 0.9 * k, 1.0 * k, PINE2); decoBox(x, y0 + 5.6 * k, z, 0.9 * k, 0.12, 0.9 * k, SNOW); };
+    for (const c of colliders) {
+      if (c.rp) continue;
+      const w = c.maxX - c.minX, d = c.maxZ - c.minZ, h = c.maxY - c.minY, cx = (c.minX + c.maxX) / 2, cz = (c.minZ + c.maxZ) / 2;
+      if (Math.abs(w - 0.6) < 0.01 && Math.abs(d - 0.6) < 0.01 && Math.abs(h - 2.2) < 0.01) { pine(cx, cz, 0.6, 1); continue; }   // tronco de pino → copa con nieve
+      if (w >= 0.8 && d >= 0.8 && c.maxY >= 0.9) decoBox(cx, c.maxY, cz, w + 0.12, 0.14, d + 0.12, SNOW);                       // capa de nieve encima
+      if (c.maxY >= 4.9 && c.minY < 0.05 && w >= 4 && d >= 4 && !m.open(cx, cz) && hs(cx, cz) < 0.16) { const k = 0.7 + hs(cx + 1, cz) * 0.3; decoBox(cx, c.maxY, cz, 0.45, 1.6 * k + 0.1, 0.45, '#5e4630'); pine(cx, cz, c.maxY, k); }   // algún pino encima de los riscos (con su tronco)
+      if (c.maxY >= 4.9 && c.minY < 0.05) {   // carámbanos colgando del borde y nieve acumulada al pie, solo en las caras que dan al suelo
+        const faces = [[c.minX, c.maxX, c.minZ, 'z', -1], [c.minX, c.maxX, c.maxZ, 'z', 1], [c.minZ, c.maxZ, c.minX, 'x', -1], [c.minZ, c.maxZ, c.maxX, 'x', 1]];
+        for (const [a0, a1, f, ax, sg] of faces) for (let a = a0 + 0.6; a < a1 - 0.4; a += 1.1) {
+          if (!m.open(ax === 'z' ? a : f + sg, ax === 'z' ? f + sg : a)) continue;
+          const r = hs(a, f), L2 = 0.3 + r * 0.9, px = ax === 'z' ? a : f + sg * 0.1, pz = ax === 'z' ? f + sg * 0.1 : a;
+          if (r < 0.6) decoBox(px, c.maxY - L2, pz, 0.14, L2, 0.14, '#cfeaf7');
+          if (r > 0.35) decoBox(ax === 'z' ? a : f + sg * 0.35, 0, ax === 'z' ? f + sg * 0.35 : a, ax === 'z' ? 1.2 : 0.7, 0.18 + r * 0.35, ax === 'z' ? 0.7 : 1.2, '#f2f7fb');
+        }
+      }
     }
-  };
-  if (L.decor === 'burg') {   // [MAPAS KRUNKER] Castillo Real: almenas en la muralla exterior, estandartes de cada equipo, bandera en la torre y antorchas
-    wallTop('#a39c8d', 4);
     for (const sx of [-1, 1]) {
-      const col = sx < 0 ? '#ff3b48' : '#3a86ff';
-      for (const z of [-12, -8, 8, 12]) { decoBox(sx * 22.94, 1.2, z, 0.08, 2.2, 1.4, col); decoBox(sx * 22.93, 3.25, z, 0.1, 0.12, 1.6, '#2a1b3d'); }   // estandartes en la cara de la muralla que da al patio
-      for (const z of [-20, 20]) { decoBox(sx * 39.9, 3.4, z, 0.1, 2.8, 1.8, col); }
-      for (const z of [-6, 6]) { decoBox(sx * 22.9, 2.1, z, 0.25, 0.5, 0.25, '#4a3526'); decoBox(sx * 22.9, 2.6, z, 0.2, 0.3, 0.2, '#ffb02e', true); }   // antorchas junto a la puerta
+      /* cabañas: tejado a dos aguas escalonado con nieve, chimenea, puerta y ventana que dan a la base */
+      for (const z0 of [-10, 5.5]) { const zc = z0 + 2.25; for (let k = 0; k < 4; k++) { decoBox(sx * 40.25, 3 + k * 0.35, zc, 4.1 - k * 0.5, 0.35, 5.1 - k * 1.1, k % 2 ? '#8a3b2a' : '#7a3325'); } decoBox(sx * 40.25, 4.4, zc, 1.4, 0.12, 5.3 - 3.3, SNOW);
+        decoBox(sx * 41, 3.6, zc + 1.2, 0.6, 1.4, 0.6, '#6f6a66'); decoBox(sx * 38.46, 0, zc, 0.08, 2.1, 1.1, '#4a2f1a'); decoBox(sx * 38.46, 1.2, zc + (z0 < 0 ? 1.4 : -1.4), 0.08, 0.8, 0.9, '#ffd98a', true); }
+      /* hangar: franjas de aviso en el portón, número y focos */
+      for (let x = 0.2; x < 4; x += 0.8) decoBox(sx * x, 3.6, 23.95, 0.4, 0.4, 0.06, x % 1.6 < 0.8 ? '#f2c230' : '#1d1f24');
+      decoBox(sx * 8, 3.2, 23.94, 1.4, 1.4, 0.06, sx < 0 ? '#c0392b' : '#2f7fbf'); decoBox(sx * 6, 4.5, 23.8, 0.5, 0.2, 0.4, '#fff4c4', true);
+      /* tanques de combustible: bandas, escalera y tuberías */
+      for (const x0 of [18, 22]) { const xc = sx * (x0 + 1.5); for (const y of [0.6, 1.8, 3]) decoBox(xc, y, 30.5, 3.1, 0.18, 3.1, '#9aa3ab'); decoBox(xc, 3.6, 30.5, 2.2, 0.35, 2.2, '#c9cfd5'); decoBox(xc + sx * 1.56, 0, 30.5, 0.06, 3.6, 0.5, '#5d6570'); }
+      decoBox(sx * 21.5, 0.4, 32.8, 7, 0.25, 0.25, '#5d6570');
+      /* farolas alrededor del lago */
+      for (const z of [-11, 11]) { decoBox(sx * 15, 0, z, 0.18, 3.4, 0.18, '#3a3f46'); decoBox(sx * 15, 3.4, z, 0.5, 0.18, 0.5, '#3a3f46'); decoBox(sx * 15, 3.26, z, 0.34, 0.14, 0.34, '#fff4c4', true); }
+      /* banderas de equipo en la base */
+      decoBox(sx * 41.5, 0, 0, 0.12, 5, 0.12, '#3a3f46'); decoBox(sx * 41.5, 3.8, 0.8, 0.06, 1, 1.6, sx < 0 ? '#ff3b48' : '#3a86ff');
     }
-    decoBox(0, 4.8, 0, 0.16, 4.2, 0.16, '#2a1b3d'); decoBox(0.95, 7.8, 0, 1.8, 1.05, 0.06, '#ffd23f', true);                                       // bandera de la torre
-    for (const [x, z] of [[-3, 6.2], [3, 6.2], [-3, -6.2], [3, -6.2]]) { decoBox(x, 0, z, 0.9, 0.35, 0.9, '#5a8f3a'); }                            // arbustos junto a la torre
-  } else if (L.decor === 'port') {   // [MAPA 3] Puerto Industrial: farolas, franjas de aviso en los portones, bolardos, ventanas de las oficinas y rótulo de la nave
-    for (const [x, z] of [[-26, -12], [26, -12], [-26, 12], [26, 12], [-12, 10], [12, -10]]) { decoBox(x, 0, z, 0.22, 5.2, 0.22, '#39435a'); decoBox(x, 5.2, z, 0.9, 0.2, 0.5, '#fff3b0', true); }
-    for (const sx of [-1, 1]) {
-      for (let k = 0; k < 6; k++) decoBox(sx * 10.28, 3.3, -2.75 + k * 1.1, 0.06, 0.3, 0.55, k % 2 ? '#15151a' : '#ffc43d', true);     // franjas sobre el portón
-      for (const z of [-36, -40.2, 36, 40.2]) decoBox(sx * 33, 0, z, 0.5, 0.8, 0.5, '#ffc43d');                                           // bolardos
-      for (const z of [22, 28]) decoBox(sx * 24.03, 1.3, z, 0.06, 1.1, 1.4, '#2d4a7a');                                                    // ventanas de las oficinas (fachada de la base)
-      decoBox(sx * 19, 3.62, 25, 3.2, 0.06, 3.2, '#c9ced6');                                                                                  // claraboya en el tejado de las oficinas
-    }
-    decoBox(0, 4.0, -7.28, 6, 1.0, 0.06, '#e5533d', true); decoBox(0, 4.0, 7.28, 6, 1.0, 0.06, '#2f7bd9', true);                          // rótulos de la nave
-    decoBox(0, 9.7, -25.5, 2.9, 1.0, 0.06, '#9fd3ff', true);                                                                                  // ventana de la cabina de la grúa
-  } else if (L.decor === 'desert' && m.open) {   // [MAPAS KRUNKER 2] Tormenta de Arena: fachadas con detalle, tejados con trastos, cuerdas de ropa y palmeras
+  }
+  if (L.decor === 'desert' && m.open) {   // [MAPAS KRUNKER 2] Tormenta de Arena: fachadas con detalle, tejados con trastos, cuerdas de ropa y palmeras
     const hs = (a, b) => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return v - Math.floor(v); };
     const SHUT = ['#2f7f8f', '#3a6fb0', '#4f8f4a', '#9a4a3a', '#6b4a2a'], AWN = ['#d9463d', '#2f7fbf', '#e0a43a', '#3f9f6a', '#ffffff'];
     const TRIM = '#f4e6c8', GLASS = '#34444f', WOOD = '#6b4a2a', DARK = '#4a3527';
@@ -662,14 +701,6 @@ function decorate(L, m) {
       for (const z of [26.02, 29.98]) decoBox(sx * 14, 0, z, 24, 0.5, 0.06, '#8a6a42');   // zócalo oscuro dentro del túnel
       for (const [x, z] of [[41.4, -6.5], [41.4, 6.2], [33.5, -21]]) { decoBox(sx * x, 0, z, 0.7, 1.0, 0.7, '#4f6b7a'); decoBox(sx * x, 1.0, z, 0.74, 0.08, 0.74, '#3a4f5a'); }
     }
-  } else if (L.decor === 'town') {   // [MAPAS KRUNKER] Barrio Arcoíris: marcos de ventanas, farolas y pasos de cebra
-    for (const [x, z] of [[-24, -18], [24, -18], [-24, 18], [24, 18], [-8, -19.5], [8, 19.5]]) { decoBox(x, 0, z, 0.22, 4.2, 0.22, '#39435a'); decoBox(x, 4.2, z, 0.8, 0.22, 0.5, '#fff3b0', true); }
-    for (const sx of [-1, 1]) for (let k = 0; k < 6; k++) { decoBox(sx * 3, 0, -18 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); decoBox(sx * 3, 0, 12 + k * 1.2 + 0.3, 3, 0.035, 0.6, '#ffffff', true, true); }
-    for (const z of [-22.08, 21.88]) for (const x of [-26, -14, 14, 26]) decoBox(x, 2.45, z + 0.1, 2.6, 0.18, 0.12, '#ffffff');                // tejadillo blanco sobre cada puerta
-    for (let a = -40; a <= 40; a += 4) for (let y = 2.2; y < 6.5; y += 2.6) {   // ventanas en las fachadas altas del fondo
-      decoBox(a, y, -39.96, 1.6, 1.3, 0.06, '#2d4a7a'); decoBox(a, y, 39.96, 1.6, 1.3, 0.06, '#2d4a7a');
-      decoBox(-39.96, y, a, 0.06, 1.3, 1.6, '#2d4a7a'); decoBox(39.96, y, a, 0.06, 1.3, 1.6, '#2d4a7a');
-    }
   }
 }
 function buildMap(i) {
@@ -706,29 +737,38 @@ function lifeTex(key, draw, n) { const c = document.createElement('canvas'); c.w
 function clearLife() {
   mapLife.traverse(o => { if (o.userData.shared) return; if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } });
   while (mapLife.children.length) mapLife.remove(mapLife.children[0]);
-  life.chickens = []; life.ball = null; life.water = null; life.floats = []; life.dust = null; life.last.clear();
+  life.chickens = []; life.ball = null; life.water = null; life.floats = []; life.dust = null; life.snow = null; life.radar = null; life.last.clear();
 }
 const CHICKEN_PARTS = [[0.34, 0.3, 0.42, 0, 0.36, 0, '#f4f1ea'], [0.22, 0.24, 0.14, 0, 0.5, 0.22, '#f4f1ea'], [0.2, 0.24, 0.2, 0, 0.62, -0.2, '#f4f1ea'], [0.05, 0.09, 0.14, 0, 0.78, -0.2, '#e03a3a'],
   [0.05, 0.07, 0.04, 0, 0.51, -0.31, '#e03a3a'], [0.09, 0.06, 0.1, 0, 0.61, -0.34, '#ffae33'], [0.21, 0.045, 0.045, 0, 0.66, -0.25, '#15151a'], [0.04, 0.2, 0.28, 0.19, 0.38, 0.02, '#dcd6c8'], [0.04, 0.2, 0.28, -0.19, 0.38, 0.02, '#dcd6c8'],
   [0.045, 0.22, 0.045, 0.08, 0.1, 0, '#ffae33'], [0.045, 0.22, 0.045, -0.08, 0.1, 0, '#ffae33'], [0.1, 0.03, 0.14, 0.08, 0.01, -0.03, '#ffae33'], [0.1, 0.03, 0.14, -0.08, 0.01, -0.03, '#ffae33']];
 const CHICKEN = (() => { const m = colorMesh(CHICKEN_PARTS); return { geo: m.geometry, mat: m.material }; })();   // se crea una vez al cargar: todas las gallinas comparten geometría y material
+const RADAR = (() => { const m = colorMesh([[0.2, 2.2, 2.6, 0.5, 0, 0, '#e8edf2'], [0.3, 0.3, 0.3, 0, 0, 0, '#5d6570'], [0.9, 0.12, 0.12, 0.95, 0, 0, '#5d6570'], [0.14, 0.14, 0.14, 1.45, 0, 0, '#ff3b30']]); return { geo: m.geometry, mat: m.material }; })();   // [MAPAS KRUNKER 3] se crea una vez al cargar, como las gallinas
 function lifeSpot(maxAbsX) {   // un punto de paso libre, lejos de las bases
   for (let k = 0; k < 40; k++) { const w = waypoints[Math.floor(Math.random() * waypoints.length)]; if (w && Math.abs(w[0]) <= maxAbsX && !overlapAt(w[0], 0, w[1], 0.3, 0.6)) return w; }
   return [12, 0];
 }
 function buildLife(L, m) {
   clearLife();
-  if (L.decor === 'burg') {   // [MAPAS KRUNKER] gallinas sueltas y un balón en el castillo (antes en Pueblo Duna)
+  if (L.decor === 'desert') {   // [MAPAS KRUNKER 2] gallinas sueltas y un balón en la plaza de Tormenta de Arena (antes en el Castillo)
     for (let i = 0; i < 7; i++) { const mesh = new THREE.Mesh(CHICKEN.geo, CHICKEN.mat), sp = lifeSpot(20); mesh.castShadow = true; mesh.userData.shared = true; const c = { mesh, pos: new THREE.Vector3(sp[0], 0, sp[1]), yaw: Math.random() * TAU, tx: sp[0], tz: sp[1], state: 'peck', t: Math.random() * 2, alive: true, respawn: 0, hop: 0 }; mesh.position.copy(c.pos); mapLife.add(mesh); life.chickens.push(c); }
     const ballTex = lifeTex('ball', (g, n) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, n, n); g.fillStyle = '#15151a'; for (const [x, y] of [[8, 12], [40, 12], [24, 36], [56, 40], [8, 52]]) { g.beginPath(); for (let k = 0; k < 5; k++) { const a = k / 5 * TAU - Math.PI / 2; g.lineTo(x + Math.cos(a) * 7, y + Math.sin(a) * 7); } g.fill(); } });
     const bm = new THREE.Mesh(new THREE.SphereGeometry(0.33, 18, 12), new THREE.MeshLambertMaterial({ map: ballTex })); bm.castShadow = true; mapLife.add(bm);
-    life.ball = { mesh: bm, home: new THREE.Vector3(12, 0, 0), e: { pos: new THREE.Vector3(12, 0, 0), vel: new THREE.Vector3(), hw: 0.3, h: 0.6, onGround: true }, cd: 0 };
+    life.ball = { mesh: bm, home: new THREE.Vector3(9, 0, 5.5), e: { pos: new THREE.Vector3(9, 0, 5.5), vel: new THREE.Vector3(), hw: 0.3, h: 0.6, onGround: true }, cd: 0 };
   }
-  if (L.decor === 'town') {   // motas de polen que flotan con el viento
+  if (L.decor === 'desert') {   // motas de arena que flotan con el viento
     const n = 260, pos = new Float32Array(n * 3); for (let i = 0; i < n; i++) { pos[i * 3] = (Math.random() - 0.5) * m.half * 2; pos[i * 3 + 1] = 0.3 + Math.random() * 7; pos[i * 3 + 2] = (Math.random() - 0.5) * m.half * 2; }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: '#ffffff', size: 0.06, transparent: true, opacity: 0.7, depthWrite: false }));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: '#f4dcaa', size: 0.06, transparent: true, opacity: 0.7, depthWrite: false }));
     mapLife.add(pts); life.dust = { pts, half: m.half };
+  }
+  if (L.decor === 'snow') {   // [MAPAS KRUNKER 3] radar que gira y copos de nieve que caen
+    const radar = new THREE.Mesh(RADAR.geo, RADAR.mat); radar.castShadow = true; radar.userData.shared = true;
+    radar.position.set(0, 7.5, 0); mapLife.add(radar); life.radar = radar;
+    const n = 700, pos = new Float32Array(n * 3); for (let i = 0; i < n; i++) { pos[i * 3] = (Math.random() - 0.5) * m.half * 2; pos[i * 3 + 1] = Math.random() * 16; pos[i * 3 + 2] = (Math.random() - 0.5) * m.half * 2; }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: '#ffffff', size: 0.09, transparent: true, opacity: 0.85, depthWrite: false }));
+    mapLife.add(pts); life.snow = { pts, half: m.half };
   }
   if (L.water) {
     const W = L.water, rip = lifeTex('water', (g, n) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, n, n); g.strokeStyle = 'rgba(40,120,170,.35)'; g.lineWidth = 2; for (let i = 0; i < 9; i++) { g.beginPath(); const y = i * 7 + 3; for (let x = 0; x <= n; x += 4) g.lineTo(x, y + Math.sin(x * 0.2 + i) * 2.5); g.stroke(); } });
@@ -802,6 +842,8 @@ function animMap(dt) {
   }
   /* rodadoras empujadas por el viento */
   /* polvo o polen a la deriva */
+  if (life.radar) life.radar.rotation.y += dt * 0.9;
+  if (life.snow) { const a = life.snow.pts.geometry.attributes.position, h = life.snow.half; for (let i = 0; i < a.count; i++) { let y = a.getY(i) - dt * (1 + (i % 7) * 0.12), x = a.getX(i) + Math.sin(tt * 0.7 + i) * dt * 0.4; if (y < 0) { y = 16; } if (x > h) x = -h; a.setX(i, x); a.setY(i, y); } a.needsUpdate = true; }
   if (life.dust) { const a = life.dust.pts.geometry.attributes.position, h = life.dust.half; for (let i = 0; i < a.count; i++) { let x = a.getX(i) + dt * (0.9 + (i % 5) * 0.2), y = a.getY(i) + Math.sin(tt + i) * dt * 0.15; if (x > h) x = -h; a.setX(i, x); a.setY(i, y); } a.needsUpdate = true; }
   /* agua: ondas y destellos que se mueven, flotadores que se mecen y salpicaduras al andar por la piscina */
   if (life.water) {
