@@ -1106,6 +1106,65 @@ body.touch{zoom:var(--uiz,1)}
 body.touch.playing #lb,body.touch.playing #chat,body.touch.playing #chatTab{display:none}   /* en el móvil, durante la partida: marcador con el botón TAB y sin chat, para dejar sitio a los dedos */
 body.touch #hud #ammobox{right:auto;left:50%;transform:translateX(-50%);bottom:12px;width:280px}
 body.touch canvas#c,body.touch #touchUI{zoom:var(--uizi,1)}
+
+/* ===== [LOBBY PRO] Acabado del lobby estilo Krunker: luz y profundidad en el fondo, paneles de cristal con borde de color,
+   menú con iconos que se desliza, botones de jugar con brillo que los recorre, barra de nivel animada y resplandor bajo el personaje ===== */
+@keyframes lpShine{0%,52%{transform:translateX(-160%) skewX(-18deg)}78%,100%{transform:translateX(320%) skewX(-18deg)}}
+@keyframes lpPulse{0%,100%{opacity:.5;transform:translateX(-50%) scale(1)}50%{opacity:.95;transform:translateX(-50%) scale(1.08)}}
+@keyframes lpGlow{0%,100%{filter:drop-shadow(0 0 8px rgba(255,138,31,.3))}50%{filter:drop-shadow(0 0 22px rgba(255,138,31,.65))}}
+@keyframes lpBar{from{background-position:0 0,0 0}to{background-position:32px 0,0 0}}
+#menu > #menuShade{position:absolute;inset:0;background:
+  linear-gradient(180deg,rgba(4,5,14,.8) 0,rgba(4,5,14,0) 160px),
+  linear-gradient(0deg,rgba(4,5,14,.88) 0,rgba(4,5,14,0) 240px),
+  linear-gradient(90deg,rgba(4,5,14,.75) 0,rgba(4,5,14,0) 440px),
+  linear-gradient(270deg,rgba(4,5,14,.62) 0,rgba(4,5,14,0) 400px),
+  radial-gradient(ellipse 55% 38% at 50% 104%,rgba(255,90,31,.22),transparent 70%),
+  radial-gradient(ellipse 40% 30% at 82% 78%,rgba(255,210,63,.12),transparent 70%)}
+#brandTop .logo{animation:lpGlow 4s ease-in-out infinite}
+/* paneles de cristal */
+#menu .lp{background:linear-gradient(180deg,rgba(22,24,48,.8),rgba(8,9,20,.9));border:1px solid rgba(255,255,255,.1);border-top:2px solid var(--hot);border-radius:6px;box-shadow:0 14px 34px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.06);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+#menu #lobbyTL.lp{border-top-color:var(--volt)}
+#menu .tabh{border-radius:2px;box-shadow:0 0 14px rgba(255,90,31,.45),3px 3px 0 #000}
+/* menú de la izquierda con iconos */
+#lkMenu .ni{width:20px;height:20px;flex:none;display:grid;place-items:center;opacity:.9}
+#lkMenu .ni svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 2px 0 #000)}
+#lkMenu #topNav button,#lkMenu #subNav button{position:relative;display:flex;align-items:center;gap:10px;padding:3px 16px 3px 10px;border-radius:4px;transition:transform .15s,color .15s,background .15s}
+#lkMenu #topNav button::before,#lkMenu #subNav button::before{display:block;content:'';position:absolute;inset:18% auto 18% 0;width:3px;transform:none;z-index:0;border:0;border-radius:2px;background:var(--hot);box-shadow:0 0 10px var(--hot);opacity:0;transition:opacity .15s}
+#lkMenu #topNav button:hover,#lkMenu #subNav button:hover{transform:translateX(6px);background:linear-gradient(90deg,rgba(255,90,31,.3),transparent 85%)}
+#lkMenu #topNav button:hover::before,#lkMenu #subNav button:hover::before,#lkMenu #topNav button[aria-selected="true"]::before,#lkMenu #subNav button[aria-selected="true"]::before{opacity:1}
+#lkMenu #topNav button[aria-selected="true"],#lkMenu #subNav button[aria-selected="true"]{background:linear-gradient(90deg,rgba(255,90,31,.22),transparent 85%)}
+#lkMenu .passrow em{background:var(--volt);color:#0a0a12;padding:2px 9px;border-radius:3px;text-shadow:none;box-shadow:0 0 12px rgba(255,210,63,.5)}
+/* botones de jugar: brillo que los recorre y resplandor */
+#lobbyCenter .mode{overflow:hidden}
+#lobbyCenter .mode::after{content:'';position:absolute;top:-30%;bottom:-30%;left:0;width:34%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);animation:lpShine 3.6s ease-in-out infinite;pointer-events:none}
+#lobbyCenter #play::after{animation-delay:1.8s;opacity:.45}
+#lobbyCenter #playOnline b::before{content:'▶';font-size:.5em;margin-right:.4em;vertical-align:.22em}
+#lobbyCenter .mode:hover:not([disabled]){transform:skewX(-10deg) translateY(-5px) scale(1.02);filter:brightness(1.12)}
+#lobbyCenter #playOnline:hover:not([disabled]){box-shadow:0 10px 0 #c2410c,0 14px 0 #000,0 0 90px 16px rgba(255,120,31,.7)}
+#lobbyCenter .modebar{border-radius:6px;border:1px solid rgba(255,255,255,.14);background:linear-gradient(180deg,rgba(22,24,48,.82),rgba(8,9,20,.9));box-shadow:0 10px 26px rgba(0,0,0,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+/* perfil: avatar con brillo, barra de nivel animada y monedas */
+#menu #avatar{border-radius:8px;box-shadow:0 0 0 2px #000,0 0 18px rgba(255,210,63,.45)}
+#menu .lvl .bar{height:9px;border-radius:2px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+#menu .lvl .bar b{background:repeating-linear-gradient(135deg,rgba(255,255,255,.22) 0 8px,transparent 8px 16px),linear-gradient(90deg,#14b870,#3ddc97);background-size:32px 100%,100% 100%;animation:lpBar 1.1s linear infinite;box-shadow:0 0 10px rgba(61,220,151,.6)}
+#menu .kr{border-radius:5px;background:linear-gradient(180deg,rgba(255,220,58,.22),rgba(255,220,58,.06));box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+#menu .kr.cr{background:linear-gradient(180deg,rgba(56,228,255,.2),rgba(56,228,255,.05));border-color:rgba(56,228,255,.5)}
+#menu .pstats div{border-radius:4px;background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.03))}
+/* noticias y modos de abajo */
+#menu .newsfeat{transition:transform .15s,box-shadow .15s}
+#menu .newsfeat:hover{transform:translateY(-2px);box-shadow:0 0 18px rgba(255,90,31,.45)}
+#lobbyPlay .mcard{border-radius:4px;border-width:1px;box-shadow:none;background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.03));transition:transform .12s,background .12s,box-shadow .12s}
+#lobbyPlay .mcard:hover{transform:translateY(-2px)}
+#lobbyPlay .mcard.on{background:linear-gradient(180deg,#ff7a3d,var(--hot));box-shadow:0 0 18px rgba(255,90,31,.6)}
+#lobbyPlay .mcard i{border-radius:3px;box-shadow:0 0 8px var(--c,#fff)}
+/* personaje: resplandor que late bajo sus pies y botón de personalizar */
+#lkChar::before{content:'';position:absolute;left:50%;top:calc(clamp(170px,30vh,300px) - 34px);width:86%;height:46px;transform:translateX(-50%);background:radial-gradient(ellipse at center,rgba(255,150,40,.55),rgba(255,90,31,.18) 45%,transparent 72%);filter:blur(3px);animation:lpPulse 3s ease-in-out infinite;pointer-events:none;z-index:-1}
+#lkChar .lkbtn{border-radius:5px;background:linear-gradient(180deg,rgba(22,24,48,.85),rgba(8,9,20,.92));transition:box-shadow .15s,transform .15s}
+#lkChar .lkbtn:hover{transform:translateY(-2px);box-shadow:0 0 18px rgba(34,230,255,.45)}
+#lobbyBar .iconbtn{transition:transform .12s}#lobbyBar .iconbtn:hover{transform:translateY(-2px)}
+#partyBox{bottom:calc(16px + var(--lpH,132px) + 10px)}   /* [LOBBY PRO] justo encima del panel de modos, mida lo que mida (client.js pone --lpH) */
+#partyBox .pt-inv{border-radius:5px;border-style:solid;border-width:1px;background:linear-gradient(180deg,rgba(22,24,48,.85),rgba(8,9,20,.92));box-shadow:0 8px 20px rgba(0,0,0,.4);transition:transform .12s,box-shadow .12s}
+#partyBox .pt-inv:hover{transform:translateY(-2px);box-shadow:0 0 16px rgba(255,210,63,.4)}
+@media (prefers-reduced-motion:reduce){#brandTop .logo,#lobbyCenter .mode::after,#menu .lvl .bar b,#lkChar::before{animation:none}}
 </style>
 </head>
 <body>
@@ -1191,17 +1250,17 @@ body.touch canvas#c,body.touch #touchUI{zoom:var(--uizi,1)}
   <nav id="lkMenu" aria-label="Secciones">
     <button type="button" class="passrow" id="passRow"><span>Pase de Batalla · Temporada 1</span><em>Ver</em></button>
     <ul class="nav tabs" id="topNav" role="tablist" aria-label="Secciones">
-      <li><button role="tab" aria-selected="true" data-tab="home">Inicio</button></li>
-      <li><button role="tab" aria-selected="false" data-tab="store">Tienda</button></li>
-      <li><button role="tab" aria-selected="false" data-tab="market">Mercado</button></li>
-      <li><button role="tab" aria-selected="false" data-tab="pass">Pase <em class="newtag">S1</em></button></li>
-      <li><button role="tab" aria-selected="false" data-tab="rank">Clasificación</button></li>
-      <li><button role="tab" aria-selected="false" data-tab="profile">Perfil</button></li>
-      <li><button role="tab" aria-selected="false" data-tab="inv">Inventario</button></li>
+      <li><button role="tab" aria-selected="true" data-tab="home"><i class="ni" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></i>Inicio</button></li>
+      <li><button role="tab" aria-selected="false" data-tab="store"><i class="ni" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg></i>Tienda</button></li>
+      <li><button role="tab" aria-selected="false" data-tab="market"><i class="ni" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></i>Mercado</button></li>
+      <li><button role="tab" aria-selected="false" data-tab="pass"><i class="ni" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6 .7-4.5 4 1.3 6-5.4-3-5.4 3 1.3-6-4.5-4 6-.7z"/></svg></i>Pase <em class="newtag">S1</em></button></li>
+      <li><button role="tab" aria-selected="false" data-tab="rank"><i class="ni" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H4v1a4 4 0 0 0 4 4M16 6h4v1a4 4 0 0 1-4 4M12 13v4M8 20h8"/></svg></i>Clasificación</button></li>
+      <li><button role="tab" aria-selected="false" data-tab="profile"><i class="ni" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg></i>Perfil</button></li>
+      <li><button role="tab" aria-selected="false" data-tab="inv"><i class="ni" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg></i>Inventario</button></li>
     </ul>
     <ul class="nav tabs" id="subNav" role="tablist" aria-label="Más secciones">
-      <li><button role="tab" aria-selected="false" data-tab="ranks">Rangos</button></li>
-      <li><button role="tab" aria-selected="false" data-tab="maps">Mapas</button></li>
+      <li><button role="tab" aria-selected="false" data-tab="ranks"><i class="ni" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg></i>Rangos</button></li>
+      <li><button role="tab" aria-selected="false" data-tab="maps"><i class="ni" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg></i>Mapas</button></li>
     </ul>
   </nav>
 
@@ -1314,9 +1373,10 @@ body.touch canvas#c,body.touch #touchUI{zoom:var(--uizi,1)}
         <span><kbd>Mayús</kbd></span><span>Agacharte; corriendo, te deslizas (siempre corres: no hay una tecla aparte para correr)</span>
         <span><kbd>V</kbd></span><span>Golpe rápido de cuchillo (sin cambiar de arma)</span>
         <span><kbd>F</kbd></span><span>Inspeccionar el cuchillo (con el cuchillo en la mano)</span>
-        <span><kbd>Rueda</kbd></span><span>Cambiar entre arma y cuchillo (con el cuchillo en mano, el clic golpea)</span>
+        <span><kbd>Rueda</kbd></span><span>Cambiar entre el arma principal y la pistola</span>
         <span><kbd>1</kbd> <kbd>E</kbd></span><span>Arma principal</span>
-        <span><kbd>2</kbd> <kbd>3</kbd> <kbd>Q</kbd></span><span>Cuchillo (Q: lo saca; si ya lo tienes, golpea)</span>
+        <span><kbd>2</kbd></span><span>Pistola (arma secundaria)</span>
+        <span><kbd>3</kbd> <kbd>Q</kbd></span><span>Cuchillo (Q: lo saca; si ya lo tienes, golpea)</span>
         <span><kbd>R</kbd></span><span>Recargar</span>
         <span><kbd>Tab</kbd></span><span>Ver la clasificación de la partida</span>
         <span><kbd>Enter</kbd></span><span>Escribir en el chat</span>

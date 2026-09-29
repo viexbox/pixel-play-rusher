@@ -4444,7 +4444,8 @@ function initMenu() {
   $('#lbScope').addEventListener('change', renderLeaderboard);
   $('#lbScope').value = 'local';
   $('#resume').addEventListener('click', resumeGame);
-  $('#inviteBtn').addEventListener('click', copyInvite);   // [PORTALES] enlace para que un amigo entre en esta sala
+  $('#inviteBtn').addEventListener('click', copyInvite);
+  { const lp = $('#lobbyPlay'); if (lp && window.ResizeObserver) new ResizeObserver(() => document.documentElement.style.setProperty('--lpH', lp.offsetHeight + 'px')).observe(lp); }   // [LOBBY PRO] los botones de grupo van encima del panel de modos   // [PORTALES] enlace para que un amigo entre en esta sala
   $('#quit').addEventListener('click', leaveToMenu);
   $('#again').addEventListener('click', startMatch);
   $('#toMenu').addEventListener('click', leaveToMenu);
