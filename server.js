@@ -737,7 +737,7 @@ let CDN_ORIGIN = ''; try { if (process.env.AVATAR_CDN_URL) CDN_ORIGIN = ' ' + ne
    ADS_PROVIDER=h5 (Google AdSense · H5 Games Ads) con ADS_CLIENT=ca-pub-… (y ADS_SLOT para el banner), o ADS_PROVIDER=test (anuncio falso
    para probar). El premio lo da el servidor (accounts.js: ADS_REWARD_PX, ADS_PER_DAY, ADS_COOLDOWN_S). Con H5 se abren en la CSP los dominios de Google. */
 const ADS = (() => {
-  const prov = String(process.env.ADS_PROVIDER || '').toLowerCase(), client = /^ca-pub-\d{10,20}$/.test(String(process.env.ADS_CLIENT || '')) ? process.env.ADS_CLIENT : '';
+  const prov = String(process.env.ADS_PROVIDER || '').trim().toLowerCase(), cm = String(process.env.ADS_CLIENT || '').match(/(?:ca-)?pub-(\d{10,20})(?!\d)/), client = cm ? 'ca-pub-' + cm[1] : '';   // [ANUNCIOS] se acepta lo que se pegue (ID, comillas o fragmento)
   const slot = /^\d{6,20}$/.test(String(process.env.ADS_SLOT || '')) ? process.env.ADS_SLOT : '';
   if (prov === 'test') return { on: true, provider: 'test', client: '', slot: '' };
   if (prov === 'h5' && client) return { on: true, provider: 'h5', client, slot };
@@ -770,7 +770,7 @@ const SITE_URL = String(process.env.PUBLIC_URL || '').replace(/\/+$/, '');
 const verifyToken = v => { v = String(v || '').trim(); const m = v.match(/content=["']([^"']+)["']/i); if (m) v = m[1]; return /^[A-Za-z0-9_\-]{10,100}$/.test(v) ? v : ''; };
 /* [ANUNCIOS] ID de editor de AdSense (ca-pub-…): con él la página lleva la etiqueta google-adsense-account y se sirve /ads.txt,
    que es lo que Google pide para verificar la web y aprobar la cuenta (aunque los anuncios aún estén apagados: ADS_PROVIDER vacío) */
-const ADSENSE_PUB = /^ca-pub-\d{10,20}$/.test(String(process.env.ADS_CLIENT || '').trim()) ? String(process.env.ADS_CLIENT).trim() : '';
+const ADSENSE_PUB = (m => (m ? 'ca-pub-' + m[1] : ''))(String(process.env.ADS_CLIENT || '').match(/(?:ca-)?pub-(\d{10,20})(?!\d)/));   // vale el ID solo, entre comillas o el fragmento <script> entero que da AdSense
 const VERIFY_TAGS = [['google-site-verification', verifyToken(process.env.GOOGLE_SITE_VERIFICATION)], ['msvalidate.01', verifyToken(process.env.BING_SITE_VERIFICATION)], ['google-adsense-account', ADSENSE_PUB]].filter(x => x[1]).map(([n, v]) => '<meta name="' + n + '" content="' + v + '">').join('\n');
 function siteUrl(req) {
   if (SITE_URL) return SITE_URL;
