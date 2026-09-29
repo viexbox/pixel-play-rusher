@@ -305,6 +305,7 @@ const MAPS = [
     bomb: [{ n: 'A', x: 0, z: -41, y: 0 }, { n: 'B', x: 0, z: 43, y: 3.2 }],   // [BOMBA] avenida y azotea
     areas: [
       { n: 'Puente', x0: -10, x1: 10, z0: -2, z1: 2, y0: 2.5, y1: 8 },
+      { n: 'Tejados', x0: -34.5, x1: 34.5, z0: -34, z1: -13.5, y0: 7, y1: 14 }, { n: 'Marquesina', x0: -36.5, x1: -23.5, z0: 11, z1: 17, y0: 3.8, y1: 9 }, { n: 'Marquesina', x0: 23.5, x1: 36.5, z0: 11, z1: 17, y0: 3.8, y1: 9 },
       { n: 'Oficinas (1.ª planta)', x0: -34, x1: -20, z0: -28, z1: -14, y0: 3.4, y1: 8 }, { n: 'Oficinas (1.ª planta)', x0: 20, x1: 34, z0: -28, z1: -14, y0: 3.4, y1: 8 },
       { n: 'Oficinas', x0: -34, x1: -20, z0: -28, z1: -14, y0: -1, y1: 3.4 }, { n: 'Oficinas', x0: 20, x1: 34, z0: -28, z1: -14, y0: -1, y1: 3.4 },
       { n: 'Terraza del cine', x0: -24, x1: 24, z0: -50, z1: -46.5, y0: 2.2, y1: 8 },
@@ -327,9 +328,10 @@ const MAPS = [
       const open = this.open, C = 2, N = 64, hash = (i, j) => { const s = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return s - Math.floor(s); };
       const near = (cx, cz) => { for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) if (open(cx + dx * C, cz + dz * C)) return true; return false; };
       const blk = (cx, cz) => hash(Math.floor(Math.abs(cx) / 10), Math.floor((cz + 64) / 10));
-      const cellH = (cx, cz) => open(cx, cz) ? 0 : near(cx, cz) ? 8 + Math.floor(blk(cx, cz) * 4) : 12;
+      const mid = (cx, cz) => Math.abs(cx) < 6 && cz > -34 && cz < -14;   // bloque central del norte: tejado a 7,6 m al que se llega por las pasarelas
+      const cellH = (cx, cz) => open(cx, cz) ? 0 : mid(cx, cz) ? 7.6 : near(cx, cz) ? 8 + Math.floor(blk(cx, cz) * 4) : 12;
       const COLS = ['#7d4b43', '#6f7482', '#4e5668', '#8b7766'], TEXOF = { '#7d4b43': 'brick', '#6f7482': 'concrete', '#4e5668': 'glass', '#8b7766': 'brick', '#3e4454': 'concrete' };
-      const colOf = (x, z) => near(x, z) ? COLS[Math.floor(hash(Math.floor(Math.abs(x) / 10) + 7, Math.floor((z + 64) / 10)) * 4)] : '#3e4454';
+      const colOf = (x, z) => mid(x, z) ? '#6f7482' : near(x, z) ? COLS[Math.floor(hash(Math.floor(Math.abs(x) / 10) + 7, Math.floor((z + 64) / 10)) * 4)] : '#3e4454';
       /* rectángulos grandes (voraz: se alarga en x y luego en z mientras la altura y el color coincidan): menos cajas que fila a fila */
       const M = N * 2 / C, key = [], used = new Uint8Array(M * M);
       for (let j = 0; j < M; j++) for (let i = 0; i < M; i++) { const cx = -N + i * C + C / 2, cz = -N + j * C + C / 2, h = cellH(cx, cz); key.push(h ? h + colOf(cx, cz) : ''); }
@@ -375,17 +377,27 @@ const MAPS = [
         wall('x', -14, 20, 34, 0, 7.2, [[21.5, 23.5, G], [25, 27, D], [29, 31, G]], OF, 'brick');                                      // fachada sur (al carril)
         wall('z', 20, -27.8, -14.2, 0, 7.2, [[-26, -24, G], [-22, -20, D], [-18, -16, G]], OF, 'brick');                                // fachada oeste (a la plaza)
         wall('z', 34, -27.8, -14.2, 0, 7.2, [[-26.5, -24.5, U], [-21, -19, U]], OF, 'brick');                                          // fachada este (la escalera va por dentro)
-        P(...X(20.2, 31.8), -27.8, -14.2, 3.4, 3.8, FL, 'concrete'); P(...X(31.8, 33.8), -27.8, -26, 3.4, 3.8, FL, 'concrete');          // suelo de arriba (hueco sobre la escalera)
-        P(...X(31.6, 31.8), -26, -16, 3.8, 4.8, DK, 'metal');                                                                           // barandilla del hueco
+        P(...X(20.2, 31.8), -27.8, -14.2, 3.4, 3.8, FL, 'concrete'); P(...X(31.8, 33.8), -27.8, -24.6, 3.4, 3.8, FL, 'concrete');          // suelo de arriba (hueco sobre la escalera)
+        P(...X(31.6, 31.8), -24.6, -16, 3.8, 4.8, DK, 'metal');                                                                           // barandilla del hueco
         b.run('N', -14.6, sx * 32.8, 2, 10, 0, 0.38, DK, 'metal');                                                                       // escalera: de la puerta sur a la planta de arriba (10 peldaños → 3,8 m)
-        P(...X(19.8, 34.2), -28.2, -13.8, 7.2, 7.6, DK, 'concrete');                                                                     // tejado
+        b.run(sx > 0 ? 'E' : 'W', sx * 21.5, -21, 2, 10, 3.8, 0.38, DK, 'metal', 3.8);                                             // segunda escalera, en medio de la planta de arriba: sube al tejado (7,6 m)
+        P(...X(19.8, 34.2), -28.2, -22, 7.2, 7.6, DK, 'concrete'); P(...X(19.8, 34.2), -20, -13.8, 7.2, 7.6, DK, 'concrete');            // tejado (con hueco sobre la escalera)
+        P(...X(19.8, 21.5), -22, -20, 7.2, 7.6, DK, 'concrete'); P(...X(31.5, 34.2), -22, -20, 7.2, 7.6, DK, 'concrete');
+        P(...X(19.8, 34.2), -28.2, -27.8, 7.6, 8.5, DK, 'metal'); P(...X(19.8, 34.2), -14.2, -13.8, 7.6, 8.5, DK, 'metal');             // pretil del tejado (abierto al oeste, donde llega la pasarela)
+        P(...X(33.8, 34.2), -27.8, -14.2, 7.6, 8.5, DK, 'metal'); P(...X(19.8, 20.2), -22, -14.2, 7.6, 8.5, DK, 'metal');
+        P(...X(24, 26.4), -17, -15.4, 7.6, 8.8, '#9aa0ab', 'metal');                                                                     // aparato de aire en el tejado (para cubrirse)
+        /* pasarela alta (7,2-7,6 m) del tejado del bloque central al de las oficinas, por encima del callejón */
+        P(...X(6, 19.8), -26, -24, 7.2, 7.6, ST, 'metal'); P(...X(6, 19.8), -26.2, -26, 7.6, 8.5, DK, 'metal'); P(...X(6, 19.8), -24, -23.8, 7.6, 8.5, DK, 'metal');
         P(...X(22, 24), -20, -19, 0, 1.1, WD, 'wood'); P(...X(27, 29.5), -25, -24, 0, 1.1, WD, 'wood');                                  // mostradores abajo
-        P(...X(22.5, 25), -24, -23, 3.8, 4.7, WD, 'wood'); P(...X(26, 28.5), -18.5, -17.5, 3.8, 4.7, WD, 'wood');                        // mesas arriba
+        P(...X(22.5, 25), -26, -25, 3.8, 4.7, WD, 'wood'); P(...X(26, 28.5), -17.5, -16.5, 3.8, 4.7, WD, 'wood');                        // mesas arriba
+        P(...X(1.5, 3.5), -31, -28.5, 7.6, 8.8, '#9aa0ab', 'metal'); crate(sx * 3.5, -18, 1.6, 1.2, 7.6);                             // tejado del bloque central: aparato y caja
         crate(sx * 37.5, -12, 1.6, 1.6); crate(sx * 17.8, -31.5, 1.4, 1.2); P(...X(37, 38.6), -31.5, -29.5, 0, 1.3, '#2f6b4a', 'metal');
         /* ---------- gasolinera (junto a la calle sur): surtidores y coche ---------- */
         for (const x of [26, 30, 34]) P(...X(x - 0.5, x + 0.5), 13.6, 14.4, 0, 1.6, '#d9d9df', 'metal');
-        for (const x of [24.2, 35.8]) for (const z of [11.8, 16.2]) P(...X(x - 0.2, x + 0.2), z - 0.2, z + 0.2, 0, 4.2, '#2a2e36', 'metal');   // postes de la marquesina
-        car(sx * 30, 17.3, true, '#b8323a'); crate(sx * 22, 10, 1.6, 1.6); crate(sx * 38, 10.5, 1.4, 1.2);
+        for (const x of [24.2, 35.8]) for (const z of [11.8, 16.2]) P(...X(x - 0.2, x + 0.2), z - 0.2, z + 0.2, 0, 3.9, '#2a2e36', 'metal');   // postes de la marquesina
+        P(...X(23.8, 36.2), 11.4, 16.6, 3.9, 4.25, DK, 'metal');                                                                          // marquesina: se puede subir encima
+        crate(sx * 37, 19.2, 1.6, 1.1); crate(sx * 37, 17.6, 1.6, 2.2); crate(sx * 37, 16, 1.6, 3.3);                             // cajas en escalera para subir a la marquesina
+        car(sx * 30, 17.3, true, '#b8323a'); crate(sx * 22, 10, 1.6, 1.6);
         /* ---------- sur: azotea a 3,2 m (rampa desde la calle y escalera desde el patio) ---------- */
         P(...X(0, 22), 36, 50, 0, 3.2, '#5c6170', 'concrete');
         b.ramp(...X(8, 11), 28, 36, 0, 3.2, 'S', ST, 'concrete');                                                                      // rampa de 8 m de la calle a la azotea
