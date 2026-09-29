@@ -31,6 +31,8 @@ const WEAPONS = [
 WEAPONS.forEach(w => { w.reload = +(w.reload * 0.8).toFixed(2); });
 /* [PISTOLA] Arma secundaria de todas las clases, como en Krunker: se saca con 2 (o la rueda) y tiene su propio cargador.
    No es una clase (no está en WEAPONS ni en la tienda); el servidor la usa cuando el disparo llega con s = 1. No se usa en «Solo cuchillos» ni en la Carrera. */
+/* [RACHAS] Nuke como en Krunker: con 25 bajas seguidas sin morir caen todos los rivales vivos (en Duelo por equipos y Capturar zona). Bajas múltiples: menos de 4 s entre una y otra. */
+CONST.NUKE = 25; CONST.MULTI_MS = 4000;
 /* [VIDA POR CLASE] Como en Krunker, cada clase tiene su vida: el francotirador aguanta menos (Hunter, 60) y la ametralladora más (Spray N Pray, 170). */
 const CLASS_HP = { lince: 60, precision: 90, centinela: 90, torrente: 170, cometa: 130 };
 WEAPONS.forEach(w => { w.hp = CLASS_HP[w.id] || 100; });

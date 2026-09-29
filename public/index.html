@@ -808,6 +808,13 @@ body.spectating #hud,body.spectating #chat,body.spectating #chatTab{display:none
 /* Cartel del equipo asignado */
 #teamBanner{position:fixed;left:50%;top:22%;transform:translate(-50%,-14px);text-align:center;pointer-events:none;opacity:0;z-index:30;padding:14px 46px 16px;background:linear-gradient(90deg,transparent,rgba(6,9,22,.86) 16%,rgba(6,9,22,.86) 84%,transparent);transition:opacity .25s,transform .25s}
 #teamBanner.on{opacity:1;transform:translate(-50%,0)}
+/* [RACHAS] avisos de baja doble/triple, racha y Nuke */
+#announce{position:fixed;left:50%;top:29%;transform:translate(-50%,0) scale(.8);text-align:center;pointer-events:none;opacity:0;z-index:31;transition:opacity .2s,transform .2s;white-space:nowrap}
+#announce.on{opacity:1;transform:translate(-50%,0) scale(1)}
+#announce b{display:block;font:italic 900 44px/1 var(--hudf,inherit);letter-spacing:.04em;color:#fff;text-shadow:0 0 18px var(--ac,#ffd23f),0 3px 0 rgba(0,0,0,.55)}
+#announce small{display:block;font:700 13px/1.4 var(--hudf,inherit);letter-spacing:.3em;color:var(--ac,#ffd23f);margin-top:6px;text-shadow:0 2px 0 rgba(0,0,0,.6)}
+#nukeFlash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:40;transition:opacity 1.8s ease-out}
+#nukeFlash.on{opacity:1;transition:none}
 #teamBanner small{display:block;font-size:13px;letter-spacing:.32em;opacity:.8}
 #teamBanner b{display:block;font-size:clamp(30px,5.4vw,58px);font-style:italic;font-weight:900;letter-spacing:.06em;line-height:1.05}
 #teamBanner em{display:block;font-style:normal;font-size:13px;letter-spacing:.12em;opacity:.85;margin-top:4px}
@@ -1140,6 +1147,7 @@ body.touch canvas#c,body.touch #touchUI{zoom:var(--uizi,1)}
   <div id="brandHud">Krun<b>xa</b></div>
   <div id="killcard"></div>
   <div id="teamBanner"></div>
+  <div id="announce" aria-live="polite"></div><div id="nukeFlash"></div>
   <div id="toast"></div>
 
   <!-- [REDISEÑO] HUD: vida (abajo izquierda) · ranuras de arma y munición (abajo derecha) -->

@@ -2399,6 +2399,23 @@ WEAPONS.forEach(w => { WICON[w.name] = weaponIcon(w); });
 
 /* Cartel grande con el equipo que te ha tocado (al entrar, en cada ronda nueva y en el entrenamiento) */
 let teamBannerT = 0;
+/* [RACHAS] Avisos como en Krunker: baja doble/triple (menos de 4 s entre bajas), rachas de 5/10/15/20 y la Nuke a las 25 */
+const MULTI_TXT = ['', '', 'DOBLE BAJA', 'TRIPLE BAJA', 'CUÁDRUPLE BAJA'], STREAK_TXT = { 5: 'EN RACHA', 10: 'IMPARABLE', 15: 'DOMINANDO', 20: 'LEYENDA' };
+let annT = 0;
+function announce(big, small, col) {
+  const a = $('#announce'); if (!a) return;
+  a.style.setProperty('--ac', col || '#ffd23f'); a.innerHTML = '<b>' + esc(big) + '</b>' + (small ? '<small>' + esc(small) + '</small>' : '');
+  a.classList.remove('on'); void a.offsetWidth; a.classList.add('on'); clearTimeout(annT); annT = setTimeout(() => a.classList.remove('on'), 1900);
+}
+function streakFx(streak, multi) {
+  if (STREAK_TXT[streak]) { announce(STREAK_TXT[streak], 'RACHA DE ' + streak + ' · NUKE A LAS ' + S.CONST.NUKE, streak >= 15 ? '#ff5a3c' : '#ffd23f'); sfx.gold(); }
+  else if (multi >= 2) { announce(multi >= 5 ? '¡MASACRE!' : MULTI_TXT[multi], '', multi >= 4 ? '#ff5a3c' : '#22e6ff'); sfx.gold(); }
+}
+function nukeFx(name, mine) {
+  const f = $('#nukeFlash'); if (f) { f.classList.add('on'); void f.offsetWidth; setTimeout(() => f.classList.remove('on'), 60); }
+  sfx.boom(1); setTimeout(() => sfx.boom(0.7), 250); addShake(0.9);
+  announce('☢ NUKE', mine ? 'TU NUKE' : 'NUKE DE ' + String(name || '').toUpperCase(), '#ff5a3c');
+}
 function teamBanner(team, note) {
   const b = $('#teamBanner'); if (!b) return;
   b.className = 't' + team; b.innerHTML = '<small>TE HA TOCADO</small><b>EQUIPO ' + TEAMS[team].n + '</b><em>' + esc(note || 'Sin fuego amigo') + '</em>';
@@ -2523,6 +2540,11 @@ function kill(victim, attacker, head, weaponName) {
       sfx.kill(); hitmark('kill');
       botCash += S.CONST.SHOP_KILL_CASH; renderDeathPick();   // [NUEVO] recompensa de la tienda de armas
       killPopup(victim.name, pts, head, attacker.streak);
+      if (weaponName !== 'Nuke') {   // [RACHAS] contra bots: bajas múltiples, rachas y Nuke a las 25
+        player.multi = simTime - (player.lastKillT == null ? -99 : player.lastKillT) < S.CONST.MULTI_MS / 1000 ? (player.multi || 1) + 1 : 1; player.lastKillT = simTime;
+        streakFx(attacker.streak, player.multi);
+        if (attacker.streak === S.CONST.NUKE) { nukeFx(player.name, true); fighters.filter(f => f !== player && f.alive && f.team !== player.team).forEach(f => { f.hp = 0; kill(f, player, false, 'Nuke'); }); }
+      }
     }
     feedAdd(attacker, victim, weaponName, head);
   }
@@ -3044,6 +3066,7 @@ function netHandle(m) {
     case 'gpick': { xmasDelGift(m.id); if (Array.isArray(m.tk)) net.tk = m.tk; if (m.p === net.id) { xmas.mine = m.n; updateXmasHud(); popGift(); } updateHudSlow(); return; }
     case 'ekill': { const e = xmas.elves.get(m.id); if (e) { e.alive = false; e.mesh.visible = false; } return; }
     case 'shot': return onNetShot(m);
+    case 'nuke': return nukeFx(m.n, m.id === net.id);   // [RACHAS]
     case 'proj': return onNetProj(m);   // [ARMAS KRUNKER]
     case 'boom': if (m.id !== net.id && Array.isArray(m.p)) explodeFx(new THREE.Vector3(m.p[0], m.p[1], m.p[2])); return;
     case 'hit': return onNetHit(m);
@@ -3292,7 +3315,8 @@ function onNetKill(m) {
     player.streak = (player.streak || 0) + 1; player.bestStreak = Math.max(player.bestStreak || 0, player.streak);
     sfx.kill(); hitmark('kill'); if (player.rl) { sfx.gold(); goldFlash(); }
     killPopup(v.name, m.pts, !!m.h, m.streak, !!player.rl, v.rl);
-  }
+    if (m.w !== 'Nuke') streakFx(m.streak, m.mk || 1);   // [RACHAS]
+  } else if (k && STREAK_TXT[m.streak]) toast('🔥 ' + k.name + ': racha de ' + m.streak);
   if (v === player) {
     player.streak = 0; player.hp = 0;
     el.death.hidden = false; document.body.classList.add('dead'); if (document.exitPointerLock) document.exitPointerLock(); onDeathAds();   // [ANUNCIOS]   // [CORREGIDO] «dead» hace visible el cursor (antes quedaba invisible aunque se liberase el bloqueo)

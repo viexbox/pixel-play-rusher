@@ -44,6 +44,7 @@ let elfSeq = 900000, giftSeq = 1;
 const KILL_LIMIT = +process.env.KILL_LIMIT || S.CONST.KILL_LIMIT;
 const MAX_PER_ROOM = +process.env.MAX_PLAYERS_PER_ROOM || 10;
 const BREAK_SECS = +process.env.BREAK_SECS || 12;
+if (+process.env.NUKE_KILLS > 0) S.CONST.NUKE = +process.env.NUKE_KILLS;   // [RACHAS] bajas seguidas para la Nuke (25 por defecto; las pruebas la bajan)
 /* Equipos: azul (0) y rojo (1). La ronda acaba cuando un equipo suma estas bajas (o al acabar el tiempo: gana quien tenga más). */
 const TEAM_LIMIT = +process.env.TEAM_KILL_LIMIT || (process.env.KILL_LIMIT ? KILL_LIMIT : 100);   // [PARTIDAS] 40 → 60 → 100: con partidas de 8 min, que no terminen antes por bajas
 const KNIFE_LIMIT = +process.env.KNIFE_KILL_LIMIT || 60;   // [PARTIDAS] 40 → 60 con partidas de 8 min;   // [NUEVO] bajas para ganar en «Solo cuchillos»
@@ -568,10 +569,18 @@ class Room {
     if (!killed) return;
     v.alive = false; v.hp = 0; v.deaths++; v.streak = 0; v.respawnAt = this.mode === 'bomba' ? Infinity : now + RESPAWN_MS;   // [BOMBA] sin reaparecer hasta la ronda siguiente
     a.kills++; a.streak++; if (a.streak > a.bestStreak) a.bestStreak = a.streak;
+    a.multi = now - (a.lastKillAt || 0) < S.CONST.MULTI_MS ? (a.multi || 1) + 1 : 1; a.lastKillAt = now;   // [RACHAS] baja doble, triple…
     const pts = 100 + (head ? 50 : 0); a.points += pts; if (head) { a.hs++; }
-    this.broadcast({ t: 'kill', kr: a.role || 0, k: a.id, v: v.id, w: wname, h: head ? 1 : 0, pts, streak: a.streak, rs: this.mode === 'bomba' ? 0 : S.CONST.RESPAWN, ds: Math.round(Math.hypot(a.x - v.x, a.z - v.z)), ah: Math.round(a.hp) });   // ds = distancia (m) y ah = vida del autor, para la cámara de muerte
+    this.broadcast({ t: 'kill', kr: a.role || 0, k: a.id, v: v.id, w: wname, h: head ? 1 : 0, pts, streak: a.streak, mk: a.multi, rs: this.mode === 'bomba' ? 0 : S.CONST.RESPAWN, ds: Math.round(Math.hypot(a.x - v.x, a.z - v.z)), ah: Math.round(a.hp) });   // ds = distancia (m) y ah = vida del autor, para la cámara de muerte
     this.onKill(a, v, wname, now);
     this.sendBoard();
+    if (a.streak === S.CONST.NUKE && (this.mode === 'duelo' || this.mode === 'zona') && wname !== 'Nuke') this.nuke(a, now);
+  }
+  /* [RACHAS] Nuke: 25 bajas seguidas sin morir → caen todos los rivales vivos (cuentan como bajas del que la lanza) */
+  nuke(a, now) {
+    this.broadcast({ t: 'nuke', id: a.id, n: a.name, tm: a.team });
+    log('Nuke de ' + a.name + ' en la sala #' + this.id);
+    for (const v of [...this.players.values()]) if (v.alive && v.team !== a.team) this.damage(v, a, 9999, false, 'Nuke', now);
   }
   onShoot(p, m, now) {
     if (!p.alive || this.phase !== 'play' || !this.gunsAllowed(p)) return;   // [NUEVO] sin armas de fuego en «Solo cuchillos» ni en el último nivel de la Carrera
