@@ -2967,7 +2967,8 @@ let portalMuted = false;
 if (window.PPR_PORTAL) window.PPR_PORTAL.onSettings(st => { document.documentElement.classList.toggle('nochat', !!st.disableChat); portalMuted = !!st.muteAudio; try { if (AC) { if (portalMuted) AC.suspend(); else AC.resume(); } } catch (e) { /* sin audio */ } });
 function setServer(ok, j) {
   const first = ok && !serverOK;
-  if (ok && j) initAds(j.ads, j.portalAds);   // [ANUNCIOS] (y los del portal, si se juega en CrazyGames/Poki)
+  if (ok && j) initAds(j.ads, j.portalAds);
+  if (ok && j && window.PPR_PORTAL) portalLinks(j.portalLinks);   // [PORTALES] Discord y web propia, solo si el servidor lo permite (PORTAL_LINKS)   // [ANUNCIOS] (y los del portal, si se juega en CrazyGames/Poki)
   serverOK = ok; if (ok) lobbyConnect(); else lobbyClose(); if (ok) autoJoin();
   { const pl = $('#lobbyPlay'); if (pl) pl.classList.toggle('srvok', !!ok); }   // punto verde/rojo del botón «Servidor»
   setTimeout(() => { const oi = $('#onlineInfo'); if (oi) oi.title = oi.textContent; }, 0);   // el aviso se recorta a 4 líneas: el texto completo sale al pasar el ratón
@@ -3703,6 +3704,15 @@ async function syncRemote() {
    Ads) se usa adBreak({ type: 'reward' }); en modo de prueba sale un anuncio falso de 5 s. El premio lo pide el cliente al acabar y lo decide el
    servidor (tope diario y espera entre anuncios). Sin ADS_PROVIDER en el servidor no se carga nada. */
 let ADS = null, adsLoaded = false, adBusy = false, adLeft = null;
+/* [PORTALES] Con PORTAL_LINKS=1 en el servidor: dentro del portal se ve el botón de Discord y un aviso con la web propia (apagado por defecto) */
+function portalLinks(L) {
+  document.documentElement.classList.toggle('portal-links', !!L);
+  let n = $('#siteNote');
+  if (!L) { if (n) n.hidden = true; return; }
+  if (!n) { n = document.createElement('a'); n.id = 'siteNote'; n.target = '_blank'; n.rel = 'noopener'; const bar = $('#lobbyBar'); if (bar) bar.prepend(n); }
+  n.href = L.site; n.innerHTML = '<span>Juega también en</span> <b>' + esc(L.site.replace(/^https?:\/\/(www\.)?/, '')) + '</b>'; n.hidden = false;
+  const d = $('#discordBtn'); if (d && L.discord) d.href = L.discord;
+}
 function initAds(a, portalAds) {
   if (window.PPR_PORTAL && portalAds) { ADS = { provider: 'portal', px: portalAds.px, perDay: portalAds.perDay }; return; }   // [PORTALES] anuncios con premio del propio portal
   ADS = a && a.provider ? a : null; if (!ADS || ADS.provider !== 'h5' || adsLoaded) return; adsLoaded = true;
