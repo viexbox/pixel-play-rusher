@@ -1236,6 +1236,36 @@ body:not(.dead) #pvChip{opacity:.85}
 #refBox #pvCode{text-transform:uppercase;letter-spacing:.3em;font-family:var(--kf,sans-serif);font-size:20px;text-align:center}
 #partyBox .pt-priv{border-color:rgba(56,228,255,.7);color:#8ff0ff}
 @media (prefers-reduced-motion:reduce){#brandTop .lg-rays,#brandTop .lg-halo,#brandTop .lg-spark,#brandTop .logo .l1::after,#brandTop .logo b::after,#brandTop .tag::after{animation:none}}
+
+/* ===== [REVISIÓN KRUNKER] Arreglos de la revisión ===== */
+/* marcador de munición con 3 ranuras (arma, pistola, cuchillo): las inactivas quedan en tecla + icono pequeño y la activa ocupa el resto, sin cortar el nombre */
+.am-slot{flex:0 0 auto;gap:5px;padding:4px 6px}
+.am-slot .ic{width:20px;height:10px}
+.am-slot.on{flex:1 1 0;min-width:0}
+.am-slot.on .ic{width:36px;height:14px}
+.am-slot b{display:none!important}   /* el nombre va grande junto a la munición (#wtype::before), no en la ranura */
+#whand{display:block;margin-bottom:3px;font-family:var(--kf);font-weight:400;font-size:20px;letter-spacing:.02em;color:#fff;text-shadow:var(--kol1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.am-wt{min-width:0}
+#ammobox.knife #whand{opacity:.18}
+.am-slot:not(.on) #wicon{width:20px;height:10px}
+.am-slot.on #wicon{width:36px;height:14px}
+#lobbyPlay .mcard{font-size:clamp(10px,.75vw,12px)}   /* los nombres de los modos se leían diminutos en portátiles */
+.am-slot b{font-family:var(--kf);font-weight:400;letter-spacing:.06em;font-size:12px}
+/* tu fila en la clasificación: nombre en blanco (antes azul sobre amarillo, no se leía) */
+#lb li.me .nm{color:#fff;text-shadow:var(--kol1)}
+#lb li.me{background:linear-gradient(90deg,rgba(255,200,40,.3),rgba(255,200,40,.06))}
+/* botones de jugar: el texto pequeño no se corta en pantallas estrechas */
+#lobbyCenter .mode small{white-space:normal;line-height:1.1;text-overflow:clip}
+/* pantallas pequeñas (portátiles de 1024-1180 px): el menú de secciones no pisa la barra del mapa, y el panel de modos deja sitio al chat */
+@media (max-width:1180px){
+  #lkMenu{max-width:210px}
+  #lkMenu #topNav button,#lkMenu #subNav button{font-size:15px;padding:2px 10px 2px 6px}
+  #lobbyCenter .modebar{top:calc(44% + clamp(66px,9vh,84px))}
+  #lobbyPlay{left:calc(clamp(290px,25vw,390px) + 28px);right:18px;transform:none;width:auto;min-width:0;bottom:60px}
+  #lobbyBar{bottom:8px}
+  #partyBox{left:calc(clamp(290px,25vw,390px) + 28px);transform:none;width:auto;right:18px;min-width:0;bottom:calc(60px + var(--lpH,132px) + 8px)}
+}
+@media (max-width:1180px) and (max-height:700px){#lkMenu{top:150px;max-height:calc(100vh - 360px)}#lobbyCenter .modes{top:40%}}
 </style>
 </head>
 <body>
@@ -1292,7 +1322,7 @@ body:not(.dead) #pvChip{opacity:.85}
       <div class="am-slot" id="slot2"><kbd>2</kbd><span class="ic" id="wicon2"></span><b>Pistola</b></div>
       <div class="am-slot" id="slot1"><kbd>3</kbd><span class="ic"><svg viewBox="0 0 44 16" aria-hidden="true"><path d="M2 9.5 L27 6 L40 8 L27 10.6 Z"/><rect x="26" y="4.5" width="3" height="8" rx="1"/><rect x="29" y="6" width="13" height="4" rx="1.5" opacity=".7"/></svg></span><b>Cuchillo</b></div>
     </div>
-    <div class="am-main"><div id="wtype"></div><div class="am-num"><strong id="mag">30</strong><span id="magmax">/ 30</span></div></div>
+    <div class="am-main"><div class="am-wt"><b id="whand"></b><div id="wtype"></div></div><div class="am-num"><strong id="mag">30</strong><span id="magmax">/ 30</span></div></div>
     <div class="am-pips" id="pips"></div>
     <div class="am-reload" id="amReload"><b id="amReloadBar"></b></div>
     <div class="am-hint"><span id="reloadmsg"></span><span id="optHint" hidden><kbd>B</kbd>MIRA</span><span><kbd>V</kbd>GOLPE</span><span><kbd>RUEDA</kbd>CAMBIAR</span></div>

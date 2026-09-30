@@ -2483,9 +2483,10 @@ function updateHudSlow() {
 }
 function buildAmmoUi(w) {
   const pw = WEAPONS[player.wi] || w;   // [PISTOLA] la ranura 1 siempre enseña la principal; la munición y el tipo, el arma que llevas en la mano
-  el.wname.textContent = pw.name; if (el.slot2 && !el.slot2.dataset.ic) { el.slot2.dataset.ic = 1; $('#wicon2').innerHTML = weaponIcon(S.SECONDARY); } el.wtype.textContent = w.type + (w.optics ? ' · ' + opticOf(w).name : ''); $('#optHint').hidden = !w.optics; el.wicon.innerHTML = weaponIcon(pw);
+  el.wname.textContent = pw.name; if (el.slot2 && !el.slot2.dataset.ic) { el.slot2.dataset.ic = 1; $('#wicon2').innerHTML = weaponIcon(S.SECONDARY); } el.wtype.textContent = w.type + (w.optics ? ' · ' + opticOf(w).name : ''); { const wh = $('#whand'); if (wh) wh.textContent = w.name; } $('#optHint').hidden = !w.optics; el.wicon.innerHTML = weaponIcon(pw);
   el.magmax.textContent = '/ ' + w.mag; el.pips.innerHTML = '<i></i>'.repeat(w.mag); el.ammobox.style.setProperty('--wc', w.col);
   hudCache.pips = -1;
+  /* [REVISIÓN KRUNKER] #whand: el nombre del arma en la mano, grande, sobre el tipo (como en Krunker) */
 }
 /* [NUEVO] Resalta en el HUD la ranura activa (arma o cuchillo) y atenúa la munición cuando se lleva el cuchillo */
 /* [NUEVO] Preferencias del HUD: tamaño de las tarjetas (variable CSS --hs) y modo compacto */
