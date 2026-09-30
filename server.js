@@ -16,6 +16,7 @@ if (process.env.DATABASE_URL && !global.__PPR_DB) {
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');   // [SALAS PRIVADAS] códigos de sala
 const { WebSocketServer } = require('ws');
 /* Se carga leyendo el archivo (no con require): así funciona aunque algún package.json de public/ lo marque como módulo ES. */
 const S = (() => { const mod = { exports: {} }; new Function('module', 'exports', fs.readFileSync(path.join(__dirname, 'public', 'shared.js'), 'utf8')).call(globalThis, mod, mod.exports); return mod.exports; })();
@@ -175,7 +176,7 @@ function posAt(p, T) {
 class Room {
   constructor(map, mode, isRanked) {
     this.mode = mode || 'duelo'; this.ranked = !!isRanked; this.specs = new Set(); this.zone = null; this.zs = [0, 0]; this.zoneT = 0; this.zoneMoveAt = 0;   // [NUEVO] modo de juego y clasificatorio
-    this.id = roomSeq++; this.map = map; this.world = worlds[map];
+    this.id = roomSeq++; this.map = map; this.world = worlds[map]; this.priv = null; this.host = '';   // [SALAS PRIVADAS] priv = código de 6 letras si la sala es privada
     this.tk = [0, 0]; this.chatLog = []; this.players = new Map(); this.tl = MATCH_TIME; this.phase = 'play'; this.breakLeft = 0; this.boardT = 0; this.wait = true;
     rooms.set(this.id, this); this.newZone(Date.now(), true);
     this.elves = new Map(); this.gifts = new Map();   // [NAVIDAD]
@@ -194,7 +195,7 @@ class Room {
   humanCount() { let n = 0; for (const p of this.players.values()) if (!p.isBot) n++; return n; }
   botCount() { return this.players.size - this.humanCount(); }
   fillBots(now) {
-    if (this.ranked || !FILL_BOTS) return; const humans = this.humanCount(); if (!humans) return;
+    if (this.ranked || this.priv || !FILL_BOTS) return; const humans = this.humanCount(); if (!humans) return;   // [SALAS PRIVADAS] sin bots: solo tus amigos
     const want = Math.max(0, FILL_BOTS - humans), have = this.botCount();
     if (have < want && now - (this.lastFill || 0) > 700) { this.lastFill = now; this.add(makeBot(this)); }
     else if (have > want) { const b = [...this.players.values()].filter(x => x.isBot).sort((a, c) => (a.alive ? 1 : 0) - (c.alive ? 1 : 0))[0]; if (b) this.remove(b); }   // sobra alguno: se va antes el que está muerto
@@ -379,7 +380,7 @@ class Room {
   }
   add(p) {
     p.room = this; this.assignTeam(p); this.players.set(p.id, p); this.noteLone();
-    p.send(JSON.stringify({ t: 'welcome', v: PROTOCOL, id: p.id, n: p.name, rl: p.role || 0, tm: p.team, lim: this.limit(), mode: this.mode, rk: this.ranked ? 1 : 0, zone: this.zoneMsg(), b: this.mode === 'bomba' ? this.bombMsg() : undefined, tk: this.tk, room: this.id, g: this.mode === 'navidad' ? this.giftList() : undefined, el: this.mode === 'navidad' ? [...this.elves.keys()] : undefined, map: this.map, cash: p.cash, shop: S.SHOP, tl: r3(this.tl), phase: this.phase, players: [...this.players.values()].filter(o => o !== p).map(o => o.pub()) }));
+    p.send(JSON.stringify({ t: 'welcome', v: PROTOCOL, id: p.id, n: p.name, rl: p.role || 0, tm: p.team, lim: this.limit(), mode: this.mode, rk: this.ranked ? 1 : 0, pc: this.priv || undefined, zone: this.zoneMsg(), b: this.mode === 'bomba' ? this.bombMsg() : undefined, tk: this.tk, room: this.id, g: this.mode === 'navidad' ? this.giftList() : undefined, el: this.mode === 'navidad' ? [...this.elves.keys()] : undefined, map: this.map, cash: p.cash, shop: S.SHOP, tl: r3(this.tl), phase: this.phase, players: [...this.players.values()].filter(o => o !== p).map(o => o.pub()) }));
     this.broadcast({ t: 'join', p: p.pub() }, p);
     this.spawn(p, Date.now(), 1500);
     this.sendBoard();
@@ -709,12 +710,17 @@ function makeBot(room) {
   b.isBot = true; b.ping = 0; b.epSeen = -1; b.strafeDir = 1; b.ent = { pos: { x: 0, y: 0, z: 0 }, vel: { x: 0, y: 0, z: 0 }, hw: 0.35, h: 1.8, onGround: true };
   return b;
 }
+/* [SALAS PRIVADAS] código de 6 caracteres sin letras que se confunden (sin I, O, 0 ni 1), distinto de los que ya existen */
+function privCode() {
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  for (;;) { let c = ''; for (let i = 0; i < 6; i++) c += A[crypto.randomInt(A.length)]; if (![...rooms.values()].some(r => r.priv === c)) return c; }
+}
 function findRoom(map, mode, isRanked, tier) {
   let best = null, bestD = 0; mode = mode || 'duelo'; isRanked = !!isRanked; const max = admin.settings.maxPerRoom || MAX_PER_ROOM;
   /* [NUEVO] Emparejamiento: mismo modo y, en clasificatorio, una liga media parecida (diferencia máxima de 1, que sube con la espera de una sala con menos de 2 jugadores).
      Entre las salas válidas se elige la de liga más cercana y, a igualdad, la más llena. */
   for (const r of rooms.values()) {
-    if (r.map !== map || r.mode !== mode || r.ranked !== isRanked || r.humanCount() >= max) continue;   // los bots no ocupan sitio: se van si hace falta
+    if (r.priv || r.map !== map || r.mode !== mode || r.ranked !== isRanked || r.humanCount() >= max) continue;   // [SALAS PRIVADAS] no se reparte gente en ellas   // los bots no ocupan sitio: se van si hace falta
     const d = isRanked && r.players.size ? Math.abs(r.tierAvg() - tier) : 0;
     if (isRanked && r.players.size && d > r.tierSpan()) continue;
     if (!best || d < bestD - 1e-9 || (Math.abs(d - bestD) < 1e-9 && r.humanCount() > best.humanCount())) { best = r; bestD = d; }
@@ -724,7 +730,7 @@ function findRoom(map, mode, isRanked, tier) {
   if (!best || best.humanCount() === 0) {
     let other = null;
     for (const r of rooms.values()) {
-      if (r.map === map || r.mode !== mode || r.ranked !== isRanked || r.humanCount() === 0 || r.humanCount() >= max) continue;
+      if (r.priv || r.map === map || r.mode !== mode || r.ranked !== isRanked || r.humanCount() === 0 || r.humanCount() >= max) continue;
       if (isRanked && Math.abs(r.tierAvg() - tier) > r.tierSpan()) continue;
       if (!other || r.humanCount() > other.humanCount()) other = r;
     }
@@ -805,7 +811,7 @@ const EPHEMERAL_HOST = PGDB ? '' : ON_RAILWAY ? (railVolOk() ? '' : 'RAILWAY_ENV
   : !process.env.DATA_DIR ? ['RENDER', 'DYNO', 'FLY_APP_NAME', 'K_SERVICE', 'VERCEL', 'NETLIFY'].find(k => process.env[k]) || '' : '';
 if (EPHEMERAL_HOST) console.log(new Date().toISOString(), '¡ATENCIÓN! Detectada la plataforma (' + EPHEMERAL_HOST + ') sin DATABASE_URL ni un disco persistente montado en ' + DATA_DIR + ': las cuentas, los PX y las compras se guardan en un disco que allí se BORRA al reiniciar o redesplegar. Configura DATABASE_URL (PostgreSQL) o un disco persistente con DATA_DIR.');
 function status() {
-  return { adsense: ADSENSE_PUB || null, ver: String(process.env.RAILWAY_GIT_COMMIT_SHA || '').slice(0, 7) || undefined, ads: ADS.on ? { provider: ADS.provider, client: ADS.client, slot: ADS.slot, px: accounts.adsCfg.px, perDay: accounts.adsCfg.perDay } : null, portalAds: accounts.adsCfg.portal ? { px: accounts.adsCfg.px, perDay: accounts.adsCfg.perDay } : null, mail: accounts.mailOn(), terms: process.env.REQUIRE_TERMS !== '0', storage: { mode: PGDB ? 'postgres' : 'archivos', warn: !!EPHEMERAL_HOST, platform: EPHEMERAL_HOST }, protocol: PROTOCOL, admin: admin.adminUser, accounts: true, store: accounts.storeInfo().enabled, bp: true, market: true, social: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size })) };
+  return { adsense: ADSENSE_PUB || null, ver: String(process.env.RAILWAY_GIT_COMMIT_SHA || '').slice(0, 7) || undefined, ads: ADS.on ? { provider: ADS.provider, client: ADS.client, slot: ADS.slot, px: accounts.adsCfg.px, perDay: accounts.adsCfg.perDay } : null, portalAds: accounts.adsCfg.portal ? { px: accounts.adsCfg.px, perDay: accounts.adsCfg.perDay } : null, mail: accounts.mailOn(), terms: process.env.REQUIRE_TERMS !== '0', storage: { mode: PGDB ? 'postgres' : 'archivos', warn: !!EPHEMERAL_HOST, platform: EPHEMERAL_HOST }, protocol: PROTOCOL, admin: admin.adminUser, accounts: true, store: accounts.storeInfo().enabled, bp: true, market: true, social: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size, pv: r.priv ? 1 : undefined })) };
 }
 
 const server = http.createServer((req, res) => {
@@ -882,7 +888,7 @@ const PARTY_T = new Set(['pget', 'pinv', 'pacc', 'pdec', 'pleave', 'pkick', 'ple
 /* Sala para un grupo: del mismo mapa y modo (sin clasificatorio) y con sitio para todos a la vez; si no hay, una nueva */
 function findRoomFor(map, mode, need) {
   const max = admin.settings.maxPerRoom || MAX_PER_ROOM;
-  for (const r of rooms.values()) if (r.map === map && r.mode === mode && !r.ranked && r.humanCount() + need <= max) return r;
+  for (const r of rooms.values()) if (!r.priv && r.map === map && r.mode === mode && !r.ranked && r.humanCount() + need <= max) return r;
   return new Room(map, mode, false);
 }
 
@@ -1046,11 +1052,24 @@ function onMessage(ws, m, now) {
     if (m.rk === 1 && !wantRanked) { ws.send(JSON.stringify({ t: 'err', m: 'El clasificatorio solo se juega en Duelo por equipos.' })); return ws.close(); }
     if (wantRanked && !acct) { ws.send(JSON.stringify({ t: 'err', m: 'Para jugar el clasificatorio necesitas una cuenta online.' })); return ws.close(); }
     p.mmr = acct ? ranked.mmrOf(acct) : 0;
+    /* [SALAS PRIVADAS] pv = 1 crea una sala privada (con el mapa y el modo elegidos, sin clasificatorio ni bots); pc = código para entrar en la de un amigo */
+    const pvCode = typeof m.pc === 'string' ? m.pc.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) : '';
+    let pvRoom = null;
+    if (pvCode) {
+      pvRoom = [...rooms.values()].find(r => r.priv === pvCode) || null;
+      if (!pvRoom) { ws.send(JSON.stringify({ t: 'err', m: 'No hay ninguna sala privada con el código ' + pvCode + '. Puede que ya se haya cerrado.' })); return ws.close(); }
+      if (pvRoom.humanCount() >= (admin.settings.maxPerRoom || MAX_PER_ROOM)) { ws.send(JSON.stringify({ t: 'err', m: 'La sala privada ' + pvCode + ' está llena.' })); return ws.close(); }
+    } else if (m.pv === 1) {
+      if (wantRanked) { ws.send(JSON.stringify({ t: 'err', m: 'Las salas privadas no cuentan para el clasificatorio.' })); return ws.close(); }
+      pvRoom = new Room(map, mode, false); pvRoom.priv = privCode(); pvRoom.host = p.name;
+      log('Sala privada ' + pvRoom.priv + ' (#' + pvRoom.id + ') creada por ' + p.name + ' · ' + S.MAPS[map].name + ' · ' + mode);
+    }
     ws.player = p; lobby.delete(ws);
     /* [GRUPOS] con billete de grupo: todos a la misma sala (con sitio para el grupo entero) y al mismo equipo */
     const pc = acct && typeof m.pt === 'string' ? party.claim(acct.id, m.pt) : null;
     let joinedRoom;
-    if (pc) {
+    if (pvRoom) joinedRoom = pvRoom;   // [SALAS PRIVADAS]
+    else if (pc) {
       let r = pc.go.room != null ? rooms.get(pc.go.room) : null;
       if (!r || r.humanCount() >= (admin.settings.maxPerRoom || MAX_PER_ROOM)) { r = findRoomFor(pc.go.map, pc.go.mode, pc.need); pc.go.room = r.id; pc.go.team = null; }
       if (pc.go.team == null) { let c0 = 0, c1 = 0; for (const o of r.players.values()) if (!o.isBot) { if (o.team === 0) c0++; else c1++; } pc.go.team = c0 <= c1 ? 0 : 1; }
@@ -1058,7 +1077,7 @@ function onMessage(ws, m, now) {
     } else {
       /* [PORTALES] invitación de un amigo (enlace de CrazyGames/Poki o ?sala=): a esa sala si existe, es del mismo modo, no es clasificatoria y cabe */
       const jr = Number.isInteger(m.jr) ? rooms.get(m.jr) : null;
-      joinedRoom = jr && !wantRanked && !jr.ranked && jr.mode === mode && jr.humanCount() < (admin.settings.maxPerRoom || MAX_PER_ROOM) ? jr : findRoom(map, mode, wantRanked, S.leagueIdx(p.mmr));
+      joinedRoom = jr && !jr.priv && !wantRanked && !jr.ranked && jr.mode === mode && jr.humanCount() < (admin.settings.maxPerRoom || MAX_PER_ROOM) ? jr : findRoom(map, mode, wantRanked, S.leagueIdx(p.mmr));
     }
     joinedRoom.add(p);
     if (joinedRoom.map !== map) p.send(JSON.stringify({ t: 'notice', kind: 'sys', m: 'Te hemos unido a una partida en ' + S.MAPS[joinedRoom.map].name + ' para que no esperes solo. Al acabar la ronda se vota el siguiente mapa.' }));   // [SALAS]
