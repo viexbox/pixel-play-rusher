@@ -420,6 +420,24 @@ const TEX = {
     for (let row = -1; row < 7; row++) for (let col = -1; col < 7; col++) { const cx = col * r * 1.5, cy = row * h + (col % 2 ? h / 2 : 0);
       g.beginPath(); for (let k = 0; k < 6; k++) { const a = Math.PI / 3 * k; const px = cx + Math.cos(a) * r * 0.92, py = cy + Math.sin(a) * r * 0.92; k ? g.lineTo(px, py) : g.moveTo(px, py); } g.closePath(); g.stroke(); }
   } },
+  /* [EVOLUTIVAS] dibujos de luz de las armas evolutivas: llamas, plumas y rayos */
+  n_llamas: { tile: 1, raw: true, draw(g, S, R) {
+    g.fillStyle = '#000'; g.fillRect(0, 0, S, S); g.fillStyle = '#fff';
+    for (let k = 0; k < 9; k++) { const x = k * S / 8 + (R() - 0.5) * 12, h = S * (0.35 + R() * 0.5), w = S / 10;
+      g.beginPath(); g.moveTo(x - w, S); g.bezierCurveTo(x - w * 1.1, S - h * 0.5, x + w * 0.6, S - h * 0.6, x, S - h); g.bezierCurveTo(x + w * 0.2, S - h * 0.55, x + w * 1.2, S - h * 0.4, x + w, S); g.closePath(); g.fill(); }
+  } },
+  n_plumas: { tile: 1, raw: true, draw(g, S, R) {
+    g.fillStyle = '#000'; g.fillRect(0, 0, S, S); g.strokeStyle = '#fff'; g.lineCap = 'round';
+    for (let k = 0; k < 7; k++) { const x = R() * S, y = R() * S, a = -0.6 + R() * 0.4, L = S * 0.32;
+      g.save(); g.translate(x, y); g.rotate(a); g.lineWidth = 4; g.beginPath(); g.moveTo(0, 0); g.lineTo(L, 0); g.stroke(); g.lineWidth = 2.2;
+      for (let t = 0.12; t < 1; t += 0.11) { const px = L * t, b = L * 0.22 * Math.sin(Math.PI * t); g.beginPath(); g.moveTo(px, 0); g.lineTo(px + 8, -b); g.moveTo(px, 0); g.lineTo(px + 8, b); g.stroke(); }
+      g.restore(); }
+  } },
+  n_rayos: { tile: 1, raw: true, draw(g, S, R) {
+    g.fillStyle = '#000'; g.fillRect(0, 0, S, S); g.strokeStyle = '#fff'; g.lineJoin = 'miter';
+    for (let k = 0; k < 5; k++) { let x = R() * S, y = 0; g.lineWidth = 3 + R() * 3; g.beginPath(); g.moveTo(x, y);
+      while (y < S) { x += (R() - 0.5) * 60; y += 18 + R() * 26; g.lineTo(x, y); } g.stroke(); }
+  } },
   n_rayas: { tile: 1, raw: true, draw(g, S) {
     g.fillStyle = '#000'; g.fillRect(0, 0, S, S); g.save(); g.translate(S / 2, S / 2); g.rotate(-0.55); g.translate(-S, -S); g.fillStyle = '#fff';
     for (let k = 0; k < 14; k++) { g.fillRect(0, k * S / 7, S * 2, k % 3 === 0 ? 10 : 4); } g.restore();
@@ -1558,7 +1576,7 @@ function addGunOutlines(root, t) {
   }
 }
 function gunModel(w, ox, oid, skinId) {
-  const sk = skinId ? S.WEAPON_SKINS.find(k => k.id === skinId && k.w === w.id) : null, wcol = sk ? sk.body : w.col, acc = sk ? sk.acc : '#ffffff';   // skin del pase de batalla (solo en tu arma en primera persona)
+  const sk0 = skinId ? S.skinById(skinId) : null, sk = sk0 && sk0.w === w.id ? sk0 : null, wcol = sk ? sk.body : w.col, acc = sk ? sk.acc : '#ffffff';   // skin del pase de batalla (solo en tu arma en primera persona)
   const g = new THREE.Group(), s = w.size, L = w.look || {}, bl = (L.barrel || 0.4) * 0.6, dark = sk ? sk.dark : '#2a1b3d';
   const opt = w.optics ? OPTICS[oid && w.optics.includes(oid) ? oid : w.optics[0]] : null;
   const box = (x, y, z, px, py, pz, col) => { const m = new THREE.Mesh(BG(x, y, z), gunMat(col, sk, wcol, acc, dark)); m.position.set(px, py, pz); return m; };
@@ -1609,7 +1627,7 @@ function gunModel(w, ox, oid, skinId) {
   if (GUN_BUILDERS[w.id]) {   // [ARMAS HD] arma detallada (ver buildDetailedGun)
     if (sk) {   // con skin: sus colores, patrones y brillos (sombreado toon)
       const metal = '#' + new THREE.Color(dark).lerp(new THREE.Color('#8a93b8'), 0.22).getHexString();
-      const cols = { body: wcol, acc, dark, metal }; if (w.id === 'ak') { cols.wood = sk.acc; cols.woodDk = sk.dark; cols.metal = '#2b2f3f'; }
+      const cols = { body: wcol, acc, dark, metal }; if (w.id === 'ak') { cols.wood = sk.evo ? sk.body : sk.acc; cols.woodDk = sk.dark; cols.metal = sk.evo ? sk.dark : '#2b2f3f'; }   // [EVOLUTIVAS] la madera toma el color del cuerpo
       else if (w.id === 'arpon' || w.id === 'cometa') cols.wood = w.id === 'arpon' ? sk.dark : sk.acc;   // [ARMAS KRUNKER] la culata y el escudo térmico toman el color de la skin
       g.userData.tipZ = buildDetailedGun(w, g, s, L, bl, cols, c => gunMat(c, sk, wcol, acc, dark));
     } else {    // [REALISTAS] sin skin: tonos de arma de verdad y materiales con brillo físico
@@ -1641,8 +1659,26 @@ function gunModel(w, ox, oid, skinId) {
   const fl = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.95, side: THREE.DoubleSide, fog: false }));
   fl.position.set(0, 0.012, (g.userData.tipZ != null ? g.userData.tipZ : -s[2] - bl) - 0.08); fl.visible = false; g.add(fl); g.userData.flash = fl;   // [CORREGIDO] con modelo 3D, en la boca real del cañón
   addGunOutlines(g, 0.0035);   // [TOON] contorno negro fino en todas las piezas del arma
+  if (sk && sk.evo && sk.evo.lv >= 5) addEvoAura(g, sk.evo, g.userData.tipZ != null ? g.userData.tipZ : -s[2]);   // [EVOLUTIVAS] nivel 5: aura de partículas
   g.position.x = ox || 0; return g;
 }
+/* [EVOLUTIVAS] Aura del nivel 5: chispas de luz que suben alrededor del arma (llamas, plumas doradas o chispas eléctricas según la skin) */
+const EVO_AURAS = new Set();
+const evoDotTex = (() => { let t = null; return () => t || (t = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'), gr = x.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.7)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c); })()); })();
+function addEvoAura(g, evo, tipZ) {
+  const n = 44, pos = new Float32Array(n * 3), seed = [];
+  for (let i = 0; i < n; i++) { seed.push([Math.random() * 0.09 - 0.045, tipZ * Math.random() * 0.95, Math.random(), 0.25 + Math.random() * 0.5]); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: evo.col, size: 0.034, map: evoDotTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+  pts.userData.evoAura = { seed, fx: evo.fx }; pts.frustumCulled = false; g.add(pts); EVO_AURAS.add(pts); tickEvoAura(pts, 0);
+}
+function tickEvoAura(pts, t) {
+  const a = pts.geometry.attributes.position, A = pts.userData.evoAura;
+  for (let i = 0; i < A.seed.length; i++) { const [x0, z0, ph, sp] = A.seed[i], k = (t * sp + ph) % 1, sw = A.fx === 'rayos' ? (Math.random() - 0.5) * 0.03 : Math.sin((t + ph * 9) * 3) * 0.012;
+    a.setXYZ(i, x0 * 1.6 + sw, -0.04 + k * (A.fx === 'plumas' ? 0.16 : 0.14), z0); }
+  a.needsUpdate = true; pts.material.opacity = A.fx === 'rayos' ? 0.6 + Math.random() * 0.4 : 0.9;
+}
+function tickEvoAuras() { const t = performance.now() / 1000; for (const p of EVO_AURAS) { if (!p.parent) { EVO_AURAS.delete(p); continue; } tickEvoAura(p, t); } }
 function addHands(g, w) {
   const s = w.size, glove = '#1c2236', sleeve = (state === 'playing' || state === 'paused') && player ? TEAMS[player.team].c : COLORS[cfg.look.col].c;   // en partida, la manga es del color del equipo
   const box = (x, y, z, px, py, pz, col, rx, ry) => { const m = new THREE.Mesh(BG(x, y, z), mat(col)); m.position.set(px, py, pz); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; g.add(m); };
@@ -4752,6 +4788,7 @@ function frame(now) {
   const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
   adaptQuality(raw);
   tickKnives(dt);   // [CUCHILLOS] luces que recorren las hojas con efecto
+  tickEvoAuras();   // [EVOLUTIVAS] aura del nivel 5
   fpsAcc += raw; fpsN++; if (fpsAcc >= 0.5) { el.fps.textContent = Math.round(fpsN / fpsAcc) + ' FPS'; fpsAcc = 0; fpsN = 0; }
   if (online && state === 'paused') stepOnline(dt);
   if (state === 'playing') {

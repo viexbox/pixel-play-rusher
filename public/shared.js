@@ -1023,7 +1023,32 @@ function viewmodelSight(pose, sight) {
   return { x: x + pose.px, y: y + pose.py, z: z + pose.pz };
 }
 
-const api = { SECONDARY, maxHp, KNIFE_ROULETTE, OUTFIT_ROULETTE, rouletteDef, rouletteOdds, PETS, OUTFITS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, BOMB, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
+/* [EVOLUTIVAS] Armas evolutivas (como en Free Fire): skins con 5 niveles. Solo cambian el aspecto, nunca el daño.
+   Nivel 1: colores y dibujo · 2: detalles que brillan · 3: dibujo de luz en el cuerpo y balas trazadoras de su color ·
+   4: efecto al eliminar que ven todos · 5: aura de partículas en el arma, animación al sacarla e icono dorado en el registro de bajas.
+   El arma equipada se guarda como «id@nivel» (p. ej. ak_evo_dragon@3); el nivel lo decide el servidor. */
+const EVO_SKINS = [
+  { id: 'ak_evo_dragon', w: 'ak', n: 'Dragón Infernal', col: '#ff6a1f', fx: 'fuego',
+    base: { body: '#5a1010', acc: '#c98a2a', dark: '#1a0606', rough: 0.4, metal: 0.3, pattern: 'camuflaje' },
+    lv: [{}, { acc: '#ffb41f', glow: '#ff8a1f' }, { body: '#3a0a0a', neon: { pat: 'n_llamas', col: '#ff5a1f' } }, { dark: '#5a1a00', acc: '#ffd23a', glow: '#ffd23a', neon: { pat: 'n_llamas', col: '#ffa01f' } }, { body: '#240505', metal: 0.6, neon: { pat: 'n_llamas', col: '#ffc84a' } }] },
+  { id: 'lince_evo_fenix', w: 'lince', n: 'Fénix Dorado', col: '#ffd23a', fx: 'plumas',
+    base: { body: '#d9cfb8', acc: '#9a7420', dark: '#4a3010', rough: 0.35, metal: 0.4 },
+    lv: [{}, { acc: '#e0ae2a', glow: '#ffd23a' }, { body: '#efe4c8', neon: { pat: 'n_plumas', col: '#ffb41f' } }, { dark: '#8a5a10', acc: '#ffe680', glow: '#fff1a8', neon: { pat: 'n_plumas', col: '#ffd23a' } }, { body: '#fff3d6', metal: 0.8, neon: { pat: 'n_plumas', col: '#ffe680' } }] },
+  { id: 'asalto_evo_tormenta', w: 'asalto', n: 'Tormenta Eléctrica', col: '#38d4ff', fx: 'rayos',
+    base: { body: '#2a3a66', acc: '#4f7fb0', dark: '#0d1428', rough: 0.35, metal: 0.4, pattern: 'carbono' },
+    lv: [{}, { acc: '#38d4ff', glow: '#38d4ff' }, { body: '#16224a', neon: { pat: 'n_rayos', col: '#38d4ff' } }, { dark: '#12306a', acc: '#c4f6ff', glow: '#9ff0ff', neon: { pat: 'n_rayos', col: '#7fe7ff' } }, { body: '#0c1430', metal: 0.65, neon: { pat: 'n_rayos', col: '#c4f6ff' } }] }
+];
+const EVO_MAX = 5;
+/* skin completa de un arma evolutiva a un nivel: la base más los cambios de cada nivel hasta ese (r: 'evo' para el marco del inventario) */
+function evoSkin(id, lv) {
+  const e = EVO_SKINS.find(x => x.id === id); if (!e) return null; lv = Math.max(1, Math.min(EVO_MAX, lv | 0 || 1));
+  const s = Object.assign({ id: id + '@' + lv, w: e.w, n: e.n, r: 'evo' }, e.base);
+  for (let i = 0; i < lv; i++) Object.assign(s, e.lv[i]);
+  s.evo = { id, lv, col: e.col, fx: e.fx }; return s;
+}
+/* busca una skin normal o evolutiva («id@nivel») */
+function skinById(id) { if (!id) return null; const at = String(id).indexOf('@'); return at > 0 ? evoSkin(id.slice(0, at), +id.slice(at + 1)) : WEAPON_SKINS.find(k => k.id === id) || null; }
+const api = { EVO_SKINS, EVO_MAX, evoSkin, skinById, SECONDARY, maxHp, KNIFE_ROULETTE, OUTFIT_ROULETTE, rouletteDef, rouletteOdds, PETS, OUTFITS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, BOMB, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
