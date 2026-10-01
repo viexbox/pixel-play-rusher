@@ -68,7 +68,7 @@ function pgStore(pool, S) {
     /* [NUEVO] Borrar todo lo de una cuenta (al eliminarla): pase, objetos, regalos, anuncios y foto; las ventas antiguas se anonimizan para no romper el historial de precios */
     async deleteUser(uid) {
       await tx(async c => {
-        for (const t of ['bp_progress', 'bp_claims', 'bp_inventory', 'bp_equipped']) await c.query('DELETE FROM ' + t + ' WHERE user_id = $1', [uid]);
+        for (const t of ['bp_progress', 'bp_claims', 'bp_inventory', 'bp_equipped', 'bp_evo']) await c.query('DELETE FROM ' + t + ' WHERE user_id = $1', [uid]);
         await c.query('DELETE FROM bp_gifts WHERE from_user::text = $1 OR to_user::text = $1', [uid]); await c.query('DELETE FROM market_listings WHERE seller = $1', [uid]); await c.query('DELETE FROM user_avatars WHERE user_id = $1', [uid]);
         await c.query("UPDATE market_sales SET seller = 'eliminado' WHERE seller = $1", [uid]); await c.query("UPDATE market_sales SET buyer = 'eliminado' WHERE buyer = $1", [uid]);
       });
@@ -76,7 +76,7 @@ function pgStore(pool, S) {
     /* [NUEVO] Reasigna las filas de cuentas antiguas (id numérico) a su UUID. Idempotente: si ya no hay filas con el id antiguo no hace nada. */
     remapUsers(pairs) {
       const olds = pairs.map(p => String(p.old)), news = pairs.map(p => p.id);
-      return tx(async c => { for (const [t, col] of [['bp_progress', 'user_id'], ['bp_claims', 'user_id'], ['bp_inventory', 'user_id'], ['bp_equipped', 'user_id'], ['bp_gifts', 'from_user'], ['bp_gifts', 'to_user']])
+      return tx(async c => { for (const [t, col] of [['bp_progress', 'user_id'], ['bp_claims', 'user_id'], ['bp_inventory', 'user_id'], ['bp_equipped', 'user_id'], ['bp_evo', 'user_id'], ['bp_gifts', 'from_user'], ['bp_gifts', 'to_user']])
         await c.query('UPDATE ' + t + ' SET ' + col + ' = m.n FROM (SELECT unnest($1::text[]) AS o, unnest($2::text[]) AS n) m WHERE ' + t + '.' + col + ' = m.o', [olds, news]); });
     },
     /* ---- [NUEVO] Mercado, historial de precios e intercambios ---- */
@@ -128,6 +128,20 @@ function pgStore(pool, S) {
     async grantItem(uid, t, id, source) {   // [NUEVO] mascotas y canjes del evento: false si ya lo tenía
       const r = await pool.query('INSERT INTO bp_inventory (user_id, item_type, item_id, source) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING', [uid, t, id, source]);
       return r.rowCount > 0;
+    },
+    /* [EVOLUTIVAS] nivel y fichas de las armas evolutivas (sin fila = nivel 1 y 0 fichas) */
+    async evoState(uid) { const r = await pool.query('SELECT skin_id, level, tokens, kills FROM bp_evo WHERE user_id = $1', [uid]); return Object.fromEntries(r.rows.map(x => [x.skin_id, { lv: x.level, tok: x.tokens, kills: x.kills }])); },
+    async evoAdd(uid, id, tokens, kills) {
+      await pool.query('INSERT INTO bp_evo (user_id, skin_id, tokens, kills) VALUES ($1, $2, $3, $4) ON CONFLICT (user_id, skin_id) DO UPDATE SET tokens = bp_evo.tokens + $3, kills = bp_evo.kills + $4, updated_at = now()', [uid, id, tokens | 0, kills | 0]);
+    },
+    evoUp(uid, id, costs, max) {   // sube un nivel si hay fichas suficientes (todo o nada)
+      return tx(async c => {
+        await c.query('INSERT INTO bp_evo (user_id, skin_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [uid, id]);
+        const r = (await c.query('SELECT level, tokens FROM bp_evo WHERE user_id = $1 AND skin_id = $2 FOR UPDATE', [uid, id])).rows[0];
+        if (r.level >= max) return { error: 'max' }; const cost = costs[r.level]; if (r.tokens < cost) return { error: 'tokens', need: cost - r.tokens };
+        await c.query('UPDATE bp_evo SET level = level + 1, tokens = tokens - $3, updated_at = now() WHERE user_id = $1 AND skin_id = $2', [uid, id, cost]);
+        return { lv: r.level + 1, tok: r.tokens - cost };
+      });
     },
     async takeItem(uid, t, id) {   // [REGALOS ADMIN] quitar un objeto (y desequiparlo): false si no lo tenía
       const r = await pool.query('DELETE FROM bp_inventory WHERE user_id = $1 AND item_type = $2 AND item_id = $3', [uid, t, id]);
@@ -224,6 +238,13 @@ function fileStore(dataDir, log, S) {
       const u = U(uid), k = t + ':' + id; if (u.inventory[k]) return false;
       u.inventory[k] = { t, id, source, ts: Date.now() }; st.save(); return true;
     },
+    async evoState(uid) { const u = D.users[uid]; return Object.fromEntries(Object.entries((u && u.evo) || {}).map(([k, v]) => [k, { lv: v.lv, tok: v.tok, kills: v.kills || 0 }])); },   // [EVOLUTIVAS] ver la versión de PostgreSQL
+    async evoAdd(uid, id, tokens, kills) { const u = U(uid), E = (u.evo = u.evo || {}), e = E[id] || (E[id] = { lv: 1, tok: 0, kills: 0 }); e.tok += tokens | 0; e.kills = (e.kills || 0) + (kills | 0); st.save(); },
+    async evoUp(uid, id, costs, max) {
+      const u = U(uid), E = (u.evo = u.evo || {}), e = E[id] || (E[id] = { lv: 1, tok: 0, kills: 0 });
+      if (e.lv >= max) return { error: 'max' }; const cost = costs[e.lv]; if (e.tok < cost) return { error: 'tokens', need: cost - e.tok };
+      e.lv++; e.tok -= cost; st.save(); return { lv: e.lv, tok: e.tok };
+    },
     async takeItem(uid, t, id) {   // [REGALOS ADMIN] ver la versión de PostgreSQL
       const u = U(uid), k = t + ':' + id; if (!u.inventory[k]) return false;
       delete u.inventory[k]; for (const [slot, v] of Object.entries(u.equipped)) if (v === id) delete u.equipped[slot]; st.save(); return true;
@@ -258,8 +279,9 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
       for (const c of st.claims) { const r = c.track === 'vip' && c.t === 'px' && S.BP_TIERS[c.level - 1] ? S.BP_TIERS[c.level - 1].vip : null; if (r && r.t !== 'px' && await store.upgradeClaim(u.id, c.level, 'vip', r)) got = true; }
       if (got) st = await store.state(u.id);
     }
-    const lv = S.bpLevelOf(st.xp);
-    return { season: SEASON, level: lv.level, xp: st.xp, into: lv.into, need: lv.need, vip: st.vip, giftedBy: st.giftedBy, claims: st.claims.map(c => c.level + ':' + c.track), inventory: st.inventory, equipped: st.equipped,
+    const lv = S.bpLevelOf(st.xp), ev = await store.evoState(u.id), evo = {};   // [EVOLUTIVAS] nivel y fichas de cada arma evolutiva que tiene
+    for (const i of st.inventory) if (i.t === 'evo') evo[i.id] = ev[i.id] || { lv: 1, tok: 0, kills: 0 };
+    return { evo, season: SEASON, level: lv.level, xp: st.xp, into: lv.into, need: lv.need, vip: st.vip, giftedBy: st.giftedBy, claims: st.claims.map(c => c.level + ':' + c.track), inventory: st.inventory, equipped: st.equipped,
       prices: { vip: VIP_PX, skip: SKIP_PX }, px: u.px };
   };
 
@@ -331,10 +353,30 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
     },
     async knifeSpin(u) { return spin(u, 'knife'); },
     async outfitSpin(u) { return spin(u, 'outfit'); },   // [RULETA TRAJES]
+    async evoSpin(u) { return spin(u, 'evo'); },   // [EVOLUTIVAS] ruleta evolutiva
+    async evoUp(u, b) {   // [EVOLUTIVAS] subir de nivel con fichas de esa arma
+      const def = S.EVO_SKINS.find(e => e.id === String(b.id || '')); if (!def) return err(400, 'Esa arma no existe.');
+      if (!owned(await store.state(u.id), 'evo', def.id)) return err(403, 'No tienes esa arma.');
+      const r = await store.evoUp(u.id, def.id, S.EVO.cost, S.EVO_MAX);
+      if (r.error === 'max') return err(400, 'Ya está en el nivel máximo.');
+      if (r.error) return err(402, 'Te faltan ' + r.need + ' fichas.');
+      log('Evolutiva: ' + u.username + ' sube ' + def.id + ' a nivel ' + r.lv);
+      return { ok: true, id: def.id, lv: r.lv, state: await view(u) };
+    },
+    async evoTokens(u, b) {   // [EVOLUTIVAS] comprar un paquete de fichas con PX (para un arma que ya tienes)
+      const def = S.EVO_SKINS.find(e => e.id === String(b.id || '')); if (!def) return err(400, 'Esa arma no existe.');
+      if (!owned(await store.state(u.id), 'evo', def.id)) return err(403, 'No tienes esa arma.');
+      const lvNow = ((await store.evoState(u.id))[def.id] || { lv: 1 }).lv; if (lvNow >= S.EVO_MAX) return err(400, 'Ya está en el nivel máximo.');
+      const P = S.EVO.pack; if (!accounts.spend(u, P.px, 'Fichas ' + def.n)) return err(402, 'Te faltan ' + (P.px - u.px) + ' PX.');
+      try { await store.evoAdd(u.id, def.id, P.n, 0); } catch (e) { accounts.grant(u, P.px, 'reembolso fichas'); log('Fichas: ' + e.message); return err(500, 'No se pudo completar la compra. No se ha cobrado nada.'); }
+      return { ok: true, id: def.id, tokens: P.n, state: await view(u) };
+    },
     async equip(u, b) {
       const slot = String(b.slot || ''), item = b.item ? String(b.item) : null; if (!SLOT_RE.test(slot)) return err(400, 'Ranura no válida.');
-      const type = slot === 'knife' ? 'kskin' : slot === 'banner' ? 'banner' : slot === 'pet' ? 'pet' : slot === 'avatar' ? 'avatar' : slot === 'outfit' ? 'outfit' : 'wskin';
-      if (item) {
+      const evoDef = item && slot.startsWith('weapon:') ? S.EVO_SKINS.find(e => e.id === item) : null;   // [EVOLUTIVAS] se equipan en la ranura de su arma
+      const type = slot === 'knife' ? 'kskin' : slot === 'banner' ? 'banner' : slot === 'pet' ? 'pet' : slot === 'avatar' ? 'avatar' : slot === 'outfit' ? 'outfit' : evoDef ? 'evo' : 'wskin';
+      if (evoDef) { if (slot !== 'weapon:' + evoDef.w) return err(400, 'Esa skin es de otra arma.'); }
+      else if (item) {
         const def = S.bpFind({ t: type, id: item }); if (!def) return err(400, 'Objeto no válido.');
         if (type === 'wskin' && slot !== 'weapon:' + def.w) return err(400, 'Esa skin es de otra arma.');
         if (def.base) { await store.equip(u.id, slot, null, type); return { ok: true, state: await view(u) }; }   // el cuchillo clásico es "sin skin"
@@ -346,9 +388,9 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
 
   /* [RULETA] Tirada de una ruleta (cuchillos o trajes): cobra en el servidor, el azar lo pone el servidor y nunca da un objeto repetido */
   async function spin(u, kind) {
-    const D = S.rouletteDef(kind), label = kind === 'outfit' ? 'trajes' : 'cuchillos';
+    const D = S.rouletteDef(kind), label = kind === 'outfit' ? 'trajes' : kind === 'evo' ? 'armas evolutivas' : 'cuchillos';
     const st = await store.state(u.id), odds = S.rouletteOdds(st.inventory.filter(i => i.t === D.t).map(i => i.id), kind);
-    if (!odds.length) return err(409, 'Ya tienes todos los ' + label + ' de la ruleta.');
+    if (!odds.length) return err(409, (kind === 'evo' ? 'Ya tienes todas las armas evolutivas de la ruleta.' : 'Ya tienes todos los ' + label + ' de la ruleta.'));
     const cost = D.R.px; if (!accounts.spend(u, cost, 'Ruleta de ' + label)) return err(402, 'Te faltan ' + (cost - u.px) + ' PX.');
     let x = crypto.randomInt(1e9) / 1e9, pick = odds[odds.length - 1].id;
     for (const o of odds) { if (x < o.p) { pick = o.id; break; } x -= o.p; }
@@ -371,7 +413,7 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
       let out;
       if (key === 'GET /api/bp') out = { ok: true, state: await view(u) };
       else if (req.method === 'POST' && url.pathname.startsWith('/api/bp/')) {
-        const op = { '/api/bp/claim': ops.claim, '/api/bp/claim-all': ops.claimAll, '/api/bp/buy': ops.buy, '/api/bp/gift': ops.gift, '/api/bp/skip': ops.skip, '/api/bp/equip': ops.equip, '/api/bp/pet-buy': ops.petBuy, '/api/bp/outfit-buy': ops.outfitBuy, '/api/bp/knife-spin': ops.knifeSpin, '/api/bp/outfit-spin': ops.outfitSpin }[url.pathname];
+        const op = { '/api/bp/evo-spin': ops.evoSpin, '/api/bp/evo-up': ops.evoUp, '/api/bp/evo-tokens': ops.evoTokens, '/api/bp/claim': ops.claim, '/api/bp/claim-all': ops.claimAll, '/api/bp/buy': ops.buy, '/api/bp/gift': ops.gift, '/api/bp/skip': ops.skip, '/api/bp/equip': ops.equip, '/api/bp/pet-buy': ops.petBuy, '/api/bp/outfit-buy': ops.outfitBuy, '/api/bp/knife-spin': ops.knifeSpin, '/api/bp/outfit-spin': ops.outfitSpin }[url.pathname];
         out = op ? await lock(u.id, () => op(u, b)) : err(404, 'No encontrado.');
       } else out = err(404, 'No encontrado.');
       send(req, res, out.code || 200, out.error ? { error: out.error } : out);
@@ -400,6 +442,7 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
     return [
       { n: 'Cuchillos de la ruleta', items: S.KNIFE_SKINS.filter(k => k.ru).map(k => it('kskin', k)) },
       { n: 'Cuchillos del pase', items: S.KNIFE_SKINS.filter(k => !k.ru && !k.base).map(k => it('kskin', k)) },
+      { n: 'Armas evolutivas', items: S.EVO_SKINS.map(e => it('evo', e, wname(e.w))) },
       { n: 'Trajes de la ruleta', items: S.OUTFITS.filter(o => o.ru).map(o => it('outfit', o)) },
       { n: 'Trajes', items: S.OUTFITS.filter(o => !o.ru).map(o => it('outfit', o)) },
       { n: 'Mascotas', items: S.PETS.map(p => it('pet', p)) },
@@ -409,8 +452,8 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
   }
   async function giftOp(b, s, give) {
     const u = accounts.find(String(b.username || '')); if (!u) return err(404, 'No existe esa cuenta.');
-    const t = String(b.t || ''), id = String(b.id || ''), def = ['kskin', 'wskin', 'outfit', 'pet', 'banner'].includes(t) ? S.bpFind({ t, id }) : null;
-    if (!def || def.base) return err(400, 'Objeto no válido.');
+    const t = String(b.t || ''), id = String(b.id || ''), def = t === 'evo' ? S.EVO_SKINS.find(e => e.id === id) || null : ['kskin', 'wskin', 'outfit', 'pet', 'banner'].includes(t) ? S.bpFind({ t, id }) : null;
+    if (!def || (t !== 'evo' && def.base)) return err(400, 'Objeto no válido.');   // (las evolutivas usan «base» para sus colores, no es el cuchillo clásico)
     const why = String(b.reason || '').slice(0, 80);
     const done = await lock(u.id, () => (give ? store.grantItem(u.id, t, id, 'regalo admin') : store.takeItem(u.id, t, id)));
     if (!done) return err(409, give ? u.username + ' ya tiene ' + def.n + '.' : u.username + ' no tiene ' + def.n + '.');
@@ -420,13 +463,24 @@ function createBattlePass({ S, accounts, admin, db, dataDir, log, env = process.
 
   /* [SKINS VISIBLES] Las skins de arma equipadas, para que los demás jugadores las vean. Solo las que de verdad tiene en el inventario
      y que son de esa arma: el cliente no puede enseñar una skin que no tiene. */
-  const equippedLook = async uid => { try { const st = await store.state(uid), out = {};
+  const equippedLook = async uid => { try { const st = await store.state(uid), out = {}; let ev = null;
     for (const [slot, id] of Object.entries(st.equipped || {})) { if (!slot.startsWith('weapon:')) continue; const wid = slot.slice(7), k = S.WEAPON_SKINS.find(x => x.id === id && x.w === wid);
-      if (k && st.inventory.some(i => i.t === 'wskin' && i.id === id)) out[wid] = id; }
+      if (k && st.inventory.some(i => i.t === 'wskin' && i.id === id)) out[wid] = id;
+      else if (S.EVO_SKINS.some(e => e.id === id && e.w === wid) && st.inventory.some(i => i.t === 'evo' && i.id === id)) { ev = ev || await store.evoState(uid); out[wid] = id + '@' + ((ev[id] || {}).lv || 1); }   // [EVOLUTIVAS] con su nivel: «id@nivel»
+    }
     const kid = (st.equipped || {}).knife;   // [CUCHILLOS] también el cuchillo, para que los demás lo vean al acuchillar
     if (kid && S.KNIFE_SKINS.some(k => k.id === kid) && st.inventory.some(i => i.t === 'kskin' && i.id === kid)) out.knife = kid;
     return out; } catch (e) { return {}; } };
-  return { equippedLook, equippedOutfit: async uid => { try { const st = await store.state(uid), id = st.equipped.outfit; return id && S.OUTFITS.some(o => o.id === id) && st.inventory.some(i => i.t === 'outfit' && i.id === id) ? id : ''; } catch (e) { return ''; } }, equippedPet: async uid => { try { const st = await store.state(uid), id = st.equipped.pet; return id && S.PETS.some(p => p.id === id) && st.inventory.some(i => i.t === 'pet' && i.id === id) ? id : ''; } catch (e) { return ''; } }, handles, handleHttp, awardMatch, view, store, lock, S, prices: { vip: VIP_PX, skip: SKIP_PX }, flush: () => (store.flush ? store.flush() : undefined) };
+  /* [EVOLUTIVAS] Fichas por las bajas con cada arma evolutiva en una partida con premio (con tope por partida). kills = { id: n } */
+  async function awardEvo(u, kills) {
+    const out = {}; await ready;
+    for (const [id, n] of Object.entries(kills || {})) { const def = S.EVO_SKINS.find(e => e.id === id), k = Math.min(n | 0, S.EVO.killCap); if (!def || k <= 0) continue;
+      if (!owned(await store.state(u.id), 'evo', id)) continue;
+      const lvNow = ((await store.evoState(u.id))[id] || { lv: 1 }).lv, add = lvNow >= S.EVO_MAX ? 0 : k;
+      await lock(u.id, () => store.evoAdd(u.id, id, add, n | 0)); out[id] = add; }
+    return out;
+  }
+  return { awardEvo, equippedLook, equippedOutfit: async uid => { try { const st = await store.state(uid), id = st.equipped.outfit; return id && S.OUTFITS.some(o => o.id === id) && st.inventory.some(i => i.t === 'outfit' && i.id === id) ? id : ''; } catch (e) { return ''; } }, equippedPet: async uid => { try { const st = await store.state(uid), id = st.equipped.pet; return id && S.PETS.some(p => p.id === id) && st.inventory.some(i => i.t === 'pet' && i.id === id) ? id : ''; } catch (e) { return ''; } }, handles, handleHttp, awardMatch, view, store, lock, S, prices: { vip: VIP_PX, skip: SKIP_PX }, flush: () => (store.flush ? store.flush() : undefined) };
 }
 
 module.exports = { createBattlePass };

@@ -420,6 +420,24 @@ const TEX = {
     for (let row = -1; row < 7; row++) for (let col = -1; col < 7; col++) { const cx = col * r * 1.5, cy = row * h + (col % 2 ? h / 2 : 0);
       g.beginPath(); for (let k = 0; k < 6; k++) { const a = Math.PI / 3 * k; const px = cx + Math.cos(a) * r * 0.92, py = cy + Math.sin(a) * r * 0.92; k ? g.lineTo(px, py) : g.moveTo(px, py); } g.closePath(); g.stroke(); }
   } },
+  /* [EVOLUTIVAS] dibujos de luz de las armas evolutivas: llamas, plumas y rayos */
+  n_llamas: { tile: 1, raw: true, draw(g, S, R) {
+    g.fillStyle = '#000'; g.fillRect(0, 0, S, S); g.fillStyle = '#fff';
+    for (let k = 0; k < 9; k++) { const x = k * S / 8 + (R() - 0.5) * 12, h = S * (0.35 + R() * 0.5), w = S / 10;
+      g.beginPath(); g.moveTo(x - w, S); g.bezierCurveTo(x - w * 1.1, S - h * 0.5, x + w * 0.6, S - h * 0.6, x, S - h); g.bezierCurveTo(x + w * 0.2, S - h * 0.55, x + w * 1.2, S - h * 0.4, x + w, S); g.closePath(); g.fill(); }
+  } },
+  n_plumas: { tile: 1, raw: true, draw(g, S, R) {
+    g.fillStyle = '#000'; g.fillRect(0, 0, S, S); g.strokeStyle = '#fff'; g.lineCap = 'round';
+    for (let k = 0; k < 7; k++) { const x = R() * S, y = R() * S, a = -0.6 + R() * 0.4, L = S * 0.32;
+      g.save(); g.translate(x, y); g.rotate(a); g.lineWidth = 4; g.beginPath(); g.moveTo(0, 0); g.lineTo(L, 0); g.stroke(); g.lineWidth = 2.2;
+      for (let t = 0.12; t < 1; t += 0.11) { const px = L * t, b = L * 0.22 * Math.sin(Math.PI * t); g.beginPath(); g.moveTo(px, 0); g.lineTo(px + 8, -b); g.moveTo(px, 0); g.lineTo(px + 8, b); g.stroke(); }
+      g.restore(); }
+  } },
+  n_rayos: { tile: 1, raw: true, draw(g, S, R) {
+    g.fillStyle = '#000'; g.fillRect(0, 0, S, S); g.strokeStyle = '#fff'; g.lineJoin = 'miter';
+    for (let k = 0; k < 5; k++) { let x = R() * S, y = 0; g.lineWidth = 3 + R() * 3; g.beginPath(); g.moveTo(x, y);
+      while (y < S) { x += (R() - 0.5) * 60; y += 18 + R() * 26; g.lineTo(x, y); } g.stroke(); }
+  } },
   n_rayas: { tile: 1, raw: true, draw(g, S) {
     g.fillStyle = '#000'; g.fillRect(0, 0, S, S); g.save(); g.translate(S / 2, S / 2); g.rotate(-0.55); g.translate(-S, -S); g.fillStyle = '#fff';
     for (let k = 0; k < 14; k++) { g.fillRect(0, k * S / 7, S * 2, k % 3 === 0 ? 10 : 4); } g.restore();
@@ -1558,7 +1576,7 @@ function addGunOutlines(root, t) {
   }
 }
 function gunModel(w, ox, oid, skinId) {
-  const sk = skinId ? S.WEAPON_SKINS.find(k => k.id === skinId && k.w === w.id) : null, wcol = sk ? sk.body : w.col, acc = sk ? sk.acc : '#ffffff';   // skin del pase de batalla (solo en tu arma en primera persona)
+  const sk0 = skinId ? S.skinById(skinId) : null, sk = sk0 && sk0.w === w.id ? sk0 : null, wcol = sk ? sk.body : w.col, acc = sk ? sk.acc : '#ffffff';   // skin del pase de batalla (solo en tu arma en primera persona)
   const g = new THREE.Group(), s = w.size, L = w.look || {}, bl = (L.barrel || 0.4) * 0.6, dark = sk ? sk.dark : '#2a1b3d';
   const opt = w.optics ? OPTICS[oid && w.optics.includes(oid) ? oid : w.optics[0]] : null;
   const box = (x, y, z, px, py, pz, col) => { const m = new THREE.Mesh(BG(x, y, z), gunMat(col, sk, wcol, acc, dark)); m.position.set(px, py, pz); return m; };
@@ -1609,7 +1627,7 @@ function gunModel(w, ox, oid, skinId) {
   if (GUN_BUILDERS[w.id]) {   // [ARMAS HD] arma detallada (ver buildDetailedGun)
     if (sk) {   // con skin: sus colores, patrones y brillos (sombreado toon)
       const metal = '#' + new THREE.Color(dark).lerp(new THREE.Color('#8a93b8'), 0.22).getHexString();
-      const cols = { body: wcol, acc, dark, metal }; if (w.id === 'ak') { cols.wood = sk.acc; cols.woodDk = sk.dark; cols.metal = '#2b2f3f'; }
+      const cols = { body: wcol, acc, dark, metal }; if (w.id === 'ak') { cols.wood = sk.evo ? sk.body : sk.acc; cols.woodDk = sk.dark; cols.metal = sk.evo ? sk.dark : '#2b2f3f'; }   // [EVOLUTIVAS] la madera toma el color del cuerpo
       else if (w.id === 'arpon' || w.id === 'cometa') cols.wood = w.id === 'arpon' ? sk.dark : sk.acc;   // [ARMAS KRUNKER] la culata y el escudo térmico toman el color de la skin
       g.userData.tipZ = buildDetailedGun(w, g, s, L, bl, cols, c => gunMat(c, sk, wcol, acc, dark));
     } else {    // [REALISTAS] sin skin: tonos de arma de verdad y materiales con brillo físico
@@ -1641,8 +1659,120 @@ function gunModel(w, ox, oid, skinId) {
   const fl = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.95, side: THREE.DoubleSide, fog: false }));
   fl.position.set(0, 0.012, (g.userData.tipZ != null ? g.userData.tipZ : -s[2] - bl) - 0.08); fl.visible = false; g.add(fl); g.userData.flash = fl;   // [CORREGIDO] con modelo 3D, en la boca real del cañón
   addGunOutlines(g, 0.0035);   // [TOON] contorno negro fino en todas las piezas del arma
+  if (sk && sk.evo) addEvoParts(g, sk, s, g.userData.tipZ != null ? g.userData.tipZ : -s[2]);   // [EVOLUTIVAS] piezas en 3D (cabeza de dragón, alas, anillos…) que crecen con el nivel
+  if (sk && sk.evo && sk.evo.lv >= 5) addEvoAura(g, sk.evo, g.userData.tipZ != null ? g.userData.tipZ : -s[2]);   // [EVOLUTIVAS] nivel 5: aura de partículas
   g.position.x = ox || 0; return g;
 }
+/* [EVOLUTIVAS] Piezas en 3D de las armas evolutivas, como las de Free Fire: aparecen y crecen con el nivel.
+   Dragón: pinchos (1), cabeza con cuernos y ojos que brillan en la boca del cañón (2), alas-cuchilla (3), más pinchos y alas grandes (4), cola (5).
+   Fénix: plumas en la culata (1), cabeza con pico y cresta (2), alas a los lados (3), alas grandes (4), cola de plumas (5).
+   Tormenta: aletas de rayo (1), anillos eléctricos en el cañón (2), esfera de energía (3), más anillos y aletas (4), corona de rayos (5).
+   El arma va a lo largo de −z (culata en +z, boca en tipZ). Las piezas se dibujan con el mismo material toon y su contorno. */
+const evoMatCache = {};
+function evoMat(col, glow) {
+  const k = col + '|' + (glow || ''); if (evoMatCache[k]) return evoMatCache[k];
+  const m = glow ? new THREE.MeshBasicMaterial({ color: col, fog: false }) : new THREE.MeshToonMaterial({ color: col, gradientMap: toonRamp('metal'), emissive: new THREE.Color(col), emissiveIntensity: 0.18 });
+  if (!glow) m.userData = { toon: true };
+  return (evoMatCache[k] = m);
+}
+function addEvoParts(g, sk, s, tipZ) {
+  const lv = sk.evo.lv, fx = sk.evo.fx, top = s[1] / 2, A = sk.acc, B = sk.body, D = sk.dark, glowC = sk.evo.col;
+  const parts = new THREE.Group(); parts.userData.evoParts = true; g.add(parts);
+  const put = (geo, col, x, y, z, glow) => { const m = new THREE.Mesh(geo, evoMat(col, glow)); m.position.set(x, y, z); parts.add(m); return m; };
+  /* silueta en el plano z-y ([z, y] = recta, [cz, cy, z, y] = curva) extruida con bisel; grosor en x, centrada en x */
+  const blade = (pts, th, col, x, glow, roll) => { const sh = new THREE.Shape();
+    pts.forEach((p, i) => (!i ? sh.moveTo(p[0], p[1]) : p.length === 4 ? sh.quadraticCurveTo(p[0], p[1], p[2], p[3]) : sh.lineTo(p[0], p[1])));
+    const bv = Math.min(th * 0.3, 0.004), geo = new THREE.ExtrudeGeometry(sh, { depth: th, bevelEnabled: true, bevelThickness: bv, bevelSize: bv, bevelSegments: 2, curveSegments: 8 });
+    geo.rotateY(-Math.PI / 2); geo.translate(th / 2, 0, 0); const m = put(geo, col, x, 0, 0, glow); if (roll) m.rotation.z = roll; return m; };
+  const mv = (pts, dz, dy, k) => pts.map(p => p.map((v, i) => (i % 2 ? dy + v * (k || 1) : dz + v * (k || 1))));   // mover / escalar una silueta
+  const cone = (r, h, col, x, y, z, rx, rz, glow) => { const m = put(new THREE.ConeGeometry(r, h, 7), col, x, y, z, glow); m.rotation.set(rx || 0, 0, rz || 0); return m; };
+  const sph = (r, col, x, y, z, glow, sy) => { const m = put(new THREE.SphereGeometry(r, 12, 8), col, x, y, z, glow); if (sy) m.scale.set(1, sy, 1.3); return m; };
+  const tor = (r, t, col, y, z, glow) => put(new THREE.TorusGeometry(r, t, 8, 24), col, 0, y, z, glow);
+  const feather = (len, wid, col, x, z, y, ang, glow, roll) => blade(mv([[0, 0], [len * 0.3, wid, len * 0.75, wid * 0.8], [len * 1.05, wid * 0.2, len, 0], [len * 0.6, -wid * 0.35, 0, 0]].map(p => p.length === 4 ? [p[0] * Math.cos(ang) - p[1] * Math.sin(ang), p[0] * Math.sin(ang) + p[1] * Math.cos(ang), p[2] * Math.cos(ang) - p[3] * Math.sin(ang), p[2] * Math.sin(ang) + p[3] * Math.cos(ang)] : [p[0] * Math.cos(ang) - p[1] * Math.sin(ang), p[0] * Math.sin(ang) + p[1] * Math.cos(ang)]), z, y), 0.004, col, x, glow, roll);
+  const by = 0.012;   // altura del eje del cañón
+  if (fx === 'fuego') {   // ---------- DRAGÓN ----------
+    const horn = lv >= 4 ? '#ffc21f' : '#d9a441';
+    for (let i = 0; i < (lv >= 4 ? 4 : 3); i++) { const z = tipZ * 0.6 + i * 0.04, h = 0.03 - i * 0.003 + (lv >= 4 ? 0.006 : 0);   // aletas dorsales curvas sobre el guardamanos (lejos de la cámara: la culata en primera persona está pegada a ella)
+      blade([[z - 0.02, top - 0.02], [z - 0.01, top + h * 0.6, z + 0.03, top + h], [z + 0.012, top + h * 0.35, z + 0.025, top - 0.02]], 0.007, lv >= 4 ? glowC : horn, 0, lv >= 4); }
+    if (lv >= 2) {   // cabeza de dragón con la boca abierta en la boca del cañón
+      const hz = tipZ + 0.035, th = 0.058, sd = th / 2 + 0.004;
+      blade(mv([[0.12, 0.0], [0.12, 0.05], [0.1, 0.088, 0.05, 0.082], [0.03, 0.07], [-0.005, 0.074], [-0.03, 0.056], [-0.08, 0.044], [-0.102, 0.042, -0.104, 0.026], [-0.088, 0.022], [-0.06, 0.03], [0.03, 0.024], [0.06, 0.006]], hz, 0), th, B, 0, false);   // cráneo y hocico
+      blade(mv([[0.035, 0.016], [-0.05, 0.0], [-0.084, -0.008], [-0.084, -0.02], [-0.04, -0.038, 0.02, -0.032], [0.065, -0.008]], hz, 0), th * 0.86, D, 0, false);   // mandíbula de abajo
+      sph(0.022, glowC, 0, by, hz - 0.03, true, 0.75);   // fuego dentro de la boca
+      for (const sx of [-1, 1]) {
+        blade(mv([[0.035, 0.068], [0.1, 0.094, 0.19, 0.118], [0.215, 0.124], [0.15, 0.094, 0.06, 0.056]], hz, 0), 0.012, horn, sx * 0.024, false, -sx * 0.4);   // cuernos largos hacia atrás
+        blade(mv([[0.07, 0.03], [0.13, 0.04], [0.15, 0.064], [0.11, 0.032], [0.05, 0.012]], hz, 0), 0.007, horn, sx * (sd - 0.004), false, -sx * 0.55);   // pinchos de la mejilla
+        blade(mv([[0.03, 0.06], [-0.005, 0.07], [-0.03, 0.054], [0.0, 0.058]], hz, 0), 0.008, D, sx * (sd - 0.002), false);   // ceja
+        sph(0.011, '#ffe066', sx * (sd - 0.003), 0.052, hz + 0.0, true, 0.55);   // ojos que brillan
+        sph(0.0045, '#2a0404', sx * 0.016, 0.04, hz - 0.094);   // nariz
+        for (let t = 0; t < 4; t++) { cone(0.005, 0.02, '#fff4d8', sx * 0.021, 0.019, hz - 0.075 + t * 0.026, Math.PI, 0); cone(0.0042, 0.016, '#fff4d8', sx * 0.019, 0.003, hz - 0.068 + t * 0.026, 0, 0); }   // colmillos
+      }
+      for (let i = 0; i < 3; i++) blade(mv([[0.0, 0.0], [0.018, 0.03], [0.035, 0.0]], hz + 0.06 + i * 0.03, 0.06 - i * 0.012), 0.008, horn, 0, false);   // cresta de la nuca
+    }
+    if (lv >= 2) for (let i = 0; i < 3; i++) { const m = put(new THREE.CylinderGeometry(0.024 - i * 0.002, 0.026 - i * 0.002, 0.045, 10), i % 2 ? B : D, 0, by - 0.004, tipZ + 0.175 + i * 0.045); m.rotation.x = Math.PI / 2; }   // cuello con escamas
+    if (lv >= 3) for (const sx of [-1, 1]) {   // alas de murciélago a los lados del guardamanos, abiertas hacia atrás
+      const z0 = tipZ * 0.52, y0 = by - 0.012, x0 = sx * 0.05, roll = -sx * 0.22, W = [0.04, 0.13], F = [[0.2, 0.15], [0.25, 0.08], [0.24, 0.01]];
+      blade(mv([[0, 0], W, F[0], [0.18, 0.1, F[1][0], F[1][1]], [0.19, 0.04, F[2][0], F[2][1]], [0.12, 0.0, 0.06, -0.01]], z0, y0), 0.003, lv >= 4 ? glowC : '#7a0c0c', x0, lv >= 4, roll);   // membrana
+      for (const f of F) { const dz = f[0] - W[0], dy = f[1] - W[1], L = Math.hypot(dz, dy), nz = -dy / L * 0.004, ny = dz / L * 0.004;
+        blade(mv([[W[0] - nz, W[1] - ny], [f[0], f[1]], [W[0] + nz, W[1] + ny]], z0, y0), 0.006, horn, x0 + sx * 0.003, false, roll); }   // dedos del ala
+      blade(mv([[-0.008, 0.0], [W[0] - 0.006, W[1]], [W[0] + 0.006, W[1] - 0.004], [0.008, 0.0]], z0, y0), 0.008, horn, x0 + sx * 0.003, false, roll);   // brazo del ala
+      blade(mv([[W[0] - 0.005, W[1]], [W[0] - 0.025, W[1] + 0.025], [W[0] + 0.004, W[1] + 0.004]], z0, y0), 0.007, horn, x0 + sx * 0.003, false, roll);   // garra
+    }
+    if (lv >= 5) {   // cola enroscada bajo la culata y garra en el cargador
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 1.7; sph(0.016 - i * 0.0011, i % 2 ? A : B, 0, -0.08 + Math.cos(a) * 0.045 - i * 0.004, 0.18 + Math.sin(a) * 0.05, false, 0.85); }
+      blade([[0.16, -0.12], [0.13, -0.17], [0.19, -0.145], [0.2, -0.105]], 0.01, horn, 0, false);   // punta de flecha de la cola
+      for (let t = 0; t < 3; t++) cone(0.006, 0.035, horn, -0.04 + t * 0.008, -0.1, -0.06 + t * 0.022, -0.3, 0.9);   // garras
+    }
+  } else if (fx === 'plumas') {   // ---------- FÉNIX ----------
+    const gold = '#ffd23a', ember = lv >= 4 ? glowC : A;
+    for (const sx of [-1, 1]) for (let i = 0; i < (lv >= 4 ? 5 : 3); i++) feather(0.1 + i * 0.01, 0.018, i % 2 ? A : '#fff1a8', sx * (0.034 + i * 0.002), 0.05 + i * 0.03, -0.02, -0.15 + i * 0.07, false);   // plumas en la culata, hacia atrás y bajas
+    if (lv >= 2) {   // cabeza de fénix en la boca: pico dorado curvo, ojos de fuego y cresta
+      const hz = tipZ + 0.06, th = 0.044, sd = th / 2 + 0.004;
+      blade(mv([[0.09, -0.024], [0.095, 0.028], [0.07, 0.066, 0.0, 0.056], [-0.036, 0.036], [-0.04, -0.006], [0.0, -0.028]], hz, by), th, '#ff7a24', 0, false);   // cabeza
+      blade(mv([[-0.03, 0.038], [-0.09, 0.04, -0.118, -0.01], [-0.104, -0.006], [-0.075, 0.006, -0.036, 0.002]], hz, by), th * 0.72, gold, 0, false);   // pico de arriba
+      blade(mv([[-0.036, -0.002], [-0.082, -0.008], [-0.04, -0.02]], hz, by), th * 0.6, gold, 0, false);   // pico de abajo
+      for (const sx of [-1, 1]) { sph(0.009, '#ff5a1f', sx * (sd - 0.003), by + 0.026, hz - 0.006, true, 0.7); blade(mv([[0.02, 0.026], [0.07, 0.03], [0.09, 0.012], [0.05, 0.02]], hz, by), 0.006, gold, sx * (sd - 0.003), false); }   // ojos y raya dorada
+      for (let i = 0; i < 5; i++) feather(0.1 + i * 0.016, 0.018, i % 2 ? gold : glowC, 0, hz + 0.0 + i * 0.016, by + 0.045 - i * 0.004, 0.55 - i * 0.07, !(i % 2));   // cresta de plumas de fuego hacia atrás
+    }
+    if (lv >= 3) for (const sx of [-1, 1]) for (let i = 0; i < 7; i++) {   // ala de plumas abierta hacia atrás a cada lado del cajón
+      const k = lv >= 4 ? 1.15 : 1, ang = 0.12 + i * 0.11;
+      feather((0.3 - i * 0.02) * k, 0.026 * k, i % 2 ? ember : gold, sx * (0.04 + i * 0.002), -0.4, -0.01, ang, lv >= 4 && !(i % 2), -sx * 0.38);
+    }
+    if (lv >= 5) for (let i = -2; i <= 2; i++) feather(0.2 + (2 - Math.abs(i)) * 0.04, 0.02, i % 2 ? gold : glowC, i * 0.012, 0.12, -0.04, -0.5 - i * 0.12, !(i % 2), i * 0.12);   // cola larga de plumas
+  } else {   // ---------- TORMENTA ----------
+    const bolt = [[0, 0], [-0.04, 0.05], [-0.025, 0.05], [-0.07, 0.11], [-0.05, 0.06], [-0.065, 0.06], [-0.02, 0.0]];
+    for (const sx of [-1, 1]) {
+      blade(mv(bolt, tipZ * 0.3, by - 0.03, 1.5), 0.006, lv >= 4 ? glowC : A, sx * 0.045, lv >= 4, -sx * 0.5);   // rayo grande en el guardamanos
+      blade(mv(bolt, 0.14, -0.045, 0.55), 0.005, lv >= 2 ? glowC : A, sx * 0.03, lv >= 2, -sx * 0.4);   // rayo en la culata
+    }
+    if (lv >= 2) { const nR = lv >= 4 ? 4 : 2; for (let i = 0; i < nR; i++) { tor(0.03 + (i % 2) * 0.006, 0.004, glowC, by, tipZ + 0.04 + i * 0.045, true); tor(0.036 + (i % 2) * 0.006, 0.006, D, by, tipZ + 0.04 + i * 0.045 + 0.008, false); } }   // bobinas eléctricas en el cañón
+    if (lv >= 3) {   // cápsula de energía bajo el cañón con su jaula
+      const cz = tipZ * 0.55; sph(0.026, '#e8fbff', 0, by - 0.07, cz, true, 0.9);
+      for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + 0.4; const m = put(new THREE.CylinderGeometry(0.004, 0.004, 0.08, 5), D, Math.cos(a) * 0.032, by - 0.07 + Math.sin(a) * 0.032, cz); m.rotation.x = Math.PI / 2; }
+      tor(0.034, 0.005, A, by - 0.07, cz - 0.04, false); tor(0.034, 0.005, A, by - 0.07, cz + 0.04, false); put(new THREE.BoxGeometry(0.012, 0.03, 0.03), D, 0, by - 0.035, cz);
+    }
+    if (lv >= 4) for (let i = 0; i < 3; i++) blade(mv([[0, 0], [-0.02, 0.012], [-0.03, 0.002], [-0.05, 0.016], [-0.06, 0.004], [-0.08, 0.014], [-0.075, 0.02], [-0.06, 0.011], [-0.05, 0.022], [-0.028, 0.009], [-0.02, 0.02], [0.005, 0.006]], tipZ + 0.03 + i * 0.045, by + 0.026, 0.55), 0.003, '#e8fbff', 0.0, true, i * 2.1);   // chispas entre las bobinas
+    if (lv >= 5) for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; cone(0.007, 0.06, glowC, Math.cos(a) * 0.034, by + Math.sin(a) * 0.034, tipZ - 0.01, -Math.PI / 2, 0, true).rotation.z = a; }   // corona de rayos en la boca
+  }
+  addGunOutlines(parts, 0.003);
+}
+/* [EVOLUTIVAS] Aura del nivel 5: chispas de luz que suben alrededor del arma (llamas, plumas doradas o chispas eléctricas según la skin) */
+const EVO_AURAS = new Set();
+const evoDotTex = (() => { let t = null; return () => t || (t = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'), gr = x.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.7)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c); })()); })();
+function addEvoAura(g, evo, tipZ) {
+  const n = 44, pos = new Float32Array(n * 3), seed = [];
+  for (let i = 0; i < n; i++) { seed.push([Math.random() * 0.09 - 0.045, tipZ * Math.random() * 0.95, Math.random(), 0.25 + Math.random() * 0.5]); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: evo.col, size: 0.034, map: evoDotTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+  pts.userData.evoAura = { seed, fx: evo.fx }; pts.frustumCulled = false; g.add(pts); EVO_AURAS.add(pts); tickEvoAura(pts, 0);
+}
+function tickEvoAura(pts, t) {
+  const a = pts.geometry.attributes.position, A = pts.userData.evoAura;
+  for (let i = 0; i < A.seed.length; i++) { const [x0, z0, ph, sp] = A.seed[i], k = (t * sp + ph) % 1, sw = A.fx === 'rayos' ? (Math.random() - 0.5) * 0.03 : Math.sin((t + ph * 9) * 3) * 0.012;
+    a.setXYZ(i, x0 * 1.6 + sw, -0.04 + k * (A.fx === 'plumas' ? 0.16 : 0.14), z0); }
+  a.needsUpdate = true; pts.material.opacity = A.fx === 'rayos' ? 0.6 + Math.random() * 0.4 : 0.9;
+}
+function tickEvoAuras() { const t = performance.now() / 1000; for (const p of EVO_AURAS) { if (!p.parent) { EVO_AURAS.delete(p); continue; } tickEvoAura(p, t); } }
 function addHands(g, w) {
   const s = w.size, glove = '#1c2236', sleeve = (state === 'playing' || state === 'paused') && player ? TEAMS[player.team].c : COLORS[cfg.look.col].c;   // en partida, la manga es del color del equipo
   const box = (x, y, z, px, py, pz, col, rx, ry) => { const m = new THREE.Mesh(BG(x, y, z), mat(col)); m.position.set(px, py, pz); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; g.add(m); };
@@ -1660,6 +1790,7 @@ function buildGun(w) {
   flashes = []; gun.userData.sight = null;
   const add = ox => { const g = gunModel(w, ox, cfg.optics[w.id], mySkin(w.id)); flashes.push(g.userData.flash); if (g.userData.sight) gun.userData.sight = g.userData.sight; addHands(g, w); gun.add(g); };
   if (w.dual) { add(-0.22); add(0.22); } else add(0);
+  const ev = evoOf(mySkin(w.id)); if (ev && ev.lv >= 5) { gunEvoSpin = 0.75; sfx.evoDraw(ev.fx); }   // [EVOLUTIVAS] nivel 5: animación al sacarla
 }
 
 /* Personaje: piernas con botas, torso con textura, cabeza con cara, brazos con el arma de su clase y equipo propio de cada clase */
@@ -1964,7 +2095,10 @@ function makeLabel(text, rl, team) {
 }
 
 window.PPR_BP = window.PPR_BP || { equipped: {} };   // lo que lleva puesto la cuenta (skins de armas y cuchillo, banner); bp.js lo mantiene al día
-const mySkin = wid => window.PPR_BP.equipped['weapon:' + wid] || '';
+const mySkin = wid => { const id = window.PPR_BP.equipped['weapon:' + wid] || '', st = window.PPR_BP.state;   // [EVOLUTIVAS] un arma evolutiva lleva su nivel: «id@nivel»
+  return id && S.EVO_SKINS.some(e => e.id === id) ? id + '@' + ((st && st.evo && st.evo[id] && st.evo[id].lv) || 1) : id; };
+const evoOf = sk => { if (!sk || String(sk).indexOf('@') < 0) return null; const s = S.skinById(sk); return s && s.evo ? s.evo : null; };   // nivel y efecto de una skin «id@nivel»
+let gunEvoSpin = 0;   // [EVOLUTIVAS] nivel 5: el arma da una vuelta al sacarla
 const gun = new THREE.Group(); camera.add(gun);
 const viewmodel = S.createViewmodel();   // [NUEVO] posición y giro del arma en primera persona (vaivén y apuntado)
 /* [CUCHILLOS] Modelos de cuchillo: la hoja mira a −z, la guarda está en z=0 y el mango va hacia +z (ancho de la hoja en y, grosor en x).
@@ -2231,6 +2365,72 @@ for (let i = 0; i < 90; i++) {
   m.visible = false; scene.add(m); partPool.push({ m, vel: new THREE.Vector3(), life: 0 });
 }
 let pIdx = 0;
+/* [EVOLUTIVAS] Balas de las armas evolutivas (nivel 3 o más): bola de fuego con estela que sube (dragón), bala dorada con chispas (fénix)
+   o rayo en zigzag (tormenta). Destellos aditivos de un mismo grupo reutilizable; no tocan la física: es solo lo que se ve. */
+const EVO_FX = { fuego: ['#fff2b0', '#ff8a1f', '#ff3a10'], plumas: ['#fffbe0', '#ffd23a', '#ff9a1f'], rayos: ['#ffffff', '#7fe7ff', '#2a8cff'] };
+const evoSprites = [], evoShots = [], evoBolts = [], evoHeads = []; let evoSpI = 0, evoBoltI = 0, evoHeadI = 0;
+function evoPuff(pos, col, size, life, vx, vy, vz, grow) {
+  let o; if (evoSprites.length < 260) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: evoDotTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); s.renderOrder = 5; scene.add(s); o = { s, vel: new THREE.Vector3() }; evoSprites.push(o); }
+  else o = evoSprites[evoSpI++ % evoSprites.length];
+  o.s.position.copy(pos); o.s.material.color.set(col); o.s.material.opacity = 1; o.s.visible = true; o.size = size; o.grow = grow || 0; o.s.scale.setScalar(size); o.life = o.max = life; o.vel.set(vx || 0, vy || 0, vz || 0);
+}
+function evoHead() {   // la «bala»: núcleo blanco y halo de color
+  if (evoHeads.length < 14) { const g = new THREE.Group(); for (let i = 0; i < 2; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: evoDotTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); s.renderOrder = 6; g.add(s); } g.visible = false; scene.add(g); evoHeads.push(g); return g; }
+  return evoHeads[evoHeadI++ % evoHeads.length];
+}
+function evoLightning(a, b, cols, life) {   // rayo en zigzag (tres líneas que tiemblan) con destellos en los quiebros
+  const d = a.distanceTo(b), n = Math.max(4, Math.min(14, Math.round(d / 2.5))), pts = [];
+  for (let k = 0; k <= n; k++) { const p = a.clone().lerp(b, k / n); if (k && k < n) p.add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(Math.min(0.9, d * 0.04))); pts.push(p); }
+  for (let j = 0; j < 3; j++) {
+    let L = evoBolts[evoBoltI++ % 9]; if (!L) { L = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(15 * 3), 3)), new THREE.LineBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); L.frustumCulled = false; scene.add(L); evoBolts.push(L); }
+    const P = L.geometry.attributes.position; for (let k = 0; k < 15; k++) { const q = pts[Math.min(k, n)], o = j ? 0.06 * j : 0; P.setXYZ(k, q.x + (j ? rand(-o, o) : 0), q.y + (j ? rand(-o, o) : 0), q.z + (j ? rand(-o, o) : 0)); }
+    P.needsUpdate = true; L.geometry.setDrawRange(0, n + 1); L.material.color.set(cols[j === 0 ? 0 : 1]); L.material.opacity = 1; L.visible = true; L.userData.life = L.userData.max = life;
+  }
+  for (let k = 1; k < n; k += 2) evoPuff(pts[k], cols[1], 0.35, life * 2.2);
+}
+function evoImpact(pos, evo) {
+  const C = EVO_FX[evo.fx] || EVO_FX.fuego;
+  for (let i = 0; i < 7; i++) evoPuff(pos, C[i % 2 + 1], rand(0.18, 0.34), rand(0.22, 0.4), rand(-2.5, 2.5), rand(0.5, 3), rand(-2.5, 2.5), evo.fx === 'fuego' ? 1.4 : 0.3);
+  evoPuff(pos, C[0], 0.6, 0.12);
+}
+function evoBullet(a, b, evo, impact) {
+  const C = EVO_FX[evo.fx] || EVO_FX.fuego, dd = a.distanceTo(b); if (dd < 0.05) return;
+  a = a.clone().lerp(b, Math.min(0.3, 1.1 / dd));   // empieza un poco por delante de la boca: así no tapa la pantalla en primera persona
+  if (evo.fx === 'rayos') { evoLightning(a, b, C, 0.09); if (impact) evoImpact(b, evo); return; }
+  const g = evoHead(); g.children[0].material.color.set(C[0]); g.children[0].scale.setScalar(evo.fx === 'fuego' ? 0.2 : 0.14); g.children[1].material.color.set(C[1]); g.children[1].scale.setScalar(evo.fx === 'fuego' ? 0.62 : 0.4);
+  g.position.copy(a); g.visible = true;
+  for (const s of evoShots) if (s.g === g) s.done = true;
+  evoShots.push({ g, a: a.clone(), b: b.clone(), last: a.clone(), t: 0, T: Math.max(0.05, Math.min(0.5, a.distanceTo(b) / 120)), evo, impact });
+  if (evo.fx === 'fuego') for (let i = 0; i < 3; i++) evoPuff(a, C[1 + (i % 2)], rand(0.08, 0.14), 0.12, rand(-0.6, 0.6), rand(0, 1), rand(-0.6, 0.6), 1.5);   // pequeña llamarada al salir
+}
+const _evoP = new THREE.Vector3();
+function tickEvoFx(dt) {
+  for (let i = evoShots.length - 1; i >= 0; i--) {
+    const s = evoShots[i]; if (s.done) { evoShots.splice(i, 1); continue; }
+    s.t += dt; const k = Math.min(1, s.t / s.T), C = EVO_FX[s.evo.fx] || EVO_FX.fuego; _evoP.copy(s.a).lerp(s.b, k); s.g.position.copy(_evoP);
+    const seg = s.last.distanceTo(_evoP), n = Math.min(14, Math.ceil(seg / 0.35));
+    for (let j = 1; j <= n; j++) { const q = s.last.clone().lerp(_evoP, j / n);
+      if (s.evo.fx === 'fuego') evoPuff(q, j % 3 ? C[1] : C[2], rand(0.12, 0.22), rand(0.2, 0.34), rand(-0.3, 0.3), rand(0.6, 1.4), rand(-0.3, 0.3), 1.4);   // estela de fuego que sube
+      else evoPuff(q, j % 2 ? C[1] : C[2], rand(0.08, 0.16), rand(0.25, 0.45), rand(-0.6, 0.6), rand(-0.8, 0.4), rand(-0.6, 0.6));   // chispas doradas que caen
+    }
+    s.last.copy(_evoP);
+    if (k >= 1) { s.g.visible = false; if (s.impact) evoImpact(s.b, s.evo); evoShots.splice(i, 1); }
+  }
+  for (const o of evoSprites) { if (!o.s.visible) continue; o.life -= dt; if (o.life <= 0) { o.s.visible = false; continue; }
+    const l = o.life / o.max; o.s.position.addScaledVector(o.vel, dt); o.s.material.opacity = Math.min(1, l * 1.6); o.s.scale.setScalar(o.size * (1 + (1 - l) * o.grow)); }
+  for (const L of evoBolts) { if (!L.visible) continue; L.userData.life -= dt; if (L.userData.life <= 0) L.visible = false; else L.material.opacity = L.userData.life / L.userData.max; }
+}
+/* [EVOLUTIVAS] Nivel 4: efecto al eliminar (lo ven todos): explosión de fuego, lluvia de plumas doradas o rayo que cae del cielo */
+function evoKillFx(pos, evo) {
+  const C = EVO_FX[evo.fx] || EVO_FX.fuego;
+  if (evo.fx === 'rayos') { evoLightning(pos.clone().add(new THREE.Vector3(rand(-2, 2), 16, rand(-2, 2))), pos, C, 0.35); evoLightning(pos.clone().add(new THREE.Vector3(rand(-3, 3), 14, rand(-3, 3))), pos, C, 0.25); }
+  for (let i = 0; i < 34; i++) { const a = rand(0, Math.PI * 2), r = rand(1.5, 4.5);
+    if (evo.fx === 'fuego') evoPuff(pos, C[i % 3], rand(0.3, 0.6), rand(0.4, 0.9), Math.cos(a) * r, rand(0.5, 4.5), Math.sin(a) * r, 1.8);
+    else if (evo.fx === 'plumas') evoPuff(pos, C[1 + (i % 2)], rand(0.12, 0.26), rand(0.8, 1.4), Math.cos(a) * r * 0.6, rand(1, 4), Math.sin(a) * r * 0.6);
+    else evoPuff(pos, C[i % 3], rand(0.15, 0.35), rand(0.3, 0.6), Math.cos(a) * r, rand(-1, 3), Math.sin(a) * r); }
+  evoPuff(pos, C[0], 1.6, 0.25, 0, 0, 0, 1.5);
+  const pd = player ? pos.distanceTo(player.pos) : 0; if (pd < 45) sfx.evoKill(evo.fx);
+}
 function burst(pos, color, n, speed) {
   for (let i = 0; i < n; i++) {
     const p = partPool[pIdx++ % partPool.length];
@@ -2352,7 +2552,16 @@ const sfx = {
   bolt() { noise(0.03, 0.18, 4200); tone(260, 140, 0.05, 'square', 0.08); tone(360, 180, 0.05, 'square', 0.08, 0.13); },
   reload() { tone(300, 200, 0.05, 'square', 0.1); tone(420, 300, 0.05, 'square', 0.1, 0.5); },
   spawn() { tone(330, 660, 0.14, 'triangle', 0.12); },
-  end() { tone(520, 520, 0.14, 'triangle', 0.2); tone(660, 660, 0.14, 'triangle', 0.2, 0.15); tone(880, 880, 0.3, 'triangle', 0.22, 0.3); }
+  end() { tone(520, 520, 0.14, 'triangle', 0.2); tone(660, 660, 0.14, 'triangle', 0.2, 0.15); tone(880, 880, 0.3, 'triangle', 0.22, 0.3); },
+  /* [EVOLUTIVAS] sonidos propios: rugido de fuego (dragón), campanilla dorada (fénix) y chasquido eléctrico (tormenta) */
+  evoShot(fx, v) { v = v == null ? 1 : v; if (v < 0.03) return;
+    if (fx === 'fuego') { tone(118, 52, 0.26, 'sawtooth', 0.12 * v); tone(124, 55, 0.24, 'sawtooth', 0.09 * v); tone(260, 90, 0.16, 'square', 0.05 * v); noise(0.3, 0.32 * v, 1400); noise(0.07, 0.28 * v, 4800); }
+    else if (fx === 'plumas') { noise(0.09, 0.3 * v, 4200); tone(1500, 760, 0.12, 'triangle', 0.08 * v); tone(2240, 2240, 0.18, 'sine', 0.05 * v, 0.02); tone(2990, 2990, 0.14, 'sine', 0.03 * v, 0.05); }
+    else { tone(2400, 180, 0.11, 'sawtooth', 0.09 * v); noise(0.12, 0.34 * v, 7000); tone(95, 60, 0.16, 'square', 0.07 * v); tone(1800, 600, 0.05, 'square', 0.05 * v, 0.05); } },
+  evoKill(fx) { if (fx === 'fuego') { tone(150, 40, 0.7, 'sawtooth', 0.16); tone(158, 42, 0.68, 'sawtooth', 0.12); noise(0.8, 0.4, 1200); }   // rugido largo
+    else if (fx === 'plumas') { [990, 1320, 1760, 2640].forEach((f, i) => tone(f, f, 0.3, 'sine', 0.08, i * 0.07)); noise(0.4, 0.15, 3000); }
+    else { noise(0.9, 0.5, 900); tone(70, 30, 0.8, 'sawtooth', 0.18); tone(3000, 300, 0.15, 'sawtooth', 0.08); } },   // trueno
+  evoDraw(fx) { if (fx === 'fuego') { tone(90, 200, 0.4, 'sawtooth', 0.08); noise(0.45, 0.18, 1600); } else if (fx === 'plumas') { tone(880, 1760, 0.3, 'sine', 0.07); tone(1320, 2640, 0.3, 'sine', 0.05, 0.08); } else { tone(200, 2400, 0.3, 'sawtooth', 0.06); noise(0.25, 0.15, 6000); } }
 };
 
 /* =====================================================================
@@ -2454,9 +2663,10 @@ function killPopup(name, pts, head, streak, gold, vrl) {
 }
 function rankOf(f) { return sortedFighters().indexOf(f) + 1; }
 function sortedFighters() { return fighters.slice().sort((a, b) => b.points - a.points || b.kills - a.kills || a.deaths - b.deaths); }
-function feedAdd(k, v, weapon, head) {
-  const li = document.createElement('li'); li.className = (k.isPlayer ? 'mine' : '') + (v.isPlayer ? ' dead' : '') + (k.rl ? ' gold' : '');
-  li.innerHTML = '<span class="n' + (k.isPlayer ? ' me' : '') + '">' + tdot(k.team) + (k.isPlayer ? selfHtml(k.rl) : nameHtml(k.name, k.rl)) + '</span>' + (WICON[weapon] || '') + (head ? HEAD_ICON : '') + '<span class="n' + (v.isPlayer ? ' me' : '') + '">' + (v.isPlayer ? selfHtml(v.rl) : nameHtml(v.name, v.rl)) + '</span>';
+function feedAdd(k, v, weapon, head, ev) {
+  const li = document.createElement('li'); li.className = (k.isPlayer ? 'mine' : '') + (v.isPlayer ? ' dead' : '') + (k.rl ? ' gold' : '') + (ev ? ' evo5' : '');
+  if (ev) li.style.setProperty('--ec', ev.col);   // [EVOLUTIVAS] nivel 5: icono dorado en el registro de bajas
+  li.innerHTML = '<span class="n' + (k.isPlayer ? ' me' : '') + '">' + tdot(k.team) + (k.isPlayer ? selfHtml(k.rl) : nameHtml(k.name, k.rl)) + '</span>' + (ev ? '<i class="evoic">' : '') + (WICON[weapon] || '') + (ev ? '</i>' : '') + (head ? HEAD_ICON : '') + '<span class="n' + (v.isPlayer ? ' me' : '') + '">' + (v.isPlayer ? selfHtml(v.rl) : nameHtml(v.name, v.rl)) + '</span>';
   el.feed.appendChild(li);
   while (el.feed.children.length > 6) el.feed.removeChild(el.feed.firstChild);
   setTimeout(() => li.classList.add('fade'), 4800); setTimeout(() => li.remove(), 5300);
@@ -2664,6 +2874,7 @@ function playerShoot() {
   const dirs = [];
   const hand = w.dual ? (altHand++ % 2 ? 0.22 : -0.22) : 0.18 * (1 - p.aim);
   const muzzle = camera.localToWorld(new THREE.Vector3(hand, -0.16, -0.9));
+  const myEvo = evoOf(mySkin(w.id));   // [EVOLUTIVAS]
   for (let i = 0; i < w.pellets; i++) {
     const d = spreadDir(base, sp);
     dirs.push([r3(d.x), r3(d.y), r3(d.z)]);
@@ -2675,11 +2886,11 @@ function playerShoot() {
       burst(r.point, r.head ? '#ff5a5f' : '#ffe9b0', 2, 2.5);
       if (!online) damage(r.f, Math.round(dm), p, r.head, w.name);
     } else if (r.t < w.range) burst(r.point, '#ffe9b0', 3, 2);
-    if (i < 3 || w.pellets === 1) tracer(muzzle, r.point, online && player.rl ? '#ffd23f' : '#fff1b8');
+    if (i < 3 || w.pellets === 1) { if (myEvo && myEvo.lv >= 3) evoBullet(muzzle, r.point, myEvo, r.t < w.range); else tracer(muzzle, r.point, myEvo ? myEvo.col : online && player.rl ? '#ffd23f' : '#fff1b8'); }   // [EVOLUTIVAS] balas de dragón, fénix o rayo
   }
   if (online) netSend({ t: 'st', ep: net.ep, x: r3(p.pos.x), y: r3(p.pos.y), z: r3(p.pos.z), yaw: r3(p.yaw), pitch: r3(p.pitch), h: r3(p.h) });   // [ANTITRAMPAS] el servidor comprueba el disparo con la mira de este mismo instante
   if (online) netSend({ t: 'shoot', o: [r3(origin.x), r3(origin.y), r3(origin.z)], d: dirs, s: p.sec ? 1 : undefined });   // [PISTOLA] s = 1: disparo con la secundaria
-  sfx.shot(w, 1);
+  if (myEvo && myEvo.lv >= 3) { sfx.shot(w, 0.55); sfx.evoShot(myEvo.fx, 1); } else sfx.shot(w, 1);   // [EVOLUTIVAS] con su propio sonido
   if (scoped) { el.scope.classList.add('kick'); setTimeout(() => el.scope.classList.remove('kick'), 120); }
   if (w.scope && w.interval > 0.5) setTimeout(() => { if (state === 'playing' || state === 'paused') sfx.bolt(); }, 380);
   gunKick = 1; addShake(w.kick * 10); addCameraRecoil(w, p); const fl = flashes[w.dual ? (hand > 0 ? 1 : 0) : 0]; if (fl) { fl.visible = true; setTimeout(() => { fl.visible = false; }, 45); }
@@ -2785,6 +2996,7 @@ function updatePlayer(dt) {
     extra: { py: -sw * 0.42 - slideK * 0.045, pz: gunKick * 0.07 + sw * 0.1, rx: gunKick * 0.06 - Math.sin(reloadAnim * Math.PI) * 0.6 - sw * 0.9, ry: sw * 0.3, rz: Math.sin(reloadAnim * Math.PI) * 0.25 + slideK * 0.12 }
   });
   gun.position.set(pose.px, pose.py, pose.pz); gun.rotation.set(pose.rx, pose.ry, pose.rz);
+  if (gunEvoSpin > 0) { gunEvoSpin = Math.max(0, gunEvoSpin - dt); const k = 1 - gunEvoSpin / 0.75, e = k * k * (3 - 2 * k); gun.rotation.z += (1 - e) * Math.PI * 2; gun.position.y += Math.sin(k * Math.PI) * 0.05; }   // [EVOLUTIVAS] vuelta al sacarla
   const spr = (moving > 1 ? 10 : 6) + (p.onGround ? 0 : 8) + gunKick * 5;
   el.cross.style.setProperty('--gap', (spr * (1 - p.aim * 0.6)) + 'px');
   el.cross.style.opacity = scoped ? 0 : (opt && opt.kind !== 'scope' ? 1 - clamp(p.aim * 1.5, 0, 1) : 1);
@@ -3138,6 +3350,10 @@ function netHandle(m) {
     case 'sstats': net.sstats = m.p; if (window.PPR_BP.onSpecStats) window.PPR_BP.onSpecStats(m.p); return;
     case 'award': return onNetAward(m);
     case 'bpxp': return window.PPR_BP.onXp && window.PPR_BP.onXp(m);
+    case 'evotok': {   // [EVOLUTIVAS] fichas ganadas con las bajas de la partida
+      const t = Object.entries(m.tok || {}).filter(([, n]) => n > 0).map(([id, n]) => '+' + n + ' fichas ' + ((S.EVO_SKINS.find(e => e.id === id) || {}).n || id)).join(' · ');
+      if (t) toast('🐉 ' + t); if (window.PPR_BP.reload) window.PPR_BP.reload(); return;
+    }
     case 'votes': endVote.counts = m.v; return renderEndMaps();
     case 'map': buildMap(m.map); return;
     case 'cash': net.cash = m.cash; renderDeathPick(); return;   // [NUEVO] tienda de armas: dinero actualizado (reinicio de ronda)
@@ -3321,9 +3537,10 @@ function onNetShot(m) {
   flashChar(net.remotes.get(m.id));
   const o = new THREE.Vector3(m.o[0], m.o[1], m.o[2]), e = new THREE.Vector3(m.e[0], m.e[1], m.e[2]);
   const dir = e.clone().sub(o).normalize(), start = o.clone().addScaledVector(dir, 0.7); start.y -= 0.25;
-  tracer(start, e, m.rl ? '#ffd23f' : '#ffb3b6');
   const pd = player ? Math.hypot(o.x - player.pos.x, o.z - player.pos.z) : 99;
-  const sw = m.s ? S.SECONDARY : WEAPONS[m.c]; if (sw) sfx.shot(sw, clamp(1 - pd / 55, 0, 1) * 0.7);   // [PISTOLA]
+  const sw = m.s ? S.SECONDARY : WEAPONS[m.c], rf = net.remotes.get(m.id), ev = !m.s && sw && rf && rf.mesh ? evoOf((rf.mesh.userData.skins || {})[sw.id]) : null;   // [EVOLUTIVAS] su arma evolutiva
+  if (ev && ev.lv >= 3) evoBullet(start, e, ev, true); else tracer(start, e, ev ? ev.col : m.rl ? '#ffd23f' : '#ffb3b6');
+  const vol = clamp(1 - pd / 55, 0, 1) * 0.7; if (sw) { if (ev && ev.lv >= 3) { sfx.shot(sw, vol * 0.55); sfx.evoShot(ev.fx, vol); } else sfx.shot(sw, vol); }   // [PISTOLA]
 }
 function onNetProj(m) {   // [ARMAS KRUNKER] cohete o virote de otro jugador
   const w = WEAPONS[m.c]; if (!w || !w.proj || !Array.isArray(m.o) || !Array.isArray(m.v)) return;
@@ -3349,7 +3566,9 @@ function onNetKill(m) {
   burst(new THREE.Vector3(v.pos.x, v.pos.y + 1, v.pos.z), v.isPlayer ? '#ff5a5f' : v.color, 16, 5);
   if (k && m.kr) k.rl = m.kr;
   if (m.kr) goldKillFx(new THREE.Vector3(v.pos.x, v.pos.y + 1, v.pos.z)); // efecto dorado exclusivo de administradores e influencers
-  if (k) feedAdd(k, v, m.w, !!m.h);
+  const kw = WEAPONS.find(x => x.name === m.w), kev = k && kw ? evoOf(k === player ? mySkin(kw.id) : k.mesh ? (k.mesh.userData.skins || {})[kw.id] : '') : null;   // [EVOLUTIVAS]
+  if (kev && kev.lv >= 4) evoKillFx(new THREE.Vector3(v.pos.x, v.pos.y + 1, v.pos.z), kev);   // nivel 4: efecto al eliminar que ven todos
+  if (k) feedAdd(k, v, m.w, !!m.h, kev && kev.lv >= 5 ? kev : null);
   if (k === player) {
     player.streak = (player.streak || 0) + 1; player.bestStreak = Math.max(player.bestStreak || 0, player.streak);
     sfx.kill(); hitmark('kill'); if (player.rl) { sfx.gold(); goldFlash(); }
@@ -4009,7 +4228,7 @@ async function renderStore() {
   const box = $('#storeBox'); box.innerHTML = '<p class="note">Cargando…</p>';
   if (window.PPR_PORTAL) {   // [PORTALES] sin pagos con dinero (el portal no los permite), pero sí todo lo que se compra con los PX ganados jugando
     box.innerHTML = '<div class="storehead"><b>Tienda</b><span>Saldo: <em id="storeBal">' + fmtKr(krTotal()) + ' PX</em></span></div>' + (remote ? '' : portalLogin('tienda')) +
-      '<p class="note">Los PX se consiguen jugando: partidas, premio diario, desafíos, pase de batalla y anuncios con premio.</p><div id="knivesBox"></div><div id="outfitRoulBox"></div><div id="outfitsBox"></div><div id="petsBox"></div>';
+      '<p class="note">Los PX se consiguen jugando: partidas, premio diario, desafíos, pase de batalla y anuncios con premio.</p><div id="evoRoulBox"></div><div id="evoBox"></div><div id="knivesBox"></div><div id="outfitRoulBox"></div><div id="outfitsBox"></div><div id="petsBox"></div>';
     renderKnives(); renderOutfits(); renderPets(); return;
   }
   let info = null;
@@ -4022,7 +4241,7 @@ async function renderStore() {
     (pp ? '<button type="button" class="ppbtn" data-pp="' + esc(p.id) + '"' + (canPP ? '' : ' disabled') + '>' + (info.enabled ? 'PayPal' : fmt.format(p.price / 100) + ' · PayPal') + '</button>' : '');
   box.innerHTML = '<div class="storehead"><b>Tienda de PX</b><span>Saldo: <em id="storeBal">' + fmtKr(krTotal()) + ' PX</em></span></div>' + (why ? '<p class="note warn">' + esc(why) + '</p>' : '') +
     '<div class="packs">' + info.packs.map(p => '<div class="pack"><div class="pxn">' + fmtKr(p.px) + '<small>PX</small></div>' + (p.tag ? '<span class="ptag">' + esc(p.tag) + '</span>' : '') + btns(p) + '</div>').join('') + '</div>' +
-    '<div id="ppBox" hidden></div><div id="knivesBox"></div><div id="outfitRoulBox"></div><div id="outfitsBox"></div><div id="petsBox"></div>' +
+    '<div id="ppBox" hidden></div><div id="evoRoulBox"></div><div id="evoBox"></div><div id="knivesBox"></div><div id="outfitRoulBox"></div><div id="outfitsBox"></div><div id="petsBox"></div>' +
     '<p class="note small">' + (info.enabled ? 'El pago con tarjeta se hace en la página segura de Stripe; nunca guardamos tus datos de pago. ' : '') + (pp ? 'Con PayPal pagas tú directamente y un administrador te entrega los PX por ticket en Discord. ' : '') + 'Los PX solo sirven dentro del juego (colores y recompensas).</p><p id="storeMsg" class="note" role="status"></p>';
   for (const b of box.querySelectorAll('[data-pack]')) b.addEventListener('click', async () => {
     b.disabled = true; $('#storeMsg').textContent = 'Abriendo el pago seguro…';
@@ -4104,13 +4323,53 @@ const ROULETTES = {
     on: 'Equipado ✓', put: 'Equipar', okOn: 'Cuchillo equipado', okOff: 'Vuelves al cuchillo clásico', extra: 'Pulsa F con el cuchillo en la mano para inspeccionarlo.' },
   outfit: { box: '#outfitRoulBox', title: 'Ruleta de trajes', sub: 'Trajes con efectos de luz: nunca repetidos.', slot: 'outfit', spin: 'api/bp/outfit-spin',
     list: () => S.OUTFITS, thumb: o => outfitThumb(o), tw: 72, th: 90, cw: 96, ch: 120, fxc: o => ({ neon: '#ff2bd6', yakuza: '#d9a43a', dragon: '#ff7a1a', spectre: '#9fe8ff' })[o.kind],
-    on: 'Puesto ✓', put: 'Ponerme', okOn: 'Traje puesto', okOff: 'Traje quitado', extra: 'Todos los jugadores ven tu traje y sus efectos.' }
+    on: 'Puesto ✓', put: 'Ponerme', okOn: 'Traje puesto', okOff: 'Traje quitado', extra: 'Todos los jugadores ven tu traje y sus efectos.' },
+  evo: { box: '#evoRoulBox', title: 'Ruleta evolutiva', sub: 'Armas que evolucionan del nivel 1 al 5: nunca repetidas.', slot: k => 'weapon:' + k.w, spin: 'api/bp/evo-spin',   // [EVOLUTIVAS]
+    list: () => S.EVO_SKINS, thumb: k => evoThumb(k, 5), tw: 110, th: 62, cw: 150, ch: 84, fxc: k => k.col,
+    on: 'Equipada ✓', put: 'Equipar', okOn: 'Arma equipada', okOff: 'Arma sin skin', extra: 'Empiezan en nivel 1 (en la imagen, nivel 5). Súbelas con fichas: 1 por baja con esa arma o en paquetes con PX. Solo cambian el aspecto, nunca el daño.' }
 };
+/* [EVOLUTIVAS] miniatura del arma evolutiva a un nivel (de perfil, con sus piezas 3D) */
+const EVO_THUMB = {};
+function evoThumb(e, lv) {
+  const key = e.id + '@' + lv; if (EVO_THUMB[key]) return EVO_THUMB[key];
+  try {
+    if (!thumbR) thumbR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    if (!thumbR.domElement || !thumbR.domElement.toDataURL) return '';
+    thumbR.setSize(300, 168);
+    const w = WEAPONS.find(x => x.id === e.w), sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xffffff, 0x8a96c8, 1.0)); const d = new THREE.DirectionalLight(0xffffff, 1.1); d.position.set(3, 4, 5); sc.add(d);
+    const g = gunModel(w, 0, w.optics ? w.optics[0] : null, key); g.rotation.y = -Math.PI / 2; sc.add(g);
+    g.traverse(o => { if (o.userData && o.userData.evoAura) { EVO_AURAS.delete(o); tickEvoAura(o, 1.3); } });
+    const box = new THREE.Box3().setFromObject(g), ctr = box.getCenter(new THREE.Vector3()), L = Math.max(box.getSize(new THREE.Vector3()).z, box.getSize(new THREE.Vector3()).x);
+    const cam = new THREE.PerspectiveCamera(22, 300 / 168, 0.01, 20), dist = L * 0.5 / Math.tan(11 * Math.PI / 180) / (300 / 168) * 1.04;
+    cam.position.set(ctr.x + dist * 0.18, ctr.y + dist * 0.1, ctr.z + dist); cam.lookAt(ctr);
+    thumbR.render(sc, cam); return (EVO_THUMB[key] = thumbR.domElement.toDataURL());
+  } catch (err) { return ''; }
+}
 const roulBusy = {};
-function renderKnives() { renderRoulette('knife'); renderRoulette('outfit'); }
+function renderKnives() { renderRoulette('evo'); renderEvo(); renderRoulette('knife'); renderRoulette('outfit'); }
+/* [EVOLUTIVAS] Tus armas evolutivas: nivel, fichas y botones para subir de nivel o comprar fichas (todo lo decide y cobra el servidor) */
+function renderEvo() {
+  const box = $('#evoBox'); if (!box) return;
+  const P = window.PPR_BP, st = P.state, evo = (st && st.evo) || {}, mine = S.EVO_SKINS.filter(e => evo[e.id]);
+  if (!remote || !mine.length) { box.innerHTML = ''; return; }
+  const E = S.EVO, LV = ['Colores y dibujo', 'Detalles que brillan', 'Balas de su elemento + dibujo de luz', 'Efecto al eliminar', 'Aura, animación e icono dorado'];
+  box.innerHTML = '<div class="storehead"><b>Mis armas evolutivas</b><span>Gana fichas con cada baja usando el arma.</span></div><div class="evolist">' + mine.map(e => {
+    const s = evo[e.id], lv = s.lv, max = lv >= S.EVO_MAX, cost = max ? 0 : E.cost[lv], on = (P.equipped || {})['weapon:' + e.w] === e.id, wn = (WEAPONS.find(w => w.id === e.w) || {}).name || e.w;
+    return '<div class="evocard" style="--ec:' + e.col + '"><img src="' + evoThumb(e, lv) + '" width="240" height="134" alt=""><div class="evoinfo"><b>' + esc(e.n) + '</b><small>' + esc(wn) + ' · Nivel ' + lv + ' de ' + S.EVO_MAX + '</small>' +
+      '<div class="evolv">' + [1, 2, 3, 4, 5].map(n => '<i class="' + (n <= lv ? 'on' : '') + '" title="' + esc(LV[n - 1]) + '"></i>').join('') + '</div>' +
+      (max ? '<p class="note small">¡Nivel máximo! ' + esc(LV[4]) + '.</p>' : '<p class="note small">Siguiente: ' + esc(LV[lv]) + '</p><div class="evobar"><i style="width:' + Math.min(100, Math.round(s.tok / cost * 100)) + '%"></i><span>' + s.tok + ' / ' + cost + ' fichas</span></div>') +
+      '<div class="evobtns">' + (on ? '<button type="button" class="on" data-eq="">' + 'Equipada ✓' + '</button>' : '<button type="button" data-eq="' + e.id + '">Equipar</button>') +
+      (max ? '' : '<button type="button" data-up="' + e.id + '"' + (s.tok < cost ? ' disabled' : '') + '>Subir a nivel ' + (lv + 1) + '</button><button type="button" data-tok="' + e.id + '"' + (krTotal() < E.pack.px ? ' disabled' : '') + '>+' + E.pack.n + ' fichas · ' + fmtKr(E.pack.px) + ' PX</button>') + '</div></div></div>';
+  }).join('') + '</div><p class="note evo-msg" role="status"></p>';
+  const msg = t => { const m = box.querySelector('.evo-msg'); if (m) m.textContent = t; };
+  const run = async (path, body, ok) => { try { const j = await acctPost(path, body); if (j.state && P.applyState) P.applyState(j.state); const bal = $('#storeBal'); if (bal) bal.textContent = fmtKr(krTotal()) + ' PX'; renderEvo(); renderRoulette('evo'); if (ok) { toast(ok(j)); } } catch (err) { msg(err.message); } };
+  for (const b of box.querySelectorAll('[data-eq]')) b.addEventListener('click', () => { const e = S.EVO_SKINS.find(x => x.id === b.dataset.eq) || mine.find(x => (P.equipped || {})['weapon:' + x.w] === x.id); if (!e) return; run('api/bp/equip', { slot: 'weapon:' + e.w, item: b.dataset.eq || null }, () => (b.dataset.eq ? e.n + ' equipada' : 'Arma sin skin')); });
+  for (const b of box.querySelectorAll('[data-up]')) b.addEventListener('click', () => { b.disabled = true; run('api/bp/evo-up', { id: b.dataset.up }, j => { sfx.gold(); return '¡' + (S.EVO_SKINS.find(x => x.id === j.id) || {}).n + ' sube a nivel ' + j.lv + '!'; }); });
+  for (const b of box.querySelectorAll('[data-tok]')) b.addEventListener('click', () => { if (!window.confirm('¿Comprar ' + E.pack.n + ' fichas por ' + fmtKr(E.pack.px) + ' PX?')) return; b.disabled = true; run('api/bp/evo-tokens', { id: b.dataset.tok }, () => '+' + E.pack.n + ' fichas'); });
+}
 function renderRoulette(kind) {
   const C = ROULETTES[kind], box = $(C.box); if (!box || roulBusy[kind]) return;
-  const D = S.rouletteDef(kind), R = D.R, P = window.PPR_BP, st = P.state, eq = (P.equipped || {})[C.slot] || '', px = krTotal();
+  const D = S.rouletteDef(kind), R = D.R, P = window.PPR_BP, st = P.state, slotOf = k => (typeof C.slot === 'function' ? C.slot(k) : C.slot), eqOf = k => (P.equipped || {})[slotOf(k)] || '', px = krTotal();
   const all = C.list().filter(k => k.ru), own = new Set(st && st.inventory ? st.inventory.filter(i => i.t === D.t).map(i => i.id) : []);
   const odds = S.rouletteOdds(remote ? [...own] : [], kind), pOf = id => (odds.find(o => o.id === id) || {}).p || 0, left = all.filter(k => !own.has(k.id)).length;
   const pct = p => (p * 100 >= 10 ? Math.round(p * 100) : (p * 100).toFixed(1).replace('.', ',')) + ' %';
@@ -4124,7 +4383,7 @@ function renderRoulette(kind) {
     '<div class="roul"><div class="roul-reel">' + (() => { const v = all.filter(k => !own.has(k.id) || !left), out = []; for (let i = 0; v.length && i < Math.max(8, v.length); i++) out.push(v[i % v.length]); return out.map(item).join(''); })() + '</div><i class="roul-mark"></i></div>' +
     '<div class="roul-act">' + spinBtn + (remote ? '<span>Tienes ' + (all.length - left) + ' de ' + all.length + '</span>' : '') + '</div><div class="roul-winbox" role="status"></div>' +
     '<div class="pets outfits">' + all.map(k => {
-      const rar = S.RARITY[k.r] || { n: '', c: '#9aa4b8' }, has = own.has(k.id), on = eq === k.id;
+      const rar = S.RARITY[k.r] || { n: '', c: '#9aa4b8' }, has = own.has(k.id), on = eqOf(k) === k.id;
       const btn = !remote || !has ? '<button type="button" disabled>' + (remote ? 'Probabilidad: ' + pct(pOf(k.id)) : pct(pOf(k.id))) + '</button>'
         : on ? '<button type="button" class="on" data-rq="' + k.id + '">' + C.on + '</button>' : '<button type="button" data-re="' + k.id + '">' + C.put + '</button>';
       return '<div class="petcard' + (on ? ' on' : '') + (C.fxc(k) ? ' kfx' : '') + (remote && !has ? ' locked' : '') + '" style="--rc:' + rar.c + glow(k) + '"><span class="prar">' + esc(rar.n) + '</span><img src="' + C.thumb(k) + '" width="' + C.cw + '" height="' + C.ch + '" alt=""><b>' + esc(k.n) + '</b>' + btn + '</div>';
@@ -4132,10 +4391,11 @@ function renderRoulette(kind) {
     Object.entries(R.weights).map(([r, w]) => (S.RARITY[r] || { n: r }).n + ' ' + w + ' %').join(' · ') + ' (repartido entre lo que te falta de cada rareza). Con ' + all.length + ' tiradas los consigues todos.</p><p class="note small">' + C.extra + '</p><p class="note roul-msg" role="status"></p>';
   const msg = t => { const m = box.querySelector('.roul-msg'); if (m) m.textContent = t; };
   const run = async (path, body, okMsg) => {
-    try { const j = await acctPost(path, body); if (j.state && P.applyState) P.applyState(j.state); renderRoulette(kind); if (kind === 'outfit') updatePreview(); if (okMsg) toast(okMsg); } catch (e) { msg(e.message); }
+    try { const j = await acctPost(path, body); if (j.state && P.applyState) P.applyState(j.state); renderRoulette(kind); if (kind === 'outfit') updatePreview(); if (kind === 'evo') renderEvo(); if (okMsg) toast(okMsg); } catch (e) { msg(e.message); }
   };
-  for (const b of box.querySelectorAll('[data-re]')) b.addEventListener('click', () => run('api/bp/equip', { slot: C.slot, item: b.dataset.re }, C.okOn));
-  for (const b of box.querySelectorAll('[data-rq]')) b.addEventListener('click', () => run('api/bp/equip', { slot: C.slot, item: null }, C.okOff));
+  const byId = id => all.find(k => k.id === id);
+  for (const b of box.querySelectorAll('[data-re]')) b.addEventListener('click', () => run('api/bp/equip', { slot: slotOf(byId(b.dataset.re)), item: b.dataset.re }, C.okOn));
+  for (const b of box.querySelectorAll('[data-rq]')) b.addEventListener('click', () => run('api/bp/equip', { slot: slotOf(byId(b.dataset.rq)), item: null }, C.okOff));
   const sb = box.querySelector('.roul-spin'); if (sb && !sb.disabled) sb.addEventListener('click', async () => {
     if (!window.confirm('¿Girar la ruleta por ' + fmtKr(R.px) + ' PX?')) return;
     sb.disabled = true; msg(''); roulBusy[kind] = true;
@@ -4145,9 +4405,9 @@ function renderRoulette(kind) {
     const done = () => {
       if (!roulBusy[kind]) return; roulBusy[kind] = false;
       if (j.state && P.applyState) P.applyState(j.state); const bal = $('#storeBal'); if (bal) bal.textContent = fmtKr(krTotal()) + ' PX';
-      renderRoulette(kind); sfx.gold();
+      renderRoulette(kind); if (kind === 'evo') renderEvo(); sfx.gold();
       const wb = box.querySelector('.roul-winbox'); if (wb) { wb.innerHTML = '<div class="roul-win' + (C.fxc(win) ? ' kfx' : '') + '" style="--rc:' + S.RARITY[win.r].c + glow(win) + '"><img src="' + C.thumb(win) + '" width="' + Math.round(C.cw * 1.25) + '" height="' + Math.round(C.ch * 1.25) + '" alt=""><div><small>' + esc(S.RARITY[win.r].n) + '</small><b>¡Te ha tocado ' + esc(win.n) + '!</b><button type="button" data-re2="' + win.id + '">' + (kind === 'outfit' ? 'Ponérmelo ahora' : 'Equipar ahora') + '</button></div></div>';
-        const eb = wb.querySelector('[data-re2]'); if (eb) eb.addEventListener('click', () => run('api/bp/equip', { slot: C.slot, item: win.id }, C.okOn)); }
+        const eb = wb.querySelector('[data-re2]'); if (eb) eb.addEventListener('click', () => run('api/bp/equip', { slot: slotOf(win), item: win.id }, C.okOn)); }
       toast('¡Te ha tocado ' + win.n + '!');
     };
     if (!reel) return done();
@@ -4752,6 +5012,7 @@ function frame(now) {
   const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
   adaptQuality(raw);
   tickKnives(dt);   // [CUCHILLOS] luces que recorren las hojas con efecto
+  tickEvoAuras(); tickEvoFx(dt);   // [EVOLUTIVAS] aura del nivel 5
   fpsAcc += raw; fpsN++; if (fpsAcc >= 0.5) { el.fps.textContent = Math.round(fpsN / fpsAcc) + ' FPS'; fpsAcc = 0; fpsN = 0; }
   if (online && state === 'paused') stepOnline(dt);
   if (state === 'playing') {

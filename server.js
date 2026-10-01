@@ -468,6 +468,7 @@ class Room {
       if (!p.acctUser || !rewarded || p.kills + p.deaths + p.points === 0) return;
       const r = accounts.awardMatch(p.acctUser, { points: p.points, kills: p.kills, deaths: p.deaths, won: winner >= 0 && p.team === winner, cls: p.cls, bestStreak: p.bestStreak, ev: events.multFor({ mode: this.mode, cls: p.cls }) });
       p.send(JSON.stringify({ t: 'award', px: r.px, balance: r.balance, prevBest: r.prevBest, stats: r.stats, mult: r.mult, cr: r.cr, crBalance: r.crBalance, ev: r.ev, ref: r.ref || undefined }));   // ref: bono de invitación
+      if (p.evoK && bp.awardEvo) bp.awardEvo(p.acctUser, p.evoK).then(x => { if (x && Object.keys(x).length) p.send(JSON.stringify({ t: 'evotok', tok: x })); }).catch(e => log('Fichas evolutivas: ' + e.message));   // [EVOLUTIVAS]
       bp.awardMatch(p.acctUser, { points: p.points, won: winner >= 0 && p.team === winner }).then(x => { if (x) p.send(JSON.stringify({ t: 'bpxp', xp: x.added, total: x.xp, level: x.level, up: x.leveledUp })); }).catch(e => log('XP del pase: ' + e.message));
     });
     this.votes = new Map();
@@ -480,7 +481,7 @@ class Room {
     if (top > 0) { const win = votes.map((n, i) => (n === top ? i : -1)).filter(i => i >= 0), pick = win[Math.floor(Math.random() * win.length)]; if (pick !== this.map) { this.map = pick; this.world = worlds[pick]; this.broadcast({ t: 'map', map: pick }); } }
     this.phase = 'play'; this.tl = MATCH_TIME; this.tk = [0, 0]; this.zs = [0, 0]; this.bomb = null; this.bn = 0; this.newZone(now, true); this.rebalance();
     if (this.mode === 'navidad') { this.tl = XMAS_TIME; this.gifts.clear(); this.broadcast({ t: 'gclr' }); this.spawnElves(now); }   // [NAVIDAD]
-    for (const p of this.players.values()) { p.kills = p.deaths = p.points = p.hs = p.streak = p.bestStreak = p.gifts = 0; p.gl = 0; p.zt = 0; p.alive = false; p.roundStart = now; p.cash = S.CONST.SHOP_START_CASH; p.send(JSON.stringify({ t: 'cash', cash: p.cash })); }
+    for (const p of this.players.values()) { p.kills = p.deaths = p.points = p.hs = p.streak = p.bestStreak = p.gifts = 0; p.evoK = null; p.gl = 0; p.zt = 0; p.alive = false; p.roundStart = now; p.cash = S.CONST.SHOP_START_CASH; p.send(JSON.stringify({ t: 'cash', cash: p.cash })); }
     this.broadcast({ t: 'round', tl: this.tl, lim: this.limit(), zone: this.zoneMsg(), nb: this.botCount() });
     for (const p of this.players.values()) this.spawn(p, now, 4000);
     this.sendBoard();
@@ -572,6 +573,8 @@ class Room {
     a.kills++; a.streak++; if (a.streak > a.bestStreak) a.bestStreak = a.streak;
     a.multi = now - (a.lastKillAt || 0) < S.CONST.MULTI_MS ? (a.multi || 1) + 1 : 1; a.lastKillAt = now;   // [RACHAS] baja doble, triple…
     const pts = 100 + (head ? 50 : 0); a.points += pts; if (head) { a.hs++; }
+    const wd = a.sk ? S.WEAPONS.find(x => x.name === wname) : null, esk = wd && a.sk[wd.id];   // [EVOLUTIVAS] bajas con un arma evolutiva: fichas al acabar la partida
+    if (esk && esk.indexOf('@') > 0) { const id = esk.split('@')[0]; a.evoK = a.evoK || {}; a.evoK[id] = (a.evoK[id] || 0) + 1; }
     this.broadcast({ t: 'kill', kr: a.role || 0, k: a.id, v: v.id, w: wname, h: head ? 1 : 0, pts, streak: a.streak, mk: a.multi, rs: this.mode === 'bomba' ? 0 : S.CONST.RESPAWN, ds: Math.round(Math.hypot(a.x - v.x, a.z - v.z)), ah: Math.round(a.hp) });   // ds = distancia (m) y ah = vida del autor, para la cámara de muerte
     this.onKill(a, v, wname, now);
     this.sendBoard();
