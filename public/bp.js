@@ -77,9 +77,10 @@
     const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Error ' + r.status); return j;
   }
   function apply(s) {   // el servidor manda: se guarda el estado y se aplica lo equipado al juego
-    st = s; const eq = s ? s.equipped : {}; const before = JSON.stringify(P.equipped);
-    P.equipped = eq; if (JSON.stringify(eq) !== before) P.rebuild();
-    P.state = s; if (s) P.setPx(s.px); applyBanner();
+    const key = x => JSON.stringify([x ? x.equipped : {}, x ? x.evo || {} : {}]), before = key(P.state);   // [EVOLUTIVAS] también se redibuja al subir de nivel un arma evolutiva
+    st = s; P.equipped = s ? s.equipped : {}; P.state = s;   // primero el estado: mySkin() lee de ahí el nivel de las evolutivas
+    if (key(s) !== before) P.rebuild();
+    if (s) P.setPx(s.px); applyBanner();
   }
   P.applyState = s => apply(s);   // [MASCOTAS] la tienda aplica el estado que devuelve el servidor tras comprar o equipar
   async function load() {

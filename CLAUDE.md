@@ -67,6 +67,8 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 
 - [PORTALES] `PORTAL_LINKS=1` (Railway): dentro de CrazyGames/Poki se ven el botón de Discord y «Juega también en krunxa.com» (`portalLinks()` en client.js, clase `html.portal-links`, `portalLinks` en `/api/status`). Apagado por defecto: las normas de los portales suelen prohibir enlaces externos; se enciende sin volver a subir el juego. Test `portal-links.test.js`.
 
+- [EVOLUTIVAS] **Armas evolutivas** estilo Free Fire: AK Dragón Infernal, Lince Fénix Dorado y Asalto Tormenta Eléctrica (`S.EVO_SKINS`, 5 niveles, solo aspecto). Se consiguen en la **Ruleta evolutiva** (`S.EVO_ROULETTE`, `/api/bp/evo-spin`, nunca repetidas; tipo de inventario `evo`, no van al mercado) y se suben con fichas de cada arma (`S.EVO.cost`): 1 por baja con ella en partidas con premio (`p.evoK` en server.js → `bp.awardEvo`, tope `EVO.killCap`) o paquetes con PX (`/api/bp/evo-tokens`); `/api/bp/evo-up`. Nivel y fichas en `bp_evo` (migración 008) o `u.evo` en archivos; `view().evo`. Se equipan en `weapon:<arma>` y se ven como «id@nivel» (`equippedLook`, `mySkin`, `S.skinById`). Cliente: piezas 3D por nivel (`addEvoParts`: cabeza de dragón, alas, fénix, bobinas), aura nivel 5 (`addEvoAura`), balas de su elemento con sonido desde nivel 3 (`evoBullet`, `sfx.evoShot`), efecto al eliminar nivel 4 (`evoKillFx`), nivel 5 giro al sacarla (`gunEvoSpin`) e icono dorado en el registro (`feedAdd` `.evo5`). Tienda: `ROULETTES.evo` + `renderEvo()`. Test `evo.test.js`.
+
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).
 - (Dueño) Dar de alta el juego en CrazyGames y Poki (pasos en README). 

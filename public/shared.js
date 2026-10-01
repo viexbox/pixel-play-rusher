@@ -774,7 +774,7 @@ const KNIFE_SKINS = [
    rareza, su parte se reparte entre las demás. Las probabilidades se enseñan en la tienda. */
 const KNIFE_ROULETTE = { px: 2500, weights: { poco: 40, raro: 30, epico: 20, leyenda: 10 } };
 const OUTFIT_ROULETTE = { px: 4500, weights: { epico: 60, leyenda: 40 } };   // [RULETA TRAJES] misma regla: nunca repetidos
-const rouletteDef = kind => (kind === 'outfit' ? { R: OUTFIT_ROULETTE, list: () => OUTFITS, t: 'outfit' } : { R: KNIFE_ROULETTE, list: () => KNIFE_SKINS, t: 'kskin' });
+const rouletteDef = kind => (kind === 'outfit' ? { R: OUTFIT_ROULETTE, list: () => OUTFITS, t: 'outfit' } : kind === 'evo' ? { R: EVO_ROULETTE, list: () => EVO_SKINS, t: 'evo' } : { R: KNIFE_ROULETTE, list: () => KNIFE_SKINS, t: 'kskin' });   // [EVOLUTIVAS] la ruleta evolutiva usa las mismas reglas
 function rouletteOdds(owned, kind) {   // owned: Set o lista de ids que ya tiene → [{ id, p }] con p en 0..1 (suma 1), o [] si ya los tiene todos
   const D = rouletteDef(kind), has = new Set(owned || []), pool = D.list().filter(k => k.ru && !has.has(k.id)), byR = {};
   for (const k of pool) (byR[k.r] = byR[k.r] || []).push(k);
@@ -1028,17 +1028,21 @@ function viewmodelSight(pose, sight) {
    4: efecto al eliminar que ven todos · 5: aura de partículas en el arma, animación al sacarla e icono dorado en el registro de bajas.
    El arma equipada se guarda como «id@nivel» (p. ej. ak_evo_dragon@3); el nivel lo decide el servidor. */
 const EVO_SKINS = [
-  { id: 'ak_evo_dragon', w: 'ak', n: 'Dragón Infernal', col: '#ff6a1f', fx: 'fuego',
+  { id: 'ak_evo_dragon', w: 'ak', n: 'Dragón Infernal', r: 'leyenda', ru: 1, col: '#ff6a1f', fx: 'fuego',
     base: { body: '#5a1010', acc: '#c98a2a', dark: '#1a0606', rough: 0.4, metal: 0.3, pattern: 'camuflaje' },
     lv: [{}, { acc: '#ffb41f', glow: '#ff8a1f' }, { body: '#3a0a0a', neon: { pat: 'n_llamas', col: '#ff5a1f' } }, { dark: '#5a1a00', acc: '#ffd23a', glow: '#ffd23a', neon: { pat: 'n_llamas', col: '#ffa01f' } }, { body: '#240505', metal: 0.6, neon: { pat: 'n_llamas', col: '#ffc84a' } }] },
-  { id: 'lince_evo_fenix', w: 'lince', n: 'Fénix Dorado', col: '#ffd23a', fx: 'plumas',
+  { id: 'lince_evo_fenix', w: 'lince', n: 'Fénix Dorado', r: 'leyenda', ru: 1, col: '#ffd23a', fx: 'plumas',
     base: { body: '#d9cfb8', acc: '#9a7420', dark: '#4a3010', rough: 0.35, metal: 0.4 },
     lv: [{}, { acc: '#e0ae2a', glow: '#ffd23a' }, { body: '#efe4c8', neon: { pat: 'n_plumas', col: '#ffb41f' } }, { dark: '#8a5a10', acc: '#ffe680', glow: '#fff1a8', neon: { pat: 'n_plumas', col: '#ffd23a' } }, { body: '#fff3d6', metal: 0.8, neon: { pat: 'n_plumas', col: '#ffe680' } }] },
-  { id: 'asalto_evo_tormenta', w: 'asalto', n: 'Tormenta Eléctrica', col: '#38d4ff', fx: 'rayos',
+  { id: 'asalto_evo_tormenta', w: 'asalto', n: 'Tormenta Eléctrica', r: 'leyenda', ru: 1, col: '#38d4ff', fx: 'rayos',
     base: { body: '#2a3a66', acc: '#4f7fb0', dark: '#0d1428', rough: 0.35, metal: 0.4, pattern: 'carbono' },
     lv: [{}, { acc: '#38d4ff', glow: '#38d4ff' }, { body: '#16224a', neon: { pat: 'n_rayos', col: '#38d4ff' } }, { dark: '#12306a', acc: '#c4f6ff', glow: '#9ff0ff', neon: { pat: 'n_rayos', col: '#7fe7ff' } }, { body: '#0c1430', metal: 0.65, neon: { pat: 'n_rayos', col: '#c4f6ff' } }] }
 ];
 const EVO_MAX = 5;
+/* [EVOLUTIVAS] Cómo se consiguen y se suben: la ruleta evolutiva (nunca repetidas) da el arma a nivel 1; cada nivel cuesta fichas de esa arma.
+   Fichas: 1 por baja con el arma (en partidas con premio, hasta killCap por partida) o en paquetes de pack.n por pack.px PX. */
+const EVO = { cost: [0, 30, 60, 100, 150], pack: { n: 20, px: 400 }, killCap: 30 };   // cost[i] = fichas para pasar del nivel i al i+1
+const EVO_ROULETTE = { px: 5000, weights: { leyenda: 100 } };
 /* skin completa de un arma evolutiva a un nivel: la base más los cambios de cada nivel hasta ese (r: 'evo' para el marco del inventario) */
 function evoSkin(id, lv) {
   const e = EVO_SKINS.find(x => x.id === id); if (!e) return null; lv = Math.max(1, Math.min(EVO_MAX, lv | 0 || 1));
@@ -1048,7 +1052,7 @@ function evoSkin(id, lv) {
 }
 /* busca una skin normal o evolutiva («id@nivel») */
 function skinById(id) { if (!id) return null; const at = String(id).indexOf('@'); return at > 0 ? evoSkin(id.slice(0, at), +id.slice(at + 1)) : WEAPON_SKINS.find(k => k.id === id) || null; }
-const api = { EVO_SKINS, EVO_MAX, evoSkin, skinById, SECONDARY, maxHp, KNIFE_ROULETTE, OUTFIT_ROULETTE, rouletteDef, rouletteOdds, PETS, OUTFITS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, BOMB, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
+const api = { EVO_SKINS, EVO_MAX, EVO, EVO_ROULETTE, evoSkin, skinById, SECONDARY, maxHp, KNIFE_ROULETTE, OUTFIT_ROULETTE, rouletteDef, rouletteOdds, PETS, OUTFITS, areaAt, buildNav, navField, navRemain, navDir, SHOP, shopStats, MOVE, startSlide, moveStep, VIEWMODEL, createViewmodel, viewmodelSight, COLOR_NAMES, COLOR_HEX, colorRarity, CONST, WEAPONS, crFor, MARKET, MODES, GUN_LADDER, ZONE, BOMB, LEAGUES, leagueIdx, RANKED, OPTICS, MAPS, RARITY, WEAPON_SKINS, KNIFE_SKINS, BANNERS, BP_LEVELS, BP_TIERS, BP_PRICES, bpXpToNext, bpTotalXp, bpLevelOf, bpXpFor, bpFind, bpInfo, COLOR_COSTS, RANKS, EVENTS, todayEvent, eventMult, pxFor, buildWorld, overlapAt, moveEntity, rayBox, rayWorld, insetColliders, wallViolation, raySphere, rayCyl };
 root.VoltShared = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
