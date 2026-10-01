@@ -13,7 +13,7 @@ ok(P && P.id === 'pistola' && P.mag === 10 && P.dmg === 20 && P.head === 30 && P
 ok(!S.WEAPONS.includes(P) && S.WEAPONS.every(w => w.id !== 'pistola') && S.SHOP.every(i => S.WEAPONS[i.wi] && S.WEAPONS[i.wi].id !== 'pistola'), 'no es una clase: no está en WEAPONS ni en la tienda');
 const cli = fs2.readFileSync(path2.join(__dirname, '..', 'public', 'client.js'), 'utf8'), html = fs2.readFileSync(path2.join(__dirname, '..', 'public', 'index.html'), 'utf8');
 ok(/e\.code === 'Digit2'\) setSlot\(secOK\(\) \? 2 : 1\)/.test(cli) && /e\.code === 'Digit3'\) setSlot\(1\)/.test(cli), 'teclas: 2 saca la pistola y 3 (o Q) el cuchillo');
-ok(/setSlot\(secOK\(\) \? \(slot === 0 \? 2 : 0\)/.test(cli), 'la rueda alterna principal y pistola');
+ok(/const ORD = \[0, 2, 1\]/.test(cli), 'la rueda recorre principal → pistola → cuchillo (y al revés hacia arriba)');
 ok(/t: 'shoot'[^\n]*s: p\.sec \? 1 : undefined/.test(cli) && /t: 'reload', s: p\.sec \? 1 : undefined/.test(cli), 'el cliente marca con s = 1 los disparos y la recarga de la pistola');
 ok(/id="slot2"><kbd>2<\/kbd>/.test(html) && /id="slot1"><kbd>3<\/kbd>/.test(html) && /B\('tSec', 'PISTOLA'\)/.test(cli), 'HUD con la ranura de la pistola (2) y el cuchillo en la 3; botón PISTOLA en el móvil');
 

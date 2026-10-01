@@ -35,7 +35,7 @@ const settle = (T, n) => { for (let f = 0; f < n; f++) T.step(1 / 60); T.fast();
     $$('#classes .cls')[ak].click(); $$('#optics .opt')[0].click();
     $('#play').click(); $('#eqPlay').click(); ok(T.state === 'playing', 'partida con la AK'); settle(T, 90);
     ok($('#wname').textContent === 'AK' && $$('#pips i').length === 30 && $('#mag').textContent === '30', 'HUD: AK con cargador de 30');
-    ok(/Mira de hierro/.test($('#wtype').textContent) && !$('#optHint').hidden, 'el HUD indica la mira activa y la tecla B');
+    ok(/Punto rojo/.test($('#wtype').textContent) && !$('#optHint').hidden, 'el HUD indica la mira activa (la AK sale con punto rojo, como en Krunker) y la tecla B');
     const seen = {};
     for (const id of ['hierro', 'punto', 'holo', 'acog']) {
       T.cfg.optics.ak = id; key('KeyB', 'keyup'); T.cfg.optics.ak = id; // (se fija la mira de forma determinista)
@@ -51,8 +51,8 @@ const settle = (T, n) => { for (let f = 0; f < n; f++) T.step(1 / 60); T.fast();
     ok(seen.acog.fov < seen.holo.fov && seen.holo.fov < seen.punto.fov && seen.punto.fov < seen.hierro.fov, 'zoom creciente: hierro < punto rojo < holográfica < ACOG (' + ['hierro', 'punto', 'holo', 'acog'].map(k => seen[k].fov.toFixed(0) + '°').join(' · ') + ')');
     ok(Math.abs(seen.hierro.gunY + S.OPTICS.hierro.h) < 0.01 && Math.abs(seen.holo.gunY + S.OPTICS.holo.h + 0.08) < 0.01, 'al apuntar, el arma sube para alinear la línea de mira con el centro (' + seen.hierro.gunY.toFixed(3) + ' / ' + seen.holo.gunY.toFixed(3) + ')');
     T.player.alive = true; T.player.hp = 100; T.player.protect = 1e9; T.player.aim = 0; T.player.reload = 0;   // que los bots no interfieran con la prueba
-    T.cfg.optics.ak = 'hierro'; $('#optHint'); key('KeyB'); key('KeyB', 'keyup');
-    ok(T.cfg.optics.ak === 'punto' && /Punto rojo/.test($('#wtype').textContent), 'la tecla B cambia de mira en partida → ' + T.cfg.optics.ak);
+    T.cfg.optics.ak = 'punto'; $('#optHint'); key('KeyB'); key('KeyB', 'keyup');
+    ok(T.cfg.optics.ak === 'hierro' && /Mira de hierro/.test($('#wtype').textContent), 'la tecla B cambia de mira en partida → ' + T.cfg.optics.ak);
     key('KeyB'); key('KeyB', 'keyup'); ok(T.cfg.optics.ak === 'holo' && /Holográfica/.test($('#wtype').textContent), 'B otra vez → holográfica');
     { const sg = T.gun.userData.sight; T.player.aim = 0; settle(T, 1); const hip = sg && sg.visible; T.setMouseR(true); settle(T, 60); const ads = sg && sg.visible; T.setMouseR(false); settle(T, 40);
       ok(sg && hip === true && ads === false && sg.visible, '[MIRAS] holográfica: la carcasa y el cristal se ven sin apuntar y se ocultan al apuntar, para no tapar a dónde disparas'); }
