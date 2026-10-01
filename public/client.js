@@ -1659,8 +1659,102 @@ function gunModel(w, ox, oid, skinId) {
   const fl = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.95, side: THREE.DoubleSide, fog: false }));
   fl.position.set(0, 0.012, (g.userData.tipZ != null ? g.userData.tipZ : -s[2] - bl) - 0.08); fl.visible = false; g.add(fl); g.userData.flash = fl;   // [CORREGIDO] con modelo 3D, en la boca real del cañón
   addGunOutlines(g, 0.0035);   // [TOON] contorno negro fino en todas las piezas del arma
+  if (sk && sk.evo) addEvoParts(g, sk, s, g.userData.tipZ != null ? g.userData.tipZ : -s[2]);   // [EVOLUTIVAS] piezas en 3D (cabeza de dragón, alas, anillos…) que crecen con el nivel
   if (sk && sk.evo && sk.evo.lv >= 5) addEvoAura(g, sk.evo, g.userData.tipZ != null ? g.userData.tipZ : -s[2]);   // [EVOLUTIVAS] nivel 5: aura de partículas
   g.position.x = ox || 0; return g;
+}
+/* [EVOLUTIVAS] Piezas en 3D de las armas evolutivas, como las de Free Fire: aparecen y crecen con el nivel.
+   Dragón: pinchos (1), cabeza con cuernos y ojos que brillan en la boca del cañón (2), alas-cuchilla (3), más pinchos y alas grandes (4), cola (5).
+   Fénix: plumas en la culata (1), cabeza con pico y cresta (2), alas a los lados (3), alas grandes (4), cola de plumas (5).
+   Tormenta: aletas de rayo (1), anillos eléctricos en el cañón (2), esfera de energía (3), más anillos y aletas (4), corona de rayos (5).
+   El arma va a lo largo de −z (culata en +z, boca en tipZ). Las piezas se dibujan con el mismo material toon y su contorno. */
+const evoMatCache = {};
+function evoMat(col, glow) {
+  const k = col + '|' + (glow || ''); if (evoMatCache[k]) return evoMatCache[k];
+  const m = glow ? new THREE.MeshBasicMaterial({ color: col, fog: false }) : new THREE.MeshToonMaterial({ color: col, gradientMap: toonRamp('metal'), emissive: new THREE.Color(col), emissiveIntensity: 0.18 });
+  if (!glow) m.userData = { toon: true };
+  return (evoMatCache[k] = m);
+}
+function addEvoParts(g, sk, s, tipZ) {
+  const lv = sk.evo.lv, fx = sk.evo.fx, top = s[1] / 2, A = sk.acc, B = sk.body, D = sk.dark, glowC = sk.evo.col;
+  const parts = new THREE.Group(); parts.userData.evoParts = true; g.add(parts);
+  const put = (geo, col, x, y, z, glow) => { const m = new THREE.Mesh(geo, evoMat(col, glow)); m.position.set(x, y, z); parts.add(m); return m; };
+  /* silueta en el plano z-y ([z, y] = recta, [cz, cy, z, y] = curva) extruida con bisel; grosor en x, centrada en x */
+  const blade = (pts, th, col, x, glow, roll) => { const sh = new THREE.Shape();
+    pts.forEach((p, i) => (!i ? sh.moveTo(p[0], p[1]) : p.length === 4 ? sh.quadraticCurveTo(p[0], p[1], p[2], p[3]) : sh.lineTo(p[0], p[1])));
+    const bv = Math.min(th * 0.3, 0.004), geo = new THREE.ExtrudeGeometry(sh, { depth: th, bevelEnabled: true, bevelThickness: bv, bevelSize: bv, bevelSegments: 2, curveSegments: 8 });
+    geo.rotateY(-Math.PI / 2); geo.translate(th / 2, 0, 0); const m = put(geo, col, x, 0, 0, glow); if (roll) m.rotation.z = roll; return m; };
+  const mv = (pts, dz, dy, k) => pts.map(p => p.map((v, i) => (i % 2 ? dy + v * (k || 1) : dz + v * (k || 1))));   // mover / escalar una silueta
+  const cone = (r, h, col, x, y, z, rx, rz, glow) => { const m = put(new THREE.ConeGeometry(r, h, 7), col, x, y, z, glow); m.rotation.set(rx || 0, 0, rz || 0); return m; };
+  const sph = (r, col, x, y, z, glow, sy) => { const m = put(new THREE.SphereGeometry(r, 12, 8), col, x, y, z, glow); if (sy) m.scale.set(1, sy, 1.3); return m; };
+  const tor = (r, t, col, y, z, glow) => put(new THREE.TorusGeometry(r, t, 8, 24), col, 0, y, z, glow);
+  const feather = (len, wid, col, x, z, y, ang, glow, roll) => blade(mv([[0, 0], [len * 0.3, wid, len * 0.75, wid * 0.8], [len * 1.05, wid * 0.2, len, 0], [len * 0.6, -wid * 0.35, 0, 0]].map(p => p.length === 4 ? [p[0] * Math.cos(ang) - p[1] * Math.sin(ang), p[0] * Math.sin(ang) + p[1] * Math.cos(ang), p[2] * Math.cos(ang) - p[3] * Math.sin(ang), p[2] * Math.sin(ang) + p[3] * Math.cos(ang)] : [p[0] * Math.cos(ang) - p[1] * Math.sin(ang), p[0] * Math.sin(ang) + p[1] * Math.cos(ang)]), z, y), 0.004, col, x, glow, roll);
+  const by = 0.012;   // altura del eje del cañón
+  if (fx === 'fuego') {   // ---------- DRAGÓN ----------
+    const horn = lv >= 4 ? '#ffc21f' : '#d9a441';
+    for (let i = 0; i < (lv >= 4 ? 4 : 3); i++) { const z = tipZ * 0.6 + i * 0.04, h = 0.03 - i * 0.003 + (lv >= 4 ? 0.006 : 0);   // aletas dorsales curvas sobre el guardamanos (lejos de la cámara: la culata en primera persona está pegada a ella)
+      blade([[z - 0.02, top - 0.02], [z - 0.01, top + h * 0.6, z + 0.03, top + h], [z + 0.012, top + h * 0.35, z + 0.025, top - 0.02]], 0.007, lv >= 4 ? glowC : horn, 0, lv >= 4); }
+    if (lv >= 2) {   // cabeza de dragón con la boca abierta en la boca del cañón
+      const hz = tipZ + 0.035, th = 0.058, sd = th / 2 + 0.004;
+      blade(mv([[0.12, 0.0], [0.12, 0.05], [0.1, 0.088, 0.05, 0.082], [0.03, 0.07], [-0.005, 0.074], [-0.03, 0.056], [-0.08, 0.044], [-0.102, 0.042, -0.104, 0.026], [-0.088, 0.022], [-0.06, 0.03], [0.03, 0.024], [0.06, 0.006]], hz, 0), th, B, 0, false);   // cráneo y hocico
+      blade(mv([[0.035, 0.016], [-0.05, 0.0], [-0.084, -0.008], [-0.084, -0.02], [-0.04, -0.038, 0.02, -0.032], [0.065, -0.008]], hz, 0), th * 0.86, D, 0, false);   // mandíbula de abajo
+      sph(0.022, glowC, 0, by, hz - 0.03, true, 0.75);   // fuego dentro de la boca
+      for (const sx of [-1, 1]) {
+        blade(mv([[0.035, 0.068], [0.1, 0.094, 0.19, 0.118], [0.215, 0.124], [0.15, 0.094, 0.06, 0.056]], hz, 0), 0.012, horn, sx * 0.024, false, -sx * 0.4);   // cuernos largos hacia atrás
+        blade(mv([[0.07, 0.03], [0.13, 0.04], [0.15, 0.064], [0.11, 0.032], [0.05, 0.012]], hz, 0), 0.007, horn, sx * (sd - 0.004), false, -sx * 0.55);   // pinchos de la mejilla
+        blade(mv([[0.03, 0.06], [-0.005, 0.07], [-0.03, 0.054], [0.0, 0.058]], hz, 0), 0.008, D, sx * (sd - 0.002), false);   // ceja
+        sph(0.011, '#ffe066', sx * (sd - 0.003), 0.052, hz + 0.0, true, 0.55);   // ojos que brillan
+        sph(0.0045, '#2a0404', sx * 0.016, 0.04, hz - 0.094);   // nariz
+        for (let t = 0; t < 4; t++) { cone(0.005, 0.02, '#fff4d8', sx * 0.021, 0.019, hz - 0.075 + t * 0.026, Math.PI, 0); cone(0.0042, 0.016, '#fff4d8', sx * 0.019, 0.003, hz - 0.068 + t * 0.026, 0, 0); }   // colmillos
+      }
+      for (let i = 0; i < 3; i++) blade(mv([[0.0, 0.0], [0.018, 0.03], [0.035, 0.0]], hz + 0.06 + i * 0.03, 0.06 - i * 0.012), 0.008, horn, 0, false);   // cresta de la nuca
+    }
+    if (lv >= 2) for (let i = 0; i < 3; i++) { const m = put(new THREE.CylinderGeometry(0.024 - i * 0.002, 0.026 - i * 0.002, 0.045, 10), i % 2 ? B : D, 0, by - 0.004, tipZ + 0.175 + i * 0.045); m.rotation.x = Math.PI / 2; }   // cuello con escamas
+    if (lv >= 3) for (const sx of [-1, 1]) {   // alas de murciélago a los lados del guardamanos, abiertas hacia atrás
+      const z0 = tipZ * 0.52, y0 = by - 0.012, x0 = sx * 0.05, roll = -sx * 0.22, W = [0.04, 0.13], F = [[0.2, 0.15], [0.25, 0.08], [0.24, 0.01]];
+      blade(mv([[0, 0], W, F[0], [0.18, 0.1, F[1][0], F[1][1]], [0.19, 0.04, F[2][0], F[2][1]], [0.12, 0.0, 0.06, -0.01]], z0, y0), 0.003, lv >= 4 ? glowC : '#7a0c0c', x0, lv >= 4, roll);   // membrana
+      for (const f of F) { const dz = f[0] - W[0], dy = f[1] - W[1], L = Math.hypot(dz, dy), nz = -dy / L * 0.004, ny = dz / L * 0.004;
+        blade(mv([[W[0] - nz, W[1] - ny], [f[0], f[1]], [W[0] + nz, W[1] + ny]], z0, y0), 0.006, horn, x0 + sx * 0.003, false, roll); }   // dedos del ala
+      blade(mv([[-0.008, 0.0], [W[0] - 0.006, W[1]], [W[0] + 0.006, W[1] - 0.004], [0.008, 0.0]], z0, y0), 0.008, horn, x0 + sx * 0.003, false, roll);   // brazo del ala
+      blade(mv([[W[0] - 0.005, W[1]], [W[0] - 0.025, W[1] + 0.025], [W[0] + 0.004, W[1] + 0.004]], z0, y0), 0.007, horn, x0 + sx * 0.003, false, roll);   // garra
+    }
+    if (lv >= 5) {   // cola enroscada bajo la culata y garra en el cargador
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 1.7; sph(0.016 - i * 0.0011, i % 2 ? A : B, 0, -0.08 + Math.cos(a) * 0.045 - i * 0.004, 0.18 + Math.sin(a) * 0.05, false, 0.85); }
+      blade([[0.16, -0.12], [0.13, -0.17], [0.19, -0.145], [0.2, -0.105]], 0.01, horn, 0, false);   // punta de flecha de la cola
+      for (let t = 0; t < 3; t++) cone(0.006, 0.035, horn, -0.04 + t * 0.008, -0.1, -0.06 + t * 0.022, -0.3, 0.9);   // garras
+    }
+  } else if (fx === 'plumas') {   // ---------- FÉNIX ----------
+    const gold = '#ffd23a', ember = lv >= 4 ? glowC : A;
+    for (const sx of [-1, 1]) for (let i = 0; i < (lv >= 4 ? 5 : 3); i++) feather(0.1 + i * 0.01, 0.018, i % 2 ? A : '#fff1a8', sx * (0.034 + i * 0.002), 0.05 + i * 0.03, -0.02, -0.15 + i * 0.07, false);   // plumas en la culata, hacia atrás y bajas
+    if (lv >= 2) {   // cabeza de fénix en la boca: pico dorado curvo, ojos de fuego y cresta
+      const hz = tipZ + 0.06, th = 0.044, sd = th / 2 + 0.004;
+      blade(mv([[0.09, -0.024], [0.095, 0.028], [0.07, 0.066, 0.0, 0.056], [-0.036, 0.036], [-0.04, -0.006], [0.0, -0.028]], hz, by), th, '#ff7a24', 0, false);   // cabeza
+      blade(mv([[-0.03, 0.038], [-0.09, 0.04, -0.118, -0.01], [-0.104, -0.006], [-0.075, 0.006, -0.036, 0.002]], hz, by), th * 0.72, gold, 0, false);   // pico de arriba
+      blade(mv([[-0.036, -0.002], [-0.082, -0.008], [-0.04, -0.02]], hz, by), th * 0.6, gold, 0, false);   // pico de abajo
+      for (const sx of [-1, 1]) { sph(0.009, '#ff5a1f', sx * (sd - 0.003), by + 0.026, hz - 0.006, true, 0.7); blade(mv([[0.02, 0.026], [0.07, 0.03], [0.09, 0.012], [0.05, 0.02]], hz, by), 0.006, gold, sx * (sd - 0.003), false); }   // ojos y raya dorada
+      for (let i = 0; i < 5; i++) feather(0.1 + i * 0.016, 0.018, i % 2 ? gold : glowC, 0, hz + 0.0 + i * 0.016, by + 0.045 - i * 0.004, 0.55 - i * 0.07, !(i % 2));   // cresta de plumas de fuego hacia atrás
+    }
+    if (lv >= 3) for (const sx of [-1, 1]) for (let i = 0; i < 7; i++) {   // ala de plumas abierta hacia atrás a cada lado del cajón
+      const k = lv >= 4 ? 1.15 : 1, ang = 0.12 + i * 0.11;
+      feather((0.3 - i * 0.02) * k, 0.026 * k, i % 2 ? ember : gold, sx * (0.04 + i * 0.002), -0.4, -0.01, ang, lv >= 4 && !(i % 2), -sx * 0.38);
+    }
+    if (lv >= 5) for (let i = -2; i <= 2; i++) feather(0.2 + (2 - Math.abs(i)) * 0.04, 0.02, i % 2 ? gold : glowC, i * 0.012, 0.12, -0.04, -0.5 - i * 0.12, !(i % 2), i * 0.12);   // cola larga de plumas
+  } else {   // ---------- TORMENTA ----------
+    const bolt = [[0, 0], [-0.04, 0.05], [-0.025, 0.05], [-0.07, 0.11], [-0.05, 0.06], [-0.065, 0.06], [-0.02, 0.0]];
+    for (const sx of [-1, 1]) {
+      blade(mv(bolt, tipZ * 0.3, by - 0.03, 1.5), 0.006, lv >= 4 ? glowC : A, sx * 0.045, lv >= 4, -sx * 0.5);   // rayo grande en el guardamanos
+      blade(mv(bolt, 0.14, -0.045, 0.55), 0.005, lv >= 2 ? glowC : A, sx * 0.03, lv >= 2, -sx * 0.4);   // rayo en la culata
+    }
+    if (lv >= 2) { const nR = lv >= 4 ? 4 : 2; for (let i = 0; i < nR; i++) { tor(0.03 + (i % 2) * 0.006, 0.004, glowC, by, tipZ + 0.04 + i * 0.045, true); tor(0.036 + (i % 2) * 0.006, 0.006, D, by, tipZ + 0.04 + i * 0.045 + 0.008, false); } }   // bobinas eléctricas en el cañón
+    if (lv >= 3) {   // cápsula de energía bajo el cañón con su jaula
+      const cz = tipZ * 0.55; sph(0.026, '#e8fbff', 0, by - 0.07, cz, true, 0.9);
+      for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + 0.4; const m = put(new THREE.CylinderGeometry(0.004, 0.004, 0.08, 5), D, Math.cos(a) * 0.032, by - 0.07 + Math.sin(a) * 0.032, cz); m.rotation.x = Math.PI / 2; }
+      tor(0.034, 0.005, A, by - 0.07, cz - 0.04, false); tor(0.034, 0.005, A, by - 0.07, cz + 0.04, false); put(new THREE.BoxGeometry(0.012, 0.03, 0.03), D, 0, by - 0.035, cz);
+    }
+    if (lv >= 4) for (let i = 0; i < 3; i++) blade(mv([[0, 0], [-0.02, 0.012], [-0.03, 0.002], [-0.05, 0.016], [-0.06, 0.004], [-0.08, 0.014], [-0.075, 0.02], [-0.06, 0.011], [-0.05, 0.022], [-0.028, 0.009], [-0.02, 0.02], [0.005, 0.006]], tipZ + 0.03 + i * 0.045, by + 0.026, 0.55), 0.003, '#e8fbff', 0.0, true, i * 2.1);   // chispas entre las bobinas
+    if (lv >= 5) for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; cone(0.007, 0.06, glowC, Math.cos(a) * 0.034, by + Math.sin(a) * 0.034, tipZ - 0.01, -Math.PI / 2, 0, true).rotation.z = a; }   // corona de rayos en la boca
+  }
+  addGunOutlines(parts, 0.003);
 }
 /* [EVOLUTIVAS] Aura del nivel 5: chispas de luz que suben alrededor del arma (llamas, plumas doradas o chispas eléctricas según la skin) */
 const EVO_AURAS = new Set();
