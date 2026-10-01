@@ -65,6 +65,8 @@ Shooter FPS de bloques en el navegador (estilo Krunker.io), con servidor Node pr
 
 - [SALAS PRIVADAS] Botón «🔒 Sala privada» en la lobby (`openPrivate()`): crea una sala con el mapa y el modo elegidos (`hello` con `pv: 1`) o entra con el código de un amigo (`pc`). Servidor: `room.priv` = código de 6 caracteres (`privCode()`, sin I/O/0/1), sin bots de relleno, sin clasificatorio; `findRoom`/`findRoomFor`/`jr` nunca meten a nadie en una privada; `welcome` lleva `pc`. Cliente: código en `#pvChip` con «Copiar enlace» (`?codigo=ABC123` entra directo) y el botón de invitar de la pausa copia ese enlace. Test `private-rooms.test.js`.
 
+- [PORTALES] `PORTAL_LINKS=1` (Railway): dentro de CrazyGames/Poki se ven el botón de Discord y «Juega también en krunxa.com» (`portalLinks()` en client.js, clase `html.portal-links`, `portalLinks` en `/api/status`). Apagado por defecto: las normas de los portales suelen prohibir enlaces externos; se enciende sin volver a subir el juego. Test `portal-links.test.js`.
+
 ## Pendiente / ideas
 - (Dueño) Cambiar la contraseña del admin `Viexbox`, configurar correo SMTP (Railway Hobby puede bloquear SMTP → alternativa: API de Resend/Brevo).
 - (Dueño) Dar de alta el juego en CrazyGames y Poki (pasos en README). 

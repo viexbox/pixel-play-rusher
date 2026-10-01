@@ -782,6 +782,9 @@ setInterval(() => apiHits.clear(), 60000).unref();
 /* [SEO] Dirección pública del juego para canonical, Open Graph, robots.txt y sitemap: PUBLIC_URL si está definida (recomendado),
    si no, el dominio con el que se ha pedido la página */
 const SITE_URL = String(process.env.PUBLIC_URL || '').replace(/\/+$/, '');
+/* [PORTALES] PORTAL_LINKS=1: dentro de CrazyGames/Poki se enseñan el botón de Discord y el aviso «Juega también en krunxa.com».
+   Apagado por defecto: solo encenderlo si el portal lo permite (sus normas suelen prohibir enlaces externos). Se cambia sin volver a subir el juego. */
+const PORTAL_LINKS = process.env.PORTAL_LINKS === '1';
 /* [SEO] Verificación de propiedad para Google Search Console y Bing Webmaster Tools: se pega el código que dan (solo el valor de content="…",
    o la etiqueta <meta> entera) en GOOGLE_SITE_VERIFICATION / BING_SITE_VERIFICATION y el servidor lo pone en la página principal. */
 const verifyToken = v => { v = String(v || '').trim(); const m = v.match(/content=["']([^"']+)["']/i); if (m) v = m[1]; return /^[A-Za-z0-9_\-]{10,100}$/.test(v) ? v : ''; };
@@ -811,7 +814,7 @@ const EPHEMERAL_HOST = PGDB ? '' : ON_RAILWAY ? (railVolOk() ? '' : 'RAILWAY_ENV
   : !process.env.DATA_DIR ? ['RENDER', 'DYNO', 'FLY_APP_NAME', 'K_SERVICE', 'VERCEL', 'NETLIFY'].find(k => process.env[k]) || '' : '';
 if (EPHEMERAL_HOST) console.log(new Date().toISOString(), '¡ATENCIÓN! Detectada la plataforma (' + EPHEMERAL_HOST + ') sin DATABASE_URL ni un disco persistente montado en ' + DATA_DIR + ': las cuentas, los PX y las compras se guardan en un disco que allí se BORRA al reiniciar o redesplegar. Configura DATABASE_URL (PostgreSQL) o un disco persistente con DATA_DIR.');
 function status() {
-  return { adsense: ADSENSE_PUB || null, ver: String(process.env.RAILWAY_GIT_COMMIT_SHA || '').slice(0, 7) || undefined, ads: ADS.on ? { provider: ADS.provider, client: ADS.client, slot: ADS.slot, px: accounts.adsCfg.px, perDay: accounts.adsCfg.perDay } : null, portalAds: accounts.adsCfg.portal ? { px: accounts.adsCfg.px, perDay: accounts.adsCfg.perDay } : null, mail: accounts.mailOn(), terms: process.env.REQUIRE_TERMS !== '0', storage: { mode: PGDB ? 'postgres' : 'archivos', warn: !!EPHEMERAL_HOST, platform: EPHEMERAL_HOST }, protocol: PROTOCOL, admin: admin.adminUser, accounts: true, store: accounts.storeInfo().enabled, bp: true, market: true, social: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size, pv: r.priv ? 1 : undefined })) };
+  return { portalLinks: PORTAL_LINKS ? { site: SITE_URL || 'https://www.krunxa.com', discord: 'https://discord.gg/zwz5xzG9M' } : null, adsense: ADSENSE_PUB || null, ver: String(process.env.RAILWAY_GIT_COMMIT_SHA || '').slice(0, 7) || undefined, ads: ADS.on ? { provider: ADS.provider, client: ADS.client, slot: ADS.slot, px: accounts.adsCfg.px, perDay: accounts.adsCfg.perDay } : null, portalAds: accounts.adsCfg.portal ? { px: accounts.adsCfg.px, perDay: accounts.adsCfg.perDay } : null, mail: accounts.mailOn(), terms: process.env.REQUIRE_TERMS !== '0', storage: { mode: PGDB ? 'postgres' : 'archivos', warn: !!EPHEMERAL_HOST, platform: EPHEMERAL_HOST }, protocol: PROTOCOL, admin: admin.adminUser, accounts: true, store: accounts.storeInfo().enabled, bp: true, market: true, social: true, db: PGDB ? 'postgres' : 'archivos', players: [...connections].filter(w => w.player).length, lobby: lobby.size, rooms: [...rooms.values()].map(r => ({ id: r.id, map: r.map, players: r.players.size, pv: r.priv ? 1 : undefined })) };
 }
 
 const server = http.createServer((req, res) => {

@@ -1091,7 +1091,10 @@ body.touch.playing:not(.dead) #touchUI{display:block}
 #touchUI #tSec{right:max(30px,env(safe-area-inset-right));bottom:300px;width:60px;height:60px;font-size:9px}   /* [PISTOLA] */
 #touchUI .tbtn[hidden]{display:none}
 /* [PORTALES] dentro de CrazyGames/Poki: sin enlaces externos ni compras con dinero */
-html.portal #discordBtn,html.portal .pt-ref,html.portal #logoutBtn{display:none!important}   /* [PORTALES] la Tienda sí se ve (solo lo que se compra con PX; renderStore quita los pagos con dinero) */
+html.portal #discordBtn,html.portal .pt-ref,html.portal #logoutBtn{display:none!important}
+html.portal.portal-links #discordBtn{display:grid!important}   /* [PORTALES] PORTAL_LINKS=1 en el servidor */
+#siteNote{flex:none;padding:6px 10px;border-radius:5px;font-family:var(--kf,sans-serif);font-size:12px;letter-spacing:.03em;color:#ffd88a;background:rgba(8,9,20,.85);border:1px solid rgba(255,210,63,.5);white-space:nowrap}
+#siteNote[hidden]{display:none}   /* [PORTALES] la Tienda sí se ve (solo lo que se compra con PX; renderStore quita los pagos con dinero) */
 .mk-login{padding:30px}.cglogin{margin-left:8px;padding:4px 12px;border:0;border-radius:6px;background:#8b5cf6;color:#fff;font-weight:800;cursor:pointer}
 html.nochat #chat,html.nochat #chatTab,html.nochat #lobbyChat{display:none!important}   /* [PORTALES] chat desactivado por el portal (p. ej. cuentas de menores) */
 #touchUI #tBomb{right:max(100px,calc(env(safe-area-inset-right) + 76px));bottom:230px;width:60px;height:60px;font-size:9px;border-color:#ffd23f;color:#ffd23f}   /* [BOMBA] mantener para plantar o desactivar */
