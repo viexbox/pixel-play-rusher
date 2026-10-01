@@ -2206,7 +2206,9 @@ function onWheel(e) {
   if (t - wheelT > 250) wheelAcc = 0;                                        // una pausa larga = gesto nuevo
   wheelT = t; wheelAcc += dy;
   if (Math.abs(wheelAcc) < WHEEL_STEP) return;
-  wheelAcc = 0; wheelLock = t + WHEEL_LOCK_MS; setSlot(secOK() ? (slot === 0 ? 2 : 0) : 1 - slot);   // [PISTOLA] la rueda alterna principal y pistola (como en Krunker); sin pistola, arma y cuchillo
+  const dir = wheelAcc > 0 ? 1 : -1; wheelAcc = 0; wheelLock = t + WHEEL_LOCK_MS;
+  if (!secOK()) return setSlot(1 - slot);
+  const ORD = [0, 2, 1], i = ORD.indexOf(slot); setSlot(ORD[(i + dir + 3) % 3]);   // [PISTOLA] rueda abajo: principal → pistola → cuchillo; rueda arriba, al revés
 }
 const ease01 = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
 let flashes = [], gunKick = 0, reloadAnim = 0, altHand = 0;

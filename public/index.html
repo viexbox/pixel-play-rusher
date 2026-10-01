@@ -475,7 +475,7 @@ body.playing .chatrow:focus-within{opacity:1}
 #optic{position:absolute;left:50%;top:50%;width:0;height:0}
 #optic .orf{position:absolute;left:-13vmin;top:-13vmin;width:26vmin;height:26vmin;box-sizing:border-box;border-radius:50%;border:2.4vmin solid #1b1c21;background:radial-gradient(circle,rgba(170,220,255,.04) 55%,rgba(170,220,255,.13));box-shadow:0 0 0 .35vmin #09090b,inset 0 0 0 .35vmin #3b3d46,inset 0 0 2.5vmin rgba(0,0,0,.45)}
 #optic .orf::after{content:"";position:absolute;left:50%;top:calc(100% + .4vmin);width:14vmin;height:5vmin;transform:translateX(-50%);background:#1b1c21;border-radius:0 0 1vmin 1vmin;box-shadow:0 0 0 .35vmin #09090b}
-#optic .od{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:#ff1f2d;box-shadow:0 0 4px 1px rgba(255,31,45,.9)}
+#optic .od{position:absolute;left:-.55vmin;top:-.55vmin;width:1.1vmin;height:1.1vmin;min-width:7px;min-height:7px;border-radius:50%;background:radial-gradient(circle,#fff 0 18%,#ff3040 40%,#d4001a 100%);box-shadow:0 0 .6vmin .2vmin rgba(255,40,60,.95),0 0 1.6vmin .4vmin rgba(255,30,50,.45)}   /* [MIRAS] punto rojo grande y brillante, como el de Krunker */
 #optic .oh{position:absolute;left:-7vmin;top:-7vmin;width:14vmin;height:14vmin;display:none;filter:drop-shadow(0 0 2px rgba(255,31,45,.9))}
 #optic[data-k="holo"] .oh{display:block}
 #optic[data-k="iron"] .orf{display:none}
@@ -1243,14 +1243,15 @@ body:not(.dead) #pvChip{opacity:.85}
 /* ===== [REVISIÓN KRUNKER] Arreglos de la revisión ===== */
 /* marcador de munición con 3 ranuras (arma, pistola, cuchillo): las inactivas quedan en tecla + icono pequeño y la activa ocupa el resto, sin cortar el nombre */
 .am-slot{flex:0 0 auto;gap:5px;padding:4px 6px}
-.am-slot .ic{width:20px;height:10px}
+.am-slot .ic{width:30px;height:12px}
+.am-slot:not(.on){opacity:.75}
 .am-slot.on{flex:1 1 0;min-width:0}
 .am-slot.on .ic{width:36px;height:14px}
 .am-slot b{display:none!important}   /* el nombre va grande junto a la munición (#wtype::before), no en la ranura */
 #whand{display:block;margin-bottom:3px;font-family:var(--kf);font-weight:400;font-size:20px;letter-spacing:.02em;color:#fff;text-shadow:var(--kol1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .am-wt{min-width:0}
 #ammobox.knife #whand{opacity:.18}
-.am-slot:not(.on) #wicon{width:20px;height:10px}
+.am-slot:not(.on) #wicon{width:30px;height:12px}
 .am-slot.on #wicon{width:36px;height:14px}
 #lobbyPlay .mcard{font-size:clamp(10px,.75vw,12px)}   /* los nombres de los modos se leían diminutos en portátiles */
 .am-slot b{font-family:var(--kf);font-weight:400;letter-spacing:.06em;font-size:12px}
@@ -1479,7 +1480,7 @@ body:not(.dead) #pvChip{opacity:.85}
         <span><kbd>Mayús</kbd></span><span>Agacharte; corriendo, te deslizas (siempre corres: no hay una tecla aparte para correr)</span>
         <span><kbd>V</kbd></span><span>Golpe rápido de cuchillo (sin cambiar de arma)</span>
         <span><kbd>F</kbd></span><span>Inspeccionar el cuchillo (con el cuchillo en la mano)</span>
-        <span><kbd>Rueda</kbd></span><span>Cambiar entre el arma principal y la pistola</span>
+        <span><kbd>Rueda</kbd></span><span>Cambiar de arma: principal, pistola y cuchillo</span>
         <span><kbd>1</kbd> <kbd>E</kbd></span><span>Arma principal</span>
         <span><kbd>2</kbd></span><span>Pistola (arma secundaria)</span>
         <span><kbd>3</kbd> <kbd>Q</kbd></span><span>Cuchillo (Q: lo saca; si ya lo tienes, golpea)</span>

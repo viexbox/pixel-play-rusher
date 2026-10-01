@@ -47,10 +47,10 @@ const frames = (n, dt = 0.05) => { for (let k = 0; k < n; k++) T.step(dt); };
     wheel(100); ok(T.slot === 2, 'un segundo giro casi a la vez se ignora (evita rebotes)');
     await sleep(200); wheel(-100); ok(T.slot === 0, 'pasado el enfriamiento (0,14 s), la rueda hacia el otro lado vuelve al arma'); frames(4); ok(T.gun.visible === true && T.knifeG.visible === false, 'y el arma vuelve a verse');
     await sleep(200); for (let k = 0; k < 10; k++) wheel(3); ok(T.slot === 2, 'un trackpad (muchos giros pequeños que suman) cambia una sola vez'); await sleep(200);
-    for (let k = 0; k < 10; k++) wheel(100); ok(T.slot === 0, 'un giro rapidísimo de 10 pasos cuenta como un único cambio'); await sleep(200);
-    T.cfg.wheelSwap = false; e = wheel(100); ok(T.slot === 0 && e.defaultPrevented, 'con la opción desactivada la rueda no cambia de arma (y sigue sin hacer scroll)'); T.cfg.wheelSwap = true; await sleep(200);
+    for (let k = 0; k < 10; k++) wheel(100); ok(T.slot === 1, 'un giro rapidísimo de 10 pasos cuenta como un único cambio (pistola → cuchillo)'); await sleep(200);
+    T.cfg.wheelSwap = false; e = wheel(100); ok(T.slot === 1 && e.defaultPrevented, 'con la opción desactivada la rueda no cambia de arma (y sigue sin hacer scroll)'); T.cfg.wheelSwap = true; await sleep(200);
     Object.defineProperty(w.document, 'pointerLockElement', { configurable: true, get: () => null }); T.fallback = true; w.document.dispatchEvent(new w.Event('pointerlockchange'));   // sin bloqueo de puntero (modo de reserva)
-    e = wheel(100); ok(T.slot === 2 && T.state === 'playing', 'también funciona en el modo sin bloqueo de puntero (navegadores o iframes que no lo permiten)'); await sleep(200); wheel(100); await sleep(200);
+    e = wheel(100); ok(T.slot === 0 && T.state === 'playing', 'también funciona en el modo sin bloqueo de puntero (navegadores o iframes que no lo permiten): cuchillo → arma'); await sleep(200);
     Object.defineProperty(w.document, 'pointerLockElement', { configurable: true, get: () => w.document.querySelector('canvas') }); w.document.dispatchEvent(new w.Event('pointerlockchange')); ok(T.slot === 0 && T.state === 'playing', 'y se vuelve al arma con el puntero bloqueado otra vez');
 
     /* ---------- Teclas ---------- */
